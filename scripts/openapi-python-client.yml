@@ -1,0 +1,9 @@
+# openapi-python-client config. See
+# https://github.com/openapi-generators/openapi-python-client#configuration
+
+project_name_override: unitysvc-sellers-generated
+package_name_override: seller_api_client
+package_version_override: "0.0.0"
+use_path_prefixes_for_title_model_names: false
+docstrings_on_attributes: true
+literal_enums: true

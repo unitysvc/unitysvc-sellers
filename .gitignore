@@ -37,3 +37,4 @@ htmlcov/
 
 # Lock files
 uv.lock
+.tool-venv/
