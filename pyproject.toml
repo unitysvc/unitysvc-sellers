@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unitysvc-sellers"
+version = "0.1.0"
+description = "Seller-facing tools for UnitySVC: local catalog organization CLI (usvc_seller)"
+readme = "README.md"
+authors = [{ name = "Bo Peng", email = "bo.peng@unitysvc.com" }]
+maintainers = [{ name = "Bo Peng", email = "bo.peng@unitysvc.com" }]
+license = "MIT"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Operating System :: OS Independent",
+  "Typing :: Typed",
+]
+dependencies = [
+  "unitysvc-core>=0.1.0",
+  "typer",
+  "rich",
+  "jinja2",
+  "json5",
+  "tomli-w",
+]
+requires-python = ">= 3.11"
+
+[project.optional-dependencies]
+test = [
+  "coverage",
+  "pytest",
+  "ruff",
+  "mypy",
+]
+dev = [
+  "coverage",
+  "pytest",
+  "ruff",
+  "ty",
+  "ipdb",
+]
+
+[project.urls]
+bugs = "https://github.com/unitysvc/unitysvc-sellers/issues"
+homepage = "https://github.com/unitysvc/unitysvc-sellers"
+
+[project.scripts]
+usvc_seller = "unitysvc_sellers.cli:app"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+  "E",  # pycodestyle errors
+  "W",  # pycodestyle warnings
+  "F",  # Pyflakes
+  "I",  # isort
+  "B",  # flake8-bugbear
+  "UP", # pyupgrade
+]
+ignore = [
+  "B008", # Typer pattern uses function calls in argument defaults
+  "B904",
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+warn_unused_ignores = false
+disable_error_code = ["import-untyped"]
+
+[tool.uv]
+package = true
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+unitysvc_sellers = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
