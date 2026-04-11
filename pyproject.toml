@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "unitysvc-sellers"
-version = "0.2.0"
+version = "0.1.1"
 description = "Seller-facing tools for UnitySVC: HTTP SDK + usvc_seller CLI"
 readme = "README.md"
 authors = [{ name = "Bo Peng", email = "bo.peng@unitysvc.com" }]
