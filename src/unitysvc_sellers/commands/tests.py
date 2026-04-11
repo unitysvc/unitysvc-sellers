@@ -18,6 +18,7 @@ keeps working.
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 import typer
@@ -25,8 +26,8 @@ from rich.console import Console
 from rich.table import Table
 
 from .._http import unwrap as _unwrap_response
-from ..exceptions import APIError, NotFoundError
-from ..resources.upload import _format_polling_error
+from ..exceptions import NotFoundError
+from ..utils import execute_script_content
 from ._helpers import (
     api_key_option,
     async_client,
@@ -320,6 +321,54 @@ def show_test(
 # ---------------------------------------------------------------------------
 # run-tests
 # ---------------------------------------------------------------------------
+_ROUTABLE_STATUSES = frozenset({"pending", "review", "active"})
+
+
+def _resolve_interfaces(interfaces: list[dict[str, Any]]) -> list[tuple[str, str, dict[str, Any]]]:
+    """Extract ``(name, base_url, routing_key)`` tuples from the service's interfaces.
+
+    The seller API resolves ``${API_GATEWAY_BASE_URL}`` placeholders
+    before returning the interface data (see ``seller/services.py``),
+    so ``base_url`` is already the public URL the seller should hit
+    directly from their machine. Inactive interfaces are dropped.
+    """
+    result: list[tuple[str, str, dict[str, Any]]] = []
+    for iface in interfaces:
+        iface_dict = iface if isinstance(iface, dict) else model_to_dict(iface)
+        if not iface_dict.get("is_active", True):
+            continue
+        routing_key = iface_dict.get("routing_key") or {}
+        if not isinstance(routing_key, dict):
+            routing_key = {}
+        result.append(
+            (
+                str(iface_dict.get("name", "default")),
+                str(iface_dict.get("base_url") or ""),
+                routing_key,
+            )
+        )
+    if not result:
+        result.append(("default", "", {}))
+    return result
+
+
+def _make_exec_env(base_url: str, routing_key: dict[str, Any], user_api_key: str) -> dict[str, str]:
+    """Build the minimal env the legacy test runner exposes to scripts.
+
+    Only ``SERVICE_BASE_URL``, ``UNITYSVC_API_KEY``, and flattened
+    routing_key entries (uppercased) are injected — matching the
+    backend's gateway-testing convention in ``async_run_service_tests``.
+    """
+    env: dict[str, str] = {}
+    if base_url:
+        env["SERVICE_BASE_URL"] = base_url
+    if user_api_key:
+        env["UNITYSVC_API_KEY"] = user_api_key
+    for rk_key, rk_val in routing_key.items():
+        env[rk_key.upper()] = str(rk_val)
+    return env
+
+
 @services_app.command("run-tests")
 def run_tests(
     service_id: str = typer.Argument(..., help="Service ID (full or partial, ≥8 chars)."),
@@ -330,175 +379,259 @@ def run_tests(
         help="Run a single document instead of every executable doc on the service.",
     ),
     force: bool = typer.Option(False, "--force", help="Re-execute even if the document was previously skipped."),
-    wait_timeout: float = typer.Option(
-        300.0,
-        "--wait-timeout",
-        help="Max seconds to wait for Celery tasks to finish before declaring a timeout.",
-    ),
-    poll_interval: float = typer.Option(
-        2.0,
-        "--poll-interval",
-        help="Seconds between task-status polls while waiting for completion.",
-    ),
+    timeout: int = typer.Option(30, "--timeout", help="Per-script execution timeout in seconds."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Trigger backend execution of a service's testable documents.
+    """Run a service's testable documents locally against the gateway.
 
-    Execution is asynchronous on the backend (Celery), so this command
-    dispatches each document via ``POST /seller/documents/{id}/execute``
-    and then polls ``/seller/tasks/batch-status`` until every queued task
-    reaches a terminal state. The script status (``success``,
-    ``script_failed``, ``unexpected_output``, ``task_failed``) is pulled
-    from the task result and surfaced per-document, so a run that the
-    worker rejected no longer shows up as a silent ``queued``.
+    Ported from the legacy ``usvc services run-tests`` flow. Unlike the
+    backend-dispatched execute path (Celery), this command pulls each
+    document's rendered ``file_content`` from the backend and runs it
+    on the seller's own machine, using ``UNITYSVC_API_KEY`` from the
+    local environment and the interface's resolved ``base_url``.
+
+    Because the gateway route resolver only accepts services in
+    ``pending``, ``review``, or ``active`` status, the command
+    temporarily elevates ``draft`` or ``rejected`` services to
+    ``pending`` (with ``run_tests=False`` so the backend does not
+    auto-queue its own Celery run) and restores the original status
+    on exit. Per-interface results are POSTed back via
+    ``PATCH /seller/documents/{id}`` so the document's ``meta.test``
+    stays in sync with what the seller saw locally.
     """
+    user_api_key = os.environ.get("UNITYSVC_API_KEY", "")
 
     async def _impl() -> dict[str, Any]:
         async with async_client(api_key, base_url) as client:
-            # 1. Resolve the set of documents to execute.
+            # 1. Resolve full service id + fetch detail (includes interfaces + docs).
+            #    If a document_id was supplied without a service_id being
+            #    a full UUID, we still need a service to elevate — so
+            #    treat service_id as canonical here.
+            detail = model_to_dict(await client.services.get(service_id))
+            full_service_id = str(detail.get("service_id") or detail.get("id") or service_id)
+            original_status = str(detail.get("status") or "")
+
+            docs_raw = detail.get("documents") or []
+            docs = [d if isinstance(d, dict) else model_to_dict(d) for d in docs_raw]
+
+            # Pick target documents.
             if document_id:
-                doc_ids: list[str] = [document_id]
+                target_docs = [d for d in docs if str(d.get("id", "")) == document_id]
+                if not target_docs:
+                    # Allow partial-id match on the requested doc.
+                    target_docs = [d for d in docs if str(d.get("id", "")).startswith(document_id)]
             else:
-                detail = model_to_dict(await client.services.get(service_id))
-                docs = detail.get("documents") or []
-                doc_ids = [
-                    str((doc if isinstance(doc, dict) else model_to_dict(doc)).get("id"))
-                    for doc in docs
-                    if _is_executable_doc(doc if isinstance(doc, dict) else model_to_dict(doc))
-                ]
-                if not doc_ids:
-                    return {"dispatch": [], "terminal": {}, "polling_error": None}
+                target_docs = [d for d in docs if _is_executable_doc(d)]
 
-            # 2. Dispatch all executes, record the task_id per doc.
-            dispatch: list[dict[str, Any]] = []
-            pending: dict[str, str] = {}  # task_id -> doc_id
-            for did in doc_ids:
-                try:
-                    response = model_to_dict(await client.documents.execute(did, force=force))
-                except Exception as exc:  # noqa: BLE001
-                    dispatch.append({"doc_id": did, "status": "error", "error": str(exc)})
-                    continue
+            if not target_docs:
+                return {"docs": [], "original_status": original_status, "elevated": False}
 
-                status = str(response.get("status") or "")
-                task_id = response.get("task_id")
-                entry: dict[str, Any] = {
-                    "doc_id": did,
-                    "status": status,
-                    "task_id": task_id,
-                    "message": response.get("message"),
-                }
+            interfaces_raw = detail.get("interfaces") or []
+            interfaces = [i if isinstance(i, dict) else model_to_dict(i) for i in interfaces_raw]
+            interfaces_list = _resolve_interfaces(interfaces)
 
-                # The endpoint returns one of:
-                #   - "queued"   → task was just apply_async'd
-                #   - "running"  → a previous run is still in flight (same task_id)
-                #   - "success"  → cached hit, no task dispatched (force=False path)
-                #   - "skip"     → document has status=skip; nothing ran
-                if status in ("queued", "running") and task_id:
-                    pending[str(task_id)] = did
-                dispatch.append(entry)
-
-            if not pending:
-                return {"dispatch": dispatch, "terminal": {}, "polling_error": None}
-
-            # 3. Poll until every queued/running task reaches a terminal state.
-            try:
-                terminal = await client.tasks.wait_batch(
-                    list(pending.keys()),
-                    timeout=wait_timeout,
-                    poll_interval=poll_interval,
+            # 2. Ensure service is routable before running tests. Only
+            #    draft / rejected need elevation — pending / review /
+            #    active already route correctly.
+            elevated = False
+            if original_status in ("draft", "rejected"):
+                await client.services.set_status(
+                    full_service_id,
+                    {"status": "pending", "run_tests": False},
                 )
-            except APIError as exc:
-                return {
-                    "dispatch": dispatch,
-                    "terminal": {},
-                    "polling_error": _format_polling_error(exc),
-                    "pending": pending,
-                }
+                elevated = True
+
+            # 3. Iterate docs, pulling file_content + running each
+            #    interface. Results are collected per-document so we
+            #    can POST them back in one PATCH after all interfaces
+            #    run.
+            doc_results: list[dict[str, Any]] = []
+            try:
+                for doc in target_docs:
+                    did = str(doc.get("id", ""))
+                    title = str(doc.get("title") or did[:8])
+
+                    # Skip already-passed / skipped unless --force.
+                    doc_test_status = _doc_test_status(doc)
+                    if not force:
+                        if doc_test_status == "success":
+                            doc_results.append(
+                                {
+                                    "doc_id": did,
+                                    "title": title,
+                                    "status": "skipped",
+                                    "reason": "already passed",
+                                    "iface_results": {},
+                                }
+                            )
+                            continue
+                        if doc_test_status == "skip":
+                            doc_results.append(
+                                {
+                                    "doc_id": did,
+                                    "title": title,
+                                    "status": "skipped",
+                                    "reason": "marked as skip",
+                                    "iface_results": {},
+                                }
+                            )
+                            continue
+
+                    full_doc = model_to_dict(await client.documents.get(did))
+                    file_content = full_doc.get("file_content")
+                    mime_type = str(full_doc.get("mime_type") or "")
+                    full_meta = full_doc.get("meta") or {}
+                    output_contains = full_meta.get("output_contains") if isinstance(full_meta, dict) else None
+
+                    if not file_content:
+                        doc_results.append(
+                            {
+                                "doc_id": did,
+                                "title": title,
+                                "status": "skipped",
+                                "reason": "no file content",
+                                "iface_results": {},
+                            }
+                        )
+                        continue
+
+                    iface_results: dict[str, dict[str, Any]] = {}
+                    for iface_name, iface_url, iface_rk in interfaces_list:
+                        exec_env = _make_exec_env(iface_url, iface_rk, user_api_key)
+                        exec_result = execute_script_content(
+                            script=str(file_content),
+                            mime_type=mime_type,
+                            env_vars=exec_env,
+                            output_contains=str(output_contains) if output_contains else None,
+                            timeout=timeout,
+                        )
+                        entry: dict[str, Any] = {
+                            "status": exec_result["status"],
+                            "base_url": iface_url,
+                        }
+                        if exec_result.get("exit_code") is not None:
+                            entry["exit_code"] = exec_result["exit_code"]
+                        if exec_result.get("error"):
+                            entry["error"] = exec_result["error"]
+                        if exec_result.get("stdout"):
+                            entry["stdout"] = exec_result["stdout"][:10000]
+                        if exec_result.get("stderr"):
+                            entry["stderr"] = exec_result["stderr"][:10000]
+                        iface_results[iface_name] = entry
+
+                    # Aggregate per-interface outcome into a single
+                    # document status — worst wins.
+                    failed_entries = [
+                        e for e in iface_results.values() if e["status"] != "success"
+                    ]
+                    worst_status = failed_entries[0]["status"] if failed_entries else "success"
+
+                    # POST results back to the backend. This keeps
+                    # meta.test in sync with what the seller saw
+                    # locally so `show-test` reflects the latest run.
+                    try:
+                        await client.documents.update_test(
+                            did,
+                            {"status": worst_status, "tests": iface_results},
+                        )
+                    except Exception as update_err:  # noqa: BLE001
+                        # Non-fatal — surface a warning but keep going.
+                        doc_results.append(
+                            {
+                                "doc_id": did,
+                                "title": title,
+                                "status": worst_status,
+                                "iface_results": iface_results,
+                                "update_warning": str(update_err),
+                            }
+                        )
+                        continue
+
+                    doc_results.append(
+                        {
+                            "doc_id": did,
+                            "title": title,
+                            "status": worst_status,
+                            "iface_results": iface_results,
+                        }
+                    )
+            finally:
+                # 4. Restore original status if we changed it. Wrapped
+                #    in try/except so a restore failure surfaces as a
+                #    warning, not a hard crash that masks the test
+                #    results.
+                if elevated and original_status:
+                    try:
+                        await client.services.set_status(
+                            full_service_id,
+                            {"status": original_status, "run_tests": False},
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        console.print(
+                            f"[yellow]⚠  Failed to restore service status "
+                            f"from 'pending' → '{original_status}': {exc}[/yellow]"
+                        )
 
             return {
-                "dispatch": dispatch,
-                "terminal": terminal,
-                "polling_error": None,
-                "pending": pending,
+                "docs": doc_results,
+                "original_status": original_status,
+                "elevated": elevated,
             }
 
     outcome = run_async(_impl(), error_prefix="Failed to run tests")
-    dispatch: list[dict[str, Any]] = outcome["dispatch"]
-    terminal: dict[str, dict[str, Any]] = outcome.get("terminal") or {}
-    polling_error: str | None = outcome.get("polling_error")
+    doc_results: list[dict[str, Any]] = outcome["docs"]
 
-    if not dispatch:
-        console.print("[dim]No executable documents found[/dim]")
+    if not doc_results:
+        console.print("[dim]No testable documents found[/dim]")
         return
 
-    # If polling itself failed, surface the diagnostic once and mark
-    # every still-queued doc as failed.
-    if polling_error:
-        console.print(f"[red]✗ Task polling failed:[/red] {polling_error}\n")
+    if not user_api_key:
+        console.print(
+            "[yellow]⚠  UNITYSVC_API_KEY is not set in the local environment — "
+            "scripts that call the gateway will see an empty bearer token.[/yellow]\n"
+        )
 
     success = 0
     failed = 0
-    for entry in dispatch:
-        did = entry["doc_id"]
+    skipped = 0
+    for entry in doc_results:
+        did = str(entry["doc_id"])
         short = did[:8] + "…"
+        title = entry.get("title") or short
+        status = entry["status"]
 
-        if entry["status"] == "error":
-            console.print(f"  [red]✗[/red] {short}: {entry.get('error')}")
-            failed += 1
+        if status == "skipped":
+            reason = entry.get("reason") or "skipped"
+            console.print(f"  [dim]⊘[/dim] {short} {title}: {reason}")
+            skipped += 1
             continue
 
-        if entry["status"] == "skip":
-            console.print(f"  [dim]⊘[/dim] {short}: skipped")
-            continue
-
-        if entry["status"] == "success" and not entry.get("task_id"):
-            # Cached pre-existing success (force=False, already passed).
-            console.print(f"  [green]✓[/green] {short}: success (cached)")
+        if status == "success":
+            console.print(f"  [green]✓[/green] {short} {title}: success")
             success += 1
-            continue
-
-        task_id = str(entry.get("task_id") or "")
-        if polling_error:
-            console.print(f"  [red]✗[/red] {short}: polling failed (task_id={task_id})")
-            failed += 1
-            continue
-
-        task_status = terminal.get(task_id) or {}
-        poll_state = str(task_status.get("status") or "")
-
-        if poll_state == "completed":
-            # Unwrap the script-level status from task.result.
-            task_result = task_status.get("result") or {}
-            if isinstance(task_result, dict):
-                script_status = str(task_result.get("status") or "success")
-            else:
-                script_status = "success"
-
-            if script_status == "success":
-                console.print(f"  [green]✓[/green] {short}: success")
-                success += 1
-            else:
-                # task_failed / script_failed / unexpected_output — the
-                # task itself reached Celery SUCCESS, but the script it
-                # ran recorded a failure in document.meta.test.
-                test_meta = task_result.get("test") or {} if isinstance(task_result, dict) else {}
-                error_msg = test_meta.get("error") or task_result.get("error") or script_status
-                console.print(f"  [red]✗[/red] {short}: {script_status} — {error_msg}")
-                failed += 1
-        elif poll_state == "failed":
-            error_msg = task_status.get("error") or task_status.get("message") or "task failed"
-            console.print(f"  [red]✗[/red] {short}: {error_msg}")
-            failed += 1
         else:
-            # wait_batch hit its timeout and the task is still running.
-            console.print(f"  [yellow]…[/yellow] {short}: {poll_state or 'unknown'} (timed out)")
+            # Pick the first failing interface to show in the summary
+            # line; ``show-test`` is still the full-detail view.
+            iface_results = entry.get("iface_results") or {}
+            first_failure = next(
+                (r for r in iface_results.values() if r.get("status") != "success"),
+                {},
+            )
+            err = first_failure.get("error") or status
+            console.print(f"  [red]✗[/red] {short} {title}: {status} — {err}")
             failed += 1
 
-    if len(dispatch) > 1:
-        console.print(f"\n[green]✓ Success:[/green] {success}/{len(dispatch)}")
+        if entry.get("update_warning"):
+            console.print(f"      [yellow](result upload failed: {entry['update_warning']})[/yellow]")
+
+    total = len(doc_results)
+    if total > 1:
+        console.print(f"\n[green]✓ Success:[/green] {success}/{total}")
+        if skipped:
+            console.print(f"[dim]⊘ Skipped:[/dim] {skipped}/{total}")
         if failed:
-            console.print(f"[red]✗ Failed:[/red] {failed}/{len(dispatch)}")
+            console.print(f"[red]✗ Failed:[/red] {failed}/{total}")
     if failed:
         raise typer.Exit(code=1)
 
