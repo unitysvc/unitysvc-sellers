@@ -1,0 +1,1113 @@
+# Creating and Testing Code Examples
+
+This guide explains how to create, test, and publish code examples for your services on the UnitySVC platform.
+
+## Overview
+
+Code examples help users understand how to interact with your services. The UnitySVC Services SDK provides a complete workflow for:
+
+-   Creating executable code examples in multiple languages (Python, JavaScript, Shell)
+-   Using Jinja2 templates for dynamic content
+-   Testing examples against upstream APIs
+-   Validating output automatically
+-   Publishing examples with your service listings
+
+## Gateway Testing Methods
+
+There are two ways to test code examples that access services through the UnitySVC gateway:
+
+### Web-Based Testing (Frontend)
+
+When you click the "Test" button in the UnitySVC web interface (admin panel or seller dashboard), the platform executes your code examples using:
+
+-   **`SERVICE_BASE_URL`**: Automatically set to the service's access interface base URL
+-   **`UNITYSVC_API_KEY`**: Platform's ops customer API key (shared across all sellers)
+
+**Characteristics:**
+
+-   Simple setup - no configuration required from sellers
+-   Limited to basic scripts (curl, Python, JavaScript, bash)
+-   Test execution happens on the platform's backend (Celery worker)
+-   Results are automatically saved to document metadata
+-   Suitable for quick validation and CI/CD integration
+
+**Limitations:**
+
+-   Cannot use complex SDK setups or custom environments
+-   Uses a shared test customer account (ops customer)
+-   Limited execution timeout and resource constraints
+
+### SDK-Based Testing (Local CLI)
+
+When you run tests locally using the `usvc_seller` CLI, you must configure your own environment with a customer API key for gateway access. Follow these steps:
+
+**Step 1: Join the unitysvc-ops team**
+
+Request to join the **unitysvc-ops** team by contacting [support@unitysvc.com](mailto:support@unitysvc.com). You will receive an invitation code.
+
+**Step 2: Apply the invitation code**
+
+In the UnitySVC web interface, go to **Add a Role** → **Join a Team** and enter the invitation code you received.
+
+**Step 3: Create a customer API key**
+
+Navigate to **API Keys** in the web interface (under your team/customer role) and create a new API key.
+
+**Step 4: Set environment variables**
+
+Save the API key and configure the backend URL:
+
+```bash
+# Customer API key (used by test scripts to access services through the gateway)
+export UNITYSVC_API_KEY="svcpass_your_customer_api_key"
+
+# Backend API URL (for fetching test scripts and submitting results)
+export UNITYSVC_API_URL="https://backend.unitysvc.com/v1"
+```
+
+**Note:** `SERVICE_BASE_URL` is automatically set per access interface — you do not need to set it yourself.
+
+**Step 5: Run tests**
+
+With your existing seller credentials (`UNITYSVC_SELLER_API_KEY` and `UNITYSVC_API_URL`) already configured, run tests:
+
+```bash
+# Run all tests for a service
+usvc_seller services run-tests <service_id>
+
+# Run with verbose output
+usvc_seller services run-tests <service_id> --verbose
+
+# Force rerun previously passed tests
+usvc_seller services run-tests <service_id> --force
+```
+
+**Note:** Two API keys are involved:
+
+-   `UNITYSVC_SELLER_API_KEY` (seller key) — authenticates with the backend API to fetch test scripts and submit results
+-   `UNITYSVC_API_KEY` (customer key) — used by test scripts to access services through the gateway
+
+**Characteristics:**
+
+-   Full control over test environment
+-   Can use complex SDK setups, custom libraries, and local tools
+-   Test execution happens on your local machine
+-   Results are submitted back to the platform
+-   Suitable for development, debugging, and advanced testing scenarios
+
+**Benefits:**
+
+-   Use your own customer account for isolated testing
+-   No shared resource constraints
+-   Full access to local debugging tools
+-   Can test with different API keys and configurations
+
+### Comparison
+
+| Feature | Web-Based | SDK-Based (Local) |
+|---------|-----------|-------------------|
+| Setup | None required | Join unitysvc-ops team + create customer API key |
+| `SERVICE_BASE_URL` | Auto-set per interface | Auto-set per interface |
+| `UNITYSVC_API_KEY` | Platform ops customer | Your own customer API key |
+| Execution | Backend (Celery) | Local machine |
+| Script Types | Simple (curl, Python, JS) | Any (including complex SDKs) |
+| Debugging | Limited | Full local access |
+| Use Case | Quick validation | Development & advanced testing |
+
+### Recommended Workflow
+
+1. **One-time setup**: Join the unitysvc-ops team and create a customer API key (see SDK-Based Testing steps above)
+2. **Development**: Use SDK-based local testing for iterative development
+3. **Validation**: Use web-based testing for final validation before publishing
+4. **CI/CD**: Either method works; web-based is simpler, SDK-based offers more control
+
+## Test Environment Variables
+
+Code examples and connectivity tests run in two different contexts, each with different environment variables available.
+
+### Gateway Testing (`usvc_seller services run-tests`)
+
+Tests run through the UnitySVC gateway. Only these variables are available:
+
+| Variable | Source | Description |
+|----------|--------|-------------|
+| `SERVICE_BASE_URL` | `user_access_interfaces.base_url` | Gateway endpoint URL (e.g. `https://api.svcpass.com/u/openai`, `smtp://smtp.svcpass.com:587`) |
+| `UNITYSVC_API_KEY` | Customer API key | Authentication key for the gateway |
+| Routing key entries | `user_access_interfaces.routing_key` | Flattened as uppercased env vars (e.g. `{"username": "foo"}` → `USERNAME=foo`, `{"model": "gpt-4"}` → `MODEL=gpt-4`) |
+
+**No other variables are available.** Customer code examples should only use these variables since they represent what real customers see.
+
+### Local/Upstream Testing (`usvc_seller data run-tests`)
+
+Tests run directly against the upstream service (no gateway). All fields from `upstream_access_config` are available as uppercased environment variables, with two special mappings:
+
+| Variable | Source | Description |
+|----------|--------|-------------|
+| `SERVICE_BASE_URL` | `upstream_access_config.base_url` | Upstream endpoint URL |
+| `UNITYSVC_API_KEY` | `upstream_access_config.api_key` | Upstream API key |
+| `HOST`, `PORT`, etc. | Other `upstream_access_config` fields | Exported as uppercased keys |
+| Routing key entries | `upstream_access_config.routing_key` | Flattened as uppercased env vars |
+
+Secret references (`${ customer_secrets.NAME }`, `${ secrets.NAME }`) are resolved from your local environment variables. Set them in your shell before running tests:
+
+```bash
+export SMTP_HOST=smtp.gmail.com
+export SMTP_PORT=587
+usvc_seller data run-tests
+```
+
+### Writing Tests for Both Contexts
+
+Use the `{% if local_testing %}` Jinja2 condition to handle differences between local and gateway testing. This is necessary when:
+
+- The upstream protocol differs from the gateway protocol
+- Local testing needs credentials not available through the gateway
+- The test needs to parse `SERVICE_BASE_URL` for gateway testing
+
+**Example: SMTP connectivity test**
+
+```bash
+#!/bin/bash
+# Test SMTP connectivity
+{% if local_testing %}
+# Local: HOST and PORT from upstream_access_config
+SMTP_HOST=${HOST:-localhost}
+SMTP_PORT=${PORT:-587}
+{% else %}
+# Gateway: parse SERVICE_BASE_URL (smtp://host:port)
+SMTP_HOST=$(echo "$SERVICE_BASE_URL" | sed -E 's|^smtps?://||' | cut -d: -f1)
+SMTP_PORT=$(echo "$SERVICE_BASE_URL" | sed -E 's|^smtps?://||' | cut -d: -f2 | cut -d/ -f1)
+SMTP_HOST=${SMTP_HOST:-localhost}
+SMTP_PORT=${SMTP_PORT:-587}
+{% endif %}
+(sleep 1; echo "QUIT") | nc -w5 "$SMTP_HOST" "$SMTP_PORT" | grep -q "220" && echo "connectivity ok"
+```
+
+**Example: HTTP API code example (no branching needed)**
+
+When both local and gateway testing use the same `SERVICE_BASE_URL` and `UNITYSVC_API_KEY`, no `local_testing` condition is needed:
+
+```python
+import os, httpx
+
+response = httpx.post(
+    f"{os.environ['SERVICE_BASE_URL']}/chat/completions",
+    headers={"Authorization": f"Bearer {os.environ['UNITYSVC_API_KEY']}"},
+    json={"model": os.environ.get("MODEL", "default"), "messages": [{"role": "user", "content": "test"}]}
+)
+print(response.json())
+```
+
+This works for both contexts because `SERVICE_BASE_URL` and `UNITYSVC_API_KEY` are mapped from `upstream_access_config.base_url`/`api_key` in local testing and from `user_access_interfaces.base_url`/customer API key in gateway testing.
+
+## Basic Concepts
+
+Before diving into creating code examples, understand these fundamental principles:
+
+### 1. Code Examples Should Be Complete
+
+Code examples must be **fully executable** and **self-contained**. Users should be able to run them directly without modifications:
+
+```python
+# ✓ GOOD: Complete, runnable example
+#!/usr/bin/env python3
+import httpx
+import os
+
+response = httpx.post(
+    f"{os.environ['SERVICE_BASE_URL']}/chat/completions",
+    headers={"Authorization": f"Bearer {os.environ['UNITYSVC_API_KEY']}"},
+    json={"model": "gpt-4", "messages": [{"role": "user", "content": "Hello"}]}
+)
+print(response.json())
+
+# ✗ BAD: Incomplete snippet
+response = api.chat(...)  # What is 'api'? How to initialize it?
+```
+
+### 2. Never Include Sensitive Information
+
+**IMPORTANT:** Code examples are public. Never hardcode sensitive information:
+
+```python
+# ✗ BAD: Hardcoded credentials
+UNITYSVC_API_KEY = "sk-abc123xyz789"  # NEVER DO THIS!
+
+# ✓ GOOD: Use environment variables
+UNITYSVC_API_KEY = os.environ.get("UNITYSVC_API_KEY")
+SERVICE_BASE_URL = os.environ.get("SERVICE_BASE_URL")
+```
+
+**Standard Environment Variables:**
+
+The test framework automatically sets these environment variables when running code examples:
+
+-   `UNITYSVC_API_KEY` - API key for authentication
+-   `SERVICE_BASE_URL` - Automatically set to the service's access interface base URL
+
+Your code examples should **always** read credentials from these environment variables. `SERVICE_BASE_URL` is set automatically — users do not configure it.
+
+### 3. Add to Service Listing Documents
+
+Code examples are referenced in your `listing.json` or `listing.toml` file under the `documents` array at the listing level (not inside interfaces). The listing automatically belongs to the offering in the same directory:
+
+```json
+{
+    "schema": "listing_v1",
+    "name": "listing-default",
+    "user_access_interfaces": [
+        {
+            "interface_type": "openai_chat_completions",
+            "base_url": "https://api.example.com/v1"
+        }
+    ],
+    "documents": [
+        {
+            "category": "code_examples",
+            "title": "Python Example",
+            "file_path": "../../docs/example.py.j2",
+            "mime_type": "python",
+            "is_public": true,
+            "meta": {
+                "requirements": ["httpx"],
+                "expect": "✓ Test passed"
+            }
+        }
+    ]
+}
+```
+
+**Required Fields:**
+
+-   **`category`**: Must be `"code_examples"` or `"connectivity_test"` for test framework to discover it
+    -   `code_examples` - User-visible examples shown in documentation
+    -   `connectivity_test` - Internal tests for connectivity and performance metrics (not visible to users)
+-   **`title`**: Descriptive name (e.g., "Python Example", "cURL Example")
+-   **`file_path`**: Path to the code file (relative to the listing file)
+-   **`mime_type`**: File type (`python`, `javascript`, `shell`, etc.)
+-   **`is_public`**: `true` for code examples, `false` for connectivity tests
+
+**Optional but Recommended Fields (in `meta` object):**
+
+-   **`meta.requirements`**: _(User-maintained)_ Package dependencies needed to run the code example
+    -   For Python: PyPI packages (e.g., `["httpx", "openai"]`)
+    -   For JavaScript: npm packages (e.g., `["node-fetch"]`)
+    -   For Shell scripts: commands (e.g., `["curl"]`)
+    -   Helps users understand what to install before running the example
+-   **`meta.expect`**: _(User-maintained)_ Expected substring in stdout for validation
+    -   Examples: `"✓ Test passed"`, `"\"choices\""`, `"Status: 200"`
+    -   If specified, test passes only if stdout contains this string
+    -   Without this field, tests only check exit code (0 = pass, non-zero = fail)
+
+**System-Maintained Fields (in `meta` object):**
+
+-   **`meta.output`**: _(System-maintained)_ Actual output from successful test execution
+    -   Automatically populated by `usvc_seller test run` when a test passes
+    -   Contains the stdout from the last successful test run
+    -   Included in your service listing during `usvc_seller data upload`
+    -   Displayed alongside code examples for documentation
+
+### 4. Use Relative Paths
+
+The `file_path` must be **relative to the listing file**, not absolute:
+
+```
+data/
+└── fireworks/
+    ├── docs/
+    │   └── example.py.j2          # Shared code example
+    └── services/
+        └── llama-3-1-405b/
+            └── listing.json        # References: ../../docs/example.py.j2
+```
+
+```json
+{
+    "file_path": "../../docs/example.py.j2" // ✓ GOOD: Relative path
+}
+```
+
+```json
+{
+    "file_path": "/data/fireworks/docs/example.py.j2" // ✗ BAD: Absolute path
+}
+```
+
+### 5. Templates Work Across Multiple Services
+
+Code examples ending with `.j2` are **Jinja2 templates** that can be reused across multiple service listings:
+
+**Template File: `docs/example.py.j2`**
+
+```python
+#!/usr/bin/env python3
+"""Example for {{ offering.name }} from {{ provider.name }}"""
+import httpx
+import os
+
+response = httpx.post(
+    f"{os.environ['SERVICE_BASE_URL']}/chat/completions",
+    headers={"Authorization": f"Bearer {os.environ['UNITYSVC_API_KEY']}"},
+    json={
+        "model": "{{ offering.name }}",  # Dynamic: changes per service
+        "messages": [{"role": "user", "content": "Hello"}]
+    }
+)
+print(response.json())
+```
+
+**Multiple Listings Reference the Same Template:**
+
+```
+data/fireworks/
+├── docs/
+│   └── example.py.j2              # One template
+└── services/
+    ├── llama-3-1-405b/
+    │   └── listing.json            # References: ../../docs/example.py.j2
+    ├── llama-3-1-70b/
+    │   └── listing.json            # References: ../../docs/example.py.j2
+    └── mixtral-8x7b/
+        └── listing.json            # References: ../../docs/example.py.j2
+```
+
+**Benefits of Templates:**
+
+-   **Write once, use many times** - One template serves all services
+-   **Automatic updates** - Fix the template once, all services benefit
+-   **Dynamic content** - Service-specific values inserted automatically
+-   **Type safety** - Variables validated during testing
+
+See [Template Variables Reference](#template-variables-reference) for complete list.
+
+## Test Command
+
+The `test` command helps validate code examples against upstream APIs before publishing.
+
+### Listing Code Examples
+
+```bash
+# List all available code examples
+usvc_seller test list
+
+# List examples for a specific provider
+usvc_seller test list --provider fireworks
+
+# List examples for specific services (supports wildcards)
+usvc_seller test list --services "llama*,gpt-4*"
+```
+
+The output shows:
+
+-   Service name
+-   Provider name
+-   Example title
+-   File type (.py, .js, .sh, etc.)
+-   Relative file path from data directory
+
+### Running Tests
+
+```bash
+# Run all code examples
+usvc_seller test run
+
+# Run tests for a specific provider
+usvc_seller test run --provider fireworks
+
+# Run tests for specific services (supports wildcards)
+usvc_seller test run --services "code-llama-*"
+
+# Show verbose output including stdout/stderr
+usvc_seller test run --verbose
+
+# Force rerun all tests (ignore cached results)
+usvc_seller test run --force
+
+# Stop on first failure (useful for quick feedback during development)
+usvc_seller test run --fail-fast
+
+# Combine options
+usvc_seller test run --force --fail-fast --verbose
+```
+
+**How tests work:**
+
+1. Test framework discovers code examples from listing files (category = `code_examples`)
+2. **Checks for cached results**: If both `.out` and `.err` files exist in the listing directory, skips the test (unless `--force` is used)
+3. Renders Jinja2 templates with `listing`, `offering`, `provider`, and `seller` data
+4. Sets environment variables (`UNITYSVC_API_KEY`, `SERVICE_BASE_URL`) automatically from provider credentials
+5. Executes the code example using appropriate interpreter (python3, node, bash)
+6. Validates results:
+    - Test passes if exit code is 0 AND (no `meta.expect` field OR expected string found in stdout)
+    - Test fails if exit code is non-zero OR expected string not found
+7. **Saves output**: When a test passes, stdout and stderr are saved to listing directory as `{service}_{listing}_{filename}.{out|err}`
+    - Example: For `listing.json` in `llama-3-1-405b` with code file `test.py`, output is saved as `llama-3-1-405b_listing_test.py.out` and `llama-3-1-405b_listing_test.py.err`
+    - Saved in the same directory as the listing file for easy version control
+    - Used to skip re-running tests on subsequent runs (unless `--force` is specified)
+8. **Fail-fast mode**: If `--fail-fast` is enabled, testing stops immediately after the first failure
+
+**Failed test debugging:**
+
+When a test fails, the rendered content is automatically saved to the current directory:
+
+```bash
+# Example output:
+Testing: llama-3-1-405b - Python code example
+  ✗ Failed - Output validation failed: expected substring '✓ Test passed' not found
+  → Test content saved to: failed_llama-3-1-405b_Python_code_example.py
+
+# The saved file includes:
+# - Environment variables used (UNITYSVC_API_KEY, SERVICE_BASE_URL)
+# - Full rendered template content
+# - You can run it directly to reproduce the issue
+```
+
+## Developing Code Examples
+
+This section provides a step-by-step guide for creating and testing code examples for your services.
+
+### Step 1: Develop and Test the Script Locally
+
+Start by writing a working script using actual values. This allows you to verify the API works correctly before templating.
+
+Note the expected output and find a suitable `expect` word.
+
+**Example: `test.py` (initial version)**
+
+```python
+#!/usr/bin/env python3
+"""Test script for llama-3-1-405b"""
+import httpx
+import os
+
+# Hardcoded values for initial testing
+response = httpx.post(
+    "https://api.fireworks.ai/inference/v1/chat/completions",
+    headers={"Authorization": "Bearer fw_abc123xyz789"},
+    json={
+        "model": "accounts/fireworks/models/llama-v3p1-405b-instruct",
+        "messages": [{"role": "user", "content": "Say hello"}],
+        "max_tokens": 50
+    }
+)
+
+print(response.json())
+if response.status_code == 200 and "choices" in response.json():
+    print("✓ Test passed")
+```
+
+**Test it:**
+
+```bash
+python3 test.py
+# Verify it works and outputs "✓ Test passed"
+```
+
+### Step 2: Use Environment Variables
+
+Replace hardcoded credentials with environment variables to avoid exposing sensitive data.
+
+**Example: `test.py` (with environment variables)**
+
+```python
+#!/usr/bin/env python3
+"""Test script for llama-3-1-405b"""
+import httpx
+import os
+
+# Use environment variables
+UNITYSVC_API_KEY = os.environ.get("UNITYSVC_API_KEY")
+SERVICE_BASE_URL = os.environ.get("SERVICE_BASE_URL")
+
+response = httpx.post(
+    f"{SERVICE_BASE_URL}/chat/completions",
+    headers={"Authorization": f"Bearer {UNITYSVC_API_KEY}"},
+    json={
+        "model": "accounts/fireworks/models/llama-v3p1-405b-instruct",
+        "messages": [{"role": "user", "content": "Say hello"}],
+        "max_tokens": 50
+    }
+)
+
+print(response.json())
+if response.status_code == 200 and "choices" in response.json():
+    print("✓ Test passed")
+```
+
+**Test with environment variables (for manual local testing):**
+
+```bash
+export UNITYSVC_API_KEY="fw_abc123xyz789"
+export SERVICE_BASE_URL="https://api.fireworks.ai/inference/v1"  # Auto-set by test framework
+python3 test.py
+```
+
+### Step 3: Replace Static Values with Template Variables
+
+Convert hardcoded service-specific values to Jinja2 template variables and rename the file to `.j2`.
+
+**Example: `test.py.j2` (templated version)**
+
+```python
+#!/usr/bin/env python3
+"""Test script for {{ offering.name }}"""
+import httpx
+import os
+
+# Use environment variables (set by test framework)
+UNITYSVC_API_KEY = os.environ.get("UNITYSVC_API_KEY")
+SERVICE_BASE_URL = os.environ.get("SERVICE_BASE_URL")
+
+response = httpx.post(
+    f"{SERVICE_BASE_URL}/chat/completions",
+    headers={"Authorization": f"Bearer {UNITYSVC_API_KEY}"},
+    json={
+        "model": "{{ offering.name }}",  # Template variable
+        "messages": [{"role": "user", "content": "Say hello"}],
+        "max_tokens": 50
+    }
+)
+
+print(response.json())
+if response.status_code == 200 and "choices" in response.json():
+    print("✓ Test passed")
+```
+
+**Common template variables:**
+
+-   `{{ listing.name }}` - Service listing name
+-   `{{ offering.name }}` - Model/service name
+-   `{{ provider.name }}` - Provider name
+-   `{{ provider.display_name }}` - Provider name
+-   `{{ seller.name }}` - Seller name
+-   `{{ seller.display_name }}` - Seller name
+
+**File renamed:** `test.py` → `test.py.j2`
+
+### Step 4: Add to Listing Documentation
+
+Reference the code example in your `listing.json` file at the listing level (not inside interfaces). The listing automatically belongs to the offering in the same directory.
+
+**Example: `listing.json`**
+
+```json
+{
+    "schema": "listing_v1",
+    "name": "listing-default",
+    "user_access_interfaces": [
+        {
+            "interface_type": "openai_chat_completions",
+            "base_url": "https://api.example.com/v1"
+        }
+    ],
+    "documents": [
+        {
+            "category": "code_examples",
+            "title": "Python code example",
+            "file_path": "../../docs/test.py.j2",
+            "mime_type": "python",
+            "is_public": true,
+            "meta": {
+                "requirements": ["httpx"],
+                "expect": "✓ Test passed"
+            }
+        }
+    ]
+}
+```
+
+**Important fields:**
+
+-   `category`: Must be `"code_examples"` for test framework to find it
+-   `title`: Descriptive name for the example
+-   `file_path`: Relative path from listing file to your `.j2` template
+-   `mime_type`: File type (`python`, `javascript`, `shell`, etc.)
+-   `is_public`: Should be `true` for code examples
+-   `meta`: **[Optional]** Metadata object containing:
+    -   `requirements`: _(User-maintained)_ List of package dependencies needed to run the code example
+        -   For Python: PyPI packages (e.g., `["httpx", "openai"]`)
+        -   For JavaScript: npm packages (e.g., `["node-fetch"]`)
+        -   For Shell scripts: commands (e.g., `["curl"]`)
+        -   Helps users understand what to install before running the example
+    -   `expect`: _(User-maintained, strongly recommended)_ Expected substring that should appear in stdout when the test passes
+        -   Examples:
+            -   `"✓ Test passed"` - Explicit success message
+            -   `"\"choices\""` - Check for JSON field in API response
+            -   `"Status: 200"` - Check for HTTP status
+        -   Without this field, tests only check exit code (0 = pass, non-zero = fail), which is unreliable
+    -   `output`: _(System-maintained)_ Automatically populated by `usvc_seller test run`
+        -   Contains stdout from the last successful test execution
+        -   Saved to `{listing_stem}_{code_filename}.out` file during test run
+        -   Embedded into `meta.output` during `usvc_seller data upload`
+        -   Displayed alongside code examples in your service listing
+
+### Step 5: Validate and Test Before Uploading
+
+Run the validation and testing commands to ensure everything works correctly.
+
+**Step 5.1: Validate schema and templates**
+
+```bash
+# Validate all files including Jinja2 syntax
+usvc_seller data validate
+
+# Expected output:
+# ✓ All files validated successfully
+```
+
+**Step 5.2: List code examples**
+
+```bash
+# Verify your code example is detected
+usvc_seller test list
+
+# Should show:
+# Service: llama-3-1-405b-instruct
+# Provider: fireworks
+# Title: Python code example
+# Type: .py
+# File Path: fireworks/docs/test.py.j2
+```
+
+pass option `--services` to limit to particular services.
+
+**Step 5.3: Run tests**
+
+```bash
+# Test your specific provider
+usvc_seller test run --provider fireworks
+
+# Or test specific services
+usvc_seller test run --services "llama*"
+
+# Expected output:
+# Testing: llama-3-1-405b-instruct - Python code example
+#   ✓ Success (exit code: 0)
+```
+
+**Step 5.4: Fix any failures**
+
+If tests fail, the rendered content is saved to the current directory for debugging:
+
+```bash
+# If test fails, you'll see:
+#   ✗ Failed - Output validation failed: expected substring '✓ Test passed' not found
+#   → Test content saved to: failed_llama-3-1-405b_Python_code_example.py
+#   (includes environment variables for reproduction)
+
+# Debug the saved file:
+cat failed_llama-3-1-405b_Python_code_example.py
+
+# The file will contain:
+# - Environment variables used (UNITYSVC_API_KEY, SERVICE_BASE_URL)
+# - Full rendered template content
+# - You can run it directly to reproduce the issue
+```
+
+**Step 5.5: Upload when ready**
+
+```bash
+# Only upload after all tests pass
+usvc_seller data upload
+```
+
+## Common Patterns
+
+### Pattern 1: Simple shell script with expect
+
+**File: `test.sh.j2`**
+
+```bash
+#!/bin/bash
+# Simple test that outputs JSON response
+
+curl ${SERVICE_BASE_URL}/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${UNITYSVC_API_KEY}" \
+  -d '{"model": "{{ offering.name }}", "messages": [{"role": "user", "content": "test"}]}'
+```
+
+**In `listing.json`:**
+
+```json
+{
+    "category": "code_examples",
+    "title": "Shell Example",
+    "file_path": "test.sh.j2",
+    "mime_type": "bash",
+    "is_public": true,
+    "meta": {
+        "expect": "\"choices\""
+    }
+}
+```
+
+### Pattern 2: Python with validation
+
+**File: `test.py.j2`**
+
+```python
+#!/usr/bin/env python3
+import httpx
+import os
+
+response = httpx.post(
+    f"{os.environ['SERVICE_BASE_URL']}/chat/completions",
+    headers={"Authorization": f"Bearer {os.environ['UNITYSVC_API_KEY']}"},
+    json={"model": "{{ offering.name }}", "messages": [{"role": "user", "content": "test"}]}
+)
+
+data = response.json()
+
+# Print response and validation message
+print(data)
+if "choices" in data:
+    print("✓ Validation passed")  # Will be checked by expect
+```
+
+**In `listing.json`:**
+
+```json
+{
+    "category": "code_examples",
+    "title": "Python Example",
+    "file_path": "test.py.j2",
+    "mime_type": "python",
+    "is_public": true,
+    "meta": {
+        "requirements": ["httpx"],
+        "expect": "✓ Validation passed"
+    }
+}
+```
+
+### Pattern 3: JavaScript/Node.js
+
+**File: `test.js.j2`**
+
+```javascript
+#!/usr/bin/env node
+const response = await fetch(`${process.env.SERVICE_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.UNITYSVC_API_KEY}`,
+    },
+    body: JSON.stringify({
+        model: "{{ offering.name }}",
+        messages: [{ role: "user", content: "test" }],
+    }),
+});
+
+const data = await response.json();
+
+console.log(data);
+if (data.choices) {
+    console.log("✓ Success"); // Will be checked by expect
+}
+```
+
+**In `listing.json`:**
+
+```json
+{
+    "category": "code_examples",
+    "title": "JavaScript Example",
+    "file_path": "test.js.j2",
+    "mime_type": "javascript",
+    "is_public": true,
+    "meta": {
+        "expect": "✓ Success"
+    }
+}
+```
+
+### Pattern 4: Connectivity Test (Internal)
+
+Connectivity tests verify API connectivity and gather performance metrics. They run during testing but are **not visible to users**.
+
+**File: `connectivity-test.py.j2`**
+
+```python
+#!/usr/bin/env python3
+"""Connectivity and performance test for {{ offering.name }}"""
+import httpx
+import os
+import time
+
+UNITYSVC_API_KEY = os.environ.get("UNITYSVC_API_KEY")
+SERVICE_BASE_URL = os.environ.get("SERVICE_BASE_URL")
+
+# Measure response time
+start = time.time()
+response = httpx.post(
+    f"{SERVICE_BASE_URL}/chat/completions",
+    headers={"Authorization": f"Bearer {UNITYSVC_API_KEY}"},
+    json={
+        "model": "{{ offering.name }}",
+        "messages": [{"role": "user", "content": "ping"}],
+        "max_tokens": 5
+    },
+    timeout=30.0
+)
+elapsed = time.time() - start
+
+# Output metrics
+print(f"Status: {response.status_code}")
+print(f"Response Time: {elapsed:.3f}s")
+
+if response.status_code == 200:
+    data = response.json()
+    if "choices" in data:
+        print("✓ Connectivity OK")
+```
+
+**In `listing.json`:**
+
+```json
+{
+    "category": "connectivity_test",
+    "title": "API Connectivity Test",
+    "file_path": "connectivity-test.py.j2",
+    "mime_type": "python",
+    "is_public": false,
+    "meta": {
+        "requirements": ["httpx"],
+        "expect": "✓ Connectivity OK"
+    }
+}
+```
+
+**Key differences from code_examples:**
+
+-   `category`: `"connectivity_test"` instead of `"code_examples"`
+-   `is_public`: `false` - not shown to users in documentation
+-   Purpose: Internal testing and monitoring, not user education
+
+## Template Variables Reference
+
+Templates have access to four data structures:
+
+### listing
+
+The listing data structure (Listing_v1 schema)
+
+-   `listing.name` - Listing identifier
+-   `listing.display_name` - Customer-facing name
+-   `listing.status` - Listing status (draft, ready, deprecated)
+-   All other fields from the listing schema
+
+### offering
+
+Service offering data (Offering_v1 schema)
+
+-   `offering.name` - Service/model name (use this for service name)
+-   `offering.display_name` - Human-readable service name
+-   `offering.service_type` - Service type (llm, embedding, etc.)
+-   All other fields from the offering schema
+
+### provider
+
+Provider metadata (Provider_v1 schema)
+
+-   `provider.name` - Provider name (use this for provider name)
+-   `provider.display_name` - Human-readable provider name
+-   All other fields from the provider schema
+
+Note: For API credentials (`UNITYSVC_API_KEY`, `SERVICE_BASE_URL`), use environment variables instead of template variables. These are set automatically during testing (`SERVICE_BASE_URL` from the access interface, `UNITYSVC_API_KEY` from the user's environment).
+
+### seller
+
+Seller metadata (Seller_v1 schema) - seller is derived from API key during publishing
+
+-   `seller.name` - Seller name
+-   `seller.display_name` - Human-readable seller name
+-   `seller.contact_email` - Contact email
+-   All other fields from the seller schema
+
+**Using defaults:**
+
+If a field might not exist, use Jinja2 defaults:
+
+```jinja2
+{{ listing.optional_field | default('N/A') }}
+{{ offering.description | default('No description available') }}
+```
+
+## Tips for Effective Code Examples
+
+1. **Keep examples short and focused** - Test one thing at a time
+2. **Use `meta.expect` field** - Makes validation automatic and reliable
+3. **Print clear success messages** - Makes debugging easier
+4. **Handle errors gracefully** - Exit with non-zero code on failure
+5. **Test locally first** - Always verify with hardcoded values before templating
+6. **Use meaningful output** - Print enough info to understand what happened
+7. **Add requirements** - List all dependencies in `meta.requirements` field
+
+## Workflow Summary
+
+```bash
+# 1. Develop script with hardcoded values
+vim test.py
+python3 test.py
+
+# 2. Use environment variables (SERVICE_BASE_URL is auto-set by test framework)
+export UNITYSVC_API_KEY="..."
+export SERVICE_BASE_URL="..."  # Only needed for manual local testing
+python3 test.py
+
+# 3. Convert to template
+mv test.py test.py.j2
+vim test.py.j2  # Replace with {{ offering.name }}, etc.
+
+# 4. Add to listing.json with meta fields
+vim listing.json  # Add document entry with meta.requirements and meta.expect
+
+# 5. Validate and test
+usvc_seller data validate
+usvc_seller data list-tests
+usvc_seller data run-tests --provider your-provider
+# ✓ Successful tests create .out and .err files (e.g., servicename_listing_test.py.out)
+# ✓ Subsequent runs skip tests with existing results (use --force to rerun)
+# ✓ Use --fail-fast to stop on first failure for quick feedback
+
+# 6. Debug if needed
+cat failed_*  # Check saved test files (in current directory)
+cat services/*/listing_*.out  # Review successful test outputs (in listing directories)
+
+# 7. Upload - embeds .out files into meta.output
+usvc_seller data upload
+# ✓ Reads .out files from listing directories and adds content to meta.output
+# ✓ Output will appear alongside code examples in your service listing
+```
+
+## Understanding meta.output Workflow
+
+The `meta.output` field follows an automated workflow from test execution to publication:
+
+### 1. Testing Phase: `usvc_seller test run`
+
+When you run tests, successful executions generate `.out` files:
+
+```bash
+$ usvc_seller test run --provider fireworks
+
+Testing: llama-3-1-405b - Python code example
+  ✓ Success (exit code: 0)
+  → Output saved to: /path/to/fireworks/services/llama-3-1-405b/listing_test.py.out
+```
+
+**Output file naming:** `{listing_stem}_{code_filename}.out`
+
+-   `listing_stem`: The listing filename without extension (e.g., "listing" from "listing.json")
+-   `code_filename`: The code filename after template expansion (e.g., "test.py" from "test.py.j2")
+-   Example: `listing_test.py.out`, `svclisting_example.sh.out`
+
+**File location:** Same directory as the listing file that references the code example
+
+### 2. Upload Phase: `usvc_seller data upload`
+
+During upload, the SDK automatically:
+
+1. Expands `.j2` templates for each model if a template is used
+2. Looks for matching `.out` files in the listing's base directory
+3. Reads the output content and embeds it into `meta.output`
+
+**Example published document:**
+
+```json
+{
+    "category": "code_examples",
+    "title": "Python code example",
+    "file_path": "chat-completion.py",
+    "file_content": "#!/usr/bin/env python3\nimport httpx...",
+    "mime_type": "python",
+    "meta": {
+        "requirements": ["httpx"],
+        "expect": "✓ Test passed",
+        "output": "{'id': 'chatcmpl-...', 'choices': [{'message': {'content': 'Hello!'}}]}\n✓ Test passed"
+    }
+}
+```
+
+### 3. Display in Service Listing
+
+After uploading, the output will automatically appear alongside the code example in your service listing documentation, allowing users to see both the code and its expected output together.
+
+### 4. Key Points
+
+-   **`.out` files are model-specific**: Since templates expand per model, each model gets its own output file
+-   **`.out` files location**: Saved in the **same directory as the listing file**, making them easy to find and version control
+-   **`.out` file naming**: Format is `{listing_stem}_{code_filename}.out` to clearly associate output with both listing and code
+-   **Version control**: You **can** commit `.out` files to version control since they're co-located with listings
+-   **Upload is flexible**: `usvc_seller data upload` works even if `.out` files are missing (gracefully skips)
+-   **User vs System fields**:
+    -   `meta.requirements` and `meta.expect` are **user-maintained** (you write these)
+    -   `meta.output` is **system-maintained** (auto-generated by `usvc_seller data run-tests` and `usvc_seller data upload`)
+
+## Interpreter Detection
+
+The test framework automatically detects the appropriate interpreter based on file extension:
+
+-   **`.py` files**: Uses `python3` (falls back to `python` if python3 not available)
+-   **`.js` files**: Uses `node` (Node.js required)
+-   **`.sh` files**: Uses `bash`
+-   **Other files**: Checks shebang line (e.g., `#!/usr/bin/env python3`)
+
+If the required interpreter is not found, the test will fail with a clear error message.
+
+## Troubleshooting
+
+### Template Rendering Errors
+
+**Problem:** `Jinja2 syntax error: unexpected 'end of template'`
+
+**Solution:** Check for unclosed tags (`{{`, `{%`, `{#`)
+
+**Problem:** `undefined variable: listing.field_name`
+
+**Solution:** Verify field exists in Listing_v1 schema or use default filter:
+
+```jinja2
+{{ listing.field_name | default('fallback') }}
+```
+
+### Test Execution Errors
+
+**Problem:** Test fails with "interpreter not found"
+
+**Solution:** Install the required interpreter:
+
+-   Python: `brew install python3` or `apt-get install python3`
+-   Node.js: `brew install node` or download from nodejs.org
+-   Bash: Usually pre-installed on Unix systems
+
+**Problem:** Test passes locally but fails in test framework
+
+**Solution:**
+
+-   Check that you're using environment variables (UNITYSVC_API_KEY, SERVICE_BASE_URL)
+-   Verify template variables are correct
+-   Run `usvc_seller test run --verbose` to see full output
+
+**Problem:** Exit code is 0 but test still fails
+
+**Solution:** Check the `meta.expect` field - test requires the expected string to appear in stdout
+
+### Validation Errors
+
+**Problem:** `usvc_seller data validate` reports Jinja2 syntax errors
+
+**Solution:**
+
+-   Validate template syntax in isolation
+-   Common issues: missing `}`, incorrect variable names
+-   Use a Jinja2 linter or IDE plugin
+
+**Problem:** Code example not found by `usvc_seller data list-tests`
+
+**Solution:**
+
+-   Verify `category` is set to `"code_examples"` in document object
+-   Check that `file_path` is correct relative to listing file
+-   Run `usvc_seller data validate` to check for schema errors
