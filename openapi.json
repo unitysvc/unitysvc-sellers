@@ -1,0 +1,5231 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "UnitySVC Seller API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/services": {
+      "get": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "List My Services",
+        "description": "List all services for the current seller.\n\nServices are the identity layer connecting sellers to content versions\n(Provider, ServiceOffering, ServiceListing). Results are paginated using\ncursor-based (keyset) pagination, ordered newest-first by `created_at`.\n\nQuery Parameters:\n- cursor: Opaque pagination cursor from a previous response's\n  ``next_cursor``. Omit to start from the first page.\n- limit: Page size (default: 50, max: 200)\n- status: Filter by service status (draft, pending, review, active, rejected, suspended)\n- service_type: Filter by service type (e.g., llm, vectordb, embedding)\n- listing_type: Filter by listing type (regular, byok, self_hosted)\n- name: Search by name, display name, or provider name (case-insensitive partial match)",
+        "operationId": "services_list",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque pagination cursor from a previous response's `next_cursor`. Omit to start from the first page.",
+              "title": "Cursor"
+            },
+            "description": "Opaque pagination cursor from a previous response's `next_cursor`. Omit to start from the first page."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Page size (default 50, max 200).",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Page size (default 50, max 200)."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "service_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by service type",
+              "title": "Service Type"
+            },
+            "description": "Filter by service type"
+          },
+          {
+            "name": "listing_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by listing type",
+              "title": "Listing Type"
+            },
+            "description": "Filter by listing type"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Search by name, display name, or provider name (case-insensitive partial match)",
+              "title": "Name"
+            },
+            "description": "Search by name, display name, or provider name (case-insensitive partial match)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorPage_ServicePublic_"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Upload My Service",
+        "description": "Upload a complete service (provider, offering, and listing) together.\n\nAccepts all three entity types in a single request and ingests them in\nthe correct order: provider -> offering -> listing.\n\nThe seller is identified by X-Role-Id header (JWT) or API key's role_id.\n\nQuery Parameters:\n- dryrun: If True, the upload runs **synchronously** inside the request\n  and returns the validation result directly (status 200 with\n  ``dryrun_result`` populated). No Celery task is queued and no DB\n  writes are made. Use this to validate a payload before committing.\n\nHeaders:\n- Idempotency-Key: Optional client-supplied key for safe retries on\n  real (non-dryrun) uploads. When set, the server uses it as the\n  Celery task id and dedupes by it for 24 hours via a Redis SETNX\n  gate, so replaying the same key returns the same task id without\n  queueing the work twice. Ignored when ``dryrun=true`` because\n  dryrun has no side effects to dedupe.\n\nFor non-dryrun uploads the response is ``status=202`` with ``task_id``\nset; the task can be polled via the Celery result backend.",
+        "operationId": "services_upload",
+        "parameters": [
+          {
+            "name": "dryrun",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Dryrun"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional client-supplied key for safe retries. When set, the server guarantees the underlying work runs at most once for this key within a 24h window \u2014 replaying the same key returns the same task id without queueing the work twice. Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1\u2013128.",
+              "title": "Idempotency-Key"
+            },
+            "description": "Optional client-supplied key for safe retries. When set, the server guarantees the underlying work runs at most once for this key within a 24h window \u2014 replaying the same key returns the same task id without queueing the work twice. Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1\u2013128."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceDataInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/{service_id}": {
+      "get": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Get Service Data",
+        "description": "Get complete service data for a service owned by the current seller.\n\nReturns the rolled-up provider + offering + listing records along with\nthe service's documents (metadata only \u2014 fetch file content separately\nvia GET /seller/documents/{id}) and access interfaces with resolved\ngateway base URLs.\n\nSupports partial ID matching on service_id (minimum 8 characters).",
+        "operationId": "services_get",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Delete Service",
+        "description": "Delete a service that has never been active.\n\nA service can only be deleted if:\n1. It belongs to the current seller.\n2. It has never been active (no archived history in ServiceData).\n   Services that have been active are kept for audit trail.\n\nWhen ``dryrun=true``, the deletion is not performed \u2014 only the\neligibility check runs and the result is returned in the response\nwithout raising. Use this to drive a proactive \"disable delete button\"\nUX in a dashboard, or to bulk-check a set of services before issuing\nthe real deletes.\n\nWhen ``dryrun=false`` (default) and the service cannot be deleted,\na 400 is raised with the reason.\n\nCleanup of dependent records (access interfaces, enrollments, group\nmemberships, recurrent requests, revisions) is handled by\n``crud_service.delete_service``. The associated content entities\n(Provider, Offering, Listing) are content-addressed and may be shared,\nso they are not deleted.\n\nSupports partial ID matching on service_id (minimum 8 characters).",
+        "operationId": "services_delete",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Id"
+            }
+          },
+          {
+            "name": "dryrun",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Dryrun"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceDeleteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Update Service Status",
+        "description": "Update a service's status.\n\nSellers can update their service status for workflow transitions:\n- draft -> pending (submit for review)\n- rejected -> pending (resubmit for review)\n- rejected -> draft (re-edit after rejection)\n- pending -> draft (withdraw submission)\n- active -> deprecated (deprecate)\n\nSupports partial ID matching (minimum 8 characters).\n\nReturns:\n- id: Service ID\n- status: New status\n- message: Success message",
+        "operationId": "services_set_status",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceStatusUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceStatusUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/{service_id}/routing-vars": {
+      "patch": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Update Routing Vars",
+        "description": "Update routing_vars on an active service without approval.\n\nThe template is the security boundary \u2014 sellers can only change values\nwithin the boundaries the admin-approved template defines.\n\nSupports:\n- set: dict of key-value pairs to add/update\n- remove: list of keys to remove (supports dot-paths for nested keys, e.g. \"users.alice\")",
+        "operationId": "services_set_routing_vars",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutingVarsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoutingVarsUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/{service_id}/list-price": {
+      "patch": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Update List Price",
+        "description": "Update list_price on an active service without approval.\n\nAllows sellers to quickly adjust pricing without re-uploading the service.\nOnly works on active services.\n\nSupports:\n- set: dict of key-value pairs to add/update in the list_price JSONB\n  (e.g. {\"input\": \"0.40\"} to update a single field, or a full pricing\n  object to replace entirely)\n- remove: list of keys to remove (supports dot-paths for nested keys)",
+        "operationId": "services_set_list_price",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListPriceUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListPriceUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/{service_id}/test-env": {
+      "get": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Get Service Test Env",
+        "description": "Get rendered service_options.enrollment_vars for the ops_customer test enrollment.\n\nReturns the enrollment_vars key-value pairs with Jinja2 templates resolved\n(e.g. enrollment_code() expanded to the actual ActionCode token).\nUsed by ``usvc services run-tests`` to inject env vars into test scripts.\n\nThis endpoint is specifically for testing \u2014 it looks up the ops_customer\nenrollment for the service. Different enrollments may have different\nrendered values.\n\nSupports partial ID matching (minimum 8 characters).",
+        "operationId": "services_get_test_env",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestEnvResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/promotions": {
+      "get": {
+        "tags": [
+          "seller-promotions"
+        ],
+        "summary": "List Promotions",
+        "description": "List seller's own promotions.\n\nReturns all promotion codes created by this seller, paginated using\ncursor-based (keyset) pagination ordered newest-first.",
+        "operationId": "promotions_list",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque pagination cursor from a previous response's `next_cursor`. Omit to start from the first page.",
+              "title": "Cursor"
+            },
+            "description": "Opaque pagination cursor from a previous response's `next_cursor`. Omit to start from the first page."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Page size (default 50, max 200).",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Page size (default 50, max 200)."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PriceRuleStatusEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status",
+              "title": "Status"
+            },
+            "description": "Filter by status"
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorPage_PriceRulePublic_"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "seller-promotions"
+        ],
+        "summary": "Upsert Promotion",
+        "description": "Create or update a promotion by name (idempotent upsert).\n\nIf a promotion with the same name exists for this seller, it is updated.\nOtherwise, a new promotion is created. This enables CLI-driven workflows\nwhere promotions are managed as files identified by name.",
+        "operationId": "promotions_upsert",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellerPromotionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceRulePublic"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/promotions/{promotion_id}": {
+      "get": {
+        "tags": [
+          "seller-promotions"
+        ],
+        "summary": "Get Promotion",
+        "description": "Get a promotion by ID.",
+        "operationId": "promotions_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "promotion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Promotion Id"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceRulePublic"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "seller-promotions"
+        ],
+        "summary": "Update Promotion",
+        "description": "Update a promotion.\n\nCannot change: code, source, seller_id.\n\nStatus transitions are handled here via the ``status`` field in the\nrequest body. Valid transitions:\n\n- ``draft``/``paused`` -> ``active``: activate the promotion. Paused\n  promotions go through ``resume_price_rule`` to clear pause metadata;\n  draft promotions are updated directly.\n- ``active``/``scheduled`` -> ``paused``: pause the promotion via\n  ``pause_price_rule`` (customers can no longer redeem).\n- Other target states fall through to a plain field update and are\n  subject to the underlying CRUD layer's validation.\n\nNon-status fields (name, description, pricing, priority, service_groups)\nare updated in a single CRUD call before any status transition runs, so\ncombining \"change pricing and pause\" in one call is well-defined.",
+        "operationId": "promotions_update",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "promotion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Promotion Id"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellerPromotionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceRulePublic"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "seller-promotions"
+        ],
+        "summary": "Delete Promotion",
+        "description": "Delete a promotion.\n\nOnly draft promotions can be deleted. To stop an active promotion, pause it instead.",
+        "operationId": "promotions_delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "promotion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Promotion Id"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/service-groups": {
+      "get": {
+        "tags": [
+          "seller-service-groups"
+        ],
+        "summary": "List Seller Groups",
+        "description": "List seller's own service groups.\n\nReturns groups owned by the current seller, paginated using cursor-based\n(keyset) pagination ordered newest-first.",
+        "operationId": "groups_list",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque pagination cursor from a previous response's `next_cursor`. Omit to start from the first page.",
+              "title": "Cursor"
+            },
+            "description": "Opaque pagination cursor from a previous response's `next_cursor`. Omit to start from the first page."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Page size (default 50, max 200).",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Page size (default 50, max 200)."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ServiceGroupStatusEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status",
+              "title": "Status"
+            },
+            "description": "Filter by status"
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorPage_ServiceGroupPublic_"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "seller-service-groups"
+        ],
+        "summary": "Upsert Seller Group",
+        "description": "Create or update a service group by name (idempotent upsert).\n\nIf a group with the same name exists for this seller, it is updated.\nOtherwise, a new group is created under the seller's root group.",
+        "operationId": "groups_upsert",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceGroupCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceGroupPublic"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/service-groups/{group_id}": {
+      "get": {
+        "tags": [
+          "seller-service-groups"
+        ],
+        "summary": "Get Seller Group",
+        "description": "Get a service group by ID.",
+        "operationId": "groups_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceGroupPublic"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "seller-service-groups"
+        ],
+        "summary": "Update Seller Group",
+        "description": "Update a service group.",
+        "operationId": "groups_update",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceGroupUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceGroupPublic"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "seller-service-groups"
+        ],
+        "summary": "Delete Seller Group",
+        "description": "Delete a service group (draft/private only, must have no services).",
+        "operationId": "groups_delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{document_id}": {
+      "get": {
+        "tags": [
+          "seller-documents"
+        ],
+        "summary": "Get Document",
+        "description": "Get full document details including file content and test metadata.\n\nReturns the full document record for a document attached to a service\nowned by the current seller. File content is always included \u2014 callers\ndecide whether to display it, save to disk, or ignore it.\n\nSupports partial document ID matching (minimum 8 characters).",
+        "operationId": "documents_get",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "seller-documents"
+        ],
+        "summary": "Update Document Test",
+        "description": "Update document test status (skip, unskip, or record external result).\n\nDispatches on the body's ``status`` field:\n\n- ``skip`` \u2014 mark the test as skipped. Clears execution results and\n  stamps ``skipped_at`` / ``skipped_by``. Rejected for\n  ``connectivity_test`` documents (only ``code_example`` can be skipped).\n- ``pending`` \u2014 unskip. Clears execution results and stamps\n  ``unskipped_at`` / ``unskipped_by``. The test is ready for a fresh\n  run.\n- ``success`` / ``task_failed`` / ``script_failed`` /\n  ``unexpected_output`` \u2014 record the result of an externally-run test\n  (local execution, CI harness, Celery task that failed with metadata).\n  ``executed_at`` and per-interface ``tests`` are persisted.\n\nThe document must:\n- Have category ``code_example`` or ``connectivity_test``\n- Belong to a service owned by the current seller",
+        "operationId": "documents_update_test",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentTestUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentTestStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{document_id}/execute": {
+      "post": {
+        "tags": [
+          "seller-documents"
+        ],
+        "summary": "Execute Document",
+        "description": "Execute a code example or connectivity test (seller pre-submission check).\n\nThis is the seller's **pre-submission dry-run** tool: it queues a\nCelery task that runs the document's script against the platform's\nops_customer API key and records the result in ``meta.test``. It does\n**not** touch service status or trigger admin review \u2014 contrast with\nthe formal submission flow via\n``PATCH /seller/services/{id}`` (status=pending), which queues an\norchestrated test run as part of the review pipeline.\n\nThe document must:\n- Have category ``code_example`` or ``connectivity_test``\n- Belong to a service owned by the current seller\n- Not be marked ``test.status == \"skip\"`` in meta\n\nTest execution uses ``OPS_CUSTOMER_API_KEY`` for gateway access and\ninjects the gateway URL + key as environment variables into the script.\n\nResults are stored on ``document.meta.test``:\n- ``status``: ``success|task_failed|script_failed|unexpected_output``\n- ``error``: error message when status != success\n- ``executed_at``: ISO timestamp of execution\n- ``exit_code``, ``stdout``, ``stderr`` (truncated to 10KB)\n- ``output_contains``: if set on the document, stdout must contain\n  this substring for success\n\nSet ``force=true`` to re-run a document whose test already recorded a\nsuccess.",
+        "operationId": "documents_execute",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Force"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentExecuteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{task_id}": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Get Task Status",
+        "description": "Get the status of a single Celery task.",
+        "operationId": "tasks-get_task_status",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Tasks-Get Task Status"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/batch-status": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Get Batch Task Status",
+        "description": "Get the status of multiple Celery tasks in a single request.\n\nAccepts up to 100 task IDs and returns a mapping of task_id -> status.\nThis is more efficient than polling each task individually.",
+        "operationId": "tasks-get_batch_task_status",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "title": "Task Ids"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Tasks-Get Batch Task Status"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccessInterfacePublic": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Id"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "access_method": {
+            "$ref": "#/components/schemas/AccessMethodEnum"
+          },
+          "has_api_key": {
+            "type": "boolean",
+            "title": "Has Api Key",
+            "default": false
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "base_url_pattern": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url Pattern"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "request_transformer": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/RequestTransformEnum"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Transformer"
+          },
+          "rate_limits": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RateLimit"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Limits"
+          },
+          "constraint": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceConstraints"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "response_rules": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Rules"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "is_primary": {
+            "type": "boolean",
+            "title": "Is Primary"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order"
+          },
+          "routing_key": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Key"
+          },
+          "enrollment_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrollment Id"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "access_method",
+          "name",
+          "is_active",
+          "is_primary",
+          "sort_order",
+          "created_at"
+        ],
+        "title": "AccessInterfacePublic",
+        "description": "Public AccessInterface model for API responses."
+      },
+      "AccessMethodEnum": {
+        "type": "string",
+        "enum": [
+          "http",
+          "websocket",
+          "grpc",
+          "smtp"
+        ],
+        "title": "AccessMethodEnum"
+      },
+      "AuthMethodEnum": {
+        "type": "string",
+        "enum": [
+          "api_key",
+          "oauth",
+          "jwt",
+          "bearer_token",
+          "basic_auth"
+        ],
+        "title": "AuthMethodEnum"
+      },
+      "ContentFilterEnum": {
+        "type": "string",
+        "enum": [
+          "adult",
+          "violence",
+          "hate_speech",
+          "profanity",
+          "pii"
+        ],
+        "title": "ContentFilterEnum"
+      },
+      "CurrencyEnum": {
+        "type": "string",
+        "enum": [
+          "USD",
+          "EUR",
+          "GBP",
+          "JPY",
+          "CNY",
+          "CAD",
+          "AUD",
+          "CHF",
+          "INR",
+          "KRW",
+          "BTC",
+          "ETH",
+          "USDT",
+          "USDC",
+          "TAO",
+          "CREDITS"
+        ],
+        "title": "CurrencyEnum",
+        "description": "Supported currency codes for pricing."
+      },
+      "CursorPage_PriceRulePublic_": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/PriceRulePublic"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "CursorPage[PriceRulePublic]"
+      },
+      "CursorPage_ServiceGroupPublic_": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceGroupPublic"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "CursorPage[ServiceGroupPublic]"
+      },
+      "CursorPage_ServicePublic_": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ServicePublic"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "CursorPage[ServicePublic]"
+      },
+      "DocumentDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "entity_id": {
+            "type": "string",
+            "title": "Entity Id"
+          },
+          "context_type": {
+            "type": "string",
+            "title": "Context Type"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "filesize": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filesize"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "is_public": {
+            "type": "boolean",
+            "title": "Is Public"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          },
+          "file_content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Content"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "entity_id",
+          "context_type",
+          "title",
+          "is_active",
+          "is_public"
+        ],
+        "title": "DocumentDetailResponse",
+        "description": "GET /seller/documents/{id} \u2014 full document including file content.\n\nThe prior behaviour was file_content=false by default; this response\nalways includes file_content for predictable codegen."
+      },
+      "DocumentExecuteResponse": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "test": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "status",
+          "message"
+        ],
+        "title": "DocumentExecuteResponse",
+        "description": "POST /seller/documents/{id}/execute \u2014 queues a Celery test run.\n\nThis is the seller's pre-submission dry-run tool. It does NOT touch\nservice status or trigger admin review \u2014 contrast with the formal\nsubmission flow via PATCH /seller/services/{id} (set_status=pending)."
+      },
+      "DocumentTestStatusResponse": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "test": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "status",
+          "message"
+        ],
+        "title": "DocumentTestStatusResponse",
+        "description": "PATCH /seller/documents/{id} \u2014 unified response for skip/unskip/update.\n\nThe same endpoint now handles three operations via the status field in\nthe request body: skip, pending (unskip), or an external test result\nstatus (success|task_failed|script_failed|unexpected_output)."
+      },
+      "DocumentTestUpdate": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "skip | pending | success | task_failed | script_failed | unexpected_output"
+          },
+          "executed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed At",
+            "description": "ISO timestamp of execution (external results only)"
+          },
+          "tests": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tests",
+            "description": "Per-interface test results: {name: {status, exit_code, stdout, stderr, error}}"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "DocumentTestUpdate",
+        "description": "Request body for updating document test status.\n\nThe ``status`` field drives dispatch:\n\n- ``skip`` \u2014 mark the test as skipped. Clears execution results and\n  stamps ``skipped_at`` / ``skipped_by``. Rejected for\n  ``connectivity_test`` documents (only ``code_example`` can be skipped).\n- ``pending`` \u2014 unskip. Clears execution results and stamps\n  ``unskipped_at`` / ``unskipped_by``. Ready for a fresh run.\n- ``success`` / ``task_failed`` / ``script_failed`` / ``unexpected_output``\n  \u2014 record the result of an external test run. Optional ``executed_at``\n  and per-interface ``tests`` payload are persisted on the document.\n\nThis endpoint replaces the previously-separate /skip and /unskip routes,\nwhich dispatched to the same backing field via different HTTP verbs."
+      },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
+        "description": "Standard 4xx error body produced by FastAPI HTTPException."
+      },
+      "GroupOwnerTypeEnum": {
+        "type": "string",
+        "enum": [
+          "platform",
+          "seller",
+          "customer"
+        ],
+        "title": "GroupOwnerTypeEnum",
+        "description": "Owner type for service groups."
+      },
+      "GroupTypeEnum": {
+        "type": "string",
+        "enum": [
+          "category",
+          "collection",
+          "routable",
+          "misc"
+        ],
+        "title": "GroupTypeEnum",
+        "description": "Type of service group \u2014 derived from configuration, not set directly.\n\nDerivation rules:\n- No rules, no access interfaces \u2192 category (organizes descendants)\n- Rules, no access interfaces \u2192 collection (curated set for browsing)\n- Rules + access interfaces \u2192 group (has own API endpoint + routing)\n- System-generated catch-all \u2192 misc"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ListPriceUpdate": {
+        "properties": {
+          "set": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set"
+          },
+          "remove": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remove"
+          }
+        },
+        "type": "object",
+        "title": "ListPriceUpdate",
+        "description": "Request body for updating list_price on an active service."
+      },
+      "ListPriceUpdateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "list_price": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "List Price"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ListPriceUpdateResponse",
+        "description": "PATCH /seller/services/{id}/list-price."
+      },
+      "ListingStatusEnum": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "ready",
+          "deprecated"
+        ],
+        "title": "ListingStatusEnum",
+        "description": "Status values that sellers can set for listings.\n\nSeller-accessible statuses:\n- draft: Work in progress, skipped during publish (won't be sent to backend)\n- ready: Complete and ready for admin review/testing\n- deprecated: Retired/end of life, no longer offered\n\nNote: Admin-managed workflow statuses (upstream_ready, downstream_ready, in_service)\nare set by the backend admin after testing and validation. These are not included in this\nenum since sellers cannot set them through the CLI tool."
+      },
+      "OfferingStatusEnum": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "ready",
+          "deprecated"
+        ],
+        "title": "OfferingStatusEnum",
+        "description": "Status values that sellers can set for service offerings.\n\nSeller-accessible statuses:\n- draft: Work in progress, skipped during publish\n- ready: Complete and ready for admin review\n- deprecated: Service is retired/end of life"
+      },
+      "OveragePolicyEnum": {
+        "type": "string",
+        "enum": [
+          "block",
+          "throttle",
+          "charge",
+          "queue"
+        ],
+        "title": "OveragePolicyEnum"
+      },
+      "PriceRuleApplyAtEnum": {
+        "type": "string",
+        "enum": [
+          "request",
+          "statement"
+        ],
+        "title": "PriceRuleApplyAtEnum",
+        "description": "When the price rule is applied."
+      },
+      "PriceRulePublic": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Name",
+            "description": "Display name of the price rule"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Optional description"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PriceRuleSourceEnum",
+            "description": "What type of code this rule matches"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Code",
+            "description": "The code to match (e.g., 'pro', 'BF2025')"
+          },
+          "service_groups": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Groups",
+            "description": "Service group UUIDs this rule applies to. null = all services."
+          },
+          "apply_at": {
+            "$ref": "#/components/schemas/PriceRuleApplyAtEnum",
+            "description": "When to apply this rule",
+            "default": "request"
+          },
+          "pricing": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "PriceRulePricingSpec",
+            "description": "Pricing specification (percentage, fixed_amount, graduated, etc.)"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority",
+            "description": "Higher priority rules are applied first",
+            "default": 0
+          },
+          "status": {
+            "$ref": "#/components/schemas/PriceRuleStatusEnum",
+            "description": "Current status of the rule",
+            "default": "draft"
+          },
+          "requires_redemption": {
+            "type": "boolean",
+            "title": "Requires Redemption",
+            "description": "Derived from scope: False when scope.customers is '*' or omitted",
+            "default": true
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope",
+            "description": "Customer and service targeting (null = all customers, all services)"
+          },
+          "seller_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Id",
+            "description": "Seller ID for seller-funded promotions (None = platform rule)"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "created_by_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Created By Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "source",
+          "code",
+          "pricing",
+          "id",
+          "created_by_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PriceRulePublic",
+        "description": "Public schema for PriceRule API responses."
+      },
+      "PriceRuleSourceEnum": {
+        "type": "string",
+        "enum": [
+          "plan_tier",
+          "plan_name",
+          "platform_code",
+          "seller_code"
+        ],
+        "title": "PriceRuleSourceEnum",
+        "description": "Source of code matching for price rules."
+      },
+      "PriceRuleStatusEnum": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "active",
+          "paused"
+        ],
+        "title": "PriceRuleStatusEnum",
+        "description": "Seller-facing status values for promotions.\n\nThe backend may define additional statuses (scheduled, expired,\ncancelled) for internal lifecycle management, but sellers only\ninteract with these three."
+      },
+      "ProviderData": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Name",
+            "description": "Unique provider identifier (URL-friendly, e.g., 'fireworks', 'anthropic')"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name",
+            "description": "Human-readable provider name (e.g., 'Fireworks AI', 'Anthropic')"
+          },
+          "contact_email": {
+            "type": "string",
+            "format": "email",
+            "title": "Contact Email",
+            "description": "Primary contact email for the provider"
+          },
+          "secondary_contact_email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Contact Email",
+            "description": "Secondary contact email"
+          },
+          "homepage": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Homepage",
+            "description": "Provider's homepage URL"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Brief description of the provider"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProviderStatusEnum",
+            "description": "Provider status: draft (skip publish), ready (for review), or deprecated (retired)",
+            "default": "draft"
+          },
+          "documents": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documents",
+            "description": "Documents associated with the provider, keyed by title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "contact_email",
+          "homepage"
+        ],
+        "title": "ProviderData",
+        "description": "Base data structure for provider information.\n\nThis model contains the core fields needed to describe a provider,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `ProviderV1` in unitysvc-core (with additional\n   schema_version, time_created, and services_populator fields for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_provider()\n   - Publish operations from CLI\n\nKey characteristics:\n- Uses string identifiers that match database requirements\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)"
+      },
+      "ProviderStatusEnum": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "ready",
+          "deprecated"
+        ],
+        "title": "ProviderStatusEnum",
+        "description": "Status values that sellers can set for providers.\n\nSeller-accessible statuses:\n- draft: Work in progress, skipped during publish\n- ready: Complete and ready for admin review\n- deprecated: Provider is retired/end of life"
+      },
+      "QuotaResetCycleEnum": {
+        "type": "string",
+        "enum": [
+          "daily",
+          "weekly",
+          "monthly",
+          "yearly"
+        ],
+        "title": "QuotaResetCycleEnum"
+      },
+      "RateLimit": {
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "description": "Maximum allowed in the time window"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/RateLimitUnitEnum",
+            "description": "What is being limited"
+          },
+          "window": {
+            "$ref": "#/components/schemas/TimeWindowEnum",
+            "description": "Time window for the limit"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Human-readable description"
+          },
+          "burst_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Burst Limit",
+            "description": "Short-term burst allowance"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "description": "Whether rate limit is active",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "limit",
+          "unit",
+          "window"
+        ],
+        "title": "RateLimit",
+        "description": "Store rate limiting rules for services."
+      },
+      "RateLimitUnitEnum": {
+        "type": "string",
+        "enum": [
+          "requests",
+          "tokens",
+          "input_tokens",
+          "output_tokens",
+          "bytes",
+          "concurrent"
+        ],
+        "title": "RateLimitUnitEnum"
+      },
+      "RequestTransformEnum": {
+        "type": "string",
+        "enum": [
+          "proxy_rewrite",
+          "body_transformer",
+          "set_body"
+        ],
+        "title": "RequestTransformEnum"
+      },
+      "RoutingVarsUpdate": {
+        "properties": {
+          "set": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set"
+          },
+          "remove": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remove"
+          }
+        },
+        "type": "object",
+        "title": "RoutingVarsUpdate",
+        "description": "Request body for updating routing_vars on an active service."
+      },
+      "RoutingVarsUpdateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "routing_vars": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Vars"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "RoutingVarsUpdateResponse",
+        "description": "PATCH /seller/services/{id}/routing-vars."
+      },
+      "SellerPromotionCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Name",
+            "description": "Display name of the promotion (unique per seller)"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Human-readable description"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope",
+            "description": "Customer and service targeting. null = all customers, all services (blanket promotion)."
+          },
+          "pricing": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Pricing",
+            "description": "Pricing specification (e.g., multiply, constant, add)"
+          },
+          "apply_at": {
+            "$ref": "#/components/schemas/PriceRuleApplyAtEnum",
+            "description": "When to apply: 'request' or 'statement'",
+            "default": "request"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority",
+            "description": "Higher priority rules are applied first",
+            "default": 0
+          },
+          "status": {
+            "$ref": "#/components/schemas/PriceRuleStatusEnum",
+            "description": "Lifecycle status: draft, active, paused",
+            "default": "draft"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "When the promotion expires (code-based only)"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses",
+            "description": "Maximum total redemptions (code-based only)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "pricing"
+        ],
+        "title": "SellerPromotionCreate",
+        "description": "Schema for sellers creating a promotion.\n\nInherits all fields from PromotionData (unitysvc-core).\nThe backend auto-sets source=seller_code and seller_id from\nthe authenticated user, and decomposes scope into internal fields\n(code, requires_redemption, service_groups,\nPriceRuleServiceTarget) during ingestion."
+      },
+      "SellerPromotionUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "service_groups": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Groups"
+          },
+          "pricing": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceRuleStatusEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "SellerPromotionUpdate",
+        "description": "Schema for updating a seller promotion."
+      },
+      "ServiceConstraints": {
+        "properties": {
+          "monthly_quota": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Quota",
+            "description": "Monthly usage quota (requests, tokens, etc.)"
+          },
+          "daily_quota": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Quota",
+            "description": "Daily usage quota (requests, tokens, etc.)"
+          },
+          "quota_unit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RateLimitUnitEnum"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unit for quota limits"
+          },
+          "quota_reset_cycle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuotaResetCycleEnum"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How often quotas reset"
+          },
+          "overage_policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OveragePolicyEnum"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What happens when quota is exceeded"
+          },
+          "auth_methods": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AuthMethodEnum"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Methods",
+            "description": "Supported authentication methods"
+          },
+          "ip_whitelist_required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Whitelist Required",
+            "description": "Whether IP whitelisting is required"
+          },
+          "tls_version_min": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tls Version Min",
+            "description": "Minimum TLS version required"
+          },
+          "max_request_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Request Size Bytes",
+            "description": "Maximum request payload size in bytes"
+          },
+          "max_response_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Response Size Bytes",
+            "description": "Maximum response payload size in bytes"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Seconds",
+            "description": "Request timeout in seconds"
+          },
+          "max_batch_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Batch Size",
+            "description": "Maximum number of items in batch requests"
+          },
+          "content_filters": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ContentFilterEnum"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Filters",
+            "description": "Active content filtering policies"
+          },
+          "input_languages": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Languages",
+            "description": "Supported input languages (ISO 639-1 codes)"
+          },
+          "output_languages": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Languages",
+            "description": "Supported output languages (ISO 639-1 codes)"
+          },
+          "max_context_length": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Context Length",
+            "description": "Maximum context length in tokens"
+          },
+          "region_restrictions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region Restrictions",
+            "description": "Geographic restrictions (ISO country codes)"
+          },
+          "uptime_sla_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime Sla Percent",
+            "description": "Uptime SLA percentage (e.g., 99.9)"
+          },
+          "response_time_sla_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Time Sla Ms",
+            "description": "Response time SLA in milliseconds"
+          },
+          "maintenance_windows": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maintenance Windows",
+            "description": "Scheduled maintenance windows"
+          },
+          "max_concurrent_requests": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Concurrent Requests",
+            "description": "Maximum concurrent requests allowed"
+          },
+          "connection_timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connection Timeout Seconds",
+            "description": "Connection timeout in seconds"
+          },
+          "max_connections_per_ip": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Connections Per Ip",
+            "description": "Maximum connections per IP address"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ServiceConstraints"
+      },
+      "ServiceDataInput": {
+        "properties": {
+          "provider_data": {
+            "$ref": "#/components/schemas/ProviderData",
+            "description": "Provider configuration data"
+          },
+          "offering_data": {
+            "$ref": "#/components/schemas/ServiceOfferingData",
+            "description": "Service offering configuration data"
+          },
+          "listing_data": {
+            "$ref": "#/components/schemas/ServiceListingData",
+            "description": "Service listing configuration data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider_data",
+          "offering_data",
+          "listing_data"
+        ],
+        "title": "ServiceDataInput",
+        "description": "Complete service data input for publishing.\n\nFields are typed against the shared ``unitysvc_core`` models so the\nOpenAPI spec carries the full provider/offering/listing schemas, and\ngenerated clients expose typed upload methods instead of ``dict[str, Any]``."
+      },
+      "ServiceDeleteResponse": {
+        "properties": {
+          "can_delete": {
+            "type": "boolean",
+            "title": "Can Delete"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "deleted": {
+            "type": "boolean",
+            "title": "Deleted",
+            "default": false
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "can_delete",
+          "message"
+        ],
+        "title": "ServiceDeleteResponse",
+        "description": "DELETE /seller/services/{id} \u2014 unified response for dryrun and real deletes.\n\nWhen dryrun=true, only the can_delete/reason fields are meaningful.\nWhen dryrun=false and can_delete=true, the service is deleted and\ndeleted=true. When dryrun=false and can_delete=false, a 400 is raised."
+      },
+      "ServiceDetailResponse": {
+        "properties": {
+          "service_id": {
+            "type": "string",
+            "title": "Service Id"
+          },
+          "service_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "status_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Message"
+          },
+          "routing_vars": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Vars"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offering": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceOfferingData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "listing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceListingData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceDocumentItem"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "interfaces": {
+            "items": {
+              "$ref": "#/components/schemas/AccessInterfacePublic"
+            },
+            "type": "array",
+            "title": "Interfaces"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_id",
+          "status",
+          "documents",
+          "interfaces"
+        ],
+        "title": "ServiceDetailResponse",
+        "description": "GET /seller/services/{id} \u2014 live service record.\n\nThe provider / offering / listing fields carry the same typed shapes\nthe seller used to upload the service (``ProviderData`` /\n``ServiceOfferingData`` / ``ServiceListingData`` from\n``unitysvc_core.models``), so SDK consumers get autocomplete and\ntyped access to the nested data without re-defining the schema.\n\nThe shape reflects the **live** state of the service, not a snapshot\nof the original upload \u2014 in particular ``interfaces`` includes\nlisting-native interfaces *and* any interfaces injected by service\ngroups the service belongs to. Enrollment-scoped interfaces (per\nindividual customer) are filtered out \u2014 sellers must not see them.\n\nThe embedded ``documents`` carry metadata only; fetch file content\nseparately via ``GET /seller/documents/{id}``."
+      },
+      "ServiceDocumentItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "ServiceDocumentItem",
+        "description": "Slim document pointer embedded in ``ServiceDetailResponse``.\n\nCarries just enough for the SDK to navigate to the full document\nrecord (``GET /seller/documents/{id}``); file content, MIME type,\nfile size, ``meta`` (test status etc.) all live on\n``DocumentDetailResponse``. Keeping this list slim avoids re-sending\ndocument details on every service read when the seller is just\npolling status."
+      },
+      "ServiceGroupCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Name"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Display Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "membership_rules": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Membership Rules"
+          },
+          "user_access_interfaces": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Access Interfaces"
+          },
+          "routing_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Policy"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "default": 0
+          },
+          "parent_group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Group Name",
+            "description": "Parent group name. Resolved to ancestor_path based on owner context."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "display_name"
+        ],
+        "title": "ServiceGroupCreate",
+        "description": "Schema for creating a ServiceGroup."
+      },
+      "ServiceGroupPublic": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "owner_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Owner Id"
+          },
+          "owner_type": {
+            "$ref": "#/components/schemas/GroupOwnerTypeEnum"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "membership_rules": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Membership Rules"
+          },
+          "user_access_interfaces": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Access Interfaces"
+          },
+          "routing_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Policy"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ServiceGroupStatusEnum"
+          },
+          "group_type": {
+            "$ref": "#/components/schemas/GroupTypeEnum",
+            "default": "category"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "default": 0
+          },
+          "ancestor_path": {
+            "type": "string",
+            "title": "Ancestor Path",
+            "default": "/"
+          },
+          "service_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Count"
+          },
+          "enrolled_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrolled Count"
+          },
+          "unenrolled_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unenrolled Count"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "owner_id",
+          "owner_type",
+          "name",
+          "display_name",
+          "status",
+          "created_at"
+        ],
+        "title": "ServiceGroupPublic",
+        "description": "Public response model for ServiceGroup."
+      },
+      "ServiceGroupStatusEnum": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "active",
+          "private",
+          "archived"
+        ],
+        "title": "ServiceGroupStatusEnum",
+        "description": "Status of a service group."
+      },
+      "ServiceGroupUpdate": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "membership_rules": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Membership Rules"
+          },
+          "user_access_interfaces": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Access Interfaces"
+          },
+          "routing_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Policy"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceGroupStatusEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "parent_group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Group Name",
+            "description": "Parent group name. Resolved to ancestor_path based on owner context."
+          }
+        },
+        "type": "object",
+        "title": "ServiceGroupUpdate",
+        "description": "Schema for updating a ServiceGroup."
+      },
+      "ServiceListingData": {
+        "properties": {
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Id",
+            "description": "Service ID from previous publish. If provided, updates existing service. Stored in override file (e.g., listing.override.json) by SDK after first publish."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Name identifier for the service listing (defaults to offering name if not provided)"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name",
+            "description": "Human-readable listing name (e.g., 'Premium GPT-4 Access', 'Enterprise AI Services')"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ListingStatusEnum",
+            "description": "Listing status: draft (skip publish), ready (ready for admin review), or deprecated (retired)",
+            "default": "draft"
+          },
+          "list_price": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "List Price",
+            "description": "List price: Listed price for customers per unit of service usage"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyEnum",
+            "description": "Currency for list_price (indexed for filtering)",
+            "default": "USD"
+          },
+          "user_access_interfaces": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Access Interfaces",
+            "description": "User access interfaces for the listing, keyed by name"
+          },
+          "documents": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documents",
+            "description": "Documents associated with the listing, keyed by title (e.g., service level agreements)"
+          },
+          "user_parameters_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Parameters Schema",
+            "description": "JSON Schema for user parameters"
+          },
+          "user_parameters_ui_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Parameters Ui Schema",
+            "description": "UI schema for user parameters form rendering"
+          },
+          "service_options": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Options",
+            "description": "Service-specific options that modify backend behavior. Keys are option names, values are option configurations. The backend decides which options it supports."
+          }
+        },
+        "type": "object",
+        "title": "ServiceListingData",
+        "description": "Base data structure for service listing information.\n\nThis model contains the core fields needed to describe a service listing,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `ListingV1` in unitysvc-core (with additional\n   schema_version and time_created fields for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_service_listing()\n   - Publish operations from CLI\n\nKey characteristics:\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)\n- Uses dict types for nested structures to maintain flexibility between\n  file definitions and database operations\n- Service/provider relationships are determined by file location (SDK mode) or\n  by being published together in a single API call (API mode)"
+      },
+      "ServiceOfferingData": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Name",
+            "description": "Technical service name (e.g., 'gpt-4')"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name",
+            "description": "Human-readable service name for display (e.g., 'GPT-4 Turbo', 'Claude 3 Opus')"
+          },
+          "service_type": {
+            "$ref": "#/components/schemas/ServiceTypeEnum",
+            "description": "Category for grouping/comparison",
+            "default": "llm"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities",
+            "description": "Specific features this service provides (e.g., 'text_to_speech', 'embedding')"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Service description"
+          },
+          "tagline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tagline",
+            "description": "Short elevator pitch or description for the service"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OfferingStatusEnum",
+            "description": "Offering status: draft (skip publish), ready (for review), or deprecated (retired)",
+            "default": "draft"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details",
+            "description": "Static technical specifications and features"
+          },
+          "payout_price": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payout Price",
+            "description": "Payout pricing: How to calculate seller payout"
+          },
+          "upstream_access_config": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream Access Config",
+            "description": "Upstream access interfaces, keyed by name"
+          },
+          "documents": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documents",
+            "description": "Documents associated with the service, keyed by title"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyEnum",
+            "description": "Currency for payout_price",
+            "default": "USD"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags",
+            "description": "List of tags for the service (arbitrary strings)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ServiceOfferingData",
+        "description": "Base data structure for service offering information.\n\nThis model contains the core fields needed to describe a service offering,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `OfferingV1` in unitysvc-core (with additional\n   schema_version and time_created fields for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_service_offering()\n   - Publish operations from CLI\n\nKey characteristics:\n- status maps to database 'status' field\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)\n- Provider relationship is determined by file location (SDK mode) or\n  by being published together in a single API call (API mode)"
+      },
+      "ServicePublic": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "seller_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Seller Id"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "offering_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Offering Id"
+          },
+          "listing_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Listing Id"
+          },
+          "revision_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Of"
+          },
+          "pending_revision_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Revision Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "service_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Type"
+          },
+          "provider_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Name"
+          },
+          "listing_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listing Type"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ServiceStatusEnum"
+          },
+          "status_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Message"
+          },
+          "is_featured": {
+            "type": "boolean",
+            "title": "Is Featured",
+            "default": false
+          },
+          "routing_vars": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Vars"
+          },
+          "review_count": {
+            "type": "integer",
+            "title": "Review Count",
+            "default": 0
+          },
+          "average_rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Rating"
+          },
+          "ops_subscription_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ops Subscription Id"
+          },
+          "ops_customer_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ops Customer Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "seller_id",
+          "offering_id",
+          "listing_id",
+          "status",
+          "created_at"
+        ],
+        "title": "ServicePublic",
+        "description": "Public Service model for API responses.\n\nNote: name, display_name, and other derived fields are populated from\nthe materialized view (ServiceMView) in the API layer."
+      },
+      "ServiceStatusEnum": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "pending",
+          "review",
+          "active",
+          "rejected",
+          "suspended",
+          "deprecated"
+        ],
+        "title": "ServiceStatusEnum",
+        "description": "Status of a Service (identity layer).\n\nWorkflow:\n- draft: Not yet submitted for review (default, seller still editing)\n- pending: Tests running (transient, after seller publishes)\n- review: Tests passed, awaiting admin approval\n- active: Approved and operational, accepting requests\n- rejected: Admin rejected (seller can revise and republish)\n- suspended: Admin suspended due to issues/violations\n- deprecated: Service ending"
+      },
+      "ServiceStatusUpdate": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ServiceStatusEnum"
+          },
+          "run_tests": {
+            "type": "boolean",
+            "title": "Run Tests",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ServiceStatusUpdate",
+        "description": "Request model for updating service status."
+      },
+      "ServiceStatusUpdateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "message"
+        ],
+        "title": "ServiceStatusUpdateResponse",
+        "description": "PATCH /seller/services/{id}."
+      },
+      "ServiceTypeEnum": {
+        "type": "string",
+        "enum": [
+          "llm",
+          "embedding",
+          "image_generation",
+          "notification",
+          "email",
+          "content",
+          "streaming",
+          "compute",
+          "database",
+          "monitoring",
+          "analytics"
+        ],
+        "title": "ServiceTypeEnum",
+        "description": "Broad service category \u2014 defines the access pattern and protocol.\n\nAI modalities (vision, tools, rerank, etc.) are tracked via the\n`capabilities` list on ServiceOffering, not service_type."
+      },
+      "ServiceUploadResponse": {
+        "properties": {
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "dryrun_result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dryrun Result"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "ServiceUploadResponse",
+        "description": "POST /seller/services \u2014 unified response for dryrun and real uploads.\n\nWhen ``dryrun=True`` the upload runs synchronously inside the request:\n``dryrun_result`` carries the validation report (provider / offering /\nlisting / service sub-results) and ``task_id`` is None.\n\nWhen ``dryrun=False`` the upload is queued via Celery and ``task_id``\nis the task id (== Idempotency-Key when one was supplied);\n``dryrun_result`` is None."
+      },
+      "TestEnvResponse": {
+        "properties": {
+          "vars": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Vars"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vars"
+        ],
+        "title": "TestEnvResponse",
+        "description": "GET /seller/services/{id}/test-env \u2014 rendered enrollment_vars.\n\nValues are Jinja2-rendered strings suitable for injection as\nenvironment variables into test scripts."
+      },
+      "TimeWindowEnum": {
+        "type": "string",
+        "enum": [
+          "second",
+          "minute",
+          "hour",
+          "day",
+          "month"
+        ],
+        "title": "TimeWindowEnum"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "http://localhost:8080/realms/unitysvc/protocol/openid-connect/token"
+          }
+        }
+      }
+    }
+  }
+}

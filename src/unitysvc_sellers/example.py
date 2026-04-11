@@ -19,8 +19,8 @@ import jinja2
 import typer
 from rich.console import Console
 from rich.table import Table
-
 from unitysvc_core.models.base import DocumentCategoryEnum
+
 from .output import format_output
 from .utils import execute_script_content, find_files_by_schema, load_data_file, render_template_file
 

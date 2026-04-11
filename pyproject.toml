@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "unitysvc-sellers"
-version = "0.1.0"
-description = "Seller-facing tools for UnitySVC: local catalog organization CLI (usvc_seller)"
+version = "0.2.0"
+description = "Seller-facing tools for UnitySVC: HTTP SDK + usvc_seller CLI"
 readme = "README.md"
 authors = [{ name = "Bo Peng", email = "bo.peng@unitysvc.com" }]
 maintainers = [{ name = "Bo Peng", email = "bo.peng@unitysvc.com" }]
@@ -23,6 +23,10 @@ dependencies = [
   "jinja2",
   "json5",
   "tomli-w",
+  # Seller HTTP SDK
+  "httpx>=0.24",
+  "attrs>=23.0",
+  "python-dateutil>=2.8",
 ]
 requires-python = ">= 3.11"
 
@@ -30,8 +34,10 @@ requires-python = ">= 3.11"
 test = [
   "coverage",
   "pytest",
+  "pytest-asyncio",
   "ruff",
   "mypy",
+  "respx",
 ]
 dev = [
   "coverage",
@@ -50,6 +56,10 @@ usvc_seller = "unitysvc_sellers.cli:app"
 
 [tool.ruff]
 line-length = 120
+# openapi-python-client produces its own idiosyncratic formatting.
+# Excluding keeps regenerations byte-stable — no post-processing
+# step, no drift between the spec and the committed client.
+extend-exclude = ["src/unitysvc_sellers/_generated"]
 
 [tool.ruff.lint]
 select = [
