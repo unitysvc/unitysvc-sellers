@@ -24,7 +24,7 @@ class AsyncDocumentsResource:
         self._client = client
 
     async def get(self, document_id: str | UUID) -> DocumentDetailResponse:
-        from .._generated.api.seller import documents_get
+        from .._generated.api.seller_documents import documents_get
 
         return unwrap(
             await documents_get.asyncio_detailed(
@@ -39,7 +39,7 @@ class AsyncDocumentsResource:
         *,
         force: bool = False,
     ) -> DocumentExecuteResponse:
-        from .._generated.api.seller import documents_execute
+        from .._generated.api.seller_documents import documents_execute
 
         return unwrap(
             await documents_execute.asyncio_detailed(
@@ -54,7 +54,7 @@ class AsyncDocumentsResource:
         document_id: str | UUID,
         body: DocumentTestUpdate | dict[str, Any],
     ) -> DocumentTestStatusResponse:
-        from .._generated.api.seller import documents_update_test
+        from .._generated.api.seller_documents import documents_update_test
         from .._generated.models.document_test_update import DocumentTestUpdate
 
         if isinstance(body, dict):

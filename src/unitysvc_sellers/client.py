@@ -19,13 +19,32 @@ Example::
     client.services.list()
 
 The seller context is encoded entirely in the API key, so no explicit
-``seller_id`` is required. The default base URL points at the staging
-environment::
+``seller_id`` is required. The default base URL points at the
+seller-scoped staging subdomain::
 
-    https://seller.staging.unitysvc.com
+    https://seller.staging.unitysvc.com/v1
+
+The SDK's generated paths are semantic resource paths
+(``/services/{id}``, ``/documents/{id}``, …) without any ``/seller``
+wrapper — the seller scope is carried by the subdomain and the API
+key. A single SDK release therefore works against any deployment
+layout without regeneration; point ``base_url`` at whatever prefix the
+deployment uses::
+
+    # Staging (seller-scoped subdomain)
+    Client(base_url="https://seller.staging.unitysvc.com/v1")
+
+    # Production (seller-scoped subdomain)
+    Client(base_url="https://seller.unitysvc.com/v1")
+
+    # Legacy combined surface where /seller is a path component
+    Client(base_url="https://api.unitysvc.com/v1/seller")
+
+    # Local development against a running backend
+    Client(base_url="http://localhost:8000/v1/seller")
 
 Override via the ``base_url`` constructor argument or the
-``UNITYSVC_BASE_URL`` environment variable.
+``UNITYSVC_SELLER_API_URL`` environment variable.
 """
 
 from __future__ import annotations
@@ -43,10 +62,9 @@ if TYPE_CHECKING:
     from .resources.promotions import PromotionsResource
     from .resources.services import ServicesResource
 
-
-DEFAULT_BASE_URL = "https://seller.staging.unitysvc.com"
-ENV_API_KEY = "UNITYSVC_API_KEY"
-ENV_BASE_URL = "UNITYSVC_BASE_URL"
+DEFAULT_SELLER_API_URL = "https://seller.staging.unitysvc.com/v1"
+ENV_SELLER_API_KEY = "UNITYSVC_SELLER_API_KEY"
+ENV_SELLER_API_URL = "UNITYSVC_SELLER_API_URL"
 
 
 class Client:
@@ -56,8 +74,8 @@ class Client:
         api_key: A seller API key (``svcpass_...``). Encodes the seller
             context, so no separate ``seller_id`` is required.
         base_url: Override the default base URL. If not provided, falls
-            back to the ``UNITYSVC_BASE_URL`` environment variable, then
-            to :data:`DEFAULT_BASE_URL`.
+            back to the ``UNITYSVC_SELLER_API_URL`` environment variable, then
+            to :data:`DEFAULT_SELLER_API_URL`.
         timeout: Per-request timeout in seconds. Default 30s.
         verify_ssl: Whether to verify TLS certificates. Default ``True``.
             Set to ``False`` only for local testing against a self-signed
@@ -75,7 +93,7 @@ class Client:
         if not api_key:
             raise ValueError("api_key is required")
 
-        resolved_base_url = base_url or os.environ.get(ENV_BASE_URL) or DEFAULT_BASE_URL
+        resolved_base_url = base_url or os.environ.get(ENV_SELLER_API_URL) or DEFAULT_SELLER_API_URL
 
         if isinstance(timeout, (int, float)):
             timeout_obj = httpx.Timeout(float(timeout))
@@ -106,14 +124,14 @@ class Client:
     def from_env(cls, **kwargs: object) -> Client:
         """Construct a client from environment variables.
 
-        Reads :data:`ENV_API_KEY` (required) and :data:`ENV_BASE_URL`
+        Reads :data:`ENV_SELLER_API_KEY` (required) and :data:`ENV_SELLER_API_URL`
         (optional). Any extra keyword arguments are forwarded to the
         :class:`Client` constructor.
         """
-        api_key = os.environ.get(ENV_API_KEY)
+        api_key = os.environ.get(ENV_SELLER_API_KEY)
         if not api_key:
             raise RuntimeError(
-                f"Environment variable {ENV_API_KEY} is not set. "
+                f"Environment variable {ENV_SELLER_API_KEY} is not set. "
                 f"Set it to a seller API key (svcpass_...) or pass api_key= explicitly."
             )
         return cls(api_key=api_key, **kwargs)  # type: ignore[arg-type]

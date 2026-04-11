@@ -30,7 +30,7 @@ class DocumentsResource:
 
     def get(self, document_id: str | UUID) -> DocumentDetailResponse:
         """Get the full record for a single document."""
-        from .._generated.api.seller import documents_get
+        from .._generated.api.seller_documents import documents_get
 
         return unwrap(
             documents_get.sync_detailed(
@@ -52,7 +52,7 @@ class DocumentsResource:
             force: If True, execute even if the document was previously
                 marked skipped or has a recent successful run.
         """
-        from .._generated.api.seller import documents_execute
+        from .._generated.api.seller_documents import documents_execute
 
         return unwrap(
             documents_execute.sync_detailed(
@@ -68,7 +68,7 @@ class DocumentsResource:
         body: DocumentTestUpdate | dict[str, Any],
     ) -> DocumentTestStatusResponse:
         """Update a document's test state (skip / unskip / mark pass-fail)."""
-        from .._generated.api.seller import documents_update_test
+        from .._generated.api.seller_documents import documents_update_test
         from .._generated.models.document_test_update import DocumentTestUpdate
 
         if isinstance(body, dict):

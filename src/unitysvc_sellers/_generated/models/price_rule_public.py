@@ -10,10 +10,10 @@ from ..types import UNSET, Unset
 
 from ..models.price_rule_apply_at_enum import check_price_rule_apply_at_enum
 from ..models.price_rule_apply_at_enum import PriceRuleApplyAtEnum
-from ..models.price_rule_lifecycle_status_enum import check_price_rule_lifecycle_status_enum
-from ..models.price_rule_lifecycle_status_enum import PriceRuleLifecycleStatusEnum
 from ..models.price_rule_source_enum import check_price_rule_source_enum
 from ..models.price_rule_source_enum import PriceRuleSourceEnum
+from ..models.price_rule_status_enum import check_price_rule_status_enum
+from ..models.price_rule_status_enum import PriceRuleStatusEnum
 from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
@@ -21,7 +21,7 @@ from uuid import UUID
 import datetime
 
 if TYPE_CHECKING:
-  from ..models.price_rule_public_pricing import PriceRulePublicPricing
+  from ..models.price_rule_pricing_spec import PriceRulePricingSpec
   from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
 
 
@@ -44,7 +44,7 @@ class PriceRulePublic:
     """ Source of code matching for price rules. """
     code: str
     """ The code to match (e.g., 'pro', 'BF2025') """
-    pricing: PriceRulePublicPricing
+    pricing: PriceRulePricingSpec
     """ Pricing specification (percentage, fixed_amount, graduated, etc.) """
     id: UUID
     created_by_id: UUID
@@ -58,8 +58,12 @@ class PriceRulePublic:
     """ When the price rule is applied. """
     priority: int | Unset = 0
     """ Higher priority rules are applied first """
-    status: PriceRuleLifecycleStatusEnum | Unset = UNSET
-    """ Status of a price rule in its lifecycle. """
+    status: PriceRuleStatusEnum | Unset = UNSET
+    """ Seller-facing status values for promotions.
+
+    The backend may define additional statuses (scheduled, expired,
+    cancelled) for internal lifecycle management, but sellers only
+    interact with these three. """
     requires_redemption: bool | Unset = True
     """ Derived from scope: False when scope.customers is '*' or omitted """
     scope: None | PriceRulePublicScopeType0 | Unset = UNSET
@@ -72,7 +76,7 @@ class PriceRulePublic:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.price_rule_public_pricing import PriceRulePublicPricing
+        from ..models.price_rule_pricing_spec import PriceRulePricingSpec
         from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
         name = self.name
 
@@ -172,7 +176,7 @@ class PriceRulePublic:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.price_rule_public_pricing import PriceRulePublicPricing
+        from ..models.price_rule_pricing_spec import PriceRulePricingSpec
         from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
         d = dict(src_dict)
         name = d.pop("name")
@@ -184,7 +188,7 @@ class PriceRulePublic:
 
         code = d.pop("code")
 
-        pricing = PriceRulePublicPricing.from_dict(d.pop("pricing"))
+        pricing = PriceRulePricingSpec.from_dict(d.pop("pricing"))
 
 
 
@@ -250,11 +254,11 @@ class PriceRulePublic:
         priority = d.pop("priority", UNSET)
 
         _status = d.pop("status", UNSET)
-        status: PriceRuleLifecycleStatusEnum | Unset
+        status: PriceRuleStatusEnum | Unset
         if isinstance(_status,  Unset):
             status = UNSET
         else:
-            status = check_price_rule_lifecycle_status_enum(_status)
+            status = check_price_rule_status_enum(_status)
 
 
 

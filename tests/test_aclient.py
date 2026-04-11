@@ -105,8 +105,8 @@ def runner() -> CliRunner:
 
 @pytest.fixture
 def env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("UNITYSVC_API_KEY", "svcpass_test_key")
-    monkeypatch.setenv("UNITYSVC_BASE_URL", BASE_URL)
+    monkeypatch.setenv("UNITYSVC_SELLER_API_KEY", "svcpass_test_key")
+    monkeypatch.setenv("UNITYSVC_SELLER_API_URL", BASE_URL)
 
 
 # ---------------------------------------------------------------------------
@@ -116,24 +116,24 @@ class TestAsyncClient:
     @pytest.mark.asyncio
     @respx.mock
     async def test_services_list_returns_typed_payload(self) -> None:
-        respx.get(f"{BASE_URL}/v1/seller/services").mock(
+        respx.get(f"{BASE_URL}/services").mock(
             return_value=httpx.Response(
                 200,
-                json={"data": [_service_public(name="svc1")], "count": 1},
+                json={"data": [_service_public(name="svc1")], "has_more": False},
             )
         )
 
         async with AsyncClient(api_key="svcpass_test", base_url=BASE_URL) as client:
             result = await client.services.list(limit=10)
 
-        assert result.count == 1
+        assert len(result.data) == 1
         assert result.data[0].name == "svc1"
 
     @pytest.mark.asyncio
     @respx.mock
     async def test_services_set_status_sends_body(self) -> None:
         sid = uuid.uuid4()
-        route = respx.patch(f"{BASE_URL}/v1/seller/services/{sid}").mock(
+        route = respx.patch(f"{BASE_URL}/services/{sid}").mock(
             return_value=httpx.Response(
                 200,
                 json=_service_status_update_response(id=str(sid), status="deprecated"),
@@ -149,37 +149,23 @@ class TestAsyncClient:
     @pytest.mark.asyncio
     @respx.mock
     async def test_promotions_list_async(self) -> None:
-        respx.get(f"{BASE_URL}/v1/seller/promotions").mock(
-            return_value=httpx.Response(200, json={"data": [], "count": 0})
-        )
+        respx.get(f"{BASE_URL}/promotions").mock(return_value=httpx.Response(200, json={"data": [], "has_more": False}))
 
         async with AsyncClient(api_key="svcpass_test", base_url=BASE_URL) as client:
             result = await client.promotions.list()
 
-        assert result.count == 0
+        assert result.data == []
 
-    @pytest.mark.asyncio
-    @respx.mock
-    async def test_groups_refresh_calls_post(self) -> None:
-        gid = uuid.uuid4()
-        route = respx.post(f"{BASE_URL}/v1/seller/service-groups/{gid}/refresh").mock(
-            return_value=httpx.Response(
-                200,
-                json=_service_group_public(id=str(gid), name="g1"),
-            )
-        )
-
-        async with AsyncClient(api_key="svcpass_test", base_url=BASE_URL) as client:
-            result = await client.groups.refresh(gid)
-
-        assert route.called
-        assert result.name == "g1"
+    # NOTE: ``test_groups_refresh_calls_post`` was deleted — the
+    # backend no longer exposes ``POST /service-groups/{id}/refresh``
+    # (membership refresh is automatic on mutation, via a background
+    # worker). ``client.groups.refresh()`` was removed accordingly.
 
     @pytest.mark.asyncio
     @respx.mock
     async def test_documents_execute_passes_force(self) -> None:
         did = uuid.uuid4()
-        route = respx.post(f"{BASE_URL}/v1/seller/documents/{did}/execute").mock(
+        route = respx.post(f"{BASE_URL}/documents/{did}/execute").mock(
             return_value=httpx.Response(
                 200,
                 json=_document_execute_response(document_id=str(did)),
@@ -195,9 +181,7 @@ class TestAsyncClient:
     @respx.mock
     async def test_404_raises_not_found_async(self) -> None:
         sid = uuid.uuid4()
-        respx.get(f"{BASE_URL}/v1/seller/services/{sid}").mock(
-            return_value=httpx.Response(404, json={"detail": "missing"})
-        )
+        respx.get(f"{BASE_URL}/services/{sid}").mock(return_value=httpx.Response(404, json={"detail": "missing"}))
 
         async with AsyncClient(api_key="svcpass_test", base_url=BASE_URL) as client:
             with pytest.raises(NotFoundError):
@@ -210,7 +194,7 @@ class TestAsyncClient:
 class TestServicesCommands:
     @respx.mock
     def test_list_renders_table(self, runner: CliRunner, env: None) -> None:
-        respx.get(f"{BASE_URL}/v1/seller/services").mock(
+        respx.get(f"{BASE_URL}/services").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -236,7 +220,7 @@ class TestServicesCommands:
 
     @respx.mock
     def test_list_json_output(self, runner: CliRunner, env: None) -> None:
-        respx.get(f"{BASE_URL}/v1/seller/services").mock(
+        respx.get(f"{BASE_URL}/services").mock(
             return_value=httpx.Response(
                 200,
                 json={"data": [_service_public(name="svc1")], "count": 1},
@@ -249,7 +233,7 @@ class TestServicesCommands:
 
     @respx.mock
     def test_show_404(self, runner: CliRunner, env: None) -> None:
-        respx.get(f"{BASE_URL}/v1/seller/services/abcdef12").mock(
+        respx.get(f"{BASE_URL}/services/abcdef12").mock(
             return_value=httpx.Response(404, json={"detail": "Service not found"})
         )
 
@@ -260,7 +244,7 @@ class TestServicesCommands:
     @respx.mock
     def test_deprecate_calls_set_status(self, runner: CliRunner, env: None) -> None:
         sid = "12345678-1234-1234-1234-123456789abc"
-        route = respx.patch(f"{BASE_URL}/v1/seller/services/{sid}").mock(
+        route = respx.patch(f"{BASE_URL}/services/{sid}").mock(
             return_value=httpx.Response(200, json={"id": sid, "status": "deprecated"})
         )
 
@@ -276,7 +260,7 @@ class TestServicesCommands:
 class TestPromotionsCommands:
     @respx.mock
     def test_list(self, runner: CliRunner, env: None) -> None:
-        respx.get(f"{BASE_URL}/v1/seller/promotions").mock(
+        respx.get(f"{BASE_URL}/promotions").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -301,7 +285,7 @@ class TestPromotionsCommands:
     @respx.mock
     def test_activate_resolves_by_name_then_patches(self, runner: CliRunner, env: None) -> None:
         promo_id = "22222222-2222-2222-2222-222222222222"
-        respx.get(f"{BASE_URL}/v1/seller/promotions").mock(
+        respx.get(f"{BASE_URL}/promotions").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -310,7 +294,7 @@ class TestPromotionsCommands:
                 },
             )
         )
-        patch_route = respx.patch(f"{BASE_URL}/v1/seller/promotions/{promo_id}").mock(
+        patch_route = respx.patch(f"{BASE_URL}/promotions/{promo_id}").mock(
             return_value=httpx.Response(
                 200,
                 json=_price_rule_public(id=promo_id, name="summer", status="active"),
@@ -329,7 +313,7 @@ class TestPromotionsCommands:
 class TestGroupsCommands:
     @respx.mock
     def test_list(self, runner: CliRunner, env: None) -> None:
-        respx.get(f"{BASE_URL}/v1/seller/service-groups").mock(
+        respx.get(f"{BASE_URL}/service-groups").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -349,28 +333,11 @@ class TestGroupsCommands:
         assert result.exit_code == 0
         assert "premium" in result.stdout
 
-    @respx.mock
-    def test_refresh_resolves_by_name(self, runner: CliRunner, env: None) -> None:
-        gid = "44444444-4444-4444-4444-444444444444"
-        respx.get(f"{BASE_URL}/v1/seller/service-groups").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "data": [_service_group_public(id=gid, name="premium")],
-                    "count": 1,
-                },
-            )
-        )
-        refresh_route = respx.post(f"{BASE_URL}/v1/seller/service-groups/{gid}/refresh").mock(
-            return_value=httpx.Response(
-                200,
-                json=_service_group_public(id=gid, name="premium"),
-            )
-        )
-
-        result = runner.invoke(cli_app, ["groups", "refresh", "premium"])
-        assert result.exit_code == 0
-        assert refresh_route.called
+    # NOTE: ``test_refresh_resolves_by_name`` was deleted along with
+    # the ``usvc_seller groups refresh`` CLI command. Group membership
+    # refresh is now handled automatically by a background worker
+    # whenever a group is mutated, so there is no manual refresh path
+    # for sellers to invoke.
 
 
 # ---------------------------------------------------------------------------
@@ -379,7 +346,7 @@ class TestGroupsCommands:
 class TestAuthEnvFallback:
     @respx.mock
     def test_missing_api_key_exits(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.delenv("UNITYSVC_API_KEY", raising=False)
+        monkeypatch.delenv("UNITYSVC_SELLER_API_KEY", raising=False)
         # Force the flag default to None
         result = runner.invoke(cli_app, ["services", "list"])
         assert result.exit_code == 1
@@ -387,9 +354,7 @@ class TestAuthEnvFallback:
 
     @respx.mock
     def test_401_surfaces_authentication_error(self, runner: CliRunner, env: None) -> None:
-        respx.get(f"{BASE_URL}/v1/seller/services").mock(
-            return_value=httpx.Response(401, json={"detail": "Invalid API key"})
-        )
+        respx.get(f"{BASE_URL}/services").mock(return_value=httpx.Response(401, json={"detail": "Invalid API key"}))
 
         result = runner.invoke(cli_app, ["services", "list"])
         assert result.exit_code == 1

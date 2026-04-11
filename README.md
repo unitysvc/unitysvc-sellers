@@ -3,9 +3,11 @@
 Seller-facing tools for [UnitySVC](https://unitysvc.com/). Provides:
 
 - A typed Python **HTTP SDK** with sync ([`Client`](#programmatic-usage))
-  and async ([`AsyncClient`](#async-client)) facades for the
-  `/v1/seller/*` API surface — services, promotions, service groups,
-  documents, and end-to-end catalog upload.
+  and async ([`AsyncClient`](#async-client)) facades for the seller
+  API surface — services, promotions, service groups, documents, and
+  end-to-end catalog upload. Defaults to the dedicated
+  `seller.staging.unitysvc.com/v1` subdomain; overridable via
+  `UNITYSVC_SELLER_API_URL` for production or local development.
 - The **`usvc_seller` CLI** for organizing local seller catalogs and
   for managing remote services / promotions / service groups against
   the UnitySVC backend.
@@ -56,14 +58,66 @@ print(f"services: {result.services.success}/{result.services.total}")
 
 ### Configuration
 
-| Source                 | Default                              | Override                               |
-|------------------------|--------------------------------------|----------------------------------------|
-| API key                | (required)                           | `Client(api_key=...)` / `UNITYSVC_API_KEY` |
-| Base URL               | `https://seller.staging.unitysvc.com`| `Client(base_url=...)` / `UNITYSVC_BASE_URL` |
-| Timeout                | 30 s                                 | `Client(timeout=...)`                  |
+| Source     | Default                                   | Override                                                    |
+|------------|-------------------------------------------|-------------------------------------------------------------|
+| API key    | (required)                                | `Client(api_key=...)` / `UNITYSVC_SELLER_API_KEY`           |
+| Base URL   | `https://seller.staging.unitysvc.com/v1`  | `Client(base_url=...)` / `UNITYSVC_SELLER_API_URL`          |
+| Timeout    | 30 s                                      | `Client(timeout=...)`                                       |
 
 The seller context is encoded entirely in the API key (`svcpass_...`),
 so no separate `seller_id` argument is required.
+
+**Env var naming:** env vars are namespaced to the seller role
+(`UNITYSVC_SELLER_API_KEY`, `UNITYSVC_SELLER_API_URL`) so a single
+host can run both the seller SDK and the future customer SDK side by
+side without collision — each picks up its own credentials.
+
+**URL layout:** the SDK's generated paths are semantic resource paths
+(`/services/{id}`, `/documents/{id}`, `/promotions`, `/service-groups`)
+with no `/seller` wrapper. The seller scope is carried by the
+subdomain + API key. The same generated SDK works against any
+deployment layout without regeneration:
+
+```python
+# Default: seller-scoped staging subdomain
+Client()  # reads UNITYSVC_SELLER_API_URL or defaults to
+          # https://seller.staging.unitysvc.com/v1
+
+# Production (seller-scoped subdomain)
+Client(base_url="https://seller.unitysvc.com/v1")
+
+# Legacy combined surface where /seller is a path component
+Client(base_url="https://api.unitysvc.com/v1/seller")
+
+# Local development against a running backend
+Client(base_url="http://localhost:8000/v1/seller")
+```
+
+### Pagination
+
+`services.list`, `promotions.list`, and `groups.list` use
+**cursor-based pagination**. Each call returns a `CursorPage*`
+response with `data`, `next_cursor`, and `has_more`:
+
+```python
+# Single page
+page = client.services.list(limit=50)
+for s in page.data:
+    print(s.name)
+
+# Full iteration
+cursor = None
+while True:
+    page = client.services.list(cursor=cursor, limit=100)
+    for s in page.data:
+        yield s
+    if not page.has_more or not page.next_cursor:
+        break
+    cursor = page.next_cursor
+```
+
+The CLI list commands accept `--cursor` and `--all` (to auto-follow
+cursors and render the combined result).
 
 ### Async client
 
@@ -132,13 +186,13 @@ usvc_seller data list-tests                     # list local code-example / conn
 usvc_seller data run-tests                      # run them locally
 usvc_seller data show-test SERVICE              # show last local test result
 usvc_seller data upload   [DATA_DIR]            # upload services + promotions + groups
-        [--api-key svcpass_...]                 #   defaults to $UNITYSVC_API_KEY
-        [--base-url https://...]                #   defaults to $UNITYSVC_BASE_URL or staging
+        [--api-key svcpass_...]                 #   defaults to $UNITYSVC_SELLER_API_KEY
+        [--base-url https://...]                #   defaults to $UNITYSVC_SELLER_API_URL or staging
         [--type services|promotions|groups]     #   restrict to one resource kind
         [--dryrun]                              #   validate against backend without persisting
 ```
 
-### Remote commands (require `$UNITYSVC_API_KEY` or `--api-key`)
+### Remote commands (require `$UNITYSVC_SELLER_API_KEY` or `--api-key`)
 
 ```
 # Services
@@ -176,15 +230,20 @@ usvc_seller promotions delete   NAME_OR_ID [--force]
 usvc_seller groups list   [--status STATUS] [--format table|json]
 usvc_seller groups show    NAME_OR_ID [--format table|json]
 usvc_seller groups delete  NAME_OR_ID [--force]
-usvc_seller groups refresh NAME_OR_ID
 ```
 
 `promotions activate` / `pause` are sugar over
-`PATCH /v1/seller/promotions/{id}` with a `status` field — the
-seller-api-codegen-hygiene branch consolidated the legacy
-`/activate` and `/pause` routes. The legacy `usvc services dedup`
-command is **not** ported because the backing endpoint was removed in
-the same cleanup; use `services delete --all --status draft` instead.
+`PATCH /promotions/{id}` with a `status` field — the backend
+consolidated the legacy `/activate` and `/pause` routes.
+
+The legacy `usvc services dedup` command is **not** ported because the
+backing endpoint was removed; use
+`services delete --all --status draft` instead.
+
+The legacy `usvc_seller groups refresh` command is **not** ported
+either. Dynamic group membership is now refreshed automatically by a
+background worker whenever a group is mutated, so there's no manual
+refresh step for sellers to invoke.
 
 ## Layout
 
@@ -197,7 +256,7 @@ src/unitysvc_sellers/
 ├── resources/
 │   ├── services.py      # client.services.{list,get,upload,set_status,...}
 │   ├── promotions.py    # client.promotions.{list,get,upsert,update,delete}
-│   ├── groups.py        # client.groups.{list,get,upsert,update,delete,refresh}
+│   ├── groups.py        # client.groups.{list,get,upsert,update,delete}
 │   ├── documents.py     # client.documents.{get,execute,update_test}
 │   ├── aservices.py     # async mirror of services.py
 │   ├── apromotions.py   # async mirror of promotions.py
@@ -206,7 +265,10 @@ src/unitysvc_sellers/
 │   └── upload.py        # high-level upload_directory(client, path)
 ├── _generated/          # openapi-python-client output (do not edit by hand)
 │   ├── client.py        #   AuthenticatedClient (httpx + attrs, sync + async)
-│   ├── api/seller/      #   one module per operation (services_list, ...)
+│   ├── api/seller_services/       #   services_list, services_get, ...
+│   ├── api/seller_promotions/     #   promotions_list, promotions_upsert, ...
+│   ├── api/seller_service_groups/ #   groups_list, groups_upsert, ...
+│   ├── api/seller_documents/      #   documents_get, documents_execute, ...
 │   ├── models/          #   one model per schema component
 │   └── ...
 ├── commands/            # Typer command groups for the remote CLI
@@ -215,7 +277,7 @@ src/unitysvc_sellers/
 │   ├── services.py      #   `usvc_seller services {list,show,submit,...}`
 │   ├── tests.py         #   `usvc_seller services {list,show,run,skip,unskip}-test`
 │   ├── promotions.py    #   `usvc_seller promotions {list,show,activate,pause,delete}`
-│   └── groups.py        #   `usvc_seller groups {list,show,delete,refresh}`
+│   └── groups.py        #   `usvc_seller groups {list,show,delete}`
 ├── cli.py               # `usvc_seller` Typer entry point
 ├── data.py              # `usvc_seller data` command group (local)
 ├── _cli_upload.py       # `usvc_seller data upload` Typer wrapper

@@ -193,28 +193,7 @@ def delete_group(
     console.print(f"[green]✓[/green] Deleted: {stub.get('name', name_or_id)}")
 
 
-# ---------------------------------------------------------------------------
-# refresh
-# ---------------------------------------------------------------------------
-@app.command("refresh")
-def refresh_group(
-    name_or_id: str = typer.Argument(..., help="Group name or partial UUID."),
-    output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
-    api_key: str | None = api_key_option(),
-    base_url: str = base_url_option(),
-) -> None:
-    """Re-evaluate dynamic membership for a service group."""
-
-    async def _impl():
-        async with async_client(api_key, base_url) as client:
-            stub = await _resolve_group(client, name_or_id)
-            return model_to_dict(await client.groups.refresh(stub["id"]))
-
-    group = run_async(_impl(), error_prefix="Failed to refresh group")
-
-    if output_format == "json":
-        console.print(json.dumps(group, indent=2, default=str))
-        return
-
-    members = len(group.get("services") or group.get("service_ids") or [])
-    console.print(f"[green]✓[/green] Refreshed: {group.get('name', name_or_id)} ({members} member(s))")
+# NOTE: ``usvc_seller groups refresh`` was removed alongside the
+# backend endpoint it wrapped. Dynamic membership is now refreshed
+# automatically by a background worker whenever a group is mutated, so
+# there is no longer a manual refresh step for sellers to invoke.

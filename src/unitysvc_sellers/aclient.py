@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from ._generated.client import AuthenticatedClient as _LowLevelClient
-from .client import DEFAULT_BASE_URL, ENV_API_KEY, ENV_BASE_URL
+from .client import DEFAULT_SELLER_API_URL, ENV_SELLER_API_KEY, ENV_SELLER_API_URL
 
 if TYPE_CHECKING:
     from .resources.adocuments import AsyncDocumentsResource
@@ -49,8 +49,8 @@ class AsyncClient:
         api_key: A seller API key (``svcpass_...``). Encodes the seller
             context, so no separate ``seller_id`` is required.
         base_url: Override the default base URL. If not provided, falls
-            back to ``UNITYSVC_BASE_URL``, then to
-            :data:`unitysvc_sellers.DEFAULT_BASE_URL`.
+            back to ``UNITYSVC_SELLER_API_URL``, then to
+            :data:`unitysvc_sellers.DEFAULT_SELLER_API_URL`.
         timeout: Per-request timeout in seconds. Default 30s.
         verify_ssl: Whether to verify TLS certificates. Default ``True``.
     """
@@ -66,7 +66,7 @@ class AsyncClient:
         if not api_key:
             raise ValueError("api_key is required")
 
-        resolved_base_url = base_url or os.environ.get(ENV_BASE_URL) or DEFAULT_BASE_URL
+        resolved_base_url = base_url or os.environ.get(ENV_SELLER_API_URL) or DEFAULT_SELLER_API_URL
 
         if isinstance(timeout, (int, float)):
             timeout_obj = httpx.Timeout(float(timeout))
@@ -94,10 +94,10 @@ class AsyncClient:
     @classmethod
     def from_env(cls, **kwargs: object) -> AsyncClient:
         """Construct an :class:`AsyncClient` from environment variables."""
-        api_key = os.environ.get(ENV_API_KEY)
+        api_key = os.environ.get(ENV_SELLER_API_KEY)
         if not api_key:
             raise RuntimeError(
-                f"Environment variable {ENV_API_KEY} is not set. "
+                f"Environment variable {ENV_SELLER_API_KEY} is not set. "
                 f"Set it to a seller API key (svcpass_...) or pass api_key= explicitly."
             )
         return cls(api_key=api_key, **kwargs)  # type: ignore[arg-type]

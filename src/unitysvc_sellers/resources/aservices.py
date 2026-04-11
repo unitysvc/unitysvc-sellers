@@ -15,6 +15,9 @@ from .._http import unwrap
 
 if TYPE_CHECKING:
     from .._generated.client import AuthenticatedClient
+    from .._generated.models.cursor_page_service_public import (
+        CursorPageServicePublic,
+    )
     from .._generated.models.list_price_update import ListPriceUpdate
     from .._generated.models.list_price_update_response import ListPriceUpdateResponse
     from .._generated.models.routing_vars_update import RoutingVarsUpdate
@@ -28,7 +31,6 @@ if TYPE_CHECKING:
     from .._generated.models.service_status_update_response import (
         ServiceStatusUpdateResponse,
     )
-    from .._generated.models.services_public import ServicesPublic
     from .._generated.models.task_queued_response import TaskQueuedResponse
     from .._generated.models.test_env_response import TestEnvResponse
 
@@ -42,20 +44,20 @@ class AsyncServicesResource:
     async def list(
         self,
         *,
-        skip: int = 0,
-        limit: int = 100,
+        cursor: str | None = None,
+        limit: int = 50,
         status: str | None = None,
         service_type: str | None = None,
         listing_type: str | None = None,
         name: str | None = None,
-    ) -> ServicesPublic:
-        from .._generated.api.seller import services_list
+    ) -> CursorPageServicePublic:
+        from .._generated.api.seller_services import services_list
         from .._generated.types import UNSET
 
         return unwrap(
             await services_list.asyncio_detailed(
                 client=self._client,
-                skip=skip,
+                cursor=cursor if cursor is not None else UNSET,
                 limit=limit,
                 status=status if status is not None else UNSET,
                 service_type=service_type if service_type is not None else UNSET,
@@ -65,7 +67,7 @@ class AsyncServicesResource:
         )
 
     async def get(self, service_id: str | UUID) -> ServiceDetailResponse:
-        from .._generated.api.seller import services_get
+        from .._generated.api.seller_services import services_get
 
         return unwrap(
             await services_get.asyncio_detailed(
@@ -75,7 +77,7 @@ class AsyncServicesResource:
         )
 
     async def get_test_env(self, service_id: str | UUID) -> TestEnvResponse:
-        from .._generated.api.seller import services_get_test_env
+        from .._generated.api.seller_services import services_get_test_env
 
         return unwrap(
             await services_get_test_env.asyncio_detailed(
@@ -90,7 +92,7 @@ class AsyncServicesResource:
         *,
         dryrun: bool = False,
     ) -> TaskQueuedResponse:
-        from .._generated.api.seller import services_upload
+        from .._generated.api.seller_services import services_upload
         from .._generated.models.service_data_input import ServiceDataInput
 
         if isinstance(body, dict):
@@ -109,7 +111,7 @@ class AsyncServicesResource:
         service_id: str | UUID,
         body: ServiceStatusUpdate | dict[str, Any],
     ) -> ServiceStatusUpdateResponse:
-        from .._generated.api.seller import services_set_status
+        from .._generated.api.seller_services import services_set_status
         from .._generated.models.service_status_update import ServiceStatusUpdate
 
         if isinstance(body, dict):
@@ -128,7 +130,7 @@ class AsyncServicesResource:
         service_id: str | UUID,
         body: RoutingVarsUpdate | dict[str, Any],
     ) -> RoutingVarsUpdateResponse:
-        from .._generated.api.seller import services_set_routing_vars
+        from .._generated.api.seller_services import services_set_routing_vars
         from .._generated.models.routing_vars_update import RoutingVarsUpdate
 
         if isinstance(body, dict):
@@ -147,7 +149,7 @@ class AsyncServicesResource:
         service_id: str | UUID,
         body: ListPriceUpdate | dict[str, Any],
     ) -> ListPriceUpdateResponse:
-        from .._generated.api.seller import services_set_list_price
+        from .._generated.api.seller_services import services_set_list_price
         from .._generated.models.list_price_update import ListPriceUpdate
 
         if isinstance(body, dict):
@@ -167,7 +169,7 @@ class AsyncServicesResource:
         *,
         dryrun: bool = False,
     ) -> ServiceDeleteResponse:
-        from .._generated.api.seller import services_delete
+        from .._generated.api.seller_services import services_delete
 
         return unwrap(
             await services_delete.asyncio_detailed(

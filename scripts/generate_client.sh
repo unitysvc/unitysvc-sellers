@@ -1,57 +1,87 @@
 #!/usr/bin/env bash
-# Regenerate the low-level seller API client from the backend OpenAPI spec.
+# Regenerate the low-level seller API client from the committed seller spec.
 #
 # Usage:
-#     ./scripts/generate_client.sh [path/to/unitysvc]
+#     ./scripts/generate_client.sh [path/to/seller_api.json]
 #
-# Defaults to ../unitysvc (sibling checkout). Dumps /v1/openapi.json from the
-# backend, filters it to `tags: ["seller"]` operations, sanitizes schema
-# names with characters that aren't valid Python identifiers, and
-# regenerates src/unitysvc_sellers/_generated via openapi-python-client.
+# With no argument, reads the spec from the sibling unitysvc checkout:
+#
+#     ../unitysvc/backend/generated/seller_api.json
+#
+# That file is produced by `inv generate-client` (or
+# `scripts/generate-client.sh`) in the unitysvc repo, which dumps the
+# OpenAPI spec of a seller-only FastAPI sub-app — no filtering or
+# sanitization on this side, the upstream sub-app already emits a spec
+# containing only seller-tagged operations and their reachable schemas.
+#
+# If the sibling checkout is missing, pass the spec path explicitly:
+#
+#     ./scripts/generate_client.sh /path/to/seller_api.json
 #
 # Requirements:
-#   - A checkout of unitysvc/unitysvc with backend/.venv provisioned
-#     (cd backend && uv sync).
-#   - openapi-python-client installed. If not on PATH, this script will
-#     bootstrap it in .tool-venv/.
+#   - openapi-python-client installed. If not on PATH, this script
+#     bootstraps it in .tool-venv/.
 set -euo pipefail
 
-UNITYSVC_DIR="${1:-../unitysvc}"
-UNITYSVC_DIR="$(cd "$UNITYSVC_DIR" && pwd)"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DEFAULT_SPEC="${REPO_ROOT}/../unitysvc/backend/generated/seller_api.json"
+SPEC_PATH="${1:-${DEFAULT_SPEC}}"
+
+if [ ! -f "${SPEC_PATH}" ]; then
+    cat >&2 <<ERR
+error: spec file not found: ${SPEC_PATH}
+
+The unitysvc-sellers SDK is generated from a seller-filtered OpenAPI
+spec produced by the sibling unitysvc repo. Options:
+
+  1. Check out unitysvc alongside this repo and run 'inv generate-client'
+     there. That writes backend/generated/seller_api.json, which this
+     script reads by default.
+
+  2. Pass an explicit spec path as the first argument:
+
+         ./scripts/generate_client.sh /path/to/seller_api.json
+
+ERR
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Tool bootstrap
 # ---------------------------------------------------------------------------
 if ! command -v openapi-python-client >/dev/null 2>&1; then
-    if [ ! -x "$REPO_ROOT/.tool-venv/bin/openapi-python-client" ]; then
+    if [ ! -x "${REPO_ROOT}/.tool-venv/bin/openapi-python-client" ]; then
         echo "==> Bootstrapping openapi-python-client into .tool-venv"
-        python3 -m venv "$REPO_ROOT/.tool-venv"
-        "$REPO_ROOT/.tool-venv/bin/pip" install --quiet openapi-python-client
+        python3 -m venv "${REPO_ROOT}/.tool-venv"
+        "${REPO_ROOT}/.tool-venv/bin/pip" install --quiet openapi-python-client
     fi
-    OAPI_CLIENT="$REPO_ROOT/.tool-venv/bin/openapi-python-client"
+    OAPI_CLIENT="${REPO_ROOT}/.tool-venv/bin/openapi-python-client"
 else
     OAPI_CLIENT="$(command -v openapi-python-client)"
 fi
 
 # ---------------------------------------------------------------------------
-# Dump + filter + sanitize the spec
+# Mirror the spec into the repo so the committed copy is always in sync
+# with what the generated client was last produced from. Reviewers of SDK
+# PRs see the spec diff alongside the generated-code diff.
 # ---------------------------------------------------------------------------
-echo "==> Dumping OpenAPI spec from $UNITYSVC_DIR"
-cd "$UNITYSVC_DIR/backend"
-.venv/bin/python "$REPO_ROOT/scripts/dump_spec.py" "$REPO_ROOT/openapi.json"
+cp "${SPEC_PATH}" "${REPO_ROOT}/openapi.json"
+echo "==> Using spec: ${SPEC_PATH}"
+echo "    Copied to:  openapi.json (tracked)"
 
 # ---------------------------------------------------------------------------
 # Regenerate client
 # ---------------------------------------------------------------------------
-echo "==> Regenerating _generated/"
-cd "$REPO_ROOT"
+echo "==> Regenerating src/unitysvc_sellers/_generated/"
+cd "${REPO_ROOT}"
 rm -rf src/unitysvc_sellers/_generated
-"$OAPI_CLIENT" generate \
+"${OAPI_CLIENT}" generate \
     --path openapi.json \
     --config scripts/openapi-python-client.yml \
     --meta none \
     --output-path src/unitysvc_sellers/_generated \
     --overwrite
 
-echo "==> Done. Review the diff, run tests, and commit."
+echo
+echo "==> Done. Review the diff, run tests, and commit:"
+echo "      .tool-venv/bin/python -m pytest tests/"

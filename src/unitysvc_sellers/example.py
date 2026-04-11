@@ -522,7 +522,7 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
             elif field == "base_url":
                 env_vars["SERVICE_BASE_URL"] = str(value)
             elif field == "api_key":
-                env_vars["UNITYSVC_API_KEY"] = str(value)
+                env_vars["UNITYSVC_SELLER_API_KEY"] = str(value)
             else:
                 env_vars[field.upper()] = str(value)
 
@@ -895,7 +895,7 @@ def run_local(
     2. Extracts code example documents
     3. Loads provider credentials from offering file
     4. Skips tests that previously passed (unless --force is used)
-    5. Executes each code example with UNITYSVC_API_KEY and SERVICE_BASE_URL set to upstream values
+    5. Executes each code example with UNITYSVC_SELLER_API_KEY and SERVICE_BASE_URL set to upstream values
     6. Saves output to .out and .err files for tracking
     7. Displays test results
 
@@ -1148,7 +1148,7 @@ def run_local(
                 env_filename = f"{failed_filename}.env"
                 try:
                     with open(env_filename, "w", encoding="utf-8") as f:
-                        f.write(f"UNITYSVC_API_KEY={credentials.get('api_key', '')}\n")
+                        f.write(f"UNITYSVC_SELLER_API_KEY={credentials.get('api_key', '')}\n")
                         f.write(f"SERVICE_BASE_URL={credentials.get('base_url', '')}\n")
                         # Include service_options.enrollment_vars
                         listing_so = example.get("listing_data", {}).get("service_options", {}) or {}

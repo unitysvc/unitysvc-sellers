@@ -12,11 +12,13 @@ from .._http import unwrap
 
 if TYPE_CHECKING:
     from .._generated.client import AuthenticatedClient
+    from .._generated.models.cursor_page_service_group_public import (
+        CursorPageServiceGroupPublic,
+    )
     from .._generated.models.service_group_create import ServiceGroupCreate
     from .._generated.models.service_group_public import ServiceGroupPublic
     from .._generated.models.service_group_status_enum import ServiceGroupStatusEnum
     from .._generated.models.service_group_update import ServiceGroupUpdate
-    from .._generated.models.service_groups_public import ServiceGroupsPublic
 
 
 class GroupsResource:
@@ -28,18 +30,22 @@ class GroupsResource:
     def list(
         self,
         *,
-        skip: int = 0,
-        limit: int = 100,
+        cursor: str | None = None,
+        limit: int = 50,
         status: ServiceGroupStatusEnum | str | None = None,
-    ) -> ServiceGroupsPublic:
-        """List the seller's service groups."""
-        from .._generated.api.seller import groups_list
+    ) -> CursorPageServiceGroupPublic:
+        """List the seller's service groups with cursor-based pagination.
+
+        Pass ``cursor=response.next_cursor`` on subsequent calls until
+        ``response.has_more`` is ``False``.
+        """
+        from .._generated.api.seller_service_groups import groups_list
         from .._generated.types import UNSET
 
         return unwrap(
             groups_list.sync_detailed(
                 client=self._client,
-                skip=skip,
+                cursor=cursor if cursor is not None else UNSET,
                 limit=limit,
                 status=status if status is not None else UNSET,  # type: ignore[arg-type]
             )
@@ -47,7 +53,7 @@ class GroupsResource:
 
     def get(self, group_id: str | UUID) -> ServiceGroupPublic:
         """Get a single service group by id."""
-        from .._generated.api.seller import groups_get
+        from .._generated.api.seller_service_groups import groups_get
 
         return unwrap(
             groups_get.sync_detailed(
@@ -61,7 +67,7 @@ class GroupsResource:
         body: ServiceGroupCreate | dict[str, Any],
     ) -> ServiceGroupPublic:
         """Create or update a service group by name (idempotent)."""
-        from .._generated.api.seller import groups_upsert
+        from .._generated.api.seller_service_groups import groups_upsert
         from .._generated.models.service_group_create import ServiceGroupCreate
 
         if isinstance(body, dict):
@@ -80,7 +86,7 @@ class GroupsResource:
         body: ServiceGroupUpdate | dict[str, Any],
     ) -> ServiceGroupPublic:
         """Patch a single service group by id."""
-        from .._generated.api.seller import groups_update
+        from .._generated.api.seller_service_groups import groups_update
         from .._generated.models.service_group_update import ServiceGroupUpdate
 
         if isinstance(body, dict):
@@ -96,7 +102,7 @@ class GroupsResource:
 
     def delete(self, group_id: str | UUID) -> None:
         """Delete a service group."""
-        from .._generated.api.seller import groups_delete
+        from .._generated.api.seller_service_groups import groups_delete
 
         unwrap(
             groups_delete.sync_detailed(
@@ -105,13 +111,8 @@ class GroupsResource:
             )
         )
 
-    def refresh(self, group_id: str | UUID) -> ServiceGroupPublic:
-        """Re-evaluate dynamic membership for a service group."""
-        from .._generated.api.seller import groups_refresh
-
-        return unwrap(
-            groups_refresh.sync_detailed(
-                group_id=UUID(str(group_id)),
-                client=self._client,
-            )
-        )
+    # NOTE: ``refresh()`` was removed. The backend no longer exposes
+    # ``POST /v1/seller/service-groups/{id}/refresh`` — dynamic
+    # membership refresh is now handled automatically by a background
+    # worker (``schedule_group_membership_refresh``). Mutating a group
+    # via ``upsert`` / ``update`` already triggers it.

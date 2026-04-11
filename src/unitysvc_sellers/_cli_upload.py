@@ -3,8 +3,8 @@
 Thin Typer wrapper over :meth:`unitysvc_sellers.Client.upload`. Reads
 credentials from the environment::
 
-    UNITYSVC_API_KEY    seller API key (svcpass_...)
-    UNITYSVC_BASE_URL   override the default https://seller.staging.unitysvc.com
+    UNITYSVC_SELLER_API_KEY    seller API key (svcpass_...)
+    UNITYSVC_SELLER_API_URL   override the default https://seller.staging.unitysvc.com
 
 Or pass them as flags.
 """
@@ -17,7 +17,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from .client import DEFAULT_BASE_URL, Client
+from .client import DEFAULT_SELLER_API_URL, Client
 from .exceptions import APIError
 
 console = Console()
@@ -31,14 +31,14 @@ def upload(
     api_key: str | None = typer.Option(
         None,
         "--api-key",
-        envvar="UNITYSVC_API_KEY",
-        help="Seller API key (svcpass_...). Defaults to $UNITYSVC_API_KEY.",
+        envvar="UNITYSVC_SELLER_API_KEY",
+        help="Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.",
         show_default=False,
     ),
     base_url: str = typer.Option(
-        DEFAULT_BASE_URL,
+        DEFAULT_SELLER_API_URL,
         "--base-url",
-        envvar="UNITYSVC_BASE_URL",
+        envvar="UNITYSVC_SELLER_API_URL",
         help="Backend base URL.",
     ),
     dryrun: bool = typer.Option(
@@ -56,7 +56,7 @@ def upload(
     """Upload a seller catalog (services + promotions + service groups) to UnitySVC."""
     if not api_key:
         console.print(
-            "[red]✗[/red] Missing seller API key. Set $UNITYSVC_API_KEY or pass --api-key.",
+            "[red]✗[/red] Missing seller API key. Set $UNITYSVC_SELLER_API_KEY or pass --api-key.",
             style="bold red",
         )
         raise typer.Exit(code=1)

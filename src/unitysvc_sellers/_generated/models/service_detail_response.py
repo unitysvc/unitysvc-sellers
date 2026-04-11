@@ -12,12 +12,12 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.service_detail_response_listing import ServiceDetailResponseListing
-  from ..models.service_detail_response_offering import ServiceDetailResponseOffering
-  from ..models.service_detail_response_provider import ServiceDetailResponseProvider
+  from ..models.access_interface_public import AccessInterfacePublic
+  from ..models.provider_data import ProviderData
   from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
   from ..models.service_document_item import ServiceDocumentItem
-  from ..models.service_interface_item import ServiceInterfaceItem
+  from ..models.service_listing_data import ServiceListingData
+  from ..models.service_offering_data import ServiceOfferingData
 
 
 
@@ -29,26 +29,35 @@ T = TypeVar("T", bound="ServiceDetailResponse")
 
 @_attrs_define
 class ServiceDetailResponse:
-    """ GET /seller/services/{id} — full service record with nested
-    documents and access interfaces.
+    """ GET /seller/services/{id} — live service record.
 
-    Replaces the previously-separate /documents and /interfaces sub-endpoints
-    by embedding them here, since the test runner always fetches all three
-    together.
+    The provider / offering / listing fields carry the same typed shapes
+    the seller used to upload the service (``ProviderData`` /
+    ``ServiceOfferingData`` / ``ServiceListingData`` from
+    ``unitysvc_core.models``), so SDK consumers get autocomplete and
+    typed access to the nested data without re-defining the schema.
+
+    The shape reflects the **live** state of the service, not a snapshot
+    of the original upload — in particular ``interfaces`` includes
+    listing-native interfaces *and* any interfaces injected by service
+    groups the service belongs to. Enrollment-scoped interfaces (per
+    individual customer) are filtered out — sellers must not see them.
+
+    The embedded ``documents`` carry metadata only; fetch file content
+    separately via ``GET /seller/documents/{id}``.
 
      """
 
     service_id: str
     status: str
-    provider: ServiceDetailResponseProvider
-    offering: ServiceDetailResponseOffering
-    listing: ServiceDetailResponseListing
     documents: list[ServiceDocumentItem]
-    interfaces: list[ServiceInterfaceItem]
+    interfaces: list[AccessInterfacePublic]
     service_name: None | str | Unset = UNSET
     status_message: None | str | Unset = UNSET
     routing_vars: None | ServiceDetailResponseRoutingVarsType0 | Unset = UNSET
-    provider_name: None | str | Unset = UNSET
+    provider: None | ProviderData | Unset = UNSET
+    offering: None | ServiceOfferingData | Unset = UNSET
+    listing: None | ServiceListingData | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -56,21 +65,15 @@ class ServiceDetailResponse:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.service_detail_response_listing import ServiceDetailResponseListing
-        from ..models.service_detail_response_offering import ServiceDetailResponseOffering
-        from ..models.service_detail_response_provider import ServiceDetailResponseProvider
+        from ..models.access_interface_public import AccessInterfacePublic
+        from ..models.provider_data import ProviderData
         from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         from ..models.service_document_item import ServiceDocumentItem
-        from ..models.service_interface_item import ServiceInterfaceItem
+        from ..models.service_listing_data import ServiceListingData
+        from ..models.service_offering_data import ServiceOfferingData
         service_id = self.service_id
 
         status = self.status
-
-        provider = self.provider.to_dict()
-
-        offering = self.offering.to_dict()
-
-        listing = self.listing.to_dict()
 
         documents = []
         for documents_item_data in self.documents:
@@ -106,11 +109,29 @@ class ServiceDetailResponse:
         else:
             routing_vars = self.routing_vars
 
-        provider_name: None | str | Unset
-        if isinstance(self.provider_name, Unset):
-            provider_name = UNSET
+        provider: dict[str, Any] | None | Unset
+        if isinstance(self.provider, Unset):
+            provider = UNSET
+        elif isinstance(self.provider, ProviderData):
+            provider = self.provider.to_dict()
         else:
-            provider_name = self.provider_name
+            provider = self.provider
+
+        offering: dict[str, Any] | None | Unset
+        if isinstance(self.offering, Unset):
+            offering = UNSET
+        elif isinstance(self.offering, ServiceOfferingData):
+            offering = self.offering.to_dict()
+        else:
+            offering = self.offering
+
+        listing: dict[str, Any] | None | Unset
+        if isinstance(self.listing, Unset):
+            listing = UNSET
+        elif isinstance(self.listing, ServiceListingData):
+            listing = self.listing.to_dict()
+        else:
+            listing = self.listing
 
 
         field_dict: dict[str, Any] = {}
@@ -118,9 +139,6 @@ class ServiceDetailResponse:
         field_dict.update({
             "service_id": service_id,
             "status": status,
-            "provider": provider,
-            "offering": offering,
-            "listing": listing,
             "documents": documents,
             "interfaces": interfaces,
         })
@@ -130,8 +148,12 @@ class ServiceDetailResponse:
             field_dict["status_message"] = status_message
         if routing_vars is not UNSET:
             field_dict["routing_vars"] = routing_vars
-        if provider_name is not UNSET:
-            field_dict["provider_name"] = provider_name
+        if provider is not UNSET:
+            field_dict["provider"] = provider
+        if offering is not UNSET:
+            field_dict["offering"] = offering
+        if listing is not UNSET:
+            field_dict["listing"] = listing
 
         return field_dict
 
@@ -139,31 +161,16 @@ class ServiceDetailResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.service_detail_response_listing import ServiceDetailResponseListing
-        from ..models.service_detail_response_offering import ServiceDetailResponseOffering
-        from ..models.service_detail_response_provider import ServiceDetailResponseProvider
+        from ..models.access_interface_public import AccessInterfacePublic
+        from ..models.provider_data import ProviderData
         from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         from ..models.service_document_item import ServiceDocumentItem
-        from ..models.service_interface_item import ServiceInterfaceItem
+        from ..models.service_listing_data import ServiceListingData
+        from ..models.service_offering_data import ServiceOfferingData
         d = dict(src_dict)
         service_id = d.pop("service_id")
 
         status = d.pop("status")
-
-        provider = ServiceDetailResponseProvider.from_dict(d.pop("provider"))
-
-
-
-
-        offering = ServiceDetailResponseOffering.from_dict(d.pop("offering"))
-
-
-
-
-        listing = ServiceDetailResponseListing.from_dict(d.pop("listing"))
-
-
-
 
         documents = []
         _documents = d.pop("documents")
@@ -178,7 +185,7 @@ class ServiceDetailResponse:
         interfaces = []
         _interfaces = d.pop("interfaces")
         for interfaces_item_data in (_interfaces):
-            interfaces_item = ServiceInterfaceItem.from_dict(interfaces_item_data)
+            interfaces_item = AccessInterfacePublic.from_dict(interfaces_item_data)
 
 
 
@@ -225,28 +232,77 @@ class ServiceDetailResponse:
         routing_vars = _parse_routing_vars(d.pop("routing_vars", UNSET))
 
 
-        def _parse_provider_name(data: object) -> None | str | Unset:
+        def _parse_provider(data: object) -> None | ProviderData | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                provider_type_0 = ProviderData.from_dict(data)
 
-        provider_name = _parse_provider_name(d.pop("provider_name", UNSET))
+
+
+                return provider_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | ProviderData | Unset, data)
+
+        provider = _parse_provider(d.pop("provider", UNSET))
+
+
+        def _parse_offering(data: object) -> None | ServiceOfferingData | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                offering_type_0 = ServiceOfferingData.from_dict(data)
+
+
+
+                return offering_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | ServiceOfferingData | Unset, data)
+
+        offering = _parse_offering(d.pop("offering", UNSET))
+
+
+        def _parse_listing(data: object) -> None | ServiceListingData | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                listing_type_0 = ServiceListingData.from_dict(data)
+
+
+
+                return listing_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | ServiceListingData | Unset, data)
+
+        listing = _parse_listing(d.pop("listing", UNSET))
 
 
         service_detail_response = cls(
             service_id=service_id,
             status=status,
-            provider=provider,
-            offering=offering,
-            listing=listing,
             documents=documents,
             interfaces=interfaces,
             service_name=service_name,
             status_message=status_message,
             routing_vars=routing_vars,
-            provider_name=provider_name,
+            provider=provider,
+            offering=offering,
+            listing=listing,
         )
 
 

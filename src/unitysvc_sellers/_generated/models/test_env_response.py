@@ -11,7 +11,7 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.test_env_response_vars import TestEnvResponseVars
+  from ..models.vars_ import Vars
 
 
 
@@ -30,7 +30,7 @@ class TestEnvResponse:
 
      """
 
-    vars_: TestEnvResponseVars
+    vars_: Vars
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -38,7 +38,7 @@ class TestEnvResponse:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.test_env_response_vars import TestEnvResponseVars
+        from ..models.vars_ import Vars
         vars_ = self.vars_.to_dict()
 
 
@@ -54,9 +54,9 @@ class TestEnvResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.test_env_response_vars import TestEnvResponseVars
+        from ..models.vars_ import Vars
         d = dict(src_dict)
-        vars_ = TestEnvResponseVars.from_dict(d.pop("vars"))
+        vars_ = Vars.from_dict(d.pop("vars"))
 
 
 

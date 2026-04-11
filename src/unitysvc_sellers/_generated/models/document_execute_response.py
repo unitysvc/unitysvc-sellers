@@ -36,7 +36,6 @@ class DocumentExecuteResponse:
     status: str
     message: str
     task_id: None | str | Unset = UNSET
-    task_state: None | str | Unset = UNSET
     test: DocumentExecuteResponseTestType0 | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -58,12 +57,6 @@ class DocumentExecuteResponse:
         else:
             task_id = self.task_id
 
-        task_state: None | str | Unset
-        if isinstance(self.task_state, Unset):
-            task_state = UNSET
-        else:
-            task_state = self.task_state
-
         test: dict[str, Any] | None | Unset
         if isinstance(self.test, Unset):
             test = UNSET
@@ -82,8 +75,6 @@ class DocumentExecuteResponse:
         })
         if task_id is not UNSET:
             field_dict["task_id"] = task_id
-        if task_state is not UNSET:
-            field_dict["task_state"] = task_state
         if test is not UNSET:
             field_dict["test"] = test
 
@@ -111,16 +102,6 @@ class DocumentExecuteResponse:
         task_id = _parse_task_id(d.pop("task_id", UNSET))
 
 
-        def _parse_task_state(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        task_state = _parse_task_state(d.pop("task_state", UNSET))
-
-
         def _parse_test(data: object) -> DocumentExecuteResponseTestType0 | None | Unset:
             if data is None:
                 return data
@@ -146,7 +127,6 @@ class DocumentExecuteResponse:
             status=status,
             message=message,
             task_id=task_id,
-            task_state=task_state,
             test=test,
         )
 

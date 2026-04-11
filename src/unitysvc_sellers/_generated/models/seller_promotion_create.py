@@ -18,7 +18,7 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
-  from ..models.seller_promotion_create_pricing import SellerPromotionCreatePricing
+  from ..models.pricing import Pricing
   from ..models.seller_promotion_create_scope_type_0 import SellerPromotionCreateScopeType0
 
 
@@ -43,7 +43,7 @@ class SellerPromotionCreate:
 
     name: str
     """ Display name of the promotion (unique per seller) """
-    pricing: SellerPromotionCreatePricing
+    pricing: Pricing
     """ Pricing specification (e.g., multiply, constant, add) """
     description: None | str | Unset = UNSET
     """ Human-readable description """
@@ -70,7 +70,7 @@ class SellerPromotionCreate:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.seller_promotion_create_pricing import SellerPromotionCreatePricing
+        from ..models.pricing import Pricing
         from ..models.seller_promotion_create_scope_type_0 import SellerPromotionCreateScopeType0
         name = self.name
 
@@ -144,12 +144,12 @@ class SellerPromotionCreate:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.seller_promotion_create_pricing import SellerPromotionCreatePricing
+        from ..models.pricing import Pricing
         from ..models.seller_promotion_create_scope_type_0 import SellerPromotionCreateScopeType0
         d = dict(src_dict)
         name = d.pop("name")
 
-        pricing = SellerPromotionCreatePricing.from_dict(d.pop("pricing"))
+        pricing = Pricing.from_dict(d.pop("pricing"))
 
 
 

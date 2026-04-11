@@ -21,11 +21,11 @@ Quick start::
 The seller context is encoded entirely in the API key, so no separate
 ``seller_id`` is required. The default base URL points at the staging
 environment (``https://seller.staging.unitysvc.com``); override with the
-``base_url`` constructor argument or the ``UNITYSVC_BASE_URL`` env var.
+``base_url`` constructor argument or the ``UNITYSVC_SELLER_API_URL`` env var.
 """
 
 from .aclient import AsyncClient
-from .client import DEFAULT_BASE_URL, ENV_API_KEY, ENV_BASE_URL, Client
+from .client import DEFAULT_SELLER_API_URL, ENV_SELLER_API_KEY, ENV_SELLER_API_URL, Client
 from .exceptions import (
     APIError,
     AuthenticationError,
@@ -45,9 +45,9 @@ __all__ = [
     # Client
     "Client",
     "AsyncClient",
-    "DEFAULT_BASE_URL",
-    "ENV_API_KEY",
-    "ENV_BASE_URL",
+    "DEFAULT_SELLER_API_URL",
+    "ENV_SELLER_API_KEY",
+    "ENV_SELLER_API_URL",
     # Exceptions
     "SellerSDKError",
     "APIError",

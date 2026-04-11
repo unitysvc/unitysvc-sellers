@@ -16,6 +16,7 @@ from .._http import unwrap
 
 if TYPE_CHECKING:
     from .._generated.client import AuthenticatedClient
+    from .._generated.models.cursor_page_service_public import CursorPageServicePublic
     from .._generated.models.list_price_update import ListPriceUpdate
     from .._generated.models.list_price_update_response import ListPriceUpdateResponse
     from .._generated.models.routing_vars_update import RoutingVarsUpdate
@@ -29,7 +30,6 @@ if TYPE_CHECKING:
     from .._generated.models.service_status_update_response import (
         ServiceStatusUpdateResponse,
     )
-    from .._generated.models.services_public import ServicesPublic
     from .._generated.models.task_queued_response import TaskQueuedResponse
     from .._generated.models.test_env_response import TestEnvResponse
 
@@ -46,31 +46,41 @@ class ServicesResource:
     def list(
         self,
         *,
-        skip: int = 0,
-        limit: int = 100,
+        cursor: str | None = None,
+        limit: int = 50,
         status: str | None = None,
         service_type: str | None = None,
         listing_type: str | None = None,
         name: str | None = None,
-    ) -> ServicesPublic:
+    ) -> CursorPageServicePublic:
         """List services owned by the authenticated seller.
 
+        Uses **cursor-based pagination**. The first call omits
+        ``cursor``. Subsequent calls pass ``cursor=response.next_cursor``
+        until ``response.has_more`` is ``False``.
+
         Args:
-            skip: Number of records to skip (offset pagination).
-            limit: Page size (max 1000).
+            cursor: Opaque continuation token returned by the previous
+                page as ``next_cursor``. Omit for the first page.
+            limit: Page size (backend default and max vary — typically
+                50).
             status: Filter by service status (e.g. ``"draft"``, ``"active"``).
             service_type: Filter by service type (e.g. ``"llm"``).
             listing_type: Filter by listing type (e.g. ``"regular"``).
             name: Case-insensitive partial match on name / display_name /
                 provider name.
+
+        Returns:
+            :class:`CursorPageServicePublic` with ``data``,
+            ``next_cursor``, and ``has_more`` fields.
         """
-        from .._generated.api.seller import services_list
+        from .._generated.api.seller_services import services_list
         from .._generated.types import UNSET
 
         return unwrap(
             services_list.sync_detailed(
                 client=self._client,
-                skip=skip,
+                cursor=cursor if cursor is not None else UNSET,
                 limit=limit,
                 status=status if status is not None else UNSET,
                 service_type=service_type if service_type is not None else UNSET,
@@ -81,7 +91,7 @@ class ServicesResource:
 
     def get(self, service_id: str | UUID) -> ServiceDetailResponse:
         """Get the full record for a single service, including documents and interfaces."""
-        from .._generated.api.seller import services_get
+        from .._generated.api.seller_services import services_get
 
         return unwrap(
             services_get.sync_detailed(
@@ -92,7 +102,7 @@ class ServicesResource:
 
     def get_test_env(self, service_id: str | UUID) -> TestEnvResponse:
         """Return the rendered environment used to run code-example scripts for a service."""
-        from .._generated.api.seller import services_get_test_env
+        from .._generated.api.seller_services import services_get_test_env
 
         return unwrap(
             services_get_test_env.sync_detailed(
@@ -124,7 +134,7 @@ class ServicesResource:
                 helper builds these from a seller's catalog directory).
             dryrun: If True, validate the payload without persisting it.
         """
-        from .._generated.api.seller import services_upload
+        from .._generated.api.seller_services import services_upload
         from .._generated.models.service_data_input import ServiceDataInput
 
         if isinstance(body, dict):
@@ -147,7 +157,7 @@ class ServicesResource:
         body: ServiceStatusUpdate | dict[str, Any],
     ) -> ServiceStatusUpdateResponse:
         """Update a service's seller-facing status (draft / ready / deprecated)."""
-        from .._generated.api.seller import services_set_status
+        from .._generated.api.seller_services import services_set_status
         from .._generated.models.service_status_update import ServiceStatusUpdate
 
         if isinstance(body, dict):
@@ -167,7 +177,7 @@ class ServicesResource:
         body: RoutingVarsUpdate | dict[str, Any],
     ) -> RoutingVarsUpdateResponse:
         """Update the seller-managed routing variables used for request templating."""
-        from .._generated.api.seller import services_set_routing_vars
+        from .._generated.api.seller_services import services_set_routing_vars
         from .._generated.models.routing_vars_update import RoutingVarsUpdate
 
         if isinstance(body, dict):
@@ -187,7 +197,7 @@ class ServicesResource:
         body: ListPriceUpdate | dict[str, Any],
     ) -> ListPriceUpdateResponse:
         """Update a service's customer-facing list price."""
-        from .._generated.api.seller import services_set_list_price
+        from .._generated.api.seller_services import services_set_list_price
         from .._generated.models.list_price_update import ListPriceUpdate
 
         if isinstance(body, dict):
@@ -214,7 +224,7 @@ class ServicesResource:
             dryrun: If True, return what would be deleted without
                 actually deleting anything.
         """
-        from .._generated.api.seller import services_delete
+        from .._generated.api.seller_services import services_delete
 
         return unwrap(
             services_delete.sync_detailed(

@@ -27,7 +27,7 @@ import typer
 from rich.console import Console
 
 from ..aclient import AsyncClient
-from ..client import DEFAULT_BASE_URL, ENV_API_KEY, ENV_BASE_URL
+from ..client import DEFAULT_SELLER_API_URL, ENV_SELLER_API_KEY, ENV_SELLER_API_URL
 from ..exceptions import SellerSDKError
 
 T = TypeVar("T")
@@ -66,22 +66,22 @@ async def async_client(
     """Yield an :class:`AsyncClient` configured from args or environment.
 
     Args:
-        api_key: Override the seller API key. Defaults to ``$UNITYSVC_API_KEY``.
-        base_url: Override the backend URL. Defaults to ``$UNITYSVC_BASE_URL``
-            then to :data:`unitysvc_sellers.DEFAULT_BASE_URL`.
+        api_key: Override the seller API key. Defaults to ``$UNITYSVC_SELLER_API_KEY``.
+        base_url: Override the backend URL. Defaults to ``$UNITYSVC_SELLER_API_URL``
+            then to :data:`unitysvc_sellers.DEFAULT_SELLER_API_URL`.
 
     Raises:
         typer.Exit: If no API key is available.
     """
-    resolved_key = api_key or os.environ.get(ENV_API_KEY)
+    resolved_key = api_key or os.environ.get(ENV_SELLER_API_KEY)
     if not resolved_key:
         console.print(
-            f"[red]✗[/red] Missing seller API key. Set ${ENV_API_KEY} or pass --api-key.",
+            f"[red]✗[/red] Missing seller API key. Set ${ENV_SELLER_API_KEY} or pass --api-key.",
             style="bold red",
         )
         raise typer.Exit(code=1)
 
-    resolved_url = base_url or os.environ.get(ENV_BASE_URL) or DEFAULT_BASE_URL
+    resolved_url = base_url or os.environ.get(ENV_SELLER_API_URL) or DEFAULT_SELLER_API_URL
     async with AsyncClient(api_key=resolved_key, base_url=resolved_url) as client:
         yield client
 
@@ -220,8 +220,8 @@ def api_key_option():
     return typer.Option(
         None,
         "--api-key",
-        envvar=ENV_API_KEY,
-        help=f"Seller API key (svcpass_...). Defaults to ${ENV_API_KEY}.",
+        envvar=ENV_SELLER_API_KEY,
+        help=f"Seller API key (svcpass_...). Defaults to ${ENV_SELLER_API_KEY}.",
         show_default=False,
     )
 
@@ -229,8 +229,8 @@ def api_key_option():
 def base_url_option():
     """Reusable ``--base-url`` option (env-fallback)."""
     return typer.Option(
-        DEFAULT_BASE_URL,
+        DEFAULT_SELLER_API_URL,
         "--base-url",
-        envvar=ENV_BASE_URL,
+        envvar=ENV_SELLER_API_URL,
         help="Backend base URL.",
     )

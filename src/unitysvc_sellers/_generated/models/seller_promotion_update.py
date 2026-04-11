@@ -8,8 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..models.price_rule_lifecycle_status_enum import check_price_rule_lifecycle_status_enum
-from ..models.price_rule_lifecycle_status_enum import PriceRuleLifecycleStatusEnum
+from ..models.price_rule_status_enum import check_price_rule_status_enum
+from ..models.price_rule_status_enum import PriceRuleStatusEnum
 from ..types import UNSET, Unset
 from typing import cast
 
@@ -35,7 +35,7 @@ class SellerPromotionUpdate:
     service_groups: list[str] | None | Unset = UNSET
     pricing: None | SellerPromotionUpdatePricingType0 | Unset = UNSET
     priority: int | None | Unset = UNSET
-    status: None | PriceRuleLifecycleStatusEnum | Unset = UNSET
+    status: None | PriceRuleStatusEnum | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -182,7 +182,7 @@ class SellerPromotionUpdate:
         priority = _parse_priority(d.pop("priority", UNSET))
 
 
-        def _parse_status(data: object) -> None | PriceRuleLifecycleStatusEnum | Unset:
+        def _parse_status(data: object) -> None | PriceRuleStatusEnum | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -190,14 +190,14 @@ class SellerPromotionUpdate:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                status_type_0 = check_price_rule_lifecycle_status_enum(data)
+                status_type_0 = check_price_rule_status_enum(data)
 
 
 
                 return status_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(None | PriceRuleLifecycleStatusEnum | Unset, data)
+            return cast(None | PriceRuleStatusEnum | Unset, data)
 
         status = _parse_status(d.pop("status", UNSET))
 

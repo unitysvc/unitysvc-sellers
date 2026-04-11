@@ -9,11 +9,13 @@ from .._http import unwrap
 
 if TYPE_CHECKING:
     from .._generated.client import AuthenticatedClient
+    from .._generated.models.cursor_page_service_group_public import (
+        CursorPageServiceGroupPublic,
+    )
     from .._generated.models.service_group_create import ServiceGroupCreate
     from .._generated.models.service_group_public import ServiceGroupPublic
     from .._generated.models.service_group_status_enum import ServiceGroupStatusEnum
     from .._generated.models.service_group_update import ServiceGroupUpdate
-    from .._generated.models.service_groups_public import ServiceGroupsPublic
 
 
 class AsyncGroupsResource:
@@ -25,24 +27,24 @@ class AsyncGroupsResource:
     async def list(
         self,
         *,
-        skip: int = 0,
-        limit: int = 100,
+        cursor: str | None = None,
+        limit: int = 50,
         status: ServiceGroupStatusEnum | str | None = None,
-    ) -> ServiceGroupsPublic:
-        from .._generated.api.seller import groups_list
+    ) -> CursorPageServiceGroupPublic:
+        from .._generated.api.seller_service_groups import groups_list
         from .._generated.types import UNSET
 
         return unwrap(
             await groups_list.asyncio_detailed(
                 client=self._client,
-                skip=skip,
+                cursor=cursor if cursor is not None else UNSET,
                 limit=limit,
                 status=status if status is not None else UNSET,  # type: ignore[arg-type]
             )
         )
 
     async def get(self, group_id: str | UUID) -> ServiceGroupPublic:
-        from .._generated.api.seller import groups_get
+        from .._generated.api.seller_service_groups import groups_get
 
         return unwrap(
             await groups_get.asyncio_detailed(
@@ -55,7 +57,7 @@ class AsyncGroupsResource:
         self,
         body: ServiceGroupCreate | dict[str, Any],
     ) -> ServiceGroupPublic:
-        from .._generated.api.seller import groups_upsert
+        from .._generated.api.seller_service_groups import groups_upsert
         from .._generated.models.service_group_create import ServiceGroupCreate
 
         if isinstance(body, dict):
@@ -73,7 +75,7 @@ class AsyncGroupsResource:
         group_id: str | UUID,
         body: ServiceGroupUpdate | dict[str, Any],
     ) -> ServiceGroupPublic:
-        from .._generated.api.seller import groups_update
+        from .._generated.api.seller_service_groups import groups_update
         from .._generated.models.service_group_update import ServiceGroupUpdate
 
         if isinstance(body, dict):
@@ -88,7 +90,7 @@ class AsyncGroupsResource:
         )
 
     async def delete(self, group_id: str | UUID) -> None:
-        from .._generated.api.seller import groups_delete
+        from .._generated.api.seller_service_groups import groups_delete
 
         unwrap(
             await groups_delete.asyncio_detailed(
@@ -97,12 +99,8 @@ class AsyncGroupsResource:
             )
         )
 
-    async def refresh(self, group_id: str | UUID) -> ServiceGroupPublic:
-        from .._generated.api.seller import groups_refresh
-
-        return unwrap(
-            await groups_refresh.asyncio_detailed(
-                group_id=UUID(str(group_id)),
-                client=self._client,
-            )
-        )
+    # NOTE: ``refresh()`` was removed. The backend no longer exposes
+    # ``POST /v1/seller/service-groups/{id}/refresh`` — dynamic
+    # membership refresh is now handled automatically by a background
+    # worker. Mutating a group via ``upsert`` / ``update`` already
+    # triggers it.

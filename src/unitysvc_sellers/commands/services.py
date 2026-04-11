@@ -53,8 +53,21 @@ app = typer.Typer(
 # ---------------------------------------------------------------------------
 @app.command("list")
 def list_services(
-    skip: int = typer.Option(0, "--skip", help="Number of records to skip."),
-    limit: int = typer.Option(100, "--limit", help="Maximum number of records to return."),
+    limit: int = typer.Option(
+        50,
+        "--limit",
+        help="Max records per page (cursor pagination; repeat with --cursor for more).",
+    ),
+    cursor: str | None = typer.Option(
+        None,
+        "--cursor",
+        help="Continuation token from a previous page's next_cursor.",
+    ),
+    all_pages: bool = typer.Option(
+        False,
+        "--all",
+        help="Follow cursors and print every page as one combined result.",
+    ),
     status: str | None = typer.Option(
         None,
         "--status",
@@ -80,25 +93,36 @@ def list_services(
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """List services owned by the authenticated seller."""
+    """List services owned by the authenticated seller.
+
+    Uses cursor-based pagination. Pass ``--cursor`` to fetch a specific
+    page, or ``--all`` to follow cursors to completion.
+    """
 
     async def _impl() -> list[dict[str, Any]]:
+        collected: list[dict[str, Any]] = []
         async with async_client(api_key, base_url) as client:
-            # Fetch all when filtering by provider (client-side filter), then truncate.
-            fetch_limit = 1000 if provider else limit
-            response = await client.services.list(
-                skip=skip,
-                limit=fetch_limit,
-                status=status,
-                name=name,
-            )
-            services = model_list(response)
+            current_cursor = cursor
+            while True:
+                response = await client.services.list(
+                    cursor=current_cursor,
+                    limit=limit,
+                    status=status,
+                    name=name,
+                )
+                collected.extend(model_list(response))
+                if not all_pages:
+                    break
+                next_cursor = getattr(response, "next_cursor", None)
+                has_more = getattr(response, "has_more", False)
+                if not has_more or not next_cursor or isinstance(next_cursor, str) is False:
+                    break
+                current_cursor = str(next_cursor)
 
         if provider:
             provider_lower = provider.lower()
-            services = [s for s in services if provider_lower in (s.get("provider_name") or "").lower()]
-            services = services[:limit]
-        return services
+            collected = [s for s in collected if provider_lower in (s.get("provider_name") or "").lower()]
+        return collected
 
     services = run_async(_impl(), error_prefix="Failed to list services")
 
