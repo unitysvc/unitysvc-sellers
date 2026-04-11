@@ -250,27 +250,70 @@ def show_test(
     table.add_row("id", str(doc.get("id", "")))
     table.add_row("category", str(doc.get("category", "")))
     table.add_row("mime_type", str(doc.get("mime_type", "")))
-    table.add_row("status", _doc_test_status(doc))
+    status = _doc_test_status(doc)
+    status_color = "green" if status == "success" else "red" if status not in ("pending", "skip") else "yellow"
+    table.add_row("status", f"[{status_color}]{status}[/{status_color}]")
+    if doc.get("filename"):
+        table.add_row("filename", str(doc["filename"]))
     if doc.get("executed_at"):
         table.add_row("executed_at", str(doc["executed_at"]))
     if doc.get("skipped_at"):
         table.add_row("skipped_at", str(doc["skipped_at"]))
     console.print(table)
 
-    # Per-interface results, if any.
+    # meta.test holds the execution outcome recorded by the Celery
+    # worker (exit_code, stdout, stderr, error, masked env vars).
+    # These are the fields sellers actually need when a script fails,
+    # so print them even though the top-level table doesn't include
+    # them.
     meta = doc.get("meta") or {}
     test = meta.get("test") if isinstance(meta, dict) else None
-    tests = (test or {}).get("tests") if isinstance(test, dict) else None
-    if tests:
-        console.print("\n[bold]Per-interface results[/bold]")
-        for iface_name, iface_data in tests.items():
-            if not isinstance(iface_data, dict):
-                continue
-            console.print(f"  • [cyan]{iface_name}[/cyan]")
-            for k in ("status", "exit_code", "stdout", "stderr", "error"):
-                v = iface_data.get(k)
-                if v not in (None, ""):
-                    console.print(f"      {k}: {v}")
+    if isinstance(test, dict):
+        if test.get("error"):
+            console.print(f"\n[bold red]Error:[/bold red] {test['error']}")
+        if test.get("exit_code") is not None:
+            console.print(f"[cyan]exit_code:[/cyan] {test['exit_code']}")
+        if test.get("stdout"):
+            console.print("\n[bold]stdout:[/bold]")
+            console.print(str(test["stdout"]))
+        if test.get("stderr"):
+            console.print("\n[bold]stderr:[/bold]")
+            console.print(str(test["stderr"]))
+        env = test.get("env")
+        if isinstance(env, dict) and env:
+            console.print("\n[bold]env:[/bold]")
+            env_table = Table(show_header=False, box=None, padding=(0, 2))
+            env_table.add_column("Key", style="cyan")
+            env_table.add_column("Value")
+            for k, v in env.items():
+                env_table.add_row(k, str(v))
+            console.print(env_table)
+
+        # Per-interface results, if the backend returned multi-interface
+        # breakdown (older shape: meta.test.tests).
+        tests = test.get("tests")
+        if isinstance(tests, dict) and tests:
+            console.print("\n[bold]Per-interface results[/bold]")
+            for iface_name, iface_data in tests.items():
+                if not isinstance(iface_data, dict):
+                    continue
+                console.print(f"  • [cyan]{iface_name}[/cyan]")
+                for k in ("status", "exit_code", "stdout", "stderr", "error"):
+                    v = iface_data.get(k)
+                    if v not in (None, ""):
+                        console.print(f"      {k}: {v}")
+
+    # Script source — useful when the failure is "can't find file" or
+    # an env-var interpolation bug. Truncate long files so the terminal
+    # doesn't drown.
+    file_content = doc.get("file_content")
+    if file_content:
+        console.print("\n[bold]file_content:[/bold]")
+        text = str(file_content)
+        if len(text) > 2000:
+            text = text[:2000] + f"\n... [dim]({len(file_content) - 2000} more chars truncated)[/dim]"
+        console.print(text)
+
     console.print()
 
 
