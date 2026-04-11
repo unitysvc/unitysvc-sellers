@@ -46,6 +46,12 @@ dev = [
   "ty",
   "ipdb",
 ]
+docs = [
+  "mkdocs",
+  "mkdocs-material",
+  "mkdocs-autorefs",
+  "pymdown-extensions",
+]
 
 [project.urls]
 bugs = "https://github.com/unitysvc/unitysvc-sellers/issues"

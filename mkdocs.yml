@@ -1,0 +1,87 @@
+site_name: UnitySVC Seller SDK
+site_description: Python SDK and CLI for the UnitySVC seller API
+site_author: UnitySVC Team
+site_url: https://unitysvc-sellers.readthedocs.io
+
+repo_name: unitysvc/unitysvc-sellers
+repo_url: https://github.com/unitysvc/unitysvc-sellers
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - toc:
+      permalink: true
+  - tables
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Usage Overview: usage.md
+      - Installation & Quick Start: getting-started.md
+      - Service Types: service-types.md
+      - Data Structure: data-structure.md
+      - Workflows: workflows.md
+      - Seller Lifecycle: seller-lifecycle.md
+  - Reference:
+      - CLI Commands: cli-reference.md
+      - Python SDK: sdk-reference.md
+      - File Schemas: file-schemas.md
+      - Pricing: pricing.md
+      - Code Examples: code-examples.md
+      - Documenting Services: documenting-services.md
+  - Advanced:
+      - User Access Interface Templates: tech-notes/user-access-interface-template.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/unitysvc/unitysvc-sellers
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/unitysvc-sellers/
+
+copyright: Copyright &copy; 2026 UnitySVC

@@ -1,0 +1,1477 @@
+# CLI Reference
+
+Complete command-line interface reference for `unitysvc_sellers` (alias: `usvc_seller`).
+
+## Global Options
+
+```bash
+unitysvc_sellers [OPTIONS] COMMAND [ARGS]...
+# Or using the shorter alias:
+usvc_seller [OPTIONS] COMMAND [ARGS]...
+```
+
+### Options
+
+- `--install-completion` - Install shell completion
+- `--show-completion` - Show completion script
+- `--help` - Show help message
+
+**Note:** All examples below use the shorter `usvc_seller` alias. You can always replace `usvc_seller` with `unitysvc_sellers` if preferred.
+
+## Commands Overview
+
+The CLI is organized into two main command groups with a clear separation of concerns:
+
+### Local Data Operations (`usvc_seller data`)
+
+Work with local data files - can be used offline without API credentials (except `upload`).
+
+| Command      | Description                                         |
+| ------------ | --------------------------------------------------- |
+| `validate`   | Validate data files against schemas                 |
+| `format`     | Format/prettify data files                          |
+| `populate`   | Generate data files from provider scripts           |
+| `upload`     | Upload local data to backend (draft status)         |
+| `list`       | List local data files (services, providers, etc.)   |
+| `show`       | Show details of a local data object                 |
+| `list-tests` | List code examples in local data                    |
+| `run-tests`  | Run code examples locally with upstream credentials |
+| `show-test`  | Show details of a local test                        |
+
+### Remote Service Operations (`usvc_seller services`)
+
+Manage services on the backend - can be run from anywhere with the right API key.
+
+| Command       | Description                                   |
+| ------------- | --------------------------------------------- |
+| `list`        | List deployed services on backend             |
+| `show`        | Show details of a deployed service            |
+| `submit`      | Submit draft service(s) for ops review        |
+| `withdraw`    | Withdraw pending/rejected service(s) to draft |
+| `deprecate`   | Deprecate active service(s)                   |
+| `delete`      | Delete service(s) from backend                |
+| `dedup`       | Remove duplicate draft services               |
+| `list-tests`  | List tests for deployed services              |
+| `show-test`   | Show details of a test for a deployed service |
+| `run-tests`   | Run tests via gateway (backend execution)     |
+| `skip-test`   | Mark a code example test as skipped           |
+| `unskip-test` | Remove skip status from a test                |
+
+### Promotion Management (`usvc_seller promotions`)
+
+Manage seller promotions (pricing rules).
+
+All commands operate on promotions already uploaded to the backend. Use `usvc_seller data validate` and `usvc_seller data upload` for local file operations (promotions are discovered alongside services).
+
+| Command       | Description                                    |
+| ------------- | ---------------------------------------------- |
+| `list`        | List promotions on the backend                 |
+| `show`        | Show details of a promotion (including generated codes) |
+| `activate`    | Activate a promotion                           |
+| `pause`       | Pause a promotion                              |
+| `delete`      | Delete a promotion                             |
+
+**Note:** To create initial service data, use the [UnitySVC web interface](https://unitysvc.com) which provides a visual editor with validation. You can export your data for use with this SDK.
+
+## usvc_seller data - Local Data Operations
+
+Commands for working with local data files. These commands work offline and don't require API credentials.
+
+### usvc_seller data list - List Local Files
+
+List data files in local directory.
+
+#### usvc_seller data list providers
+
+```bash
+usvc_seller data list providers [DATA_DIR]
+```
+
+**Arguments:**
+
+- `[DATA_DIR]` - Data directory (default: current directory)
+
+**Examples:**
+
+```bash
+# List providers in current directory
+usvc_seller data list providers
+
+# List providers in specific directory
+usvc_seller data list providers ./data
+```
+
+#### usvc_seller data list sellers
+
+```bash
+usvc_seller data list sellers [DATA_DIR]
+```
+
+#### usvc_seller data list offerings
+
+```bash
+usvc_seller data list offerings [DATA_DIR]
+```
+
+#### usvc_seller data list listings
+
+```bash
+usvc_seller data list listings [DATA_DIR]
+```
+
+#### usvc_seller data list services
+
+```bash
+usvc_seller data list services [DATA_DIR]
+```
+
+List all services with their provider, offering, and listing files.
+
+**Output:**
+
+- Table format with file paths and key fields
+- Color-coded status indicators
+
+### usvc_seller data upload - Upload Services to Backend
+
+Upload services to UnitySVC backend. The upload command uses a **listing-centric** approach where each listing file triggers a unified upload of provider + offering + listing together.
+
+#### How Uploading Works
+
+A **Service** in UnitySVC consists of three data components that are uploaded together:
+
+```mermaid
+flowchart TB
+    subgraph Service["Uploaded Together"]
+        P["<b>Provider Data</b><br/>WHO provides<br/><i>provider_v1</i>"]
+        O["<b>Offering Data</b><br/>WHAT is provided<br/><i>offering_v1</i>"]
+        L["<b>Listing Data</b><br/>HOW it's sold<br/><i>listing_v1</i>"]
+    end
+
+    P --> O --> L
+
+    style P fill:#e3f2fd
+    style O fill:#fff3e0
+    style L fill:#e8f5e9
+```
+
+When you run `usvc_seller data upload`:
+
+1. **Finds** all listing files (`listing_v1` schema) in the directory tree
+2. For each listing, **locates** the offering file (`offering_v1`) in the same directory
+3. **Locates** the provider file (`provider_v1`) in the parent directory
+4. **Uploads** all three together to the `/seller/services` endpoint
+
+This ensures atomic uploading - all three components are validated and uploaded as a single unit.
+
+**Usage:**
+
+```bash
+usvc_seller data upload [OPTIONS]
+```
+
+**Options:**
+
+- `--data-path, -d PATH` - Data directory or single listing file (default: current directory)
+- `--dryrun` - Preview what would be created/updated without making actual changes
+
+**Required Environment Variables:**
+
+- `UNITYSVC_API_URL` - Backend API URL
+- `UNITYSVC_SELLER_API_KEY` - API key for authentication (seller API key)
+
+**Examples:**
+
+```bash
+# Upload all services from current directory
+usvc_seller data upload
+
+# Upload all services from custom directory
+usvc_seller data upload --data-path ./data
+
+# Upload a single service (specific listing file)
+usvc_seller data upload --data-path ./data/my-provider/services/my-service/listing.json
+
+# Preview changes before uploading (dryrun mode)
+usvc_seller data upload --dryrun
+```
+
+**Dryrun Mode:**
+
+The `--dryrun` option allows you to preview what would happen during upload without making actual changes to the backend. This is useful for:
+
+- Verifying which services would be created vs updated
+- Checking that all required files exist (provider, offering, listing)
+- Confirming changes before committing them
+
+In dryrun mode:
+
+- No actual data is sent to the backend
+- Backend returns what action would be taken (create/update/unchanged)
+- Missing files are reported as errors
+- Summary shows what would happen if uploaded
+
+**Output Format:**
+
+Uploading displays progress for each service and a summary table:
+
+```bash
+$ usvc_seller data upload
+Uploading services from: /path/to/data
+Backend URL: https://api.unitysvc.com/v1
+
+  + Created service: listing-premium (offering: gpt-4, provider: openai)
+  ~ Updated service: listing-basic (offering: gpt-4, provider: openai)
+  = Unchanged service: listing-default (offering: claude-3, provider: anthropic)
+
+Upload Summary
+╭──────────┬───────┬─────────┬─────────┬────────┬─────────┬─────────┬───────────╮
+│ Type     │ Found │ Success │ Skipped │ Failed │ Created │ Updated │ Unchanged │
+├──────────┼───────┼─────────┼─────────┼────────┼─────────┼─────────┼───────────┤
+│ Services │ 3     │ 3       │         │        │ 1       │ 1       │ 1         │
+╰──────────┴───────┴─────────┴─────────┴────────┴─────────┴─────────┴───────────╯
+
+✓ All services uploaded successfully!
+```
+
+**Status Indicators:**
+
+| Symbol | Status    | Meaning                                 |
+| ------ | --------- | --------------------------------------- |
+| `+`    | Created   | New service uploaded for the first time |
+| `~`    | Updated   | Existing service updated with changes   |
+| `=`    | Unchanged | Service already exists and is identical |
+| `⊘`    | Skipped   | Service has draft status or deprecated without service_id |
+| `✗`    | Failed    | Error during uploading                  |
+
+**Upload Rules Based on Status:**
+
+The upload behavior depends on the `status` field of provider, offering, and listing:
+
+| Condition | Behavior |
+|-----------|----------|
+| Any status is `draft` | **Skip** - service not uploaded (still being configured) |
+| Any status is `deprecated` (none draft) | **Upload if `service_id` exists** - deprecates service on server |
+| Any status is `deprecated` (no `service_id`) | **Skip** - cannot deprecate a service that doesn't exist on server |
+| All statuses are `ready` | **Upload** - normal upload, service created/updated |
+
+**Draft Services:**
+
+Services with any component in `draft` status are skipped. This allows you to work on services locally without uploading incomplete data. Set status to `ready` when you're ready to upload.
+
+**Deprecated Services:**
+
+When any component (provider, offering, or listing) has `status: deprecated`:
+
+- If `service_id` exists (from override file or `--revision-to`): The service is uploaded and the backend sets `Service.status` to `deprecated`
+- If no `service_id`: The service is skipped with message "cannot deprecate on server"
+
+This ensures deprecated services properly sync their status to the backend, while preventing creation of new deprecated services that never existed.
+
+**Error Handling:**
+
+If uploading fails for a service, the error is displayed and uploading continues with remaining services. Common errors:
+
+- Missing offering file in the same directory as the listing
+- Missing provider file in the parent directory
+- Invalid data that fails schema validation
+- Network/authentication errors
+
+**Idempotent Uploading:**
+
+Uploading is idempotent - running `usvc_seller data upload` multiple times with the same data will result in "unchanged" status for services that haven't changed. The backend tracks content hashes to detect changes efficiently.
+
+**Override Files and Service ID Persistence:**
+
+After a successful first upload, the SDK automatically saves the `service_id` to an override file:
+
+```
+listing.json       →  listing.override.json
+listing.toml       →  listing.override.toml
+```
+
+Example override file content:
+
+```json
+{
+    "service_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Important:** The `service_id` is the stable identifier that subscriptions reference. When you first upload from a new repository or data directory, a **new Service is always created**, even if the content is identical to an existing service. The `service_id` in the override file ensures subsequent uploads update this specific service.
+
+On subsequent uploads, the `service_id` is automatically loaded from the override file and included in the upload request, ensuring the existing service is **updated** rather than creating a new one.
+
+**Uploading as New (Remove Existing Service ID):**
+
+If you need to upload as a completely new service (ignoring any existing `service_id`), delete the override file before uploading:
+
+```bash
+# Remove override file to upload as new service
+rm listing.override.json
+
+# Upload - will create a new service with a new service_id
+usvc_seller data upload --data-path ./my-provider/services/my-service/listing.json
+```
+
+Use cases for uploading as new:
+
+- Accidentally deleted the service from the backend and need to recreate it
+- Deploying to a different environment (staging vs production)
+- Backend data was reset
+
+**Cloning a Service:**
+
+To create a variant or copy of an existing service (e.g., different pricing tier, different region):
+
+```bash
+# 1. Copy the listing file with a new name
+cp listing.json listing-enterprise.json
+
+# 2. Edit the new file to change name/configuration
+#    - Change "name" field to a unique value (e.g., "enterprise")
+#    - Modify pricing, parameters, etc. as needed
+
+# 3. Upload the new listing (no override file exists, so creates new service)
+usvc_seller data upload --data-path ./my-provider/services/my-service/listing-enterprise.json
+```
+
+**Important:** Each listing file should have a unique `name` field. The new listing will get its own `service_id` saved to `listing-enterprise.override.json`.
+
+For multiple environment deployments, you can use different override files:
+
+```bash
+# Production override
+listing.override.json          # service_id for production
+
+# Staging override (manually managed or gitignored)
+listing.staging.override.json  # service_id for staging
+```
+
+---
+
+## usvc_seller services - Remote Service Operations
+
+Commands for managing services on the backend. These commands require API credentials and can be run from anywhere.
+
+### usvc_seller services list - Query Backend
+
+Query services for the current seller from UnitySVC backend API. Services are the identity layer that connects sellers to content versions (Provider, ServiceOffering, ServiceListing).
+
+```bash
+usvc_seller services list [OPTIONS]
+```
+
+**Options:**
+
+- `--format, -f {table|json|tsv|csv}` - Output format (default: table)
+- `--fields FIELDS` - Comma-separated list of fields to display (default: id,name,status,seller_id,provider_id,offering_id,listing_id)
+- `--skip SKIP` - Number of records to skip for pagination (default: 0)
+- `--limit LIMIT` - Maximum number of records to return (default: 100)
+- `--status STATUS` - Filter by status (draft, pending, testing, active, rejected, suspended)
+
+**Available Fields:**
+
+id, name, display_name, status, seller_id, provider_id, offering_id, listing_id, revision_of, created_by_id, updated_by_id, created_at, updated_at
+
+**Required Environment Variables:**
+
+- `UNITYSVC_API_URL` - Backend API URL
+- `UNITYSVC_SELLER_API_KEY` - API key for authentication
+
+**Examples:**
+
+```bash
+# Table output with default fields
+usvc_seller services list
+
+# JSON output
+usvc_seller services list --format json
+
+# Custom fields - show only specific columns
+usvc_seller services list --fields id,name,status
+
+# Filter by status
+usvc_seller services list --status active
+
+# Retrieve more than 100 records
+usvc_seller services list --limit 500
+
+# Pagination: get second page of 100 records
+usvc_seller services list --skip 100 --limit 100
+```
+
+### usvc_seller services withdraw - Withdraw to Draft
+
+Withdraw one or more services back to draft status (pending/rejected → draft).
+
+```bash
+usvc_seller services withdraw [SERVICE_ID...] [OPTIONS]
+```
+
+**Arguments:**
+
+- `[SERVICE_ID...]` - UUID(s) or partial UUID(s) of the service(s) to withdraw (optional if using --all)
+
+**Options:**
+
+- `--all` - Withdraw all pending and rejected services
+- `--yes, -y` - Skip confirmation prompt
+
+**Examples:**
+
+```bash
+# Withdraw a single service
+usvc_seller services withdraw abc123-uuid
+
+# Withdraw multiple services
+usvc_seller services withdraw abc123 def456
+
+# Withdraw all pending/rejected services
+usvc_seller services withdraw --all
+
+# Withdraw all without confirmation
+usvc_seller services withdraw --all -y
+```
+
+### usvc_seller services deprecate - Deprecate a Service
+
+Deprecate one or more active services. Deprecated services remain accessible but are marked as deprecated.
+
+```bash
+usvc_seller services deprecate [SERVICE_ID...] [OPTIONS]
+```
+
+**Arguments:**
+
+- `[SERVICE_ID...]` - UUID(s) or partial UUID(s) of the service(s) to deprecate (optional if using --all)
+
+**Options:**
+
+- `--all` - Deprecate all active services
+- `--yes, -y` - Skip confirmation prompt
+
+**Examples:**
+
+```bash
+# Deprecate a single service (with confirmation)
+usvc_seller services deprecate abc123-uuid
+
+# Deprecate multiple services
+usvc_seller services deprecate abc123 def456 ghi789
+
+# Deprecate all active services
+usvc_seller services deprecate --all
+
+# Deprecate without confirmation
+usvc_seller services deprecate abc123-uuid -y
+```
+
+### usvc_seller services delete - Delete a Service
+
+Permanently delete one or more services from the backend.
+
+```bash
+usvc_seller services delete [SERVICE_ID...] [OPTIONS]
+```
+
+**Arguments:**
+
+- `[SERVICE_ID...]` - UUID(s) or partial UUID(s) of the service(s) to delete (optional if using --all)
+
+**Options:**
+
+- `--all` - Delete all deletable services (draft, pending, testing, rejected, suspended, deprecated)
+- `--status STATUS` - Filter by status when using --all (e.g., `--all --status draft`)
+- `--dryrun` - Show what would be deleted without actually deleting
+- `--force` - Force deletion even with active subscriptions
+- `--yes, -y` - Skip confirmation prompt
+
+**Examples:**
+
+```bash
+# Delete a single service (with confirmation)
+usvc_seller services delete abc123-uuid
+
+# Delete multiple services
+usvc_seller services delete abc123 def456 ghi789
+
+# Delete all draft services
+usvc_seller services delete --all --status draft
+
+# Delete all deletable services (use with caution!)
+usvc_seller services delete --all
+
+# Dry-run to see what would be deleted
+usvc_seller services delete --all --status draft --dryrun
+
+# Delete without confirmation
+usvc_seller services delete abc123-uuid -y
+```
+
+### usvc_seller services submit - Submit for Review
+
+Submit one or more draft services for ops review (draft → pending).
+
+```bash
+usvc_seller services submit [SERVICE_ID...] [OPTIONS]
+```
+
+**Arguments:**
+
+- `[SERVICE_ID...]` - UUID(s) or partial UUID(s) of the service(s) to submit (optional if using --all)
+
+**Options:**
+
+- `--all` - Submit all draft services
+- `--yes, -y` - Skip confirmation prompt
+
+**Examples:**
+
+```bash
+# Submit a single service for review
+usvc_seller services submit abc123-uuid
+
+# Submit multiple services
+usvc_seller services submit abc123 def456 ghi789
+
+# Submit all draft services
+usvc_seller services submit --all
+
+# Submit all draft services without confirmation
+usvc_seller services submit --all -y
+```
+
+**Required Environment Variables:**
+
+- `UNITYSVC_API_URL` - Backend API URL
+- `UNITYSVC_SELLER_API_KEY` - API key for authentication
+
+### usvc_seller services dedup - Remove Duplicate Drafts
+
+Remove duplicate draft services that have identical content. This is useful for cleaning up services that were cloned or repeatedly uploaded with the same data.
+
+```bash
+usvc_seller services dedup [OPTIONS]
+```
+
+**Options:**
+
+- `--yes, -y` - Skip confirmation prompt
+
+**How It Works:**
+
+A draft service is considered a duplicate if another service (draft or non-draft) exists with identical content, meaning they share the same:
+
+- `provider_id` - Same provider content
+- `offering_id` - Same offering content
+- `listing_id` - Same listing content
+
+The dedup command processes draft services in creation order (oldest first) and:
+
+1. Keeps the first draft with unique content
+2. Removes subsequent drafts that have identical content to an earlier draft
+3. Removes drafts that duplicate a non-draft service (e.g., pending, active)
+
+**Why Use Dedup:**
+
+- **Cloning creates duplicates**: When you clone a service for editing, uploading without changes creates a duplicate
+- **Repeated uploads**: Uploading the same data multiple times creates duplicates
+- **Submit will fail**: Attempting to submit a duplicate service for review will fail with "A service with identical content already exists"
+
+**Examples:**
+
+```bash
+# Check for and remove duplicate drafts (with confirmation)
+usvc_seller services dedup
+
+# Remove duplicates without confirmation
+usvc_seller services dedup -y
+```
+
+**Output:**
+
+```bash
+$ usvc_seller services dedup
+Checking for duplicate draft services...
+
+Remove duplicate draft services? [y/N]: y
+✓ Removed 2 duplicate draft(s):
+  • abc123-def456-...
+  • 789xyz-012abc-...
+
+Total drafts examined: 5
+```
+
+**Important Notes:**
+
+- Only draft services can be removed by dedup
+- Services with archived history (were previously active) cannot be removed
+- The oldest draft with unique content is always kept
+- Run `usvc_seller services list --status draft` to see your draft services before deduping
+
+**Required Environment Variables:**
+
+- `UNITYSVC_API_URL` - Backend API URL
+- `UNITYSVC_SELLER_API_KEY` - API key for authentication
+
+---
+
+## usvc_seller promotions - Promotion Management
+
+Commands for managing seller promotions (pricing rules). Promotions are identified by name (unique per seller).
+
+All commands operate on promotions already uploaded to the backend. Local file operations (validate, upload) are handled by `usvc_seller data validate` and `usvc_seller data upload`, which automatically discover `promotion_v1` files alongside service data.
+
+### Promotion File Format
+
+Promotion files use the `promotion_v1` schema and live in a `promotions/` directory alongside service data:
+
+```
+seller-data/
+├── provider.json
+├── services/
+│   └── my-llm/
+│       ├── offering.json
+│       └── listing.json
+└── promotions/
+    ├── summer-discount.json
+    └── volume-tier.json
+```
+
+### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `schema` | str | `"promotion_v1"` | File schema identifier (stripped before upload) |
+| `name` | str | **required** | Unique per seller. Used for idempotent upsert |
+| `description` | str \| null | null | Human-readable description |
+| `scope` | dict \| null | null | Who + where the promotion applies (see below) |
+| `pricing` | dict | **required** | Pricing adjustment (Pricing union type) |
+| `apply_at` | str | `"request"` | `"request"` (per API call) or `"statement"` (billing) |
+| `priority` | int | 0 | Higher-priority rules applied first |
+| `status` | str | `"draft"` | `"draft"`, `"active"`, `"paused"`, etc. |
+| `expires_at` | datetime \| null | null | When the promotion expires (code-based only) |
+| `max_uses` | int \| null | null | Maximum total redemptions (code-based only) |
+
+### Scope
+
+The `scope` field controls which **customers** and **services** a promotion applies to. When omitted, the promotion is a blanket discount for all customers on all of the seller's services.
+
+**Customer targeting** (`scope.customers`):
+
+| Value | Effect |
+|-------|--------|
+| `"*"` or omitted | All customers (blanket) |
+| `{"code": "SUMMER25"}` | Customers who redeem this code |
+| `{"code": "{{ promotion_code(6) }}"}` | Backend auto-generates a 6-char code |
+| `{"subscription": "premium"}` | Customers on a specific plan tier |
+| `["id1", "id2"]` | Specific customers (backend auto-assigns the code to their accounts) |
+
+**Service targeting** (`scope.services`):
+
+| Value | Effect |
+|-------|--------|
+| `"*"` or omitted | All of this seller's services |
+| `["gpt-4", "gpt-4-enterprise"]` | Specific services by name |
+
+### Examples
+
+**Blanket discount** — 20% off everything, no code needed:
+
+```json
+{
+  "schema": "promotion_v1",
+  "name": "summer-sale",
+  "description": "Summer 2026 sale — 20% off all services",
+  "pricing": {"type": "multiply", "factor": "0.80"},
+  "status": "active"
+}
+```
+
+**Code-based with auto-generated code:**
+
+```json
+{
+  "schema": "promotion_v1",
+  "name": "vip-discount",
+  "description": "30% off for VIP customers",
+  "scope": {"customers": {"code": "{{ promotion_code(6) }}"}},
+  "pricing": {"type": "multiply", "factor": "0.70"},
+  "expires_at": "2026-12-31T00:00:00Z",
+  "max_uses": 100
+}
+```
+
+After upload, `usvc_seller promotions show vip-discount` will show the generated code (e.g., `XKWPQM`).
+
+**Explicit code for specific services:**
+
+```json
+{
+  "schema": "promotion_v1",
+  "name": "launch-promo",
+  "scope": {
+    "customers": {"code": "LAUNCH2026"},
+    "services": ["my-new-service"]
+  },
+  "pricing": {"type": "multiply", "factor": "0.50"},
+  "max_uses": 500
+}
+```
+
+**Tier-restricted discount:**
+
+```json
+{
+  "schema": "promotion_v1",
+  "name": "premium-llm-discount",
+  "scope": {
+    "customers": {"subscription": "premium"},
+    "services": ["gpt-4", "claude-3-opus"]
+  },
+  "pricing": {"type": "multiply", "factor": "0.85"}
+}
+```
+
+**Targeted discount for specific customers:**
+
+```json
+{
+  "schema": "promotion_v1",
+  "name": "beta-tester-reward",
+  "scope": {"customers": ["550e8400-...", "6ba7b810-..."]},
+  "pricing": {"type": "constant", "price": "-5.00"}
+}
+```
+
+### usvc_seller promotions list
+
+List seller's promotions on the backend.
+
+```bash
+usvc_seller promotions list
+```
+
+**Environment:**
+
+- `UNITYSVC_API_URL` - Backend API URL
+- `UNITYSVC_SELLER_API_KEY` - API key for authentication
+
+### usvc_seller promotions show
+
+Show details of a promotion on the backend (including generated codes).
+
+```bash
+usvc_seller promotions show <NAME_OR_ID>
+```
+
+### usvc_seller promotions activate
+
+Activate a promotion by name or ID.
+
+```bash
+usvc_seller promotions activate <NAME_OR_ID>
+```
+
+### usvc_seller promotions pause
+
+Pause a promotion by name or ID.
+
+```bash
+usvc_seller promotions pause <NAME_OR_ID>
+```
+
+### usvc_seller promotions delete
+
+Delete a promotion by name or ID.
+
+```bash
+usvc_seller promotions delete <NAME_OR_ID> [--force]
+```
+
+**Options:**
+
+- `--force`, `-f` - Skip confirmation prompt
+
+---
+
+## usvc_seller services test commands
+
+Commands for managing and running tests on deployed services via the gateway.
+
+### usvc_seller services list-tests
+
+List tests for deployed services. If no service ID is specified, lists tests for all services.
+
+```bash
+usvc_seller services list-tests [SERVICE_ID] [OPTIONS]
+```
+
+**Arguments:**
+
+- `[SERVICE_ID]` - UUID or partial UUID of the service (optional, lists all if omitted)
+
+**Options:**
+
+- `--format, -f TEXT` - Output format: table, json, tsv, csv (default: table)
+
+**Examples:**
+
+```bash
+# List tests for all services
+usvc_seller services list-tests
+
+# List tests for specific service
+usvc_seller services list-tests abc123
+
+# JSON output
+usvc_seller services list-tests --format json
+```
+
+### usvc_seller services show-test
+
+Show details of a test for a deployed service.
+
+```bash
+usvc_seller services show-test <SERVICE_ID> -t <TEST_TITLE> [OPTIONS]
+```
+
+**Arguments:**
+
+- `<SERVICE_ID>` - UUID or partial UUID of the service (required)
+
+**Options:**
+
+- `--test-title, -t TEXT` - Test title (required)
+- `--format, -f TEXT` - Output format: json, table, tsv, csv (default: json)
+
+**Examples:**
+
+```bash
+usvc_seller services show-test abc123 -t "Python Example"
+```
+
+### usvc_seller services run-tests
+
+Run tests **locally** on your machine. Fetches test scripts from the backend, executes them with your local environment variables, and reports results back to the platform.
+
+**Environment Setup Required:**
+
+Before running tests, you need a **customer API key** for gateway access (separate from your seller API key). Follow these steps once:
+
+1. **Join the unitysvc-ops team** — Contact [support@unitysvc.com](mailto:support@unitysvc.com) to request an invitation code
+2. **Apply the invitation code** — In the web interface, go to **Add a Role** → **Join a Team** and enter the code
+3. **Create a customer API key** — Navigate to **API Keys** (under your team/customer role) and create a new key
+4. **Export environment variables** — Save the key and set up your shell:
+
+```bash
+# Customer API key (used by test scripts to access services through the gateway)
+export UNITYSVC_API_KEY="svcpass_your_customer_api_key"
+
+# Backend API URL
+export UNITYSVC_API_URL="https://backend.unitysvc.com/v1"
+```
+
+**Note:** `SERVICE_BASE_URL` is automatically set per access interface — you do not need to set it yourself.
+
+Your existing `UNITYSVC_SELLER_API_KEY` (seller key) and `UNITYSVC_API_URL` are still used for backend API access.
+
+```bash
+usvc_seller services run-tests <SERVICE_ID> [OPTIONS]
+```
+
+**Arguments:**
+
+- `<SERVICE_ID>` - UUID or partial UUID of the service (required)
+
+**Options:**
+
+- `--test-title, -t TEXT` - Run specific test by title (runs all if not specified)
+- `--doc-id, -d TEXT` - Run specific test by document ID (supports partial IDs)
+- `--verbose, -v` - Show detailed output including stdout/stderr
+- `--force` - Force rerun (ignore previous success status)
+- `--fail-fast, -x` - Stop on first failure
+- `--timeout INT` - Execution timeout in seconds (default: 30)
+
+**Examples:**
+
+```bash
+# Run all tests for a service
+usvc_seller services run-tests abc123
+
+# Run specific test by title
+usvc_seller services run-tests abc123 -t "Demo"
+
+# Run specific test by document ID
+usvc_seller services run-tests abc123 -d def456
+
+# Verbose output
+usvc_seller services run-tests abc123 -v
+
+# Force rerun even if previously successful
+usvc_seller services run-tests abc123 --force
+
+# Stop on first failure
+usvc_seller services run-tests abc123 --fail-fast
+```
+
+**Note:** Two API keys are involved. `UNITYSVC_SELLER_API_KEY` (seller key) authenticates with the backend to fetch scripts and submit results. `UNITYSVC_API_KEY` (customer key) is used by the test scripts themselves to access services through the gateway. See the environment setup steps above for how to obtain a customer API key.
+
+### usvc_seller services skip-test
+
+Mark a code example test as skipped. Skipped tests are excluded from test runs. Note: Connectivity tests cannot be skipped.
+
+```bash
+usvc_seller services skip-test <SERVICE_ID> -t <TEST_TITLE>
+```
+
+**Arguments:**
+
+- `<SERVICE_ID>` - UUID or partial UUID of the service (required)
+
+**Options:**
+
+- `--test-title, -t TEXT` - Test title (required)
+
+**Examples:**
+
+```bash
+usvc_seller services skip-test abc123 -t "Demo that requires GPU"
+```
+
+### usvc_seller services unskip-test
+
+Remove skip status from a test, making it eligible for execution again.
+
+```bash
+usvc_seller services unskip-test <SERVICE_ID> -t <TEST_TITLE>
+```
+
+**Arguments:**
+
+- `<SERVICE_ID>` - UUID or partial UUID of the service (required)
+
+**Options:**
+
+- `--test-title, -t TEXT` - Test title (required)
+
+**Examples:**
+
+```bash
+usvc_seller services unskip-test abc123 -t "Demo that requires GPU"
+```
+
+---
+
+## Editing Local Files
+
+To update fields in local data files, edit the JSON or TOML files directly. This file-based approach gives you full control and integrates naturally with version control.
+
+**Listing Status Values:**
+
+Seller-accessible statuses:
+
+- `draft` - Listing is being worked on, skipped during upload (won't be sent to backend)
+- `ready` - Listing is complete and ready for admin review/testing
+- `deprecated` - Seller marks service as retired/replaced
+
+Note: Admin-managed workflow statuses are set by the backend admin after testing and validation.
+
+### usvc_seller data validate - Validate Data
+
+Validate data consistency and schema compliance.
+
+```bash
+usvc_seller data validate [DATA_DIR]
+```
+
+**Arguments:**
+
+- `[DATA_DIR]` - Data directory (default: current directory)
+
+**Checks:**
+
+- Schema compliance
+- Service name uniqueness
+- Listing references
+- Provider/service name matching
+- File path validity
+- Seller uniqueness
+
+**Examples:**
+
+```bash
+# Validate current directory
+usvc_seller data validate
+
+# Validate specific directory
+usvc_seller data validate ./data
+```
+
+**Exit Codes:**
+
+- `0` - All validations passed
+- `1` - Validation errors found
+
+### usvc_seller data format - Format Files
+
+Format data files to match pre-commit requirements.
+
+```bash
+usvc_seller data format [DATA_DIR] [OPTIONS]
+```
+
+**Arguments:**
+
+- `[DATA_DIR]` - Data directory (default: current directory)
+
+**Options:**
+
+- `--check` - Check formatting without modifying files
+
+**Actions:**
+
+- Format JSON with 2-space indentation
+- Remove trailing whitespace
+- Ensure single newline at end of file
+- Sort JSON keys
+
+**Examples:**
+
+```bash
+# Format all files in current directory
+usvc_seller data format
+
+# Check formatting without changes
+usvc_seller data format --check
+
+# Format specific directory
+usvc_seller data format ./data
+```
+
+**Exit Codes:**
+
+- `0` - All files formatted or already formatted
+- `1` - Formatting errors or files need formatting (with --check)
+
+### usvc_seller data populate - Generate Services
+
+Execute provider populate scripts to auto-generate service data from upstream sources (APIs, web scraping, etc.).
+
+```bash
+usvc_seller data populate [DATA_DIR] [OPTIONS]
+```
+
+**Arguments:**
+
+- `[DATA_DIR]` - Data directory (default: current directory)
+
+**Options:**
+
+- `--provider, -p NAME` - Only populate specific provider
+- `--dry-run` - Show what would execute without running
+
+**Requirements:**
+
+- Provider file must have `services_populator` configuration
+- Script specified in `services_populator.command`
+- Environment variables from `services_populator.envs`
+
+**Examples:**
+
+```bash
+# Run all populate scripts
+usvc_seller data populate
+
+# Run for specific provider
+usvc_seller data populate --provider openai
+
+# Dry run
+usvc_seller data populate --dry-run
+```
+
+**Automatic Deprecation of Removed Services:**
+
+When a populate script runs, services that exist locally but are no longer returned by the upstream source are automatically marked as deprecated:
+
+1. Before running, the system records all existing service directories (those with `offering.json`)
+2. During population, services returned by the upstream API are created/updated
+3. After population, services that weren't touched are marked as deprecated
+
+**What gets updated:**
+
+- `offering.json` → `status` field set to `"deprecated"`
+- `listing.json` files are **not** modified (deprecation is conceptually an offering-level change)
+
+**Output includes deprecation count:**
+
+```
+Done! Total: 150, Written: 145, Skipped: 3, Filtered: 0, Errors: 0, Deprecated: 2
+  Deprecated: old-model-v1
+  Deprecated: legacy-service
+```
+
+**Important:** Deprecated services need a `service_id` (from override file) to sync the deprecation to the backend. Services without a `service_id` will be skipped during upload with message "cannot deprecate on server".
+
+**Disabling automatic deprecation:**
+
+Your populator script decides whether missing services get
+deprecated — just skip the deprecation pass if you don't want that
+behaviour. See the [automated workflow example](workflows.md#automated-workflow-template-based)
+for the full pattern.
+
+## usvc_seller data test commands
+
+Test code examples locally with upstream API credentials. These commands discover code examples from listing files and execute them with provider credentials.
+
+**How it works:**
+
+1. Scans for all listing files (schema: listing_v1)
+2. Extracts code example documents (category = `code_examples`)
+3. Loads provider credentials from provider files
+4. Renders Jinja2 templates with listing, offering, provider, and seller data
+5. Sets environment variables (UNITYSVC_API_KEY, SERVICE_BASE_URL) automatically from provider credentials
+6. Executes code examples using appropriate interpreter (python3, node, bash)
+7. Validates results based on exit code and optional `expect` field
+
+### usvc_seller data list-tests
+
+List available code examples without running them.
+
+```bash
+usvc_seller data list-tests [DATA_DIR] [OPTIONS]
+```
+
+**Arguments:**
+
+- `[DATA_DIR]` - Data directory (default: current directory)
+
+**Options:**
+
+- `--provider, -p NAME` - Only list code examples for a specific provider
+- `--services, -s PATTERNS` - Comma-separated list of service patterns (supports wildcards)
+
+**Output:**
+
+- Table showing: Service name, Provider, Title, File type, Relative file path
+
+**Examples:**
+
+```bash
+# List all code examples
+usvc_seller data list-tests
+
+# List for specific provider
+usvc_seller data list-tests --provider fireworks
+
+# List for specific services (with wildcards)
+usvc_seller data list-tests --services "llama*,gpt-4*"
+
+# List from custom directory
+usvc_seller data list-tests ./data
+```
+
+### usvc_seller data run-tests
+
+Execute code examples and report results.
+
+```bash
+usvc_seller data run-tests [DATA_DIR] [OPTIONS]
+```
+
+**Upstream Credentials (Secrets):**
+
+Offering files reference upstream API keys using `${ secrets.VAR_NAME }` instead
+of storing credentials in plain text. Before running tests, export the
+corresponding environment variables:
+
+```bash
+# Check which secrets your offerings reference
+grep -r 'secrets\.' data/ --include='*.json'
+# → "api_key": "${ secrets.AIONLABS_API_KEY }"
+
+# Export the required secrets
+export AIONLABS_API_KEY="your-upstream-api-key"
+
+# Now run tests
+usvc_seller data run-tests
+```
+
+If a required secret is missing, the command will exit with an error showing
+which environment variable needs to be set.
+
+**Arguments:**
+
+- `[DATA_DIR]` - Data directory (default: current directory)
+
+**Options:**
+
+- `--provider, -p NAME` - Only test code examples for a specific provider
+- `--services, -s PATTERNS` - Comma-separated list of service patterns (supports wildcards)
+- `--test-file, -t FILENAME` - Only run a specific test file by filename (e.g., 'code-example.py.j2')
+- `--verbose, -v` - Show detailed output including stdout/stderr from scripts
+- `--force, -f` - Force rerun all tests, ignoring existing .out and .err files
+- `--fail-fast, -x` - Stop testing on first failure
+
+**Test Pass Criteria:**
+
+- Exit code is 0 AND
+- If `expect` field is defined in document: expected string found in stdout
+- If `expect` field is NOT defined: only exit code matters
+
+**Test Result Caching:**
+
+By default, successful test results are cached to avoid re-running tests unnecessarily:
+
+- When a test passes, `.out` and `.err` files are saved in the same directory as the listing file
+- On subsequent runs, tests with existing result files are skipped
+- Use `--force` to ignore cached results and re-run all tests
+- Failed tests are always re-run (their output goes to current directory with `failed_` prefix)
+
+**Failed Test Output:**
+
+When a test fails, the rendered content is saved to the current directory:
+
+- Filename format: `failed_{service}_{listing}_{filename}.{out|err|extension}`
+- `.out` file: stdout from the test
+- `.err` file: stderr from the test
+- Script file: Full rendered template content with environment variables
+- Can be run directly to reproduce the issue
+
+**Successful Test Output:**
+
+When a test passes, output files are saved in the listing directory:
+
+- Filename format: `{service}_{listing}_{filename}.{out|err}`
+- Saved alongside the listing definition file
+- Used to skip re-running tests unless `--force` is specified
+
+**Examples:**
+
+```bash
+# Test all code examples
+usvc_seller data run-tests
+
+# Test specific provider
+usvc_seller data run-tests --provider fireworks
+
+# Test specific services (with wildcards)
+usvc_seller data run-tests --services "llama*,gpt-4*"
+
+# Test single service
+usvc_seller data run-tests --services "llama-3-1-405b-instruct"
+
+# Test specific file
+usvc_seller data run-tests --test-file "code-example.py.j2"
+
+# Combine filters
+usvc_seller data run-tests --provider fireworks --services "llama*"
+
+# Show detailed output
+usvc_seller data run-tests --verbose
+
+# Force rerun all tests (ignore cached results)
+usvc_seller data run-tests --force
+
+# Stop on first failure (useful for quick feedback)
+usvc_seller data run-tests --fail-fast
+
+# Combine options
+usvc_seller data run-tests --force --fail-fast --verbose
+usvc_seller data run-tests -f -x -v  # Short form
+```
+
+**Interpreter Detection:**
+
+- `.py` files: Uses `python3` (falls back to `python`)
+- `.js` files: Uses `node` (Node.js required)
+- `.sh` files: Uses `bash`
+- Other files: Checks shebang line for interpreter
+
+**Exit Codes:**
+
+- `0` - All tests passed
+- `1` - One or more tests failed
+
+### usvc_seller data show-test
+
+Show details of a local code example test, including rendered content and test results.
+
+```bash
+usvc_seller data show-test [DATA_DIR] [OPTIONS]
+```
+
+**Arguments:**
+
+- `[DATA_DIR]` - Data directory (default: current directory)
+
+**Options:**
+
+- `--provider, -p NAME` - Filter by provider
+- `--services, -s NAME` - Filter by service name
+- `--test-file, -t FILENAME` - Show specific test file
+
+**Examples:**
+
+```bash
+usvc_seller data show-test --services "my-service" --test-file "example.py.j2"
+```
+
+See [Creating Code Examples](https://unitysvc-sellers.readthedocs.io/en/latest/code-examples/) for detailed guide on creating and debugging code examples.
+
+## Environment Variables
+
+| Variable            | Description            | Used By                  |
+| ------------------- | ---------------------- | ------------------------ |
+| `UNITYSVC_API_URL`      | Backend API URL        | `usvc_seller services` commands |
+| `UNITYSVC_SELLER_API_KEY` | API authentication key | `usvc_seller services` commands |
+
+**Example:**
+
+```bash
+export UNITYSVC_API_URL=https://api.unitysvc.com/v1
+export UNITYSVC_SELLER_API_KEY=your-api-key
+
+# Local operations (no API key needed)
+usvc_seller data validate
+usvc_seller data format
+
+# Remote operations (requires API key)
+usvc_seller data upload
+usvc_seller services list
+```
+
+## Exit Codes
+
+| Code | Meaning                           |
+| ---- | --------------------------------- |
+| 0    | Success                           |
+| 1    | Error (validation, publish, etc.) |
+
+## Shell Completion
+
+### Install Completion
+
+```bash
+# Bash
+usvc_seller --install-completion bash
+
+# Zsh
+usvc_seller --install-completion zsh
+
+# Fish
+usvc_seller --install-completion fish
+```
+
+### Show Completion Script
+
+```bash
+usvc_seller --show-completion
+```
+
+## Common Workflows
+
+### Creating Data
+
+Create data using the web interface at [unitysvc.com](https://unitysvc.com), then export for SDK use:
+
+1. Sign in to unitysvc.com
+2. Create your Provider, Offerings, and Listings using the visual editor
+3. Export your data as JSON/TOML files
+4. Place files in the expected directory structure
+
+Alternatively, create files manually following the [File Schemas](file-schemas.md) documentation.
+
+### Full Upload Flow
+
+```bash
+# Set seller environment (only needed for remote operations)
+export UNITYSVC_API_URL=https://api.unitysvc.com/v1
+export UNITYSVC_SELLER_API_KEY=your-seller-api-key
+
+# Local operations: validate and format
+usvc_seller data validate
+usvc_seller data format
+
+# Local operations: test code examples with upstream credentials
+usvc_seller data list-tests
+usvc_seller data run-tests
+
+# Preview changes before uploading (recommended)
+cd data
+usvc_seller data upload --dryrun
+
+# If preview looks good, upload all (handles order automatically)
+usvc_seller data upload
+
+# Verify on backend
+usvc_seller services list
+
+# Set credentials for testing (one-time setup, see "usvc_seller services run-tests")
+export UNITYSVC_API_KEY=your-customer-api-key
+export UNITYSVC_API_URL=https://backend.unitysvc.com/v1
+
+# Run tests via gateway
+usvc_seller services list-tests
+usvc_seller services run-tests <service-id>
+
+# Submit for review when ready
+usvc_seller services submit <service-id>
+```
+
+### Update and Re-upload
+
+```bash
+# Edit local files directly (JSON or TOML)
+# e.g., change "status": "draft" to "status": "ready"
+
+# Validate locally
+usvc_seller data validate
+
+# Preview changes
+usvc_seller data upload --dryrun
+
+# Upload changes
+usvc_seller data upload
+```
+
+### Automated Generation
+
+```bash
+# Generate services
+usvc_seller data populate
+
+# Validate and format
+usvc_seller data validate
+usvc_seller data format
+
+# Preview generated data
+cd data
+usvc_seller data upload --dryrun
+
+# Upload all
+usvc_seller data upload
+```
+
+### Managing Test Status
+
+```bash
+# Skip a code example test
+usvc_seller services skip-test <service-id> -t "Demo that requires GPU"
+
+# Re-enable a skipped test
+usvc_seller services unskip-test <service-id> -t "Demo that requires GPU"
+
+# View test details
+usvc_seller services show-test <service-id> -t "Python Example"
+```
+
+## See Also
+
+- [Getting Started](getting-started.md) - First steps tutorial
+- [Workflows](workflows.md) - Common usage patterns
+- [Data Structure](data-structure.md) - File organization rules
+- [Documenting Service Listings](documenting-services.md) - Add documentation to services
+- [Creating Code Examples](code-examples.md) - Develop and test code examples
+- [SDK Reference](sdk-reference.md) - Python `Client` / `AsyncClient` documentation
