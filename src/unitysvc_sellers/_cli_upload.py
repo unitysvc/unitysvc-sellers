@@ -86,8 +86,14 @@ def upload(
     console.print()
 
     def _on_progress(kind: str, status: str, name: str, detail: str = "") -> None:
+        # Services are ingested asynchronously — ``POST /seller/services``
+        # returns ``202 Accepted`` with a task_id that the backend's
+        # Celery worker drains later. Promotions and groups go through
+        # PUT and complete synchronously, so the progress verb differs
+        # by resource kind.
         if status == "ok":
-            console.print(f"  [green]+[/green] [green]uploaded[/green] {kind}: [cyan]{name}[/cyan]")
+            verb = "queued" if kind == "service" else "upserted"
+            console.print(f"  [green]+[/green] [green]{verb}[/green] {kind}: [cyan]{name}[/cyan]")
         elif status == "dryrun":
             console.print(f"  [yellow]?[/yellow] [yellow]would upload[/yellow] {kind}: [cyan]{name}[/cyan]")
         else:

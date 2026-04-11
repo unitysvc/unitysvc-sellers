@@ -29,7 +29,7 @@ from ._helpers import (
 console = Console()
 
 app = typer.Typer(
-    help="Remote service group operations (list, show, delete, refresh).",
+    help="Remote service group operations (list, show, delete).",
 )
 
 
