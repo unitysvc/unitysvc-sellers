@@ -90,6 +90,40 @@ def _strip_schema(payload: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in payload.items() if k != "schema"}
 
 
+def _format_polling_error(exc: APIError) -> str:
+    """Translate an APIError raised during task polling into a user-friendly hint.
+
+    The most common failure mode is a 404 / 405 on ``/tasks/batch-status``
+    when the seller points ``UNITYSVC_SELLER_API_URL`` at a composite
+    deployment (``.../v1/seller``) that predates the commit exposing
+    ``/seller/tasks/*``. Generic "404 Not Found" tells them nothing
+    useful; an explicit hint saves them a trip to the backend logs.
+    """
+    status_code = getattr(exc, "status_code", 0)
+    if status_code in (404, 405):
+        return (
+            "task polling endpoint is missing on the backend. This usually "
+            "means your backend is on a composite layout (base URL ends in "
+            "/v1/seller) that does not yet expose /seller/tasks/*. Either "
+            "update the backend to include unitysvc/unitysvc@39da6b97 or "
+            "later ('Mount tasks router under /seller'), or switch the SDK "
+            "to the dedicated seller subdomain layout by setting "
+            "UNITYSVC_SELLER_API_URL to something like "
+            "'http://localhost:8000/v1' and running the backend with "
+            f"DEPLOYMENT_TYPE=seller. Raw error: {exc}"
+        )
+    if status_code in (401, 403):
+        return (
+            "task polling was rejected by the backend with an auth error. "
+            "The /tasks/* endpoint uses the same API-key auth as "
+            "/services, so this usually indicates a key rotation or a "
+            f"misconfigured role context. Raw error: {exc}"
+        )
+    if status_code >= 500:
+        return f"task polling hit a backend error ({status_code}): {exc}"
+    return f"task polling failed: {exc}"
+
+
 def _build_service_payload(listing_file: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Locate the offering and provider files for a listing and load all three.
 
@@ -174,27 +208,53 @@ def upload_directory(
     upload_promotions: bool = True,
     upload_groups: bool = True,
     on_progress: Any = None,
+    task_wait_timeout: float = 600.0,
+    task_poll_interval: float = 2.0,
 ) -> UploadResult:
     """Upload all services, promotions, and service groups under ``data_dir``.
+
+    Services go through an **asynchronous** ingest pipeline: the
+    backend ``POST /services`` returns ``202 Accepted`` with a Celery
+    task id, and the actual provider/offering/listing writes happen in
+    a worker. This helper collects every task id returned from the
+    per-service uploads, polls ``POST /tasks/batch-status`` until
+    every task reaches a terminal state, and populates the per-service
+    pass/fail result based on the real worker outcome — not the
+    optimistic 202 response.
 
     Args:
         client: A configured :class:`unitysvc_sellers.Client`.
         data_dir: Root of the seller catalog tree.
         dryrun: If True, calls each operation with ``dryrun=True``
-            (where supported) and never writes override files.
+            (where supported) and skips the task-polling step entirely,
+            since dryrun runs synchronously on the backend.
         upload_services: Walk and upload service bundles.
         upload_promotions: Walk and upsert promotion files.
         upload_groups: Walk and upsert service-group files.
-        on_progress: Optional callable invoked with
-            ``(kind, status, name, detail)`` after each item is
-            processed. ``kind`` is one of ``"service"``,
-            ``"promotion"``, ``"group"``; ``status`` is ``"ok"``,
-            ``"error"``, or ``"dryrun"``.
+        on_progress: Optional callable invoked as
+            ``on_progress(kind, status, name, detail)``. ``kind`` is
+            one of ``"service"``, ``"promotion"``, ``"group"``;
+            ``status`` transitions through ``"queued"``, ``"ok"``,
+            ``"error"``, ``"dryrun"`` as the upload progresses.
+            Services emit ``"queued"`` right after the 202 and then
+            either ``"ok"`` or ``"error"`` once the Celery task
+            finishes. Promotions and groups emit ``"ok"`` / ``"error"``
+            directly since they're synchronous PUTs.
+        task_wait_timeout: Seconds to wait for all service tasks to
+            reach a terminal state before giving up and marking the
+            leftover tasks as failed. Default 10 minutes.
+        task_poll_interval: Seconds between ``batch-status`` polls.
+            Default 2.
 
     Returns:
         :class:`UploadResult` with per-resource tallies and any errors.
     """
     result = UploadResult()
+
+    # Map task_id -> (listing_file, listing_data) so we can populate
+    # per-service results after polling the batch-status endpoint and
+    # so we can still write override files with the right listing path.
+    pending_tasks: dict[str, tuple[Path, dict[str, Any]]] = {}
 
     def _emit(kind: str, status: str, name: str, detail: str = "") -> None:
         if on_progress is not None:
@@ -228,23 +288,117 @@ def upload_directory(
                 _emit("service", "error", listing_data.get("name", listing_file.name), str(exc))
                 continue
 
-            result.services.success += 1
-            _emit(
-                "service",
-                "dryrun" if dryrun else "ok",
-                listing_data.get("name", listing_file.name),
-                f"task_id={getattr(response, 'task_id', '?')}",
-            )
+            name = listing_data.get("name", listing_file.name)
+            task_id = getattr(response, "task_id", None)
 
-            # Persist the resulting service_id back to an override file so
-            # subsequent uploads target the same service. The backend
-            # accepts upload responses in two shapes — a fully-resolved
-            # service record (with id/name) or a TaskQueuedResponse (just
-            # task_id). We only write the override when we have an id.
-            if not dryrun:
+            if dryrun:
+                # Dryrun runs synchronously on the backend. Nothing to poll.
+                result.services.success += 1
+                _emit("service", "dryrun", name)
+                continue
+
+            if not task_id:
+                # Defensive: if the backend somehow returned 200 with a
+                # fully-resolved service (old shape), count it as done
+                # and write the override immediately.
+                result.services.success += 1
+                _emit("service", "ok", name)
                 service_id = getattr(response, "service_id", None) or getattr(response, "id", None)
                 if service_id:
                     write_override_file(listing_file, {"service_id": str(service_id)})
+                continue
+
+            pending_tasks[str(task_id)] = (listing_file, listing_data)
+            _emit("service", "queued", name, f"task_id={task_id}")
+
+    # ----- Drain pending service tasks --------------------------------
+    if pending_tasks:
+
+        def _poll_progress(done: int, total: int, last_ids: list[str]) -> None:
+            # The caller's on_progress is the per-item hook, not a
+            # "batch poll tick" hook. We use it to emit terminal
+            # outcomes below, not intermediate poll ticks.
+            _ = (done, total, last_ids)
+
+        try:
+            terminal_states = client.tasks.wait_batch(
+                list(pending_tasks.keys()),
+                timeout=task_wait_timeout,
+                poll_interval=task_poll_interval,
+                on_update=_poll_progress,
+            )
+        except APIError as exc:
+            # Polling itself blew up — mark every pending task as failed
+            # and surface an actionable hint for the common failure modes:
+            #
+            #   * 404 / 405 → the backend doesn't expose /tasks/batch-status
+            #     under this base URL. Most likely the seller is pointing
+            #     the SDK at a composite deployment (base_url ends in
+            #     /seller) that predates the ``Mount tasks router under
+            #     /seller`` change (unitysvc PR #702). Tell them to either
+            #     update the backend or switch to the dedicated subdomain.
+            #   * 401 / 403 → API key is invalid for tasks specifically,
+            #     which is unusual — the tasks endpoint uses the same auth
+            #     as /services. Probably a key rotation mid-upload.
+            #   * 5xx → backend instability; just report the raw error and
+            #     let the seller retry.
+            diagnostic = _format_polling_error(exc)
+
+            for task_id, (listing_file, listing_data) in pending_tasks.items():
+                result.services.failed += 1
+                result.services.errors.append(
+                    {
+                        "file": str(listing_file),
+                        "task_id": task_id,
+                        "error": diagnostic,
+                    }
+                )
+                _emit(
+                    "service",
+                    "error",
+                    listing_data.get("name", listing_file.name),
+                    diagnostic,
+                )
+            pending_tasks.clear()
+        else:
+            for task_id, (listing_file, listing_data) in pending_tasks.items():
+                status_dict = terminal_states.get(task_id) or {
+                    "status": "unknown",
+                    "message": "task status not returned",
+                }
+                name = listing_data.get("name", listing_file.name)
+                status_value = status_dict.get("status")
+
+                if status_value == "completed":
+                    result.services.success += 1
+                    _emit("service", "ok", name, f"task_id={task_id}")
+                    # Write override file with service_id if the task
+                    # result carries one.
+                    task_result = status_dict.get("result") or {}
+                    service_id = (
+                        task_result.get("service_id") or task_result.get("id")
+                        if isinstance(task_result, dict)
+                        else None
+                    )
+                    if service_id:
+                        write_override_file(listing_file, {"service_id": str(service_id)})
+                else:
+                    result.services.failed += 1
+                    error_msg = (
+                        status_dict.get("error")
+                        or status_dict.get("message")
+                        or f"task ended in state {status_value!r}"
+                    )
+                    result.services.errors.append(
+                        {
+                            "file": str(listing_file),
+                            "task_id": task_id,
+                            "error": str(error_msg),
+                        }
+                    )
+                    _emit("service", "error", name, str(error_msg))
+
+            pending_tasks.clear()
 
     # ----- Promotions -------------------------------------------------
     if upload_promotions:

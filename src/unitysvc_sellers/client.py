@@ -61,6 +61,7 @@ if TYPE_CHECKING:
     from .resources.groups import GroupsResource
     from .resources.promotions import PromotionsResource
     from .resources.services import ServicesResource
+    from .resources.tasks import TasksResource
 
 DEFAULT_SELLER_API_URL = "https://seller.staging.unitysvc.com/v1"
 ENV_SELLER_API_KEY = "UNITYSVC_SELLER_API_KEY"
@@ -116,6 +117,7 @@ class Client:
         self._promotions: PromotionsResource | None = None
         self._groups: GroupsResource | None = None
         self._documents: DocumentsResource | None = None
+        self._tasks: TasksResource | None = None
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -170,6 +172,14 @@ class Client:
 
             self._documents = DocumentsResource(self._client)
         return self._documents
+
+    @property
+    def tasks(self) -> TasksResource:
+        if self._tasks is None:
+            from .resources.tasks import TasksResource
+
+            self._tasks = TasksResource(self._client)
+        return self._tasks
 
     # ------------------------------------------------------------------
     # High-level catalog upload

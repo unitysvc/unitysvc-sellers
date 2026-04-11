@@ -86,17 +86,25 @@ def upload(
     console.print()
 
     def _on_progress(kind: str, status: str, name: str, detail: str = "") -> None:
-        # Services are ingested asynchronously — ``POST /seller/services``
+        # Services are ingested asynchronously — ``POST /services``
         # returns ``202 Accepted`` with a task_id that the backend's
-        # Celery worker drains later. Promotions and groups go through
-        # PUT and complete synchronously, so the progress verb differs
-        # by resource kind.
-        if status == "ok":
-            verb = "queued" if kind == "service" else "upserted"
-            console.print(f"  [green]+[/green] [green]{verb}[/green] {kind}: [cyan]{name}[/cyan]")
+        # Celery worker drains. ``upload_directory`` polls the
+        # ``/tasks/batch-status`` endpoint to resolve real per-service
+        # outcomes, so each service progresses through
+        # ``queued → ok`` or ``queued → error``. Promotions and
+        # service-groups go through PUT and finish synchronously.
+        if status == "queued":
+            console.print(
+                f"  [blue]↳[/blue] [blue]queued[/blue] {kind}: [cyan]{name}[/cyan] [dim]({detail})[/dim]"
+                if detail
+                else f"  [blue]↳[/blue] [blue]queued[/blue] {kind}: [cyan]{name}[/cyan]"
+            )
+        elif status == "ok":
+            verb = "ingested" if kind == "service" else "upserted"
+            console.print(f"  [green]✓[/green] [green]{verb}[/green] {kind}: [cyan]{name}[/cyan]")
         elif status == "dryrun":
             console.print(f"  [yellow]?[/yellow] [yellow]would upload[/yellow] {kind}: [cyan]{name}[/cyan]")
-        else:
+        else:  # error / anything else
             console.print(f"  [red]✗[/red] [red]failed[/red] {kind}: [cyan]{name}[/cyan] — {detail}")
 
     try:
