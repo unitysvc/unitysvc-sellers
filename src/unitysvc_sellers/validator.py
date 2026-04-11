@@ -13,7 +13,6 @@ from typing import Any
 
 import typer
 from rich.console import Console
-
 from unitysvc_core.validator import DataValidationError
 from unitysvc_core.validator import DataValidator as CoreDataValidator
 

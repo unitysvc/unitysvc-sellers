@@ -56,6 +56,10 @@ usvc_seller = "unitysvc_sellers.cli:app"
 
 [tool.ruff]
 line-length = 120
+# openapi-python-client produces its own idiosyncratic formatting.
+# Excluding keeps regenerations byte-stable — no post-processing
+# step, no drift between the spec and the committed client.
+extend-exclude = ["src/unitysvc_sellers/_generated"]
 
 [tool.ruff.lint]
 select = [
