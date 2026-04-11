@@ -25,7 +25,8 @@ from rich.console import Console
 from rich.table import Table
 
 from .._http import unwrap as _unwrap_response
-from ..exceptions import NotFoundError
+from ..exceptions import APIError, NotFoundError
+from ..resources.upload import _format_polling_error
 from ._helpers import (
     api_key_option,
     async_client,
@@ -145,16 +146,70 @@ def list_tests(
 # ---------------------------------------------------------------------------
 @services_app.command("show-test")
 def show_test(
-    document_id: str = typer.Argument(..., help="Document ID (full UUID)."),
+    document_id_arg: str | None = typer.Argument(
+        None,
+        metavar="[DOCUMENT_ID]",
+        help="Document ID (full or partial, ≥8 chars). Optional if --document-id/--doc-id is passed.",
+    ),
+    document_id_opt: str | None = typer.Option(
+        None,
+        "--document-id",
+        "-d",
+        "--doc-id",
+        help="Document ID (alternative to positional). Matches the legacy `usvc services show-test --doc-id` form.",
+    ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Show the latest test result for a single document."""
+    """Show the latest test result for a single document.
+
+    Accepts either the positional ``DOCUMENT_ID`` or ``--document-id /
+    -d / --doc-id``. Partial UUIDs (prefix of length ≥ 8) are resolved
+    by walking the seller's services — mirrors ``list-tests`` so the
+    IDs it prints can be pasted directly.
+    """
+    raw_id = document_id_arg or document_id_opt
+    if not raw_id:
+        console.print("[red]✗[/red] No document id provided (positional or --document-id).")
+        raise typer.Exit(code=1)
+    if len(raw_id) < 8:
+        console.print("[red]✗[/red] Document id prefix must be at least 8 characters.")
+        raise typer.Exit(code=1)
 
     async def _impl() -> dict[str, Any]:
         async with async_client(api_key, base_url) as client:
-            return model_to_dict(await client.documents.get(document_id))
+            # Fast path: full UUID → single GET.
+            if len(raw_id) == 36:
+                return model_to_dict(await client.documents.get(raw_id))
+
+            # Partial prefix → walk services the seller owns and match
+            # on every executable document id. This mirrors list-tests.
+            services = model_list(await client.services.list(limit=1000))
+            matches: list[str] = []
+            for svc in services:
+                sid = str(svc.get("id") or "")
+                if not sid:
+                    continue
+                try:
+                    detail = model_to_dict(await client.services.get(sid))
+                except NotFoundError:
+                    continue
+                for doc in detail.get("documents") or []:
+                    doc_dict = doc if isinstance(doc, dict) else model_to_dict(doc)
+                    did = str(doc_dict.get("id") or "")
+                    if did.startswith(raw_id):
+                        matches.append(did)
+
+            if not matches:
+                raise NotFoundError(f"No document with id prefix '{raw_id}'", status_code=404, detail=None)
+            if len(matches) > 1:
+                # Ambiguous prefix — surface all candidates so the seller
+                # can rerun with a longer prefix.
+                joined = ", ".join(m[:12] + "…" for m in matches[:5])
+                raise ValueError(f"Prefix '{raw_id}' matches multiple documents: {joined}")
+
+            return model_to_dict(await client.documents.get(matches[0]))
 
     doc = run_async(_impl(), error_prefix="Failed to show test")
 
@@ -206,13 +261,33 @@ def run_tests(
         help="Run a single document instead of every executable doc on the service.",
     ),
     force: bool = typer.Option(False, "--force", help="Re-execute even if the document was previously skipped."),
+    wait_timeout: float = typer.Option(
+        300.0,
+        "--wait-timeout",
+        help="Max seconds to wait for Celery tasks to finish before declaring a timeout.",
+    ),
+    poll_interval: float = typer.Option(
+        2.0,
+        "--poll-interval",
+        help="Seconds between task-status polls while waiting for completion.",
+    ),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Trigger backend execution of a service's testable documents."""
+    """Trigger backend execution of a service's testable documents.
 
-    async def _impl() -> list[tuple[str, dict[str, Any] | None, Exception | None]]:
+    Execution is asynchronous on the backend (Celery), so this command
+    dispatches each document via ``POST /seller/documents/{id}/execute``
+    and then polls ``/seller/tasks/batch-status`` until every queued task
+    reaches a terminal state. The script status (``success``,
+    ``script_failed``, ``unexpected_output``, ``task_failed``) is pulled
+    from the task result and surfaced per-document, so a run that the
+    worker rejected no longer shows up as a silent ``queued``.
+    """
+
+    async def _impl() -> dict[str, Any]:
         async with async_client(api_key, base_url) as client:
+            # 1. Resolve the set of documents to execute.
             if document_id:
                 doc_ids: list[str] = [document_id]
             else:
@@ -224,39 +299,139 @@ def run_tests(
                     if _is_executable_doc(doc if isinstance(doc, dict) else model_to_dict(doc))
                 ]
                 if not doc_ids:
-                    return []
+                    return {"dispatch": [], "terminal": {}, "polling_error": None}
 
-            results: list[tuple[str, dict[str, Any] | None, Exception | None]] = []
+            # 2. Dispatch all executes, record the task_id per doc.
+            dispatch: list[dict[str, Any]] = []
+            pending: dict[str, str] = {}  # task_id -> doc_id
             for did in doc_ids:
                 try:
-                    response = await client.documents.execute(did, force=force)
-                    results.append((did, model_to_dict(response), None))
+                    response = model_to_dict(await client.documents.execute(did, force=force))
                 except Exception as exc:  # noqa: BLE001
-                    results.append((did, None, exc))
-            return results
+                    dispatch.append({"doc_id": did, "status": "error", "error": str(exc)})
+                    continue
 
-    results = run_async(_impl(), error_prefix="Failed to run tests")
+                status = str(response.get("status") or "")
+                task_id = response.get("task_id")
+                entry: dict[str, Any] = {
+                    "doc_id": did,
+                    "status": status,
+                    "task_id": task_id,
+                    "message": response.get("message"),
+                }
 
-    if not results:
+                # The endpoint returns one of:
+                #   - "queued"   → task was just apply_async'd
+                #   - "running"  → a previous run is still in flight (same task_id)
+                #   - "success"  → cached hit, no task dispatched (force=False path)
+                #   - "skip"     → document has status=skip; nothing ran
+                if status in ("queued", "running") and task_id:
+                    pending[str(task_id)] = did
+                dispatch.append(entry)
+
+            if not pending:
+                return {"dispatch": dispatch, "terminal": {}, "polling_error": None}
+
+            # 3. Poll until every queued/running task reaches a terminal state.
+            try:
+                terminal = await client.tasks.wait_batch(
+                    list(pending.keys()),
+                    timeout=wait_timeout,
+                    poll_interval=poll_interval,
+                )
+            except APIError as exc:
+                return {
+                    "dispatch": dispatch,
+                    "terminal": {},
+                    "polling_error": _format_polling_error(exc),
+                    "pending": pending,
+                }
+
+            return {
+                "dispatch": dispatch,
+                "terminal": terminal,
+                "polling_error": None,
+                "pending": pending,
+            }
+
+    outcome = run_async(_impl(), error_prefix="Failed to run tests")
+    dispatch: list[dict[str, Any]] = outcome["dispatch"]
+    terminal: dict[str, dict[str, Any]] = outcome.get("terminal") or {}
+    polling_error: str | None = outcome.get("polling_error")
+
+    if not dispatch:
         console.print("[dim]No executable documents found[/dim]")
         return
 
+    # If polling itself failed, surface the diagnostic once and mark
+    # every still-queued doc as failed.
+    if polling_error:
+        console.print(f"[red]✗ Task polling failed:[/red] {polling_error}\n")
+
     success = 0
     failed = 0
-    for did, response, err in results:
-        if err is None:
-            status = (response or {}).get("status") or "queued"
-            console.print(f"  [green]✓[/green] {did[:8]}…: {status}")
+    for entry in dispatch:
+        did = entry["doc_id"]
+        short = did[:8] + "…"
+
+        if entry["status"] == "error":
+            console.print(f"  [red]✗[/red] {short}: {entry.get('error')}")
+            failed += 1
+            continue
+
+        if entry["status"] == "skip":
+            console.print(f"  [dim]⊘[/dim] {short}: skipped")
+            continue
+
+        if entry["status"] == "success" and not entry.get("task_id"):
+            # Cached pre-existing success (force=False, already passed).
+            console.print(f"  [green]✓[/green] {short}: success (cached)")
             success += 1
+            continue
+
+        task_id = str(entry.get("task_id") or "")
+        if polling_error:
+            console.print(f"  [red]✗[/red] {short}: polling failed (task_id={task_id})")
+            failed += 1
+            continue
+
+        task_status = terminal.get(task_id) or {}
+        poll_state = str(task_status.get("status") or "")
+
+        if poll_state == "completed":
+            # Unwrap the script-level status from task.result.
+            task_result = task_status.get("result") or {}
+            if isinstance(task_result, dict):
+                script_status = str(task_result.get("status") or "success")
+            else:
+                script_status = "success"
+
+            if script_status == "success":
+                console.print(f"  [green]✓[/green] {short}: success")
+                success += 1
+            else:
+                # task_failed / script_failed / unexpected_output — the
+                # task itself reached Celery SUCCESS, but the script it
+                # ran recorded a failure in document.meta.test.
+                test_meta = task_result.get("test") or {} if isinstance(task_result, dict) else {}
+                error_msg = test_meta.get("error") or task_result.get("error") or script_status
+                console.print(f"  [red]✗[/red] {short}: {script_status} — {error_msg}")
+                failed += 1
+        elif poll_state == "failed":
+            error_msg = task_status.get("error") or task_status.get("message") or "task failed"
+            console.print(f"  [red]✗[/red] {short}: {error_msg}")
+            failed += 1
         else:
-            console.print(f"  [red]✗[/red] {did[:8]}…: {err}")
+            # wait_batch hit its timeout and the task is still running.
+            console.print(f"  [yellow]…[/yellow] {short}: {poll_state or 'unknown'} (timed out)")
             failed += 1
 
-    if len(results) > 1:
-        console.print(f"\n[green]✓ Success:[/green] {success}/{len(results)}")
+    if len(dispatch) > 1:
+        console.print(f"\n[green]✓ Success:[/green] {success}/{len(dispatch)}")
         if failed:
-            console.print(f"[red]✗ Failed:[/red] {failed}/{len(results)}")
-            raise typer.Exit(code=1)
+            console.print(f"[red]✗ Failed:[/red] {failed}/{len(dispatch)}")
+    if failed:
+        raise typer.Exit(code=1)
 
 
 # ---------------------------------------------------------------------------

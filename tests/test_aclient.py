@@ -341,6 +341,176 @@ class TestGroupsCommands:
 
 
 # ---------------------------------------------------------------------------
+# CLI: services run-tests (polls Celery task status)
+# ---------------------------------------------------------------------------
+def _service_detail_with_docs(service_id: str, doc_ids: list[str]) -> dict:
+    """Build a ServiceDetailResponse-shaped payload.
+
+    The generated ``ServiceDetailResponse.from_dict`` requires
+    ``service_id`` / ``status`` / ``documents`` / ``interfaces``;
+    anything else is optional. Documents need ``id`` + ``category`` so
+    ``_is_executable_doc`` treats them as runnable.
+    """
+    return {
+        "service_id": service_id,
+        "service_name": "svc1",
+        "status": "active",
+        "documents": [
+            {
+                "id": did,
+                "title": f"Example {i}",
+                "category": "code_example",
+                "mime_type": "python",
+                "test_status": "pending",
+            }
+            for i, did in enumerate(doc_ids)
+        ],
+        "interfaces": [],
+    }
+
+
+class TestRunTestsPolling:
+    @respx.mock
+    def test_reports_real_outcome_from_task_poll(self, runner: CliRunner, env: None) -> None:
+        """run-tests must dispatch, then poll tasks until terminal.
+
+        Previously the command walked away the instant the backend
+        accepted the execute POST, so scripts that failed at runtime
+        (wrong upstream key, 404, etc.) surfaced as "queued" and the
+        overall run was reported as success. Now it polls
+        ``/tasks/batch-status`` and prints the real per-document
+        outcome.
+        """
+        service_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        ok_doc = "11111111-1111-1111-1111-111111111111"
+        bad_doc = "22222222-2222-2222-2222-222222222222"
+
+        respx.get(f"{BASE_URL}/services/{service_id}").mock(
+            return_value=httpx.Response(
+                200,
+                json=_service_detail_with_docs(service_id, [ok_doc, bad_doc]),
+            )
+        )
+
+        # Two executes → two queued responses, each with task_id == doc_id.
+        respx.post(f"{BASE_URL}/documents/{ok_doc}/execute").mock(
+            return_value=httpx.Response(
+                200,
+                json=_document_execute_response(
+                    document_id=ok_doc,
+                    status="queued",
+                    task_id=ok_doc,
+                ),
+            )
+        )
+        respx.post(f"{BASE_URL}/documents/{bad_doc}/execute").mock(
+            return_value=httpx.Response(
+                200,
+                json=_document_execute_response(
+                    document_id=bad_doc,
+                    status="queued",
+                    task_id=bad_doc,
+                ),
+            )
+        )
+
+        respx.post(f"{BASE_URL}/tasks/batch-status").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    ok_doc: {
+                        "task_id": ok_doc,
+                        "state": "SUCCESS",
+                        "status": "completed",
+                        "result": {
+                            "status": "success",
+                            "test": {"status": "success", "exit_code": 0},
+                        },
+                    },
+                    bad_doc: {
+                        "task_id": bad_doc,
+                        "state": "SUCCESS",
+                        "status": "completed",
+                        "result": {
+                            "status": "script_failed",
+                            "test": {
+                                "status": "script_failed",
+                                "error": "Script exited with code 1",
+                                "exit_code": 1,
+                            },
+                        },
+                    },
+                },
+            )
+        )
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "services",
+                "run-tests",
+                service_id,
+                "--force",
+                "--poll-interval",
+                "0.001",
+                "--wait-timeout",
+                "5.0",
+            ],
+        )
+
+        # One doc passed, one failed → non-zero exit code.
+        assert result.exit_code == 1
+        # Per-doc status is printed — no silent "queued" for the failed one.
+        assert "success" in result.stdout
+        assert "script_failed" in result.stdout
+        assert "Script exited with code 1" in result.stdout
+        assert "Success: 1/2" in result.stdout
+        assert "Failed: 1/2" in result.stdout
+
+    @respx.mock
+    def test_polling_404_surfaces_diagnostic(self, runner: CliRunner, env: None) -> None:
+        """A 404 on /tasks/batch-status yields the composite-deployment hint."""
+        service_id = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+        doc_id = "33333333-3333-3333-3333-333333333333"
+
+        respx.get(f"{BASE_URL}/services/{service_id}").mock(
+            return_value=httpx.Response(
+                200,
+                json=_service_detail_with_docs(service_id, [doc_id]),
+            )
+        )
+        respx.post(f"{BASE_URL}/documents/{doc_id}/execute").mock(
+            return_value=httpx.Response(
+                200,
+                json=_document_execute_response(
+                    document_id=doc_id,
+                    status="queued",
+                    task_id=doc_id,
+                ),
+            )
+        )
+        respx.post(f"{BASE_URL}/tasks/batch-status").mock(
+            return_value=httpx.Response(404, json={"detail": "Not Found"})
+        )
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "services",
+                "run-tests",
+                service_id,
+                "--poll-interval",
+                "0.001",
+                "--wait-timeout",
+                "5.0",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "task polling endpoint is missing" in result.stdout
+
+
+# ---------------------------------------------------------------------------
 # Auth env-fallback
 # ---------------------------------------------------------------------------
 class TestAuthEnvFallback:
