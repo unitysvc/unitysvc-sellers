@@ -24,6 +24,7 @@ environment (``https://seller.staging.unitysvc.com``); override with the
 ``base_url`` constructor argument or the ``UNITYSVC_BASE_URL`` env var.
 """
 
+from .aclient import AsyncClient
 from .client import DEFAULT_BASE_URL, ENV_API_KEY, ENV_BASE_URL, Client
 from .exceptions import (
     APIError,
@@ -43,6 +44,7 @@ __email__ = "bo.peng@unitysvc.com"
 __all__ = [
     # Client
     "Client",
+    "AsyncClient",
     "DEFAULT_BASE_URL",
     "ENV_API_KEY",
     "ENV_BASE_URL",
