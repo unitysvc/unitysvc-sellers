@@ -37,6 +37,32 @@ from ._helpers import (
 )
 from .services import app as services_app
 
+# Backend enforces ``limit <= 200`` on the cursor-paged services list.
+# Use that as the page size when walking every service the seller owns.
+_SERVICES_PAGE_LIMIT = 200
+
+
+async def _iter_all_services(client: Any) -> list[dict[str, Any]]:
+    """Yield every service the seller owns, paging via cursor.
+
+    ``client.services.list`` caps ``limit`` at 200. Partial-UUID
+    resolution and the no-argument form of ``list-tests`` both need
+    the full catalog, so we drain pages until ``has_more`` is false.
+    """
+    collected: list[dict[str, Any]] = []
+    cursor: str | None = None
+    while True:
+        page = await client.services.list(cursor=cursor, limit=_SERVICES_PAGE_LIMIT)
+        collected.extend(model_list(page))
+        # CursorPage fields: next_cursor (None | str) and has_more.
+        page_dict = model_to_dict(page)
+        if not page_dict.get("has_more"):
+            break
+        cursor = page_dict.get("next_cursor")
+        if not cursor:
+            break
+    return collected
+
 console = Console()
 
 
@@ -92,7 +118,7 @@ def list_tests(
                 svc_name = detail.get("service_name") or detail.get("name") or full_id[:8]
                 services_to_walk: list[tuple[str, str]] = [(full_id, str(svc_name))]
             else:
-                services = model_list(await client.services.list(limit=1000))
+                services = await _iter_all_services(client)
                 services_to_walk = [
                     (str(s.get("id")), str(s.get("name") or s.get("id", "")[:8])) for s in services if s.get("id")
                 ]
@@ -185,7 +211,7 @@ def show_test(
 
             # Partial prefix → walk services the seller owns and match
             # on every executable document id. This mirrors list-tests.
-            services = model_list(await client.services.list(limit=1000))
+            services = await _iter_all_services(client)
             matches: list[str] = []
             for svc in services:
                 sid = str(svc.get("id") or "")
