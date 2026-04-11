@@ -124,6 +124,113 @@ def _format_polling_error(exc: APIError) -> str:
     return f"task polling failed: {exc}"
 
 
+def _resolve_file_references(
+    data: dict[str, Any],
+    base_path: Path,
+    *,
+    listing: dict[str, Any] | None = None,
+    offering: dict[str, Any] | None = None,
+    provider: dict[str, Any] | None = None,
+    interface: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Walk ``data`` and inline the content of every ``file_path`` reference.
+
+    Seller catalog files use ``file_path`` to point at on-disk assets —
+    code examples, connectivity scripts, README chunks, Jinja2
+    templates. The backend's ingest worker expects either
+    ``file_content`` (inline bytes) or ``external_url`` (a pre-uploaded
+    URL) on each document; it does **not** open arbitrary paths from
+    its own filesystem, because the seller's catalog repo isn't
+    mounted in the backend container.
+
+    This resolver recursively walks the payload. For every dict entry
+    keyed ``file_path``, it:
+
+    1. Resolves the path relative to ``base_path``.
+    2. Reads the file (rendering Jinja2 templates with the listing /
+       offering / provider / interface context when the name ends in
+       ``.j2``).
+    3. Sets a sibling ``file_content`` field with the loaded content.
+    4. Strips the ``.j2`` suffix from ``file_path`` so the stored
+       filename matches what a customer would see.
+
+    This is a port of ``resolve_file_references`` from the legacy
+    ``unitysvc-services`` SDK, minus the markdown-attachment extraction
+    (which depended on a separate ``/seller/documents/upload-attachment``
+    backend endpoint that was removed in the seller-api-codegen-hygiene
+    cleanup). Catalogs that embed images or linked files in markdown
+    documents via the legacy attachment flow are not supported yet —
+    add ``external_url`` on those documents to point at pre-hosted
+    assets as a workaround.
+    """
+    # Detect AccessInterface-shaped dicts so nested documents pick up
+    # the right interface context for template rendering.
+    current_interface = interface
+    if "base_url" in data or "interface_type" in data:
+        current_interface = data
+
+    result: dict[str, Any] = {}
+
+    for key, value in data.items():
+        if isinstance(value, dict):
+            result[key] = _resolve_file_references(
+                value,
+                base_path,
+                listing=listing,
+                offering=offering,
+                provider=provider,
+                interface=current_interface,
+            )
+        elif isinstance(value, list):
+            processed: list[Any] = []
+            for item in value:
+                if isinstance(item, dict):
+                    processed.append(
+                        _resolve_file_references(
+                            item,
+                            base_path,
+                            listing=listing,
+                            offering=offering,
+                            provider=provider,
+                            interface=current_interface,
+                        )
+                    )
+                else:
+                    processed.append(item)
+            result[key] = processed
+        elif key == "file_path" and isinstance(value, str):
+            # Resolve the path relative to the source file's directory.
+            from ..utils import render_template_file
+
+            full_path = base_path / value if not Path(value).is_absolute() else Path(value)
+            if not full_path.exists():
+                raise ValueError(f"File not found: {value}")
+
+            try:
+                content, actual_filename = render_template_file(
+                    full_path,
+                    listing=listing,
+                    offering=offering,
+                    provider=provider,
+                    interface=current_interface,
+                )
+            except Exception as exc:
+                raise ValueError(f"Failed to load/render file content from '{value}': {exc}") from exc
+
+            result["file_content"] = content
+
+            # Strip .j2 suffix so the stored filename matches the
+            # rendered output (e.g. ``test.py.j2`` -> ``test.py``).
+            if full_path.name.endswith(".j2"):
+                result[key] = value[:-3]
+            else:
+                result[key] = value
+        else:
+            result[key] = value
+
+    return result
+
+
 def _build_service_payload(listing_file: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Locate the offering and provider files for a listing and load all three.
 
@@ -191,6 +298,30 @@ def _build_service_payload(listing_file: Path) -> tuple[dict[str, Any], dict[str
         listing_file.parent,
         logo_field="logo",
         terms_field="terms_of_service",
+    )
+
+    # Resolve file_path references — read each referenced file, render
+    # Jinja2 templates with the surrounding catalog as context, and
+    # inline the content into the payload as ``file_content`` so the
+    # backend's ingest worker can store it without touching the
+    # seller's filesystem.
+    provider_data = _resolve_file_references(
+        provider_data,
+        provider_path.parent,
+        provider=provider_data,
+    )
+    offering_data = _resolve_file_references(
+        offering_data,
+        offering_path.parent,
+        offering=offering_data,
+        provider=provider_data,
+    )
+    listing_data = _resolve_file_references(
+        listing_data,
+        listing_file.parent,
+        listing=listing_data,
+        offering=offering_data,
+        provider=provider_data,
     )
 
     return _strip_schema(provider_data), _strip_schema(offering_data), _strip_schema(listing_data)
