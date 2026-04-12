@@ -5,9 +5,9 @@ Seller-facing tools for [UnitySVC](https://unitysvc.com/). Provides:
 - A typed Python **HTTP SDK** with sync ([`Client`](#programmatic-usage))
   and async ([`AsyncClient`](#async-client)) facades for the seller
   API surface — services, promotions, service groups, documents, and
-  end-to-end catalog upload. Defaults to the dedicated
-  `seller.staging.unitysvc.com/v1` subdomain; overridable via
-  `UNITYSVC_SELLER_API_URL` for production or local development.
+  end-to-end catalog upload. Defaults to the production
+  `seller.unitysvc.com/v1` subdomain; overridable via
+  `UNITYSVC_SELLER_API_URL` for staging or local development.
 - The **`usvc_seller` CLI** for organizing local seller catalogs and
   for managing remote services / promotions / service groups against
   the UnitySVC backend.
@@ -61,7 +61,7 @@ print(f"services: {result.services.success}/{result.services.total}")
 | Source     | Default                                   | Override                                                    |
 |------------|-------------------------------------------|-------------------------------------------------------------|
 | API key    | (required)                                | `Client(api_key=...)` / `UNITYSVC_SELLER_API_KEY`           |
-| Base URL   | `https://seller.staging.unitysvc.com/v1`  | `Client(base_url=...)` / `UNITYSVC_SELLER_API_URL`          |
+| Base URL   | `https://seller.unitysvc.com/v1`          | `Client(base_url=...)` / `UNITYSVC_SELLER_API_URL`          |
 | Timeout    | 30 s                                      | `Client(timeout=...)`                                       |
 
 The seller context is encoded entirely in the API key (`svcpass_...`),
@@ -79,15 +79,12 @@ subdomain + API key. The same generated SDK works against any
 deployment layout without regeneration:
 
 ```python
-# Default: seller-scoped staging subdomain
+# Default: production seller subdomain
 Client()  # reads UNITYSVC_SELLER_API_URL or defaults to
-          # https://seller.staging.unitysvc.com/v1
+          # https://seller.unitysvc.com/v1
 
-# Production (seller-scoped subdomain)
-Client(base_url="https://seller.unitysvc.com/v1")
-
-# Legacy combined surface where /seller is a path component
-Client(base_url="https://api.unitysvc.com/v1/seller")
+# Staging
+Client(base_url="https://seller.staging.unitysvc.com/v1")
 
 # Local development against a running backend
 Client(base_url="http://localhost:8000/v1/seller")
@@ -129,6 +126,18 @@ client.secrets.delete("OPENAI_API_KEY")
 
 Secret names must be uppercase with underscores (e.g. `OPENAI_API_KEY`,
 `STRIPE_SECRET`). Names starting with `__` are reserved for platform use.
+
+### API documentation
+
+The seller API serves interactive docs directly from the backend:
+
+| Endpoint   | Description                                      |
+|------------|--------------------------------------------------|
+| `/docs`    | Swagger UI — interactive API explorer            |
+| `/redoc`   | ReDoc — detailed reference documentation         |
+
+For production: <https://seller.unitysvc.com/docs> and
+<https://seller.unitysvc.com/redoc>.
 
 ### Pagination
 

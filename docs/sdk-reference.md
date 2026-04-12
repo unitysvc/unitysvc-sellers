@@ -25,7 +25,7 @@ environment by default:
 | Variable                  | Purpose                                                                        |
 | ------------------------- | ------------------------------------------------------------------------------ |
 | `UNITYSVC_SELLER_API_KEY` | Seller API key (`svcpass_…`). Get one from the UnitySVC dashboard.             |
-| `UNITYSVC_SELLER_API_URL` | Base URL for the seller API. Defaults to `https://seller.staging.unitysvc.com/v1`. |
+| `UNITYSVC_SELLER_API_URL` | Base URL for the seller API. Defaults to `https://seller.unitysvc.com/v1`. |
 
 ```python
 from unitysvc_sellers import Client

@@ -4,7 +4,7 @@ Thin Typer wrapper over :meth:`unitysvc_sellers.Client.upload`. Reads
 credentials from the environment::
 
     UNITYSVC_SELLER_API_KEY    seller API key (svcpass_...)
-    UNITYSVC_SELLER_API_URL   override the default https://seller.staging.unitysvc.com
+    UNITYSVC_SELLER_API_URL   override the default https://seller.unitysvc.com
 
 Or pass them as flags.
 """

@@ -34,7 +34,7 @@ from the UnitySVC dashboard → **Settings → API Keys**, then export it:
 
 ```bash
 export UNITYSVC_SELLER_API_KEY="svcpass_..."
-export UNITYSVC_SELLER_API_URL="https://seller.staging.unitysvc.com/v1"
+export UNITYSVC_SELLER_API_URL="https://seller.unitysvc.com/v1"
 ```
 
 The seller context is encoded entirely in the key — there is no

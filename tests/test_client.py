@@ -42,7 +42,7 @@ class TestClientConstruction:
 
     def test_default_base_url(self) -> None:
         c = Client(api_key="svcpass_test")
-        assert c._base_url == "https://seller.staging.unitysvc.com/v1"
+        assert c._base_url == "https://seller.unitysvc.com/v1"
 
     def test_explicit_base_url_wins(self) -> None:
         c = Client(api_key="svcpass_test", base_url="https://other.example")
