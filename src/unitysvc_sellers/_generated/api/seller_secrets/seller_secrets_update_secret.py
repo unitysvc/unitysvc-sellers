@@ -14,12 +14,11 @@ from ...types import UNSET, Unset
 from typing import cast
 from typing import cast, Union
 from typing import Union
-from uuid import UUID
 
 
 
 def _get_kwargs(
-    secret_id: UUID,
+    name: str,
     *,
     body: SecretUpdate,
     authorization: Union[None, Unset, str] = UNSET,
@@ -41,7 +40,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "put",
-        "url": "/secrets/{secret_id}".format(secret_id=secret_id,),
+        "url": "/secrets/{name}".format(name=name,),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -85,7 +84,7 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 
 def sync_detailed(
-    secret_id: UUID,
+    name: str,
     *,
     client: Union[AuthenticatedClient, Client],
     body: SecretUpdate,
@@ -101,7 +100,7 @@ def sync_detailed(
     name cannot be changed.
 
     Args:
-        secret_id (UUID):
+        name (str):
         authorization (Union[None, Unset, str]):
         x_role_id (Union[None, Unset, str]):
         body (SecretUpdate): Schema for updating a secret (value only - name cannot be changed).
@@ -116,7 +115,7 @@ def sync_detailed(
 
 
     kwargs = _get_kwargs(
-        secret_id=secret_id,
+        name=name,
 body=body,
 authorization=authorization,
 x_role_id=x_role_id,
@@ -130,7 +129,7 @@ x_role_id=x_role_id,
     return _build_response(client=client, response=response)
 
 def sync(
-    secret_id: UUID,
+    name: str,
     *,
     client: Union[AuthenticatedClient, Client],
     body: SecretUpdate,
@@ -146,7 +145,7 @@ def sync(
     name cannot be changed.
 
     Args:
-        secret_id (UUID):
+        name (str):
         authorization (Union[None, Unset, str]):
         x_role_id (Union[None, Unset, str]):
         body (SecretUpdate): Schema for updating a secret (value only - name cannot be changed).
@@ -161,7 +160,7 @@ def sync(
 
 
     return sync_detailed(
-        secret_id=secret_id,
+        name=name,
 client=client,
 body=body,
 authorization=authorization,
@@ -170,7 +169,7 @@ x_role_id=x_role_id,
     ).parsed
 
 async def asyncio_detailed(
-    secret_id: UUID,
+    name: str,
     *,
     client: Union[AuthenticatedClient, Client],
     body: SecretUpdate,
@@ -186,7 +185,7 @@ async def asyncio_detailed(
     name cannot be changed.
 
     Args:
-        secret_id (UUID):
+        name (str):
         authorization (Union[None, Unset, str]):
         x_role_id (Union[None, Unset, str]):
         body (SecretUpdate): Schema for updating a secret (value only - name cannot be changed).
@@ -201,7 +200,7 @@ async def asyncio_detailed(
 
 
     kwargs = _get_kwargs(
-        secret_id=secret_id,
+        name=name,
 body=body,
 authorization=authorization,
 x_role_id=x_role_id,
@@ -215,7 +214,7 @@ x_role_id=x_role_id,
     return _build_response(client=client, response=response)
 
 async def asyncio(
-    secret_id: UUID,
+    name: str,
     *,
     client: Union[AuthenticatedClient, Client],
     body: SecretUpdate,
@@ -231,7 +230,7 @@ async def asyncio(
     name cannot be changed.
 
     Args:
-        secret_id (UUID):
+        name (str):
         authorization (Union[None, Unset, str]):
         x_role_id (Union[None, Unset, str]):
         body (SecretUpdate): Schema for updating a secret (value only - name cannot be changed).
@@ -246,7 +245,7 @@ async def asyncio(
 
 
     return (await asyncio_detailed(
-        secret_id=secret_id,
+        name=name,
 client=client,
 body=body,
 authorization=authorization,

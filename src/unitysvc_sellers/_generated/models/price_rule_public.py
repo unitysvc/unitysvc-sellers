@@ -21,8 +21,8 @@ from uuid import UUID
 import datetime
 
 if TYPE_CHECKING:
-  from ..models.price_rule_pricing_spec import PriceRulePricingSpec
   from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
+  from ..models.price_rule_pricing_spec import PriceRulePricingSpec
 
 
 
@@ -76,8 +76,8 @@ class PriceRulePublic:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.price_rule_pricing_spec import PriceRulePricingSpec
         from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
+        from ..models.price_rule_pricing_spec import PriceRulePricingSpec
         name = self.name
 
         source: str = self.source
@@ -176,8 +176,8 @@ class PriceRulePublic:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.price_rule_pricing_spec import PriceRulePricingSpec
         from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
+        from ..models.price_rule_pricing_spec import PriceRulePricingSpec
         d = dict(src_dict)
         name = d.pop("name")
 

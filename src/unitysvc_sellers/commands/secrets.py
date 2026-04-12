@@ -3,9 +3,8 @@
 Commands:
 
 - ``list``   — list the seller's secrets (metadata only)
-- ``show``   — show one secret's metadata (by name or partial id)
+- ``show``   — show one secret's metadata by name
 - ``create`` — create a new secret
-- ``check``  — check whether a secret name exists
 - ``rotate`` — rotate (update) an existing secret's value
 - ``delete`` — permanently delete a secret
 """
@@ -33,7 +32,7 @@ from ._helpers import (
 console = Console()
 
 app = typer.Typer(
-    help="Remote secret operations (list, show, create, check, rotate, delete).",
+    help="Remote secret operations (list, show, create, rotate, delete).",
 )
 
 
@@ -70,29 +69,6 @@ def _read_value(
     return v
 
 
-async def _resolve_secret(client, name_or_id: str) -> dict:
-    """Resolve a secret by exact name or partial id."""
-    secrets = model_list(await client.secrets.list(limit=1000))
-
-    # Exact name match
-    for s in secrets:
-        if s.get("name") == name_or_id:
-            return s
-
-    # Partial UUID prefix
-    matches = [s for s in secrets if str(s.get("id", "")).startswith(name_or_id)]
-    if len(matches) == 1:
-        return matches[0]
-    if len(matches) > 1:
-        console.print(
-            f"[red]Error:[/red] Ambiguous id prefix '{name_or_id}' matches {len(matches)} secrets"
-        )
-        raise typer.Exit(code=1)
-
-    console.print(f"[red]Error:[/red] Secret '{name_or_id}' not found")
-    raise typer.Exit(code=1)
-
-
 # ---------------------------------------------------------------------------
 # list
 # ---------------------------------------------------------------------------
@@ -120,7 +96,6 @@ def list_secrets(
 
     table = Table(title="Secrets")
     table.add_column("Name", style="bold")
-    table.add_column("ID", style="dim")
     table.add_column("Created", style="dim")
     table.add_column("Updated", style="dim")
     table.add_column("Last Used", style="dim")
@@ -128,7 +103,6 @@ def list_secrets(
     for s in secrets:
         table.add_row(
             s.get("name", ""),
-            str(s.get("id", ""))[:8],
             str(s.get("created_at", ""))[:10],
             str(s.get("updated_at") or "—")[:10],
             str(s.get("last_used_at") or "—")[:10],
@@ -141,16 +115,16 @@ def list_secrets(
 # ---------------------------------------------------------------------------
 @app.command("show")
 def show_secret(
-    name_or_id: str = typer.Argument(..., help="Secret name or partial UUID."),
+    name: str = typer.Argument(..., help="Secret name (e.g. OPENAI_API_KEY)."),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Show metadata for a single secret."""
+    """Show metadata for a single secret by name."""
 
     async def _impl():
         async with async_client(api_key, base_url) as client:
-            return await _resolve_secret(client, name_or_id)
+            return model_to_dict(await client.secrets.get(name))
 
     secret = run_async(_impl(), error_prefix="Failed to show secret")
 
@@ -200,35 +174,11 @@ def create_secret(
 
 
 # ---------------------------------------------------------------------------
-# check
-# ---------------------------------------------------------------------------
-@app.command("check")
-def check_secret(
-    name: str = typer.Argument(..., help="Secret name to check."),
-    api_key: str | None = api_key_option(),
-    base_url: str = base_url_option(),
-) -> None:
-    """Check whether a secret with the given name exists."""
-
-    async def _impl():
-        async with async_client(api_key, base_url) as client:
-            return model_to_dict(await client.secrets.check(name))
-
-    result = run_async(_impl(), error_prefix="Failed to check secret")
-
-    if result.get("exists"):
-        console.print(f"[green]✓[/green] Secret [bold]{name}[/bold] exists")
-    else:
-        console.print(f"[yellow]✗[/yellow] Secret [bold]{name}[/bold] does not exist")
-        raise typer.Exit(code=1)
-
-
-# ---------------------------------------------------------------------------
 # rotate
 # ---------------------------------------------------------------------------
 @app.command("rotate")
 def rotate_secret(
-    name_or_id: str = typer.Argument(..., help="Secret name or partial UUID."),
+    name: str = typer.Argument(..., help="Secret name (e.g. OPENAI_API_KEY)."),
     value: str | None = typer.Option(None, "--value", "-v", help="New secret value. Omit to prompt securely."),
     value_file: Path | None = typer.Option(None, "--value-file", help="Read value from file."),
     value_stdin: bool = typer.Option(False, "--value-stdin", help="Read value from stdin."),
@@ -240,11 +190,10 @@ def rotate_secret(
 
     async def _impl():
         async with async_client(api_key, base_url) as client:
-            secret = await _resolve_secret(client, name_or_id)
-            return model_to_dict(await client.secrets.rotate(secret["id"], resolved_value))
+            return model_to_dict(await client.secrets.rotate(name, resolved_value))
 
     result = run_async(_impl(), error_prefix="Failed to rotate secret")
-    console.print(f"[green]✓[/green] Rotated secret: [bold]{result.get('name', name_or_id)}[/bold]")
+    console.print(f"[green]✓[/green] Rotated secret: [bold]{result.get('name', name)}[/bold]")
 
 
 # ---------------------------------------------------------------------------
@@ -252,22 +201,20 @@ def rotate_secret(
 # ---------------------------------------------------------------------------
 @app.command("delete")
 def delete_secret(
-    name_or_id: str = typer.Argument(..., help="Secret name or partial UUID."),
+    name: str = typer.Argument(..., help="Secret name (e.g. OPENAI_API_KEY)."),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
     """Permanently delete a secret. Services referencing it will stop working."""
     if not force and not typer.confirm(
-        f"Delete secret '{name_or_id}'? Services referencing it will stop working immediately."
+        f"Delete secret '{name}'? Services referencing it will stop working immediately."
     ):
         raise typer.Exit(code=0)
 
     async def _impl():
         async with async_client(api_key, base_url) as client:
-            secret = await _resolve_secret(client, name_or_id)
-            await client.secrets.delete(secret["id"])
-            return secret
+            await client.secrets.delete(name)
 
-    secret = run_async(_impl(), error_prefix="Failed to delete secret")
-    console.print(f"[green]✓[/green] Deleted: [bold]{secret.get('name', name_or_id)}[/bold]")
+    run_async(_impl(), error_prefix="Failed to delete secret")
+    console.print(f"[green]✓[/green] Deleted: [bold]{name}[/bold]")

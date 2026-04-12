@@ -21,9 +21,9 @@ from uuid import UUID
 import datetime
 
 if TYPE_CHECKING:
-  from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
-  from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
   from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
+  from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
+  from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
 
 
 
@@ -73,9 +73,9 @@ class ServiceGroupPublic:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
-        from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
         from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
+        from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
+        from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
         id = str(self.id)
 
         owner_id = str(self.owner_id)
@@ -196,9 +196,9 @@ class ServiceGroupPublic:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
-        from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
         from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
+        from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
+        from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
         d = dict(src_dict)
         id = UUID(d.pop("id"))
 

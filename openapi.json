@@ -1534,14 +1534,14 @@
         }
       }
     },
-    "/secrets/check/{name}": {
+    "/secrets/{name}": {
       "get": {
         "tags": [
           "seller-secrets"
         ],
-        "summary": "Check Secret Exists",
-        "description": "Check whether a secret with the given name exists for the current seller.\n\nUseful for validating secret references before wiring them into\nnew services or credentials.",
-        "operationId": "seller-secrets-check_secret_exists",
+        "summary": "Get Secret",
+        "description": "Get metadata for one of the current seller's secrets by name.\n\nReturns metadata only \u2014 the value is never returned.",
+        "operationId": "seller-secrets-get_secret",
         "parameters": [
           {
             "name": "name",
@@ -1550,82 +1550,6 @@
             "schema": {
               "type": "string",
               "title": "Name"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-role-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role-Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SecretExistsResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/secrets/{secret_id}": {
-      "get": {
-        "tags": [
-          "seller-secrets"
-        ],
-        "summary": "Get Secret",
-        "description": "Get metadata for one of the current seller's secrets.\n\nReturns metadata only \u2014 the value is never returned.",
-        "operationId": "seller-secrets-get_secret",
-        "parameters": [
-          {
-            "name": "secret_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Secret Id"
             }
           },
           {
@@ -1693,13 +1617,12 @@
         "operationId": "seller-secrets-update_secret",
         "parameters": [
           {
-            "name": "secret_id",
+            "name": "name",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
-              "title": "Secret Id"
+              "title": "Name"
             }
           },
           {
@@ -1773,17 +1696,16 @@
           "seller-secrets"
         ],
         "summary": "Delete Secret",
-        "description": "Delete a seller secret.\n\n**Warning:** this action cannot be undone. Any services or\ncredentials referencing the secret will stop working immediately.",
+        "description": "Delete a seller secret by name.\n\n**Warning:** this action cannot be undone. Any services or\ncredentials referencing the secret will stop working immediately.",
         "operationId": "seller-secrets-delete_secret",
         "parameters": [
           {
-            "name": "secret_id",
+            "name": "name",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
-              "title": "Secret Id"
+              "title": "Name"
             }
           },
           {
@@ -4138,25 +4060,6 @@
         ],
         "title": "SecretCreate",
         "description": "Schema for creating a secret."
-      },
-      "SecretExistsResponse": {
-        "properties": {
-          "exists": {
-            "type": "boolean",
-            "title": "Exists"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          }
-        },
-        "type": "object",
-        "required": [
-          "exists",
-          "name"
-        ],
-        "title": "SecretExistsResponse",
-        "description": "Response payload for ``GET /secrets/check/{name}``."
       },
       "SecretOwnerTypeEnum": {
         "type": "string",

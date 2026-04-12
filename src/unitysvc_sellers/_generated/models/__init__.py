@@ -56,7 +56,6 @@ from .routing_vars_update_response import RoutingVarsUpdateResponse
 from .routing_vars_update_response_routing_vars_type_0 import RoutingVarsUpdateResponseRoutingVarsType0
 from .routing_vars_update_set_type_0 import RoutingVarsUpdateSetType0
 from .secret_create import SecretCreate
-from .secret_exists_response import SecretExistsResponse
 from .secret_owner_type_enum import SecretOwnerTypeEnum
 from .secret_public import SecretPublic
 from .secret_update import SecretUpdate
@@ -170,7 +169,6 @@ __all__ = (
     "RoutingVarsUpdateResponseRoutingVarsType0",
     "RoutingVarsUpdateSetType0",
     "SecretCreate",
-    "SecretExistsResponse",
     "SecretOwnerTypeEnum",
     "SecretPublic",
     "SecretsPublic",

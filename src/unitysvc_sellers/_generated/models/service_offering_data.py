@@ -19,9 +19,9 @@ from typing import Union
 
 if TYPE_CHECKING:
   from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
-  from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
   from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
   from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
+  from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
 
 
 
@@ -97,9 +97,9 @@ class ServiceOfferingData:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
-        from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
         from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
         from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
+        from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
         name = self.name
 
         display_name: Union[None, Unset, str]
@@ -221,9 +221,9 @@ class ServiceOfferingData:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
-        from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
         from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
         from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
+        from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
         d = dict(src_dict)
         name = d.pop("name")
 

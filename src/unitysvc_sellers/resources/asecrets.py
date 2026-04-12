@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from uuid import UUID
 
 from .._http import unwrap
 
 if TYPE_CHECKING:
     from .._generated.client import AuthenticatedClient
-    from .._generated.models.secret_exists_response import SecretExistsResponse
     from .._generated.models.secret_public import SecretPublic
     from .._generated.models.secrets_public import SecretsPublic
 
@@ -32,13 +30,13 @@ class AsyncSecretsResource:
             )
         )
 
-    async def get(self, secret_id: str | UUID) -> SecretPublic:
-        """Get metadata for a single secret by id."""
+    async def get(self, name: str) -> SecretPublic:
+        """Get metadata for a single secret by name."""
         from .._generated.api.seller_secrets import seller_secrets_get_secret
 
         return unwrap(
             await seller_secrets_get_secret.asyncio_detailed(
-                secret_id=UUID(str(secret_id)),
+                name=name,
                 client=self._client,
             )
         )
@@ -55,37 +53,26 @@ class AsyncSecretsResource:
             )
         )
 
-    async def check(self, name: str) -> SecretExistsResponse:
-        """Check whether a secret with the given name exists."""
-        from .._generated.api.seller_secrets import seller_secrets_check_secret_exists
-
-        return unwrap(
-            await seller_secrets_check_secret_exists.asyncio_detailed(
-                name=name,
-                client=self._client,
-            )
-        )
-
-    async def rotate(self, secret_id: str | UUID, value: str) -> SecretPublic:
-        """Rotate (update) the value of an existing secret."""
+    async def rotate(self, name: str, value: str) -> SecretPublic:
+        """Rotate (update) the value of an existing secret by name."""
         from .._generated.api.seller_secrets import seller_secrets_update_secret
         from .._generated.models.secret_update import SecretUpdate
 
         return unwrap(
             await seller_secrets_update_secret.asyncio_detailed(
-                secret_id=UUID(str(secret_id)),
+                name=name,
                 client=self._client,
                 body=SecretUpdate(value=value),
             )
         )
 
-    async def delete(self, secret_id: str | UUID) -> None:
-        """Delete a secret. This action cannot be undone."""
+    async def delete(self, name: str) -> None:
+        """Delete a secret by name. This action cannot be undone."""
         from .._generated.api.seller_secrets import seller_secrets_delete_secret
 
         unwrap(
             await seller_secrets_delete_secret.asyncio_detailed(
-                secret_id=UUID(str(secret_id)),
+                name=name,
                 client=self._client,
             )
         )

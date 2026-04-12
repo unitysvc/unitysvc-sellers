@@ -13,12 +13,11 @@ from ...types import UNSET, Unset
 from typing import cast
 from typing import cast, Union
 from typing import Union
-from uuid import UUID
 
 
 
 def _get_kwargs(
-    secret_id: UUID,
+    name: str,
     *,
     authorization: Union[None, Unset, str] = UNSET,
     x_role_id: Union[None, Unset, str] = UNSET,
@@ -39,7 +38,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
-        "url": "/secrets/{secret_id}".format(secret_id=secret_id,),
+        "url": "/secrets/{name}".format(name=name,),
     }
 
 
@@ -79,7 +78,7 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 
 def sync_detailed(
-    secret_id: UUID,
+    name: str,
     *,
     client: Union[AuthenticatedClient, Client],
     authorization: Union[None, Unset, str] = UNSET,
@@ -88,13 +87,13 @@ def sync_detailed(
 ) -> Response[Union[HTTPValidationError, Message]]:
     """ Delete Secret
 
-     Delete a seller secret.
+     Delete a seller secret by name.
 
     **Warning:** this action cannot be undone. Any services or
     credentials referencing the secret will stop working immediately.
 
     Args:
-        secret_id (UUID):
+        name (str):
         authorization (Union[None, Unset, str]):
         x_role_id (Union[None, Unset, str]):
 
@@ -108,7 +107,7 @@ def sync_detailed(
 
 
     kwargs = _get_kwargs(
-        secret_id=secret_id,
+        name=name,
 authorization=authorization,
 x_role_id=x_role_id,
 
@@ -121,7 +120,7 @@ x_role_id=x_role_id,
     return _build_response(client=client, response=response)
 
 def sync(
-    secret_id: UUID,
+    name: str,
     *,
     client: Union[AuthenticatedClient, Client],
     authorization: Union[None, Unset, str] = UNSET,
@@ -130,13 +129,13 @@ def sync(
 ) -> Optional[Union[HTTPValidationError, Message]]:
     """ Delete Secret
 
-     Delete a seller secret.
+     Delete a seller secret by name.
 
     **Warning:** this action cannot be undone. Any services or
     credentials referencing the secret will stop working immediately.
 
     Args:
-        secret_id (UUID):
+        name (str):
         authorization (Union[None, Unset, str]):
         x_role_id (Union[None, Unset, str]):
 
@@ -150,7 +149,7 @@ def sync(
 
 
     return sync_detailed(
-        secret_id=secret_id,
+        name=name,
 client=client,
 authorization=authorization,
 x_role_id=x_role_id,
@@ -158,7 +157,7 @@ x_role_id=x_role_id,
     ).parsed
 
 async def asyncio_detailed(
-    secret_id: UUID,
+    name: str,
     *,
     client: Union[AuthenticatedClient, Client],
     authorization: Union[None, Unset, str] = UNSET,
@@ -167,13 +166,13 @@ async def asyncio_detailed(
 ) -> Response[Union[HTTPValidationError, Message]]:
     """ Delete Secret
 
-     Delete a seller secret.
+     Delete a seller secret by name.
 
     **Warning:** this action cannot be undone. Any services or
     credentials referencing the secret will stop working immediately.
 
     Args:
-        secret_id (UUID):
+        name (str):
         authorization (Union[None, Unset, str]):
         x_role_id (Union[None, Unset, str]):
 
@@ -187,7 +186,7 @@ async def asyncio_detailed(
 
 
     kwargs = _get_kwargs(
-        secret_id=secret_id,
+        name=name,
 authorization=authorization,
 x_role_id=x_role_id,
 
@@ -200,7 +199,7 @@ x_role_id=x_role_id,
     return _build_response(client=client, response=response)
 
 async def asyncio(
-    secret_id: UUID,
+    name: str,
     *,
     client: Union[AuthenticatedClient, Client],
     authorization: Union[None, Unset, str] = UNSET,
@@ -209,13 +208,13 @@ async def asyncio(
 ) -> Optional[Union[HTTPValidationError, Message]]:
     """ Delete Secret
 
-     Delete a seller secret.
+     Delete a seller secret by name.
 
     **Warning:** this action cannot be undone. Any services or
     credentials referencing the secret will stop working immediately.
 
     Args:
-        secret_id (UUID):
+        name (str):
         authorization (Union[None, Unset, str]):
         x_role_id (Union[None, Unset, str]):
 
@@ -229,7 +228,7 @@ async def asyncio(
 
 
     return (await asyncio_detailed(
-        secret_id=secret_id,
+        name=name,
 client=client,
 authorization=authorization,
 x_role_id=x_role_id,

@@ -12,9 +12,9 @@ from typing import cast, Union
 from typing import Union
 
 if TYPE_CHECKING:
+  from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
   from ..models.service_group_create_membership_rules_type_0 import ServiceGroupCreateMembershipRulesType0
   from ..models.service_group_create_user_access_interfaces_type_0 import ServiceGroupCreateUserAccessInterfacesType0
-  from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
 
 
 
@@ -46,9 +46,9 @@ class ServiceGroupCreate:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
         from ..models.service_group_create_membership_rules_type_0 import ServiceGroupCreateMembershipRulesType0
         from ..models.service_group_create_user_access_interfaces_type_0 import ServiceGroupCreateUserAccessInterfacesType0
-        from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
         name = self.name
 
         display_name = self.display_name
@@ -117,9 +117,9 @@ class ServiceGroupCreate:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
         from ..models.service_group_create_membership_rules_type_0 import ServiceGroupCreateMembershipRulesType0
         from ..models.service_group_create_user_access_interfaces_type_0 import ServiceGroupCreateUserAccessInterfacesType0
-        from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
         d = dict(src_dict)
         name = d.pop("name")
 

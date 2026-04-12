@@ -12,12 +12,12 @@ from typing import cast, Union
 from typing import Union
 
 if TYPE_CHECKING:
-  from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
   from ..models.access_interface_public import AccessInterfacePublic
   from ..models.provider_data import ProviderData
-  from ..models.service_offering_data import ServiceOfferingData
-  from ..models.service_listing_data import ServiceListingData
   from ..models.service_document_item import ServiceDocumentItem
+  from ..models.service_listing_data import ServiceListingData
+  from ..models.service_offering_data import ServiceOfferingData
+  from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
 
 
 
@@ -65,12 +65,12 @@ class ServiceDetailResponse:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         from ..models.access_interface_public import AccessInterfacePublic
         from ..models.provider_data import ProviderData
-        from ..models.service_offering_data import ServiceOfferingData
-        from ..models.service_listing_data import ServiceListingData
         from ..models.service_document_item import ServiceDocumentItem
+        from ..models.service_listing_data import ServiceListingData
+        from ..models.service_offering_data import ServiceOfferingData
+        from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         service_id = self.service_id
 
         status = self.status
@@ -161,12 +161,12 @@ class ServiceDetailResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         from ..models.access_interface_public import AccessInterfacePublic
         from ..models.provider_data import ProviderData
-        from ..models.service_offering_data import ServiceOfferingData
-        from ..models.service_listing_data import ServiceListingData
         from ..models.service_document_item import ServiceDocumentItem
+        from ..models.service_listing_data import ServiceListingData
+        from ..models.service_offering_data import ServiceOfferingData
+        from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         d = dict(src_dict)
         service_id = d.pop("service_id")
 
