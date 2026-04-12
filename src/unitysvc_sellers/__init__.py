@@ -26,8 +26,6 @@ constructor argument or the ``UNITYSVC_SELLER_API_URL`` env var.
 
 from ._spec_version import SPEC_SHA256, SPEC_VERSION
 from .aclient import AsyncClient
-from .model_data import ModelDataFetcher, ModelDataLookup
-from .template_populate import populate_from_iterator
 from .client import DEFAULT_SELLER_API_URL, ENV_SELLER_API_KEY, ENV_SELLER_API_URL, Client
 from .exceptions import (
     APIError,
@@ -64,8 +62,4 @@ __all__ = [
     "ConflictError",
     "RateLimitError",
     "ServerError",
-    # Catalog population utilities
-    "ModelDataFetcher",
-    "ModelDataLookup",
-    "populate_from_iterator",
 ]
