@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[test]"
+      - run: ruff check src/ tests/
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[test]"
+      - run: mypy src/unitysvc_sellers/ --exclude _generated
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[test]"
+      - run: pytest tests/
+
+  spec-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify spec fingerprint matches openapi.json
+        run: |
+          ACTUAL=$(sha256sum openapi.json | awk '{print $1}')
+          RECORDED=$(python3 -c "
+          import ast, pathlib
+          tree = ast.parse(pathlib.Path('src/unitysvc_sellers/_spec_version.py').read_text())
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Assign):
+                  for target in node.targets:
+                      if isinstance(target, ast.Name) and target.id == 'SPEC_SHA256':
+                          print(ast.literal_eval(node.value))
+          ")
+          if [ "$ACTUAL" != "$RECORDED" ]; then
+            echo "::error::Spec fingerprint mismatch!"
+            echo "  openapi.json SHA256: $ACTUAL"
+            echo "  _spec_version.py:    $RECORDED"
+            echo ""
+            echo "Run ./scripts/generate_client.sh to regenerate."
+            exit 1
+          fi
+          echo "Spec fingerprint OK: $ACTUAL"

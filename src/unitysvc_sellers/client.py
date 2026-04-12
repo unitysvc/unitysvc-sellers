@@ -57,11 +57,15 @@ import httpx
 from ._generated.client import AuthenticatedClient as _LowLevelClient
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+
     from .resources.documents import DocumentsResource
     from .resources.groups import GroupsResource
     from .resources.promotions import PromotionsResource
     from .resources.services import ServicesResource
     from .resources.tasks import TasksResource
+    from .resources.upload import UploadResult
 
 DEFAULT_SELLER_API_URL = "https://seller.staging.unitysvc.com/v1"
 ENV_SELLER_API_KEY = "UNITYSVC_SELLER_API_KEY"
@@ -186,14 +190,14 @@ class Client:
     # ------------------------------------------------------------------
     def upload(
         self,
-        data_dir: str | object,
+        data_dir: str | Path,
         *,
         dryrun: bool = False,
         upload_services: bool = True,
         upload_promotions: bool = True,
         upload_groups: bool = True,
-        on_progress: object = None,
-    ) -> object:
+        on_progress: Callable[[str, str, str, str], None] | None = None,
+    ) -> UploadResult:
         """Upload an entire seller catalog directory.
 
         Thin wrapper around
