@@ -9,6 +9,7 @@ import typer
 from . import data
 from .commands import groups as groups_cmd
 from .commands import promotions as promotions_cmd
+from .commands import secrets as secrets_cmd
 from .commands import services as services_cmd
 
 # Importing tests.py registers list-tests/show-test/run-tests/skip-test/unskip-test
@@ -54,6 +55,7 @@ app.add_typer(data.app, name="data")
 app.add_typer(services_cmd.app, name="services")
 app.add_typer(promotions_cmd.app, name="promotions")
 app.add_typer(groups_cmd.app, name="groups")
+app.add_typer(secrets_cmd.app, name="secrets")
 
 
 if __name__ == "__main__":

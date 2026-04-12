@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -12,14 +10,16 @@ from ..models.access_method_enum import AccessMethodEnum
 from ..models.access_method_enum import check_access_method_enum
 from ..types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 from uuid import UUID
 
 if TYPE_CHECKING:
-  from ..models.access_interface_public_request_transformer_type_0 import AccessInterfacePublicRequestTransformerType0
-  from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
   from ..models.access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
-  from ..models.rate_limit import RateLimit
   from ..models.service_constraints import ServiceConstraints
+  from ..models.access_interface_public_request_transformer_type_0 import AccessInterfacePublicRequestTransformerType0
+  from ..models.rate_limit import RateLimit
+  from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
 
 
 
@@ -42,19 +42,19 @@ class AccessInterfacePublic:
     is_primary: bool
     sort_order: int
     created_at: str
-    service_id: None | Unset | UUID = UNSET
-    group_id: None | Unset | UUID = UNSET
-    has_api_key: bool | Unset = False
-    base_url: None | str | Unset = UNSET
-    base_url_pattern: None | str | Unset = UNSET
-    description: None | str | Unset = UNSET
-    request_transformer: AccessInterfacePublicRequestTransformerType0 | None | Unset = UNSET
-    rate_limits: list[RateLimit] | None | Unset = UNSET
-    constraint: None | ServiceConstraints | Unset = UNSET
-    response_rules: AccessInterfacePublicResponseRulesType0 | None | Unset = UNSET
-    routing_key: AccessInterfacePublicRoutingKeyType0 | None | Unset = UNSET
-    enrollment_id: None | Unset | UUID = UNSET
-    updated_at: None | str | Unset = UNSET
+    service_id: Union[None, UUID, Unset] = UNSET
+    group_id: Union[None, UUID, Unset] = UNSET
+    has_api_key: Union[Unset, bool] = False
+    base_url: Union[None, Unset, str] = UNSET
+    base_url_pattern: Union[None, Unset, str] = UNSET
+    description: Union[None, Unset, str] = UNSET
+    request_transformer: Union['AccessInterfacePublicRequestTransformerType0', None, Unset] = UNSET
+    rate_limits: Union[None, Unset, list['RateLimit']] = UNSET
+    constraint: Union['ServiceConstraints', None, Unset] = UNSET
+    response_rules: Union['AccessInterfacePublicResponseRulesType0', None, Unset] = UNSET
+    routing_key: Union['AccessInterfacePublicRoutingKeyType0', None, Unset] = UNSET
+    enrollment_id: Union[None, UUID, Unset] = UNSET
+    updated_at: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -62,11 +62,11 @@ class AccessInterfacePublic:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.access_interface_public_request_transformer_type_0 import AccessInterfacePublicRequestTransformerType0
-        from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
         from ..models.access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
-        from ..models.rate_limit import RateLimit
         from ..models.service_constraints import ServiceConstraints
+        from ..models.access_interface_public_request_transformer_type_0 import AccessInterfacePublicRequestTransformerType0
+        from ..models.rate_limit import RateLimit
+        from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
         id = str(self.id)
 
         access_method: str = self.access_method
@@ -81,7 +81,7 @@ class AccessInterfacePublic:
 
         created_at = self.created_at
 
-        service_id: None | str | Unset
+        service_id: Union[None, Unset, str]
         if isinstance(self.service_id, Unset):
             service_id = UNSET
         elif isinstance(self.service_id, UUID):
@@ -89,7 +89,7 @@ class AccessInterfacePublic:
         else:
             service_id = self.service_id
 
-        group_id: None | str | Unset
+        group_id: Union[None, Unset, str]
         if isinstance(self.group_id, Unset):
             group_id = UNSET
         elif isinstance(self.group_id, UUID):
@@ -99,25 +99,25 @@ class AccessInterfacePublic:
 
         has_api_key = self.has_api_key
 
-        base_url: None | str | Unset
+        base_url: Union[None, Unset, str]
         if isinstance(self.base_url, Unset):
             base_url = UNSET
         else:
             base_url = self.base_url
 
-        base_url_pattern: None | str | Unset
+        base_url_pattern: Union[None, Unset, str]
         if isinstance(self.base_url_pattern, Unset):
             base_url_pattern = UNSET
         else:
             base_url_pattern = self.base_url_pattern
 
-        description: None | str | Unset
+        description: Union[None, Unset, str]
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        request_transformer: dict[str, Any] | None | Unset
+        request_transformer: Union[None, Unset, dict[str, Any]]
         if isinstance(self.request_transformer, Unset):
             request_transformer = UNSET
         elif isinstance(self.request_transformer, AccessInterfacePublicRequestTransformerType0):
@@ -125,7 +125,7 @@ class AccessInterfacePublic:
         else:
             request_transformer = self.request_transformer
 
-        rate_limits: list[dict[str, Any]] | None | Unset
+        rate_limits: Union[None, Unset, list[dict[str, Any]]]
         if isinstance(self.rate_limits, Unset):
             rate_limits = UNSET
         elif isinstance(self.rate_limits, list):
@@ -138,7 +138,7 @@ class AccessInterfacePublic:
         else:
             rate_limits = self.rate_limits
 
-        constraint: dict[str, Any] | None | Unset
+        constraint: Union[None, Unset, dict[str, Any]]
         if isinstance(self.constraint, Unset):
             constraint = UNSET
         elif isinstance(self.constraint, ServiceConstraints):
@@ -146,7 +146,7 @@ class AccessInterfacePublic:
         else:
             constraint = self.constraint
 
-        response_rules: dict[str, Any] | None | Unset
+        response_rules: Union[None, Unset, dict[str, Any]]
         if isinstance(self.response_rules, Unset):
             response_rules = UNSET
         elif isinstance(self.response_rules, AccessInterfacePublicResponseRulesType0):
@@ -154,7 +154,7 @@ class AccessInterfacePublic:
         else:
             response_rules = self.response_rules
 
-        routing_key: dict[str, Any] | None | Unset
+        routing_key: Union[None, Unset, dict[str, Any]]
         if isinstance(self.routing_key, Unset):
             routing_key = UNSET
         elif isinstance(self.routing_key, AccessInterfacePublicRoutingKeyType0):
@@ -162,7 +162,7 @@ class AccessInterfacePublic:
         else:
             routing_key = self.routing_key
 
-        enrollment_id: None | str | Unset
+        enrollment_id: Union[None, Unset, str]
         if isinstance(self.enrollment_id, Unset):
             enrollment_id = UNSET
         elif isinstance(self.enrollment_id, UUID):
@@ -170,7 +170,7 @@ class AccessInterfacePublic:
         else:
             enrollment_id = self.enrollment_id
 
-        updated_at: None | str | Unset
+        updated_at: Union[None, Unset, str]
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         else:
@@ -221,11 +221,11 @@ class AccessInterfacePublic:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.access_interface_public_request_transformer_type_0 import AccessInterfacePublicRequestTransformerType0
-        from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
         from ..models.access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
-        from ..models.rate_limit import RateLimit
         from ..models.service_constraints import ServiceConstraints
+        from ..models.access_interface_public_request_transformer_type_0 import AccessInterfacePublicRequestTransformerType0
+        from ..models.rate_limit import RateLimit
+        from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
         d = dict(src_dict)
         id = UUID(d.pop("id"))
 
@@ -247,7 +247,7 @@ class AccessInterfacePublic:
 
         created_at = d.pop("created_at")
 
-        def _parse_service_id(data: object) -> None | Unset | UUID:
+        def _parse_service_id(data: object) -> Union[None, UUID, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -260,14 +260,14 @@ class AccessInterfacePublic:
 
 
                 return service_id_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(None | Unset | UUID, data)
+            return cast(Union[None, UUID, Unset], data)
 
         service_id = _parse_service_id(d.pop("service_id", UNSET))
 
 
-        def _parse_group_id(data: object) -> None | Unset | UUID:
+        def _parse_group_id(data: object) -> Union[None, UUID, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -280,46 +280,46 @@ class AccessInterfacePublic:
 
 
                 return group_id_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(None | Unset | UUID, data)
+            return cast(Union[None, UUID, Unset], data)
 
         group_id = _parse_group_id(d.pop("group_id", UNSET))
 
 
         has_api_key = d.pop("has_api_key", UNSET)
 
-        def _parse_base_url(data: object) -> None | str | Unset:
+        def _parse_base_url(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         base_url = _parse_base_url(d.pop("base_url", UNSET))
 
 
-        def _parse_base_url_pattern(data: object) -> None | str | Unset:
+        def _parse_base_url_pattern(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         base_url_pattern = _parse_base_url_pattern(d.pop("base_url_pattern", UNSET))
 
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         description = _parse_description(d.pop("description", UNSET))
 
 
-        def _parse_request_transformer(data: object) -> AccessInterfacePublicRequestTransformerType0 | None | Unset:
+        def _parse_request_transformer(data: object) -> Union['AccessInterfacePublicRequestTransformerType0', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -332,14 +332,14 @@ class AccessInterfacePublic:
 
 
                 return request_transformer_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(AccessInterfacePublicRequestTransformerType0 | None | Unset, data)
+            return cast(Union['AccessInterfacePublicRequestTransformerType0', None, Unset], data)
 
         request_transformer = _parse_request_transformer(d.pop("request_transformer", UNSET))
 
 
-        def _parse_rate_limits(data: object) -> list[RateLimit] | None | Unset:
+        def _parse_rate_limits(data: object) -> Union[None, Unset, list['RateLimit']]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -357,14 +357,14 @@ class AccessInterfacePublic:
                     rate_limits_type_0.append(rate_limits_type_0_item)
 
                 return rate_limits_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(list[RateLimit] | None | Unset, data)
+            return cast(Union[None, Unset, list['RateLimit']], data)
 
         rate_limits = _parse_rate_limits(d.pop("rate_limits", UNSET))
 
 
-        def _parse_constraint(data: object) -> None | ServiceConstraints | Unset:
+        def _parse_constraint(data: object) -> Union['ServiceConstraints', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -377,14 +377,14 @@ class AccessInterfacePublic:
 
 
                 return constraint_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(None | ServiceConstraints | Unset, data)
+            return cast(Union['ServiceConstraints', None, Unset], data)
 
         constraint = _parse_constraint(d.pop("constraint", UNSET))
 
 
-        def _parse_response_rules(data: object) -> AccessInterfacePublicResponseRulesType0 | None | Unset:
+        def _parse_response_rules(data: object) -> Union['AccessInterfacePublicResponseRulesType0', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -397,14 +397,14 @@ class AccessInterfacePublic:
 
 
                 return response_rules_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(AccessInterfacePublicResponseRulesType0 | None | Unset, data)
+            return cast(Union['AccessInterfacePublicResponseRulesType0', None, Unset], data)
 
         response_rules = _parse_response_rules(d.pop("response_rules", UNSET))
 
 
-        def _parse_routing_key(data: object) -> AccessInterfacePublicRoutingKeyType0 | None | Unset:
+        def _parse_routing_key(data: object) -> Union['AccessInterfacePublicRoutingKeyType0', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -417,14 +417,14 @@ class AccessInterfacePublic:
 
 
                 return routing_key_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(AccessInterfacePublicRoutingKeyType0 | None | Unset, data)
+            return cast(Union['AccessInterfacePublicRoutingKeyType0', None, Unset], data)
 
         routing_key = _parse_routing_key(d.pop("routing_key", UNSET))
 
 
-        def _parse_enrollment_id(data: object) -> None | Unset | UUID:
+        def _parse_enrollment_id(data: object) -> Union[None, UUID, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -437,19 +437,19 @@ class AccessInterfacePublic:
 
 
                 return enrollment_id_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(None | Unset | UUID, data)
+            return cast(Union[None, UUID, Unset], data)
 
         enrollment_id = _parse_enrollment_id(d.pop("enrollment_id", UNSET))
 
 
-        def _parse_updated_at(data: object) -> None | str | Unset:
+        def _parse_updated_at(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 

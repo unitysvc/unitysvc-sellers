@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -13,6 +12,8 @@ from ...models.http_validation_error import HTTPValidationError
 from ...models.price_rule_public import PriceRulePublic
 from ...types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 from uuid import UUID
 
 
@@ -20,10 +21,14 @@ from uuid import UUID
 def _get_kwargs(
     promotion_id: UUID,
     *,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
+    if not isinstance(authorization, Unset):
+        headers["authorization"] = authorization
+
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
@@ -35,7 +40,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/promotions/{promotion_id}".format(promotion_id=quote(str(promotion_id), safe=""),),
+        "url": "/promotions/{promotion_id}".format(promotion_id=promotion_id,),
     }
 
 
@@ -44,7 +49,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ErrorResponse | HTTPValidationError | PriceRulePublic | None:
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ErrorResponse, HTTPValidationError, PriceRulePublic]]:
     if response.status_code == 200:
         response_200 = PriceRulePublic.from_dict(response.json())
 
@@ -79,7 +84,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ErrorResponse | HTTPValidationError | PriceRulePublic]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ErrorResponse, HTTPValidationError, PriceRulePublic]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -91,29 +96,32 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     promotion_id: UUID,
     *,
-    client: AuthenticatedClient,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[ErrorResponse | HTTPValidationError | PriceRulePublic]:
+) -> Response[Union[ErrorResponse, HTTPValidationError, PriceRulePublic]]:
     """ Get Promotion
 
      Get a promotion by ID.
 
     Args:
         promotion_id (UUID):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | PriceRulePublic]
+        Response[Union[ErrorResponse, HTTPValidationError, PriceRulePublic]]
      """
 
 
     kwargs = _get_kwargs(
         promotion_id=promotion_id,
+authorization=authorization,
 x_role_id=x_role_id,
 
     )
@@ -127,30 +135,33 @@ x_role_id=x_role_id,
 def sync(
     promotion_id: UUID,
     *,
-    client: AuthenticatedClient,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> ErrorResponse | HTTPValidationError | PriceRulePublic | None:
+) -> Optional[Union[ErrorResponse, HTTPValidationError, PriceRulePublic]]:
     """ Get Promotion
 
      Get a promotion by ID.
 
     Args:
         promotion_id (UUID):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | PriceRulePublic
+        Union[ErrorResponse, HTTPValidationError, PriceRulePublic]
      """
 
 
     return sync_detailed(
         promotion_id=promotion_id,
 client=client,
+authorization=authorization,
 x_role_id=x_role_id,
 
     ).parsed
@@ -158,29 +169,32 @@ x_role_id=x_role_id,
 async def asyncio_detailed(
     promotion_id: UUID,
     *,
-    client: AuthenticatedClient,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[ErrorResponse | HTTPValidationError | PriceRulePublic]:
+) -> Response[Union[ErrorResponse, HTTPValidationError, PriceRulePublic]]:
     """ Get Promotion
 
      Get a promotion by ID.
 
     Args:
         promotion_id (UUID):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | PriceRulePublic]
+        Response[Union[ErrorResponse, HTTPValidationError, PriceRulePublic]]
      """
 
 
     kwargs = _get_kwargs(
         promotion_id=promotion_id,
+authorization=authorization,
 x_role_id=x_role_id,
 
     )
@@ -194,30 +208,33 @@ x_role_id=x_role_id,
 async def asyncio(
     promotion_id: UUID,
     *,
-    client: AuthenticatedClient,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> ErrorResponse | HTTPValidationError | PriceRulePublic | None:
+) -> Optional[Union[ErrorResponse, HTTPValidationError, PriceRulePublic]]:
     """ Get Promotion
 
      Get a promotion by ID.
 
     Args:
         promotion_id (UUID):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | PriceRulePublic
+        Union[ErrorResponse, HTTPValidationError, PriceRulePublic]
      """
 
 
     return (await asyncio_detailed(
         promotion_id=promotion_id,
 client=client,
+authorization=authorization,
 x_role_id=x_role_id,
 
     )).parsed

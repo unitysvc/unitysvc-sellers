@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -10,6 +8,8 @@ from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 if TYPE_CHECKING:
   from ..models.document_test_status_response_test_type_0 import DocumentTestStatusResponseTestType0
@@ -35,7 +35,7 @@ class DocumentTestStatusResponse:
     document_id: str
     status: str
     message: str
-    test: DocumentTestStatusResponseTestType0 | None | Unset = UNSET
+    test: Union['DocumentTestStatusResponseTestType0', None, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -50,7 +50,7 @@ class DocumentTestStatusResponse:
 
         message = self.message
 
-        test: dict[str, Any] | None | Unset
+        test: Union[None, Unset, dict[str, Any]]
         if isinstance(self.test, Unset):
             test = UNSET
         elif isinstance(self.test, DocumentTestStatusResponseTestType0):
@@ -83,7 +83,7 @@ class DocumentTestStatusResponse:
 
         message = d.pop("message")
 
-        def _parse_test(data: object) -> DocumentTestStatusResponseTestType0 | None | Unset:
+        def _parse_test(data: object) -> Union['DocumentTestStatusResponseTestType0', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -96,9 +96,9 @@ class DocumentTestStatusResponse:
 
 
                 return test_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(DocumentTestStatusResponseTestType0 | None | Unset, data)
+            return cast(Union['DocumentTestStatusResponseTestType0', None, Unset], data)
 
         test = _parse_test(d.pop("test", UNSET))
 

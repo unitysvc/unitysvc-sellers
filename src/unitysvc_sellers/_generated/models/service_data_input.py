@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -11,8 +9,8 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.provider_data import ProviderData
   from ..models.service_listing_data import ServiceListingData
+  from ..models.provider_data import ProviderData
   from ..models.service_offering_data import ServiceOfferingData
 
 
@@ -33,7 +31,7 @@ class ServiceDataInput:
 
      """
 
-    provider_data: ProviderData
+    provider_data: 'ProviderData'
     """ Base data structure for provider information.
 
     This model contains the core fields needed to describe a provider,
@@ -51,7 +49,7 @@ class ServiceDataInput:
     - Uses string identifiers that match database requirements
     - Contains all user-provided data without system-generated IDs
     - Does not include permission/audit fields (handled by backend CRUD layer) """
-    offering_data: ServiceOfferingData
+    offering_data: 'ServiceOfferingData'
     """ Base data structure for service offering information.
 
     This model contains the core fields needed to describe a service offering,
@@ -71,7 +69,7 @@ class ServiceDataInput:
     - Does not include permission/audit fields (handled by backend CRUD layer)
     - Provider relationship is determined by file location (SDK mode) or
       by being published together in a single API call (API mode) """
-    listing_data: ServiceListingData
+    listing_data: 'ServiceListingData'
     """ Base data structure for service listing information.
 
     This model contains the core fields needed to describe a service listing,
@@ -99,8 +97,8 @@ class ServiceDataInput:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.provider_data import ProviderData
         from ..models.service_listing_data import ServiceListingData
+        from ..models.provider_data import ProviderData
         from ..models.service_offering_data import ServiceOfferingData
         provider_data = self.provider_data.to_dict()
 
@@ -123,8 +121,8 @@ class ServiceDataInput:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.provider_data import ProviderData
         from ..models.service_listing_data import ServiceListingData
+        from ..models.provider_data import ProviderData
         from ..models.service_offering_data import ServiceOfferingData
         d = dict(src_dict)
         provider_data = ProviderData.from_dict(d.pop("provider_data"))

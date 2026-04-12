@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -13,14 +12,16 @@ from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 
 
 def _get_kwargs(
     document_id: str,
     *,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -38,7 +39,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/documents/{document_id}".format(document_id=quote(str(document_id), safe=""),),
+        "url": "/documents/{document_id}".format(document_id=document_id,),
     }
 
 
@@ -47,7 +48,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> DocumentDetailResponse | ErrorResponse | HTTPValidationError | None:
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[DocumentDetailResponse, ErrorResponse, HTTPValidationError]]:
     if response.status_code == 200:
         response_200 = DocumentDetailResponse.from_dict(response.json())
 
@@ -89,7 +90,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[DocumentDetailResponse | ErrorResponse | HTTPValidationError]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[DocumentDetailResponse, ErrorResponse, HTTPValidationError]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -101,11 +102,11 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     document_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[DocumentDetailResponse | ErrorResponse | HTTPValidationError]:
+) -> Response[Union[DocumentDetailResponse, ErrorResponse, HTTPValidationError]]:
     """ Get Document
 
      Get full document details including file content and test metadata.
@@ -118,15 +119,15 @@ def sync_detailed(
 
     Args:
         document_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[DocumentDetailResponse | ErrorResponse | HTTPValidationError]
+        Response[Union[DocumentDetailResponse, ErrorResponse, HTTPValidationError]]
      """
 
 
@@ -146,11 +147,11 @@ x_role_id=x_role_id,
 def sync(
     document_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> DocumentDetailResponse | ErrorResponse | HTTPValidationError | None:
+) -> Optional[Union[DocumentDetailResponse, ErrorResponse, HTTPValidationError]]:
     """ Get Document
 
      Get full document details including file content and test metadata.
@@ -163,15 +164,15 @@ def sync(
 
     Args:
         document_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        DocumentDetailResponse | ErrorResponse | HTTPValidationError
+        Union[DocumentDetailResponse, ErrorResponse, HTTPValidationError]
      """
 
 
@@ -186,11 +187,11 @@ x_role_id=x_role_id,
 async def asyncio_detailed(
     document_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[DocumentDetailResponse | ErrorResponse | HTTPValidationError]:
+) -> Response[Union[DocumentDetailResponse, ErrorResponse, HTTPValidationError]]:
     """ Get Document
 
      Get full document details including file content and test metadata.
@@ -203,15 +204,15 @@ async def asyncio_detailed(
 
     Args:
         document_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[DocumentDetailResponse | ErrorResponse | HTTPValidationError]
+        Response[Union[DocumentDetailResponse, ErrorResponse, HTTPValidationError]]
      """
 
 
@@ -231,11 +232,11 @@ x_role_id=x_role_id,
 async def asyncio(
     document_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> DocumentDetailResponse | ErrorResponse | HTTPValidationError | None:
+) -> Optional[Union[DocumentDetailResponse, ErrorResponse, HTTPValidationError]]:
     """ Get Document
 
      Get full document details including file content and test metadata.
@@ -248,15 +249,15 @@ async def asyncio(
 
     Args:
         document_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        DocumentDetailResponse | ErrorResponse | HTTPValidationError
+        Union[DocumentDetailResponse, ErrorResponse, HTTPValidationError]
      """
 
 

@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -14,6 +13,8 @@ from ...models.list_price_update import ListPriceUpdate
 from ...models.list_price_update_response import ListPriceUpdateResponse
 from ...types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 
 
@@ -21,8 +22,8 @@ def _get_kwargs(
     service_id: str,
     *,
     body: ListPriceUpdate,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -40,7 +41,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "patch",
-        "url": "/services/{service_id}/list-price".format(service_id=quote(str(service_id), safe=""),),
+        "url": "/services/{service_id}/list-price".format(service_id=service_id,),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -53,7 +54,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ErrorResponse | HTTPValidationError | ListPriceUpdateResponse | None:
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ErrorResponse, HTTPValidationError, ListPriceUpdateResponse]]:
     if response.status_code == 200:
         response_200 = ListPriceUpdateResponse.from_dict(response.json())
 
@@ -88,7 +89,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ErrorResponse | HTTPValidationError | ListPriceUpdateResponse]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ErrorResponse, HTTPValidationError, ListPriceUpdateResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -100,12 +101,12 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     service_id: str,
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: ListPriceUpdate,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[ErrorResponse | HTTPValidationError | ListPriceUpdateResponse]:
+) -> Response[Union[ErrorResponse, HTTPValidationError, ListPriceUpdateResponse]]:
     r""" Update List Price
 
      Update list_price on an active service without approval.
@@ -121,8 +122,8 @@ def sync_detailed(
 
     Args:
         service_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (ListPriceUpdate): Request body for updating list_price on an active service.
 
     Raises:
@@ -130,7 +131,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | ListPriceUpdateResponse]
+        Response[Union[ErrorResponse, HTTPValidationError, ListPriceUpdateResponse]]
      """
 
 
@@ -151,12 +152,12 @@ x_role_id=x_role_id,
 def sync(
     service_id: str,
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: ListPriceUpdate,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> ErrorResponse | HTTPValidationError | ListPriceUpdateResponse | None:
+) -> Optional[Union[ErrorResponse, HTTPValidationError, ListPriceUpdateResponse]]:
     r""" Update List Price
 
      Update list_price on an active service without approval.
@@ -172,8 +173,8 @@ def sync(
 
     Args:
         service_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (ListPriceUpdate): Request body for updating list_price on an active service.
 
     Raises:
@@ -181,7 +182,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | ListPriceUpdateResponse
+        Union[ErrorResponse, HTTPValidationError, ListPriceUpdateResponse]
      """
 
 
@@ -197,12 +198,12 @@ x_role_id=x_role_id,
 async def asyncio_detailed(
     service_id: str,
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: ListPriceUpdate,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[ErrorResponse | HTTPValidationError | ListPriceUpdateResponse]:
+) -> Response[Union[ErrorResponse, HTTPValidationError, ListPriceUpdateResponse]]:
     r""" Update List Price
 
      Update list_price on an active service without approval.
@@ -218,8 +219,8 @@ async def asyncio_detailed(
 
     Args:
         service_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (ListPriceUpdate): Request body for updating list_price on an active service.
 
     Raises:
@@ -227,7 +228,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | ListPriceUpdateResponse]
+        Response[Union[ErrorResponse, HTTPValidationError, ListPriceUpdateResponse]]
      """
 
 
@@ -248,12 +249,12 @@ x_role_id=x_role_id,
 async def asyncio(
     service_id: str,
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: ListPriceUpdate,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> ErrorResponse | HTTPValidationError | ListPriceUpdateResponse | None:
+) -> Optional[Union[ErrorResponse, HTTPValidationError, ListPriceUpdateResponse]]:
     r""" Update List Price
 
      Update list_price on an active service without approval.
@@ -269,8 +270,8 @@ async def asyncio(
 
     Args:
         service_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (ListPriceUpdate): Request body for updating list_price on an active service.
 
     Raises:
@@ -278,7 +279,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | ListPriceUpdateResponse
+        Union[ErrorResponse, HTTPValidationError, ListPriceUpdateResponse]
      """
 
 

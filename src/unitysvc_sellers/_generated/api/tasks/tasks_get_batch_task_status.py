@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -12,14 +11,16 @@ from ...models.http_validation_error import HTTPValidationError
 from ...models.response_tasks_get_batch_task_status import ResponseTasksGetBatchTaskStatus
 from ...types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 
 
 def _get_kwargs(
     *,
     body: list[str],
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -52,7 +53,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | ResponseTasksGetBatchTaskStatus | None:
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[HTTPValidationError, ResponseTasksGetBatchTaskStatus]]:
     if response.status_code == 200:
         response_200 = ResponseTasksGetBatchTaskStatus.from_dict(response.json())
 
@@ -73,7 +74,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | ResponseTasksGetBatchTaskStatus]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[HTTPValidationError, ResponseTasksGetBatchTaskStatus]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -84,12 +85,12 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 def sync_detailed(
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: list[str],
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[HTTPValidationError | ResponseTasksGetBatchTaskStatus]:
+) -> Response[Union[HTTPValidationError, ResponseTasksGetBatchTaskStatus]]:
     """ Get Batch Task Status
 
      Get the status of multiple Celery tasks in a single request.
@@ -98,8 +99,8 @@ def sync_detailed(
     This is more efficient than polling each task individually.
 
     Args:
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (list[str]):
 
     Raises:
@@ -107,7 +108,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | ResponseTasksGetBatchTaskStatus]
+        Response[Union[HTTPValidationError, ResponseTasksGetBatchTaskStatus]]
      """
 
 
@@ -126,12 +127,12 @@ x_role_id=x_role_id,
 
 def sync(
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: list[str],
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> HTTPValidationError | ResponseTasksGetBatchTaskStatus | None:
+) -> Optional[Union[HTTPValidationError, ResponseTasksGetBatchTaskStatus]]:
     """ Get Batch Task Status
 
      Get the status of multiple Celery tasks in a single request.
@@ -140,8 +141,8 @@ def sync(
     This is more efficient than polling each task individually.
 
     Args:
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (list[str]):
 
     Raises:
@@ -149,7 +150,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | ResponseTasksGetBatchTaskStatus
+        Union[HTTPValidationError, ResponseTasksGetBatchTaskStatus]
      """
 
 
@@ -163,12 +164,12 @@ x_role_id=x_role_id,
 
 async def asyncio_detailed(
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: list[str],
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[HTTPValidationError | ResponseTasksGetBatchTaskStatus]:
+) -> Response[Union[HTTPValidationError, ResponseTasksGetBatchTaskStatus]]:
     """ Get Batch Task Status
 
      Get the status of multiple Celery tasks in a single request.
@@ -177,8 +178,8 @@ async def asyncio_detailed(
     This is more efficient than polling each task individually.
 
     Args:
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (list[str]):
 
     Raises:
@@ -186,7 +187,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | ResponseTasksGetBatchTaskStatus]
+        Response[Union[HTTPValidationError, ResponseTasksGetBatchTaskStatus]]
      """
 
 
@@ -205,12 +206,12 @@ x_role_id=x_role_id,
 
 async def asyncio(
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: list[str],
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> HTTPValidationError | ResponseTasksGetBatchTaskStatus | None:
+) -> Optional[Union[HTTPValidationError, ResponseTasksGetBatchTaskStatus]]:
     """ Get Batch Task Status
 
      Get the status of multiple Celery tasks in a single request.
@@ -219,8 +220,8 @@ async def asyncio(
     This is more efficient than polling each task individually.
 
     Args:
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (list[str]):
 
     Raises:
@@ -228,7 +229,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | ResponseTasksGetBatchTaskStatus
+        Union[HTTPValidationError, ResponseTasksGetBatchTaskStatus]
      """
 
 

@@ -93,6 +93,43 @@ Client(base_url="https://api.unitysvc.com/v1/seller")
 Client(base_url="http://localhost:8000/v1/seller")
 ```
 
+### Secrets
+
+Manage encrypted seller secrets (API keys, tokens, credentials).
+Values are **write-only** — only metadata is ever returned.
+
+```python
+# List all secrets (metadata only)
+secrets = client.secrets.list()
+for s in secrets.data:
+    print(s.name, s.created_at)
+
+# Get one secret's metadata by name
+meta = client.secrets.get("OPENAI_API_KEY")
+
+# Create a new secret
+client.secrets.create("OPENAI_API_KEY", "sk-...")
+
+# Rotate (update) the value
+client.secrets.rotate("OPENAI_API_KEY", "sk-new-...")
+
+# Delete a secret (immediate effect on running services)
+client.secrets.delete("OPENAI_API_KEY")
+```
+
+**Methods:**
+
+| Method | Parameters | Returns | Description |
+|--------|-----------|---------|-------------|
+| `secrets.list(skip=0, limit=100)` | `skip`, `limit` | `SecretsPublic` | List secrets (metadata only) |
+| `secrets.get(name)` | `name: str` | `SecretPublic` | Get one secret's metadata |
+| `secrets.create(name, value)` | `name: str`, `value: str` | `SecretPublic` | Create a secret (upsert) |
+| `secrets.rotate(name, value)` | `name: str`, `value: str` | `SecretPublic` | Rotate an existing secret's value |
+| `secrets.delete(name)` | `name: str` | `None` | Permanently delete a secret |
+
+Secret names must be uppercase with underscores (e.g. `OPENAI_API_KEY`,
+`STRIPE_SECRET`). Names starting with `__` are reserved for platform use.
+
 ### Pagination
 
 `services.list`, `promotions.list`, and `groups.list` use
@@ -230,6 +267,13 @@ usvc_seller promotions delete   NAME_OR_ID [--force]
 usvc_seller groups list   [--status STATUS] [--format table|json]
 usvc_seller groups show    NAME_OR_ID [--format table|json]
 usvc_seller groups delete  NAME_OR_ID [--force]
+
+# Secrets
+usvc_seller secrets list   [--format table|json]
+usvc_seller secrets show   NAME [--format table|json]
+usvc_seller secrets create NAME [--value VALUE | --value-file PATH | --value-stdin]
+usvc_seller secrets rotate NAME [--value VALUE | --value-file PATH | --value-stdin]
+usvc_seller secrets delete NAME [--force]
 ```
 
 `promotions activate` / `pause` are sugar over

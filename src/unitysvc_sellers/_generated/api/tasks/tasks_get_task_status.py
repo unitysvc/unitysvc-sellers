@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -12,14 +11,16 @@ from ...models.http_validation_error import HTTPValidationError
 from ...models.response_tasks_get_task_status import ResponseTasksGetTaskStatus
 from ...types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 
 
 def _get_kwargs(
     task_id: str,
     *,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -37,7 +38,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/tasks/{task_id}".format(task_id=quote(str(task_id), safe=""),),
+        "url": "/tasks/{task_id}".format(task_id=task_id,),
     }
 
 
@@ -46,7 +47,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | ResponseTasksGetTaskStatus | None:
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[HTTPValidationError, ResponseTasksGetTaskStatus]]:
     if response.status_code == 200:
         response_200 = ResponseTasksGetTaskStatus.from_dict(response.json())
 
@@ -67,7 +68,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | ResponseTasksGetTaskStatus]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[HTTPValidationError, ResponseTasksGetTaskStatus]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -79,26 +80,26 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     task_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[HTTPValidationError | ResponseTasksGetTaskStatus]:
+) -> Response[Union[HTTPValidationError, ResponseTasksGetTaskStatus]]:
     """ Get Task Status
 
      Get the status of a single Celery task.
 
     Args:
         task_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | ResponseTasksGetTaskStatus]
+        Response[Union[HTTPValidationError, ResponseTasksGetTaskStatus]]
      """
 
 
@@ -118,26 +119,26 @@ x_role_id=x_role_id,
 def sync(
     task_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> HTTPValidationError | ResponseTasksGetTaskStatus | None:
+) -> Optional[Union[HTTPValidationError, ResponseTasksGetTaskStatus]]:
     """ Get Task Status
 
      Get the status of a single Celery task.
 
     Args:
         task_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | ResponseTasksGetTaskStatus
+        Union[HTTPValidationError, ResponseTasksGetTaskStatus]
      """
 
 
@@ -152,26 +153,26 @@ x_role_id=x_role_id,
 async def asyncio_detailed(
     task_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[HTTPValidationError | ResponseTasksGetTaskStatus]:
+) -> Response[Union[HTTPValidationError, ResponseTasksGetTaskStatus]]:
     """ Get Task Status
 
      Get the status of a single Celery task.
 
     Args:
         task_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | ResponseTasksGetTaskStatus]
+        Response[Union[HTTPValidationError, ResponseTasksGetTaskStatus]]
      """
 
 
@@ -191,26 +192,26 @@ x_role_id=x_role_id,
 async def asyncio(
     task_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> HTTPValidationError | ResponseTasksGetTaskStatus | None:
+) -> Optional[Union[HTTPValidationError, ResponseTasksGetTaskStatus]]:
     """ Get Task Status
 
      Get the status of a single Celery task.
 
     Args:
         task_id (str):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | ResponseTasksGetTaskStatus
+        Union[HTTPValidationError, ResponseTasksGetTaskStatus]
      """
 
 

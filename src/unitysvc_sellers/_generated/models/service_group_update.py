@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -12,11 +10,13 @@ from ..models.service_group_status_enum import check_service_group_status_enum
 from ..models.service_group_status_enum import ServiceGroupStatusEnum
 from ..types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 if TYPE_CHECKING:
-  from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
-  from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
   from ..models.service_group_update_user_access_interfaces_type_0 import ServiceGroupUpdateUserAccessInterfacesType0
+  from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
+  from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
 
 
 
@@ -32,14 +32,14 @@ class ServiceGroupUpdate:
 
      """
 
-    display_name: None | str | Unset = UNSET
-    description: None | str | Unset = UNSET
-    membership_rules: None | ServiceGroupUpdateMembershipRulesType0 | Unset = UNSET
-    user_access_interfaces: None | ServiceGroupUpdateUserAccessInterfacesType0 | Unset = UNSET
-    routing_policy: None | ServiceGroupUpdateRoutingPolicyType0 | Unset = UNSET
-    status: None | ServiceGroupStatusEnum | Unset = UNSET
-    sort_order: int | None | Unset = UNSET
-    parent_group_name: None | str | Unset = UNSET
+    display_name: Union[None, Unset, str] = UNSET
+    description: Union[None, Unset, str] = UNSET
+    membership_rules: Union['ServiceGroupUpdateMembershipRulesType0', None, Unset] = UNSET
+    user_access_interfaces: Union['ServiceGroupUpdateUserAccessInterfacesType0', None, Unset] = UNSET
+    routing_policy: Union['ServiceGroupUpdateRoutingPolicyType0', None, Unset] = UNSET
+    status: Union[None, ServiceGroupStatusEnum, Unset] = UNSET
+    sort_order: Union[None, Unset, int] = UNSET
+    parent_group_name: Union[None, Unset, str] = UNSET
     """ Parent group name. Resolved to ancestor_path based on owner context. """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -48,22 +48,22 @@ class ServiceGroupUpdate:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
-        from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
         from ..models.service_group_update_user_access_interfaces_type_0 import ServiceGroupUpdateUserAccessInterfacesType0
-        display_name: None | str | Unset
+        from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
+        from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
+        display_name: Union[None, Unset, str]
         if isinstance(self.display_name, Unset):
             display_name = UNSET
         else:
             display_name = self.display_name
 
-        description: None | str | Unset
+        description: Union[None, Unset, str]
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        membership_rules: dict[str, Any] | None | Unset
+        membership_rules: Union[None, Unset, dict[str, Any]]
         if isinstance(self.membership_rules, Unset):
             membership_rules = UNSET
         elif isinstance(self.membership_rules, ServiceGroupUpdateMembershipRulesType0):
@@ -71,7 +71,7 @@ class ServiceGroupUpdate:
         else:
             membership_rules = self.membership_rules
 
-        user_access_interfaces: dict[str, Any] | None | Unset
+        user_access_interfaces: Union[None, Unset, dict[str, Any]]
         if isinstance(self.user_access_interfaces, Unset):
             user_access_interfaces = UNSET
         elif isinstance(self.user_access_interfaces, ServiceGroupUpdateUserAccessInterfacesType0):
@@ -79,7 +79,7 @@ class ServiceGroupUpdate:
         else:
             user_access_interfaces = self.user_access_interfaces
 
-        routing_policy: dict[str, Any] | None | Unset
+        routing_policy: Union[None, Unset, dict[str, Any]]
         if isinstance(self.routing_policy, Unset):
             routing_policy = UNSET
         elif isinstance(self.routing_policy, ServiceGroupUpdateRoutingPolicyType0):
@@ -87,7 +87,7 @@ class ServiceGroupUpdate:
         else:
             routing_policy = self.routing_policy
 
-        status: None | str | Unset
+        status: Union[None, Unset, str]
         if isinstance(self.status, Unset):
             status = UNSET
         elif isinstance(self.status, str):
@@ -95,13 +95,13 @@ class ServiceGroupUpdate:
         else:
             status = self.status
 
-        sort_order: int | None | Unset
+        sort_order: Union[None, Unset, int]
         if isinstance(self.sort_order, Unset):
             sort_order = UNSET
         else:
             sort_order = self.sort_order
 
-        parent_group_name: None | str | Unset
+        parent_group_name: Union[None, Unset, str]
         if isinstance(self.parent_group_name, Unset):
             parent_group_name = UNSET
         else:
@@ -135,31 +135,31 @@ class ServiceGroupUpdate:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
-        from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
         from ..models.service_group_update_user_access_interfaces_type_0 import ServiceGroupUpdateUserAccessInterfacesType0
+        from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
+        from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
         d = dict(src_dict)
-        def _parse_display_name(data: object) -> None | str | Unset:
+        def _parse_display_name(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         display_name = _parse_display_name(d.pop("display_name", UNSET))
 
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         description = _parse_description(d.pop("description", UNSET))
 
 
-        def _parse_membership_rules(data: object) -> None | ServiceGroupUpdateMembershipRulesType0 | Unset:
+        def _parse_membership_rules(data: object) -> Union['ServiceGroupUpdateMembershipRulesType0', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -172,14 +172,14 @@ class ServiceGroupUpdate:
 
 
                 return membership_rules_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(None | ServiceGroupUpdateMembershipRulesType0 | Unset, data)
+            return cast(Union['ServiceGroupUpdateMembershipRulesType0', None, Unset], data)
 
         membership_rules = _parse_membership_rules(d.pop("membership_rules", UNSET))
 
 
-        def _parse_user_access_interfaces(data: object) -> None | ServiceGroupUpdateUserAccessInterfacesType0 | Unset:
+        def _parse_user_access_interfaces(data: object) -> Union['ServiceGroupUpdateUserAccessInterfacesType0', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -192,14 +192,14 @@ class ServiceGroupUpdate:
 
 
                 return user_access_interfaces_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(None | ServiceGroupUpdateUserAccessInterfacesType0 | Unset, data)
+            return cast(Union['ServiceGroupUpdateUserAccessInterfacesType0', None, Unset], data)
 
         user_access_interfaces = _parse_user_access_interfaces(d.pop("user_access_interfaces", UNSET))
 
 
-        def _parse_routing_policy(data: object) -> None | ServiceGroupUpdateRoutingPolicyType0 | Unset:
+        def _parse_routing_policy(data: object) -> Union['ServiceGroupUpdateRoutingPolicyType0', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -212,14 +212,14 @@ class ServiceGroupUpdate:
 
 
                 return routing_policy_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(None | ServiceGroupUpdateRoutingPolicyType0 | Unset, data)
+            return cast(Union['ServiceGroupUpdateRoutingPolicyType0', None, Unset], data)
 
         routing_policy = _parse_routing_policy(d.pop("routing_policy", UNSET))
 
 
-        def _parse_status(data: object) -> None | ServiceGroupStatusEnum | Unset:
+        def _parse_status(data: object) -> Union[None, ServiceGroupStatusEnum, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -232,29 +232,29 @@ class ServiceGroupUpdate:
 
 
                 return status_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(None | ServiceGroupStatusEnum | Unset, data)
+            return cast(Union[None, ServiceGroupStatusEnum, Unset], data)
 
         status = _parse_status(d.pop("status", UNSET))
 
 
-        def _parse_sort_order(data: object) -> int | None | Unset:
+        def _parse_sort_order(data: object) -> Union[None, Unset, int]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(int | None | Unset, data)
+            return cast(Union[None, Unset, int], data)
 
         sort_order = _parse_sort_order(d.pop("sort_order", UNSET))
 
 
-        def _parse_parent_group_name(data: object) -> None | str | Unset:
+        def _parse_parent_group_name(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         parent_group_name = _parse_parent_group_name(d.pop("parent_group_name", UNSET))
 

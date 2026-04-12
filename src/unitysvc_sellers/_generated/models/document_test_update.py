@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -10,6 +8,8 @@ from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 if TYPE_CHECKING:
   from ..models.document_test_update_tests_type_0 import DocumentTestUpdateTestsType0
@@ -44,9 +44,9 @@ class DocumentTestUpdate:
 
     status: str
     """ skip | pending | success | task_failed | script_failed | unexpected_output """
-    executed_at: None | str | Unset = UNSET
+    executed_at: Union[None, Unset, str] = UNSET
     """ ISO timestamp of execution (external results only) """
-    tests: DocumentTestUpdateTestsType0 | None | Unset = UNSET
+    tests: Union['DocumentTestUpdateTestsType0', None, Unset] = UNSET
     """ Per-interface test results: {name: {status, exit_code, stdout, stderr, error}} """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -58,13 +58,13 @@ class DocumentTestUpdate:
         from ..models.document_test_update_tests_type_0 import DocumentTestUpdateTestsType0
         status = self.status
 
-        executed_at: None | str | Unset
+        executed_at: Union[None, Unset, str]
         if isinstance(self.executed_at, Unset):
             executed_at = UNSET
         else:
             executed_at = self.executed_at
 
-        tests: dict[str, Any] | None | Unset
+        tests: Union[None, Unset, dict[str, Any]]
         if isinstance(self.tests, Unset):
             tests = UNSET
         elif isinstance(self.tests, DocumentTestUpdateTestsType0):
@@ -93,17 +93,17 @@ class DocumentTestUpdate:
         d = dict(src_dict)
         status = d.pop("status")
 
-        def _parse_executed_at(data: object) -> None | str | Unset:
+        def _parse_executed_at(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         executed_at = _parse_executed_at(d.pop("executed_at", UNSET))
 
 
-        def _parse_tests(data: object) -> DocumentTestUpdateTestsType0 | None | Unset:
+        def _parse_tests(data: object) -> Union['DocumentTestUpdateTestsType0', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -116,9 +116,9 @@ class DocumentTestUpdate:
 
 
                 return tests_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(DocumentTestUpdateTestsType0 | None | Unset, data)
+            return cast(Union['DocumentTestUpdateTestsType0', None, Unset], data)
 
         tests = _parse_tests(d.pop("tests", UNSET))
 
