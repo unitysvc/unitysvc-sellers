@@ -36,6 +36,20 @@ theme:
 
 plugins:
   - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: false
+            show_root_heading: true
+            show_category_heading: true
+            members_order: source
+            docstring_style: google
+            merge_init_into_class: true
+            show_signature_annotations: true
+            separate_signature: true
 
 markdown_extensions:
   - admonition
@@ -70,6 +84,7 @@ nav:
   - Reference:
       - CLI Commands: cli-reference.md
       - Python SDK: sdk-reference.md
+      - API Reference: api-reference.md
       - File Schemas: file-schemas.md
       - Pricing: pricing.md
       - Code Examples: code-examples.md

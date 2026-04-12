@@ -97,6 +97,7 @@ properties:
 | `client.promotions`  | `/seller/promotions/*`                                        | CRUD on seller-funded promotion codes                                   |
 | `client.groups`      | `/seller/service-groups/*`                                    | CRUD on service groups                                                  |
 | `client.documents`   | `/seller/documents/*`                                         | Fetch document file content, execute (gateway dispatch), update test    |
+| `client.secrets`     | `/seller/secrets/*`                                           | Create, rotate, list, and delete encrypted seller secrets               |
 | `client.tasks`       | `/seller/tasks/*`                                             | Poll Celery task state for async operations (notably service upload)   |
 
 The async client exposes the same namespaces with `Async` prefixes
@@ -236,6 +237,49 @@ gateway. The CLI's `usvc_seller services run-tests` command, in
 contrast, runs the scripts **locally** on the seller's machine —
 see [Running connectivity tests locally](#running-connectivity-tests-locally)
 below for the recommended pattern.
+
+## `client.secrets`
+
+Manage encrypted seller secrets (API keys, tokens, credentials).
+Values are **write-only** — only metadata is ever returned by the API.
+
+| Method                       | Parameters              | Returns         | Description                          |
+| ---------------------------- | ----------------------- | --------------- | ------------------------------------ |
+| `list(skip=0, limit=100)`    | `skip: int`, `limit: int` | `SecretsPublic` | List secrets (metadata only)         |
+| `get(name)`                  | `name: str`             | `SecretPublic`  | Get one secret's metadata by name    |
+| `create(name, value)`        | `name: str`, `value: str` | `SecretPublic`  | Create a new secret                  |
+| `rotate(name, value)`        | `name: str`, `value: str` | `SecretPublic`  | Rotate (update) an existing secret   |
+| `delete(name)`               | `name: str`             | `None`          | Permanently delete a secret          |
+
+Secret names must be uppercase with underscores (e.g.
+`OPENAI_API_KEY`, `STRIPE_SECRET`). Names starting with `__` are
+reserved for platform use.
+
+```python
+from unitysvc_sellers import Client
+
+with Client() as client:
+    # Create a secret (value is write-only, cannot be retrieved)
+    client.secrets.create("OPENAI_API_KEY", "sk-proj-abc123...")
+
+    # List all secrets (metadata only)
+    for s in client.secrets.list().data:
+        print(s.name, s.created_at, s.last_used_at)
+
+    # Get one secret's metadata
+    meta = client.secrets.get("OPENAI_API_KEY")
+    print(meta.name, meta.updated_at)
+
+    # Rotate the value (e.g. after a key leak)
+    client.secrets.rotate("OPENAI_API_KEY", "sk-proj-new456...")
+
+    # Delete (immediate effect — services referencing it will break)
+    client.secrets.delete("OPENAI_API_KEY")
+```
+
+!!! warning "Write-only values"
+    The API never returns secret values. If you lose the value,
+    rotate it with a new one. There is no "get value" endpoint.
 
 ## `client.tasks`
 
