@@ -614,7 +614,7 @@ def run_tests(
             # Pick the first failing interface to show in the summary
             # line; ``show-test`` is still the full-detail view.
             iface_results = entry.get("iface_results") or {}
-            first_failure = next(
+            first_failure: dict[str, Any] = next(
                 (r for r in iface_results.values() if r.get("status") != "success"),
                 {},
             )

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import Awaitable
+from collections.abc import Coroutine
 from contextlib import asynccontextmanager
 from typing import Any, TypeVar
 
@@ -35,7 +35,7 @@ T = TypeVar("T")
 console = Console()
 
 
-def run_async(coro: Awaitable[T], *, error_prefix: str = "Failed") -> T:
+def run_async(coro: Coroutine[object, object, T], *, error_prefix: str = "Failed") -> T:
     """Run a coroutine and translate SDK errors into ``typer.Exit(1)``.
 
     Use this from inside Typer command handlers::

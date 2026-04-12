@@ -539,13 +539,14 @@ def upload_directory(
         for promo_path, _fmt, promo_data in promo_files:
             try:
                 payload = _strip_schema(promo_data)
+                name = str(payload.get("name", "?"))
                 if dryrun:
-                    _emit("promotion", "dryrun", payload.get("name", "?"))
+                    _emit("promotion", "dryrun", name)
                     result.promotions.success += 1
                     continue
                 client.promotions.upsert(payload)
                 result.promotions.success += 1
-                _emit("promotion", "ok", payload.get("name", "?"))
+                _emit("promotion", "ok", name)
             except APIError as exc:
                 result.promotions.failed += 1
                 result.promotions.errors.append({"file": str(promo_path), "error": f"{exc.status_code}: {exc}"})
@@ -563,13 +564,14 @@ def upload_directory(
         for group_path, _fmt, group_data in group_files:
             try:
                 payload = _strip_schema(group_data)
+                name = str(payload.get("name", "?"))
                 if dryrun:
-                    _emit("group", "dryrun", payload.get("name", "?"))
+                    _emit("group", "dryrun", name)
                     result.groups.success += 1
                     continue
                 client.groups.upsert(payload)
                 result.groups.success += 1
-                _emit("group", "ok", payload.get("name", "?"))
+                _emit("group", "ok", name)
             except APIError as exc:
                 result.groups.failed += 1
                 result.groups.errors.append({"file": str(group_path), "error": f"{exc.status_code}: {exc}"})

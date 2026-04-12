@@ -24,6 +24,7 @@ environment (``https://seller.staging.unitysvc.com``); override with the
 ``base_url`` constructor argument or the ``UNITYSVC_SELLER_API_URL`` env var.
 """
 
+from ._spec_version import SPEC_SHA256, SPEC_VERSION
 from .aclient import AsyncClient
 from .client import DEFAULT_SELLER_API_URL, ENV_SELLER_API_KEY, ENV_SELLER_API_URL, Client
 from .exceptions import (
@@ -48,6 +49,9 @@ __all__ = [
     "DEFAULT_SELLER_API_URL",
     "ENV_SELLER_API_KEY",
     "ENV_SELLER_API_URL",
+    # Spec fingerprint
+    "SPEC_SHA256",
+    "SPEC_VERSION",
     # Exceptions
     "SellerSDKError",
     "APIError",
