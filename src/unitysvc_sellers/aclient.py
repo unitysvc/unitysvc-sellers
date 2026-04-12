@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from .resources.adocuments import AsyncDocumentsResource
     from .resources.agroups import AsyncGroupsResource
     from .resources.apromotions import AsyncPromotionsResource
+    from .resources.asecrets import AsyncSecretsResource
     from .resources.aservices import AsyncServicesResource
     from .resources.atasks import AsyncTasksResource
 
@@ -89,6 +90,7 @@ class AsyncClient:
         self._groups: AsyncGroupsResource | None = None
         self._documents: AsyncDocumentsResource | None = None
         self._tasks: AsyncTasksResource | None = None
+        self._secrets: AsyncSecretsResource | None = None
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -146,6 +148,14 @@ class AsyncClient:
 
             self._tasks = AsyncTasksResource(self._client)
         return self._tasks
+
+    @property
+    def secrets(self) -> AsyncSecretsResource:
+        if self._secrets is None:
+            from .resources.asecrets import AsyncSecretsResource
+
+            self._secrets = AsyncSecretsResource(self._client)
+        return self._secrets
 
     # ------------------------------------------------------------------
     # Lifecycle

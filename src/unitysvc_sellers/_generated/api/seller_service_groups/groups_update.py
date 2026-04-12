@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -14,6 +13,8 @@ from ...models.service_group_public import ServiceGroupPublic
 from ...models.service_group_update import ServiceGroupUpdate
 from ...types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 from uuid import UUID
 
 
@@ -22,10 +23,14 @@ def _get_kwargs(
     group_id: UUID,
     *,
     body: ServiceGroupUpdate,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
+    if not isinstance(authorization, Unset):
+        headers["authorization"] = authorization
+
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
@@ -37,7 +42,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "patch",
-        "url": "/service-groups/{group_id}".format(group_id=quote(str(group_id), safe=""),),
+        "url": "/service-groups/{group_id}".format(group_id=group_id,),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -50,7 +55,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ErrorResponse | HTTPValidationError | ServiceGroupPublic | None:
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ErrorResponse, HTTPValidationError, ServiceGroupPublic]]:
     if response.status_code == 200:
         response_200 = ServiceGroupPublic.from_dict(response.json())
 
@@ -85,7 +90,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ErrorResponse | HTTPValidationError | ServiceGroupPublic]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ErrorResponse, HTTPValidationError, ServiceGroupPublic]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -97,18 +102,20 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     group_id: UUID,
     *,
-    client: AuthenticatedClient,
+    client: Union[AuthenticatedClient, Client],
     body: ServiceGroupUpdate,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[ErrorResponse | HTTPValidationError | ServiceGroupPublic]:
+) -> Response[Union[ErrorResponse, HTTPValidationError, ServiceGroupPublic]]:
     """ Update Seller Group
 
      Update a service group.
 
     Args:
         group_id (UUID):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (ServiceGroupUpdate): Schema for updating a ServiceGroup.
 
     Raises:
@@ -116,13 +123,14 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | ServiceGroupPublic]
+        Response[Union[ErrorResponse, HTTPValidationError, ServiceGroupPublic]]
      """
 
 
     kwargs = _get_kwargs(
         group_id=group_id,
 body=body,
+authorization=authorization,
 x_role_id=x_role_id,
 
     )
@@ -136,18 +144,20 @@ x_role_id=x_role_id,
 def sync(
     group_id: UUID,
     *,
-    client: AuthenticatedClient,
+    client: Union[AuthenticatedClient, Client],
     body: ServiceGroupUpdate,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> ErrorResponse | HTTPValidationError | ServiceGroupPublic | None:
+) -> Optional[Union[ErrorResponse, HTTPValidationError, ServiceGroupPublic]]:
     """ Update Seller Group
 
      Update a service group.
 
     Args:
         group_id (UUID):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (ServiceGroupUpdate): Schema for updating a ServiceGroup.
 
     Raises:
@@ -155,7 +165,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | ServiceGroupPublic
+        Union[ErrorResponse, HTTPValidationError, ServiceGroupPublic]
      """
 
 
@@ -163,6 +173,7 @@ def sync(
         group_id=group_id,
 client=client,
 body=body,
+authorization=authorization,
 x_role_id=x_role_id,
 
     ).parsed
@@ -170,18 +181,20 @@ x_role_id=x_role_id,
 async def asyncio_detailed(
     group_id: UUID,
     *,
-    client: AuthenticatedClient,
+    client: Union[AuthenticatedClient, Client],
     body: ServiceGroupUpdate,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[ErrorResponse | HTTPValidationError | ServiceGroupPublic]:
+) -> Response[Union[ErrorResponse, HTTPValidationError, ServiceGroupPublic]]:
     """ Update Seller Group
 
      Update a service group.
 
     Args:
         group_id (UUID):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (ServiceGroupUpdate): Schema for updating a ServiceGroup.
 
     Raises:
@@ -189,13 +202,14 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | ServiceGroupPublic]
+        Response[Union[ErrorResponse, HTTPValidationError, ServiceGroupPublic]]
      """
 
 
     kwargs = _get_kwargs(
         group_id=group_id,
 body=body,
+authorization=authorization,
 x_role_id=x_role_id,
 
     )
@@ -209,18 +223,20 @@ x_role_id=x_role_id,
 async def asyncio(
     group_id: UUID,
     *,
-    client: AuthenticatedClient,
+    client: Union[AuthenticatedClient, Client],
     body: ServiceGroupUpdate,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> ErrorResponse | HTTPValidationError | ServiceGroupPublic | None:
+) -> Optional[Union[ErrorResponse, HTTPValidationError, ServiceGroupPublic]]:
     """ Update Seller Group
 
      Update a service group.
 
     Args:
         group_id (UUID):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (ServiceGroupUpdate): Schema for updating a ServiceGroup.
 
     Raises:
@@ -228,7 +244,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | ServiceGroupPublic
+        Union[ErrorResponse, HTTPValidationError, ServiceGroupPublic]
      """
 
 
@@ -236,6 +252,7 @@ async def asyncio(
         group_id=group_id,
 client=client,
 body=body,
+authorization=authorization,
 x_role_id=x_role_id,
 
     )).parsed

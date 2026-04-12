@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     from .resources.documents import DocumentsResource
     from .resources.groups import GroupsResource
     from .resources.promotions import PromotionsResource
+    from .resources.secrets import SecretsResource
     from .resources.services import ServicesResource
     from .resources.tasks import TasksResource
     from .resources.upload import UploadResult
@@ -122,6 +123,7 @@ class Client:
         self._groups: GroupsResource | None = None
         self._documents: DocumentsResource | None = None
         self._tasks: TasksResource | None = None
+        self._secrets: SecretsResource | None = None
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -184,6 +186,14 @@ class Client:
 
             self._tasks = TasksResource(self._client)
         return self._tasks
+
+    @property
+    def secrets(self) -> SecretsResource:
+        if self._secrets is None:
+            from .resources.secrets import SecretsResource
+
+            self._secrets = SecretsResource(self._client)
+        return self._secrets
 
     # ------------------------------------------------------------------
     # High-level catalog upload

@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -9,6 +7,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
+from typing import cast, Union
 
 if TYPE_CHECKING:
   from ..models.access_interface_public_request_transformer_type_0_additional_property_type_0 import AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0
@@ -25,7 +24,7 @@ T = TypeVar("T", bound="AccessInterfacePublicRequestTransformerType0")
 class AccessInterfacePublicRequestTransformerType0:
     
 
-    additional_properties: dict[str, AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str] = _attrs_field(init=False, factory=dict)
+    additional_properties: dict[str, Union['AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0', str]] = _attrs_field(init=False, factory=dict)
 
 
 
@@ -57,7 +56,7 @@ class AccessInterfacePublicRequestTransformerType0:
 
         additional_properties = {}
         for prop_name, prop_dict in d.items():
-            def _parse_additional_property(data: object) -> AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str:
+            def _parse_additional_property(data: object) -> Union['AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0', str]:
                 try:
                     if not isinstance(data, dict):
                         raise TypeError()
@@ -66,9 +65,9 @@ class AccessInterfacePublicRequestTransformerType0:
 
 
                     return additional_property_type_0
-                except (TypeError, ValueError, AttributeError, KeyError):
+                except: # noqa: E722
                     pass
-                return cast(AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str, data)
+                return cast(Union['AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0', str], data)
 
             additional_property = _parse_additional_property(prop_dict)
 
@@ -81,10 +80,10 @@ class AccessInterfacePublicRequestTransformerType0:
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str:
+    def __getitem__(self, key: str) -> Union['AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0', str]:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str) -> None:
+    def __setitem__(self, key: str, value: Union['AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0', str]) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

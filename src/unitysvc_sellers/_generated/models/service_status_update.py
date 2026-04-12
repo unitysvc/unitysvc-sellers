@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -12,6 +10,7 @@ from ..models.service_status_enum import check_service_status_enum
 from ..models.service_status_enum import ServiceStatusEnum
 from ..types import UNSET, Unset
 from typing import cast
+from typing import Union
 
 
 
@@ -39,7 +38,7 @@ class ServiceStatusUpdate:
     - rejected: Admin rejected (seller can revise and republish)
     - suspended: Admin suspended due to issues/violations
     - deprecated: Service ending """
-    run_tests: bool | Unset = True
+    run_tests: Union[Unset, bool] = True
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 

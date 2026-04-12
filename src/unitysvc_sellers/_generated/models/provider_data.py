@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -12,6 +10,8 @@ from ..models.provider_status_enum import check_provider_status_enum
 from ..models.provider_status_enum import ProviderStatusEnum
 from ..types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 if TYPE_CHECKING:
   from ..models.provider_data_documents_type_0 import ProviderDataDocumentsType0
@@ -52,20 +52,20 @@ class ProviderData:
     """ Primary contact email for the provider """
     homepage: str
     """ Provider's homepage URL """
-    display_name: None | str | Unset = UNSET
+    display_name: Union[None, Unset, str] = UNSET
     """ Human-readable provider name (e.g., 'Fireworks AI', 'Anthropic') """
-    secondary_contact_email: None | str | Unset = UNSET
+    secondary_contact_email: Union[None, Unset, str] = UNSET
     """ Secondary contact email """
-    description: None | str | Unset = UNSET
+    description: Union[None, Unset, str] = UNSET
     """ Brief description of the provider """
-    status: ProviderStatusEnum | Unset = UNSET
+    status: Union[Unset, ProviderStatusEnum] = UNSET
     """ Status values that sellers can set for providers.
 
     Seller-accessible statuses:
     - draft: Work in progress, skipped during publish
     - ready: Complete and ready for admin review
     - deprecated: Provider is retired/end of life """
-    documents: None | ProviderDataDocumentsType0 | Unset = UNSET
+    documents: Union['ProviderDataDocumentsType0', None, Unset] = UNSET
     """ Documents associated with the provider, keyed by title """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -81,30 +81,30 @@ class ProviderData:
 
         homepage = self.homepage
 
-        display_name: None | str | Unset
+        display_name: Union[None, Unset, str]
         if isinstance(self.display_name, Unset):
             display_name = UNSET
         else:
             display_name = self.display_name
 
-        secondary_contact_email: None | str | Unset
+        secondary_contact_email: Union[None, Unset, str]
         if isinstance(self.secondary_contact_email, Unset):
             secondary_contact_email = UNSET
         else:
             secondary_contact_email = self.secondary_contact_email
 
-        description: None | str | Unset
+        description: Union[None, Unset, str]
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        status: str | Unset = UNSET
+        status: Union[Unset, str] = UNSET
         if not isinstance(self.status, Unset):
             status = self.status
 
 
-        documents: dict[str, Any] | None | Unset
+        documents: Union[None, Unset, dict[str, Any]]
         if isinstance(self.documents, Unset):
             documents = UNSET
         elif isinstance(self.documents, ProviderDataDocumentsType0):
@@ -145,38 +145,38 @@ class ProviderData:
 
         homepage = d.pop("homepage")
 
-        def _parse_display_name(data: object) -> None | str | Unset:
+        def _parse_display_name(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         display_name = _parse_display_name(d.pop("display_name", UNSET))
 
 
-        def _parse_secondary_contact_email(data: object) -> None | str | Unset:
+        def _parse_secondary_contact_email(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         secondary_contact_email = _parse_secondary_contact_email(d.pop("secondary_contact_email", UNSET))
 
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         description = _parse_description(d.pop("description", UNSET))
 
 
         _status = d.pop("status", UNSET)
-        status: ProviderStatusEnum | Unset
+        status: Union[Unset, ProviderStatusEnum]
         if isinstance(_status,  Unset):
             status = UNSET
         else:
@@ -185,7 +185,7 @@ class ProviderData:
 
 
 
-        def _parse_documents(data: object) -> None | ProviderDataDocumentsType0 | Unset:
+        def _parse_documents(data: object) -> Union['ProviderDataDocumentsType0', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -198,9 +198,9 @@ class ProviderData:
 
 
                 return documents_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(None | ProviderDataDocumentsType0 | Unset, data)
+            return cast(Union['ProviderDataDocumentsType0', None, Unset], data)
 
         documents = _parse_documents(d.pop("documents", UNSET))
 

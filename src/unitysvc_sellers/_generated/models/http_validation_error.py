@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -10,6 +8,7 @@ from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
 from typing import cast
+from typing import Union
 
 if TYPE_CHECKING:
   from ..models.validation_error import ValidationError
@@ -26,7 +25,7 @@ T = TypeVar("T", bound="HTTPValidationError")
 class HTTPValidationError:
     
 
-    detail: list[ValidationError] | Unset = UNSET
+    detail: Union[Unset, list['ValidationError']] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -35,7 +34,7 @@ class HTTPValidationError:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.validation_error import ValidationError
-        detail: list[dict[str, Any]] | Unset = UNSET
+        detail: Union[Unset, list[dict[str, Any]]] = UNSET
         if not isinstance(self.detail, Unset):
             detail = []
             for detail_item_data in self.detail:
@@ -60,16 +59,14 @@ class HTTPValidationError:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.validation_error import ValidationError
         d = dict(src_dict)
+        detail = []
         _detail = d.pop("detail", UNSET)
-        detail: list[ValidationError] | Unset = UNSET
-        if _detail is not UNSET:
-            detail = []
-            for detail_item_data in _detail:
-                detail_item = ValidationError.from_dict(detail_item_data)
+        for detail_item_data in (_detail or []):
+            detail_item = ValidationError.from_dict(detail_item_data)
 
 
 
-                detail.append(detail_item)
+            detail.append(detail_item)
 
 
         http_validation_error = cls(

@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -13,15 +12,17 @@ from ...models.http_validation_error import HTTPValidationError
 from ...models.service_delete_response import ServiceDeleteResponse
 from ...types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 
 
 def _get_kwargs(
     service_id: str,
     *,
-    dryrun: bool | Unset = False,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    dryrun: Union[Unset, bool] = False,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -45,7 +46,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
-        "url": "/services/{service_id}".format(service_id=quote(str(service_id), safe=""),),
+        "url": "/services/{service_id}".format(service_id=service_id,),
         "params": params,
     }
 
@@ -55,7 +56,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ErrorResponse | HTTPValidationError | ServiceDeleteResponse | None:
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ErrorResponse, HTTPValidationError, ServiceDeleteResponse]]:
     if response.status_code == 200:
         response_200 = ServiceDeleteResponse.from_dict(response.json())
 
@@ -90,7 +91,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ErrorResponse | HTTPValidationError | ServiceDeleteResponse]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ErrorResponse, HTTPValidationError, ServiceDeleteResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -102,12 +103,12 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     service_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    dryrun: bool | Unset = False,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    dryrun: Union[Unset, bool] = False,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[ErrorResponse | HTTPValidationError | ServiceDeleteResponse]:
+) -> Response[Union[ErrorResponse, HTTPValidationError, ServiceDeleteResponse]]:
     r""" Delete Service
 
      Delete a service that has never been active.
@@ -136,16 +137,16 @@ def sync_detailed(
 
     Args:
         service_id (str):
-        dryrun (bool | Unset):  Default: False.
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        dryrun (Union[Unset, bool]):  Default: False.
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | ServiceDeleteResponse]
+        Response[Union[ErrorResponse, HTTPValidationError, ServiceDeleteResponse]]
      """
 
 
@@ -166,12 +167,12 @@ x_role_id=x_role_id,
 def sync(
     service_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    dryrun: bool | Unset = False,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    dryrun: Union[Unset, bool] = False,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> ErrorResponse | HTTPValidationError | ServiceDeleteResponse | None:
+) -> Optional[Union[ErrorResponse, HTTPValidationError, ServiceDeleteResponse]]:
     r""" Delete Service
 
      Delete a service that has never been active.
@@ -200,16 +201,16 @@ def sync(
 
     Args:
         service_id (str):
-        dryrun (bool | Unset):  Default: False.
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        dryrun (Union[Unset, bool]):  Default: False.
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | ServiceDeleteResponse
+        Union[ErrorResponse, HTTPValidationError, ServiceDeleteResponse]
      """
 
 
@@ -225,12 +226,12 @@ x_role_id=x_role_id,
 async def asyncio_detailed(
     service_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    dryrun: bool | Unset = False,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    dryrun: Union[Unset, bool] = False,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[ErrorResponse | HTTPValidationError | ServiceDeleteResponse]:
+) -> Response[Union[ErrorResponse, HTTPValidationError, ServiceDeleteResponse]]:
     r""" Delete Service
 
      Delete a service that has never been active.
@@ -259,16 +260,16 @@ async def asyncio_detailed(
 
     Args:
         service_id (str):
-        dryrun (bool | Unset):  Default: False.
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        dryrun (Union[Unset, bool]):  Default: False.
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | ServiceDeleteResponse]
+        Response[Union[ErrorResponse, HTTPValidationError, ServiceDeleteResponse]]
      """
 
 
@@ -289,12 +290,12 @@ x_role_id=x_role_id,
 async def asyncio(
     service_id: str,
     *,
-    client: AuthenticatedClient | Client,
-    dryrun: bool | Unset = False,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    client: Union[AuthenticatedClient, Client],
+    dryrun: Union[Unset, bool] = False,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> ErrorResponse | HTTPValidationError | ServiceDeleteResponse | None:
+) -> Optional[Union[ErrorResponse, HTTPValidationError, ServiceDeleteResponse]]:
     r""" Delete Service
 
      Delete a service that has never been active.
@@ -323,16 +324,16 @@ async def asyncio(
 
     Args:
         service_id (str):
-        dryrun (bool | Unset):  Default: False.
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        dryrun (Union[Unset, bool]):  Default: False.
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | ServiceDeleteResponse
+        Union[ErrorResponse, HTTPValidationError, ServiceDeleteResponse]
      """
 
 

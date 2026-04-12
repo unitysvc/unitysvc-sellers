@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -10,6 +8,8 @@ from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 if TYPE_CHECKING:
   from ..models.document_execute_response_test_type_0 import DocumentExecuteResponseTestType0
@@ -35,8 +35,8 @@ class DocumentExecuteResponse:
     document_id: str
     status: str
     message: str
-    task_id: None | str | Unset = UNSET
-    test: DocumentExecuteResponseTestType0 | None | Unset = UNSET
+    task_id: Union[None, Unset, str] = UNSET
+    test: Union['DocumentExecuteResponseTestType0', None, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -51,13 +51,13 @@ class DocumentExecuteResponse:
 
         message = self.message
 
-        task_id: None | str | Unset
+        task_id: Union[None, Unset, str]
         if isinstance(self.task_id, Unset):
             task_id = UNSET
         else:
             task_id = self.task_id
 
-        test: dict[str, Any] | None | Unset
+        test: Union[None, Unset, dict[str, Any]]
         if isinstance(self.test, Unset):
             test = UNSET
         elif isinstance(self.test, DocumentExecuteResponseTestType0):
@@ -92,17 +92,17 @@ class DocumentExecuteResponse:
 
         message = d.pop("message")
 
-        def _parse_task_id(data: object) -> None | str | Unset:
+        def _parse_task_id(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         task_id = _parse_task_id(d.pop("task_id", UNSET))
 
 
-        def _parse_test(data: object) -> DocumentExecuteResponseTestType0 | None | Unset:
+        def _parse_test(data: object) -> Union['DocumentExecuteResponseTestType0', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -115,9 +115,9 @@ class DocumentExecuteResponse:
 
 
                 return test_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(DocumentExecuteResponseTestType0 | None | Unset, data)
+            return cast(Union['DocumentExecuteResponseTestType0', None, Unset], data)
 
         test = _parse_test(d.pop("test", UNSET))
 

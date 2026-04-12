@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -14,6 +13,8 @@ from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 from uuid import UUID
 
 
@@ -22,8 +23,8 @@ def _get_kwargs(
     document_id: UUID,
     *,
     body: DocumentTestUpdate,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -41,7 +42,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "patch",
-        "url": "/documents/{document_id}".format(document_id=quote(str(document_id), safe=""),),
+        "url": "/documents/{document_id}".format(document_id=document_id,),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -54,7 +55,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> DocumentTestStatusResponse | ErrorResponse | HTTPValidationError | None:
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[DocumentTestStatusResponse, ErrorResponse, HTTPValidationError]]:
     if response.status_code == 200:
         response_200 = DocumentTestStatusResponse.from_dict(response.json())
 
@@ -96,7 +97,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[DocumentTestStatusResponse | ErrorResponse | HTTPValidationError]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[DocumentTestStatusResponse, ErrorResponse, HTTPValidationError]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -108,12 +109,12 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     document_id: UUID,
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: DocumentTestUpdate,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[DocumentTestStatusResponse | ErrorResponse | HTTPValidationError]:
+) -> Response[Union[DocumentTestStatusResponse, ErrorResponse, HTTPValidationError]]:
     """ Update Document Test
 
      Update document test status (skip, unskip, or record external result).
@@ -137,8 +138,8 @@ def sync_detailed(
 
     Args:
         document_id (UUID):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (DocumentTestUpdate): Request body for updating document test status.
 
             The ``status`` field drives dispatch:
@@ -160,7 +161,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[DocumentTestStatusResponse | ErrorResponse | HTTPValidationError]
+        Response[Union[DocumentTestStatusResponse, ErrorResponse, HTTPValidationError]]
      """
 
 
@@ -181,12 +182,12 @@ x_role_id=x_role_id,
 def sync(
     document_id: UUID,
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: DocumentTestUpdate,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> DocumentTestStatusResponse | ErrorResponse | HTTPValidationError | None:
+) -> Optional[Union[DocumentTestStatusResponse, ErrorResponse, HTTPValidationError]]:
     """ Update Document Test
 
      Update document test status (skip, unskip, or record external result).
@@ -210,8 +211,8 @@ def sync(
 
     Args:
         document_id (UUID):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (DocumentTestUpdate): Request body for updating document test status.
 
             The ``status`` field drives dispatch:
@@ -233,7 +234,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        DocumentTestStatusResponse | ErrorResponse | HTTPValidationError
+        Union[DocumentTestStatusResponse, ErrorResponse, HTTPValidationError]
      """
 
 
@@ -249,12 +250,12 @@ x_role_id=x_role_id,
 async def asyncio_detailed(
     document_id: UUID,
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: DocumentTestUpdate,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> Response[DocumentTestStatusResponse | ErrorResponse | HTTPValidationError]:
+) -> Response[Union[DocumentTestStatusResponse, ErrorResponse, HTTPValidationError]]:
     """ Update Document Test
 
      Update document test status (skip, unskip, or record external result).
@@ -278,8 +279,8 @@ async def asyncio_detailed(
 
     Args:
         document_id (UUID):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (DocumentTestUpdate): Request body for updating document test status.
 
             The ``status`` field drives dispatch:
@@ -301,7 +302,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[DocumentTestStatusResponse | ErrorResponse | HTTPValidationError]
+        Response[Union[DocumentTestStatusResponse, ErrorResponse, HTTPValidationError]]
      """
 
 
@@ -322,12 +323,12 @@ x_role_id=x_role_id,
 async def asyncio(
     document_id: UUID,
     *,
-    client: AuthenticatedClient | Client,
+    client: Union[AuthenticatedClient, Client],
     body: DocumentTestUpdate,
-    authorization: None | str | Unset = UNSET,
-    x_role_id: None | str | Unset = UNSET,
+    authorization: Union[None, Unset, str] = UNSET,
+    x_role_id: Union[None, Unset, str] = UNSET,
 
-) -> DocumentTestStatusResponse | ErrorResponse | HTTPValidationError | None:
+) -> Optional[Union[DocumentTestStatusResponse, ErrorResponse, HTTPValidationError]]:
     """ Update Document Test
 
      Update document test status (skip, unskip, or record external result).
@@ -351,8 +352,8 @@ async def asyncio(
 
     Args:
         document_id (UUID):
-        authorization (None | str | Unset):
-        x_role_id (None | str | Unset):
+        authorization (Union[None, Unset, str]):
+        x_role_id (Union[None, Unset, str]):
         body (DocumentTestUpdate): Request body for updating document test status.
 
             The ``status`` field drives dispatch:
@@ -374,7 +375,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        DocumentTestStatusResponse | ErrorResponse | HTTPValidationError
+        Union[DocumentTestStatusResponse, ErrorResponse, HTTPValidationError]
      """
 
 
