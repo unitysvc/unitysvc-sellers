@@ -1,16 +1,20 @@
 # unitysvc-sellers
 
-Seller-facing tools for [UnitySVC](https://unitysvc.com/). Provides:
+Python SDK and CLI for the [UnitySVC](https://unitysvc.com/) seller
+API (`https://seller.unitysvc.com/v1`). This package provides:
 
-- A typed Python **HTTP SDK** with sync ([`Client`](#programmatic-usage))
-  and async ([`AsyncClient`](#async-client)) facades for the seller
-  API surface — services, promotions, service groups, documents, and
-  end-to-end catalog upload. Defaults to the dedicated
-  `seller.staging.unitysvc.com/v1` subdomain; overridable via
-  `UNITYSVC_SELLER_API_URL` for production or local development.
-- The **`usvc_seller` CLI** for organizing local seller catalogs and
-  for managing remote services / promotions / service groups against
-  the UnitySVC backend.
+1. **`unitysvc_sellers`** — a typed Python package (sync `Client` +
+   async `AsyncClient`) that wraps the upstream REST API into
+   importable, type-checked method calls.
+2. **`usvc_seller`** — a CLI built on top of the SDK for day-to-day
+   seller operations (catalog management, secret rotation, service
+   lifecycle) without writing code.
+
+| | Documentation |
+|-|---------------|
+| **Upstream API** | [Swagger UI](https://seller.unitysvc.com/docs) · [ReDoc](https://seller.unitysvc.com/redoc) |
+| **Python SDK** | [SDK Reference](https://unitysvc-sellers.readthedocs.io/en/latest/sdk-reference/) · [API Reference (auto-generated)](https://unitysvc-sellers.readthedocs.io/en/latest/api-reference/) |
+| **CLI** | [CLI Reference](https://unitysvc-sellers.readthedocs.io/en/latest/cli-reference/) |
 
 ## Install
 
@@ -61,7 +65,7 @@ print(f"services: {result.services.success}/{result.services.total}")
 | Source     | Default                                   | Override                                                    |
 |------------|-------------------------------------------|-------------------------------------------------------------|
 | API key    | (required)                                | `Client(api_key=...)` / `UNITYSVC_SELLER_API_KEY`           |
-| Base URL   | `https://seller.staging.unitysvc.com/v1`  | `Client(base_url=...)` / `UNITYSVC_SELLER_API_URL`          |
+| Base URL   | `https://seller.unitysvc.com/v1`          | `Client(base_url=...)` / `UNITYSVC_SELLER_API_URL`          |
 | Timeout    | 30 s                                      | `Client(timeout=...)`                                       |
 
 The seller context is encoded entirely in the API key (`svcpass_...`),
@@ -79,15 +83,12 @@ subdomain + API key. The same generated SDK works against any
 deployment layout without regeneration:
 
 ```python
-# Default: seller-scoped staging subdomain
+# Default: production seller subdomain
 Client()  # reads UNITYSVC_SELLER_API_URL or defaults to
-          # https://seller.staging.unitysvc.com/v1
+          # https://seller.unitysvc.com/v1
 
-# Production (seller-scoped subdomain)
-Client(base_url="https://seller.unitysvc.com/v1")
-
-# Legacy combined surface where /seller is a path component
-Client(base_url="https://api.unitysvc.com/v1/seller")
+# Staging
+Client(base_url="https://seller.staging.unitysvc.com/v1")
 
 # Local development against a running backend
 Client(base_url="http://localhost:8000/v1/seller")

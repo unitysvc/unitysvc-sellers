@@ -19,9 +19,9 @@ Quick start::
         print(s.name)
 
 The seller context is encoded entirely in the API key, so no separate
-``seller_id`` is required. The default base URL points at the staging
-environment (``https://seller.staging.unitysvc.com``); override with the
-``base_url`` constructor argument or the ``UNITYSVC_SELLER_API_URL`` env var.
+``seller_id`` is required. The default base URL points at production
+(``https://seller.unitysvc.com``); override with the ``base_url``
+constructor argument or the ``UNITYSVC_SELLER_API_URL`` env var.
 """
 
 from ._spec_version import SPEC_SHA256, SPEC_VERSION

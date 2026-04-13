@@ -20,9 +20,9 @@ Example::
 
 The seller context is encoded entirely in the API key, so no explicit
 ``seller_id`` is required. The default base URL points at the
-seller-scoped staging subdomain::
+production seller subdomain::
 
-    https://seller.staging.unitysvc.com/v1
+    https://seller.unitysvc.com/v1
 
 The SDK's generated paths are semantic resource paths
 (``/services/{id}``, ``/documents/{id}``, …) without any ``/seller``
@@ -31,14 +31,11 @@ key. A single SDK release therefore works against any deployment
 layout without regeneration; point ``base_url`` at whatever prefix the
 deployment uses::
 
-    # Staging (seller-scoped subdomain)
-    Client(base_url="https://seller.staging.unitysvc.com/v1")
-
-    # Production (seller-scoped subdomain)
+    # Production (default)
     Client(base_url="https://seller.unitysvc.com/v1")
 
-    # Legacy combined surface where /seller is a path component
-    Client(base_url="https://api.unitysvc.com/v1/seller")
+    # Staging (seller-scoped subdomain)
+    Client(base_url="https://seller.staging.unitysvc.com/v1")
 
     # Local development against a running backend
     Client(base_url="http://localhost:8000/v1/seller")
@@ -68,7 +65,7 @@ if TYPE_CHECKING:
     from .resources.tasks import TasksResource
     from .resources.upload import UploadResult
 
-DEFAULT_SELLER_API_URL = "https://seller.staging.unitysvc.com/v1"
+DEFAULT_SELLER_API_URL = "https://seller.unitysvc.com/v1"
 ENV_SELLER_API_KEY = "UNITYSVC_SELLER_API_KEY"
 ENV_SELLER_API_URL = "UNITYSVC_SELLER_API_URL"
 

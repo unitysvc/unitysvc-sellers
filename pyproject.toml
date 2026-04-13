@@ -50,6 +50,7 @@ docs = [
   "mkdocs",
   "mkdocs-material",
   "mkdocs-autorefs",
+  "mkdocstrings[python]",
   "pymdown-extensions",
 ]
 
