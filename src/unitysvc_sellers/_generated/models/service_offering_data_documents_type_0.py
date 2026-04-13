@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -23,7 +25,7 @@ T = TypeVar("T", bound="ServiceOfferingDataDocumentsType0")
 class ServiceOfferingDataDocumentsType0:
     
 
-    additional_properties: dict[str, 'ServiceOfferingDataDocumentsType0AdditionalProperty'] = _attrs_field(init=False, factory=dict)
+    additional_properties: dict[str, ServiceOfferingDataDocumentsType0AdditionalProperty] = _attrs_field(init=False, factory=dict)
 
 
 
@@ -64,10 +66,10 @@ class ServiceOfferingDataDocumentsType0:
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> 'ServiceOfferingDataDocumentsType0AdditionalProperty':
+    def __getitem__(self, key: str) -> ServiceOfferingDataDocumentsType0AdditionalProperty:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: 'ServiceOfferingDataDocumentsType0AdditionalProperty') -> None:
+    def __setitem__(self, key: str, value: ServiceOfferingDataDocumentsType0AdditionalProperty) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

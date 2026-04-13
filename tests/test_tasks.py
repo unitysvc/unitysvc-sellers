@@ -26,160 +26,151 @@ from unitysvc_sellers.resources.upload import upload_directory
 BASE_URL = "https://seller.staging.unitysvc.test"
 
 
+def _mock_tasks_get(**task_statuses: dict) -> respx.Route:
+    """Mock ``GET /tasks/?id=…`` returning a mapping of task_id → status.
+
+    Usage::
+
+        _mock_tasks_get(**{
+            "task-a": {"status": "completed", ...},
+            "task-b": {"status": "failed", ...},
+        })
+    """
+    return respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
+        return_value=httpx.Response(200, json=task_statuses)
+    )
+
+
+def _mock_tasks_get_sequence(*responses: dict) -> respx.Route:
+    """Mock ``GET /tasks/?id=…`` with a sequence of responses."""
+    it = iter(
+        [httpx.Response(200, json=r) for r in responses]
+    )
+    return respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
+        side_effect=lambda req: next(it)
+    )
+
+
 # ---------------------------------------------------------------------------
 # client.tasks — direct resource tests
 # ---------------------------------------------------------------------------
 class TestTasksResource:
     @respx.mock
     def test_get_single_task_success(self) -> None:
-        respx.get(f"{BASE_URL}/tasks/task-123").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "task_id": "task-123",
-                    "state": "SUCCESS",
-                    "status": "completed",
-                    "message": "Task completed successfully",
-                    "result": {"service_id": "svc-456", "name": "svc1"},
-                },
-            )
-        )
+        _mock_tasks_get(**{
+            "task-123": {
+                "task_id": "task-123",
+                "state": "SUCCESS",
+                "status": "completed",
+                "message": "Task completed successfully",
+                "result": {"service_id": "svc-456", "name": "svc1"},
+            },
+        })
 
         with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
-            status = client.tasks.get("task-123")
+            result = client.tasks.get("task-123")
 
-        assert status["status"] == "completed"
-        assert status["result"]["service_id"] == "svc-456"
+        assert result["task-123"]["status"] == "completed"
+        assert result["task-123"]["result"]["service_id"] == "svc-456"
 
     @respx.mock
     def test_get_single_task_failure(self) -> None:
-        respx.get(f"{BASE_URL}/tasks/task-456").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "task_id": "task-456",
-                    "state": "FAILURE",
-                    "status": "failed",
-                    "message": "Task failed: ValueError: missing secret",
-                    "error": "ValueError: Secret 'FIREWORKS_API_KEY' not found",
-                },
-            )
-        )
+        _mock_tasks_get(**{
+            "task-456": {
+                "task_id": "task-456",
+                "state": "FAILURE",
+                "status": "failed",
+                "message": "Task failed: ValueError: missing secret",
+                "error": "ValueError: Secret 'FIREWORKS_API_KEY' not found",
+            },
+        })
 
         with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
-            status = client.tasks.get("task-456")
+            result = client.tasks.get("task-456")
 
-        assert status["status"] == "failed"
-        assert "FIREWORKS_API_KEY" in status["error"]
+        assert result["task-456"]["status"] == "failed"
+        assert "FIREWORKS_API_KEY" in result["task-456"]["error"]
 
     @respx.mock
-    def test_batch_status_returns_mapping(self) -> None:
-        route = respx.post(f"{BASE_URL}/tasks/batch-status").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "task-a": {
-                        "task_id": "task-a",
-                        "state": "SUCCESS",
-                        "status": "completed",
-                        "message": "ok",
-                        "result": {"service_id": "svc-a"},
-                    },
-                    "task-b": {
-                        "task_id": "task-b",
-                        "state": "FAILURE",
-                        "status": "failed",
-                        "message": "fail",
-                        "error": "kaboom",
-                    },
-                },
-            )
-        )
+    def test_get_multiple_tasks(self) -> None:
+        _mock_tasks_get(**{
+            "task-a": {
+                "task_id": "task-a",
+                "state": "SUCCESS",
+                "status": "completed",
+                "result": {"service_id": "svc-a"},
+            },
+            "task-b": {
+                "task_id": "task-b",
+                "state": "FAILURE",
+                "status": "failed",
+                "error": "kaboom",
+            },
+        })
 
         with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
-            results = client.tasks.batch_status(["task-a", "task-b"])
-
-        # Request body was a JSON array of the task ids.
-        sent = json.loads(route.calls.last.request.content.decode())
-        assert sent == ["task-a", "task-b"]
+            results = client.tasks.get("task-a", "task-b")
 
         assert results["task-a"]["status"] == "completed"
         assert results["task-b"]["error"] == "kaboom"
 
     @respx.mock
     def test_wait_returns_terminal_status(self) -> None:
-        # First call: still running. Second call: completed.
-        responses = iter(
-            [
-                httpx.Response(
-                    200,
-                    json={
-                        "task_id": "task-x",
-                        "state": "STARTED",
-                        "status": "running",
-                        "message": "running",
-                    },
-                ),
-                httpx.Response(
-                    200,
-                    json={
-                        "task_id": "task-x",
-                        "state": "SUCCESS",
-                        "status": "completed",
-                        "message": "ok",
-                        "result": {"service_id": "svc-x"},
-                    },
-                ),
-            ]
+        _mock_tasks_get_sequence(
+            {
+                "task-x": {
+                    "task_id": "task-x",
+                    "state": "STARTED",
+                    "status": "running",
+                    "message": "running",
+                },
+            },
+            {
+                "task-x": {
+                    "task_id": "task-x",
+                    "state": "SUCCESS",
+                    "status": "completed",
+                    "message": "ok",
+                    "result": {"service_id": "svc-x"},
+                },
+            },
         )
-        respx.get(f"{BASE_URL}/tasks/task-x").mock(side_effect=lambda req: next(responses))
 
         with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
-            status = client.tasks.wait("task-x", poll_interval=0.001, timeout=5.0)
+            results = client.tasks.wait("task-x", poll_interval=0.001, timeout=5.0)
 
-        assert status["status"] == "completed"
-        assert status["result"]["service_id"] == "svc-x"
+        assert results["task-x"]["status"] == "completed"
+        assert results["task-x"]["result"]["service_id"] == "svc-x"
 
     @respx.mock
-    def test_wait_batch_drains_until_all_terminal(self) -> None:
-        # First poll: one done, one running. Second poll: both done.
-        responses = iter(
-            [
-                httpx.Response(
-                    200,
-                    json={
-                        "task-a": {
-                            "task_id": "task-a",
-                            "state": "SUCCESS",
-                            "status": "completed",
-                            "result": {"service_id": "svc-a"},
-                        },
-                        "task-b": {
-                            "task_id": "task-b",
-                            "state": "STARTED",
-                            "status": "running",
-                        },
-                    },
-                ),
-                # Second poll only asks about task-b (the still-running one).
-                httpx.Response(
-                    200,
-                    json={
-                        "task-b": {
-                            "task_id": "task-b",
-                            "state": "SUCCESS",
-                            "status": "completed",
-                            "result": {"service_id": "svc-b"},
-                        },
-                    },
-                ),
-            ]
+    def test_wait_drains_until_all_terminal(self) -> None:
+        _mock_tasks_get_sequence(
+            {
+                "task-a": {
+                    "task_id": "task-a",
+                    "state": "SUCCESS",
+                    "status": "completed",
+                    "result": {"service_id": "svc-a"},
+                },
+                "task-b": {
+                    "task_id": "task-b",
+                    "state": "STARTED",
+                    "status": "running",
+                },
+            },
+            {
+                "task-b": {
+                    "task_id": "task-b",
+                    "state": "SUCCESS",
+                    "status": "completed",
+                    "result": {"service_id": "svc-b"},
+                },
+            },
         )
-        respx.post(f"{BASE_URL}/tasks/batch-status").mock(side_effect=lambda req: next(responses))
 
         with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
-            results = client.tasks.wait_batch(
-                ["task-a", "task-b"],
+            results = client.tasks.wait(
+                "task-a", "task-b",
                 timeout=5.0,
                 poll_interval=0.001,
             )
@@ -188,9 +179,8 @@ class TestTasksResource:
         assert results["task-b"]["result"]["service_id"] == "svc-b"
 
     @respx.mock
-    def test_wait_batch_timeout_marks_leftovers(self) -> None:
-        # Always returns task-c as still running.
-        respx.post(f"{BASE_URL}/tasks/batch-status").mock(
+    def test_wait_timeout_marks_leftovers(self) -> None:
+        respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -204,14 +194,12 @@ class TestTasksResource:
         )
 
         with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
-            results = client.tasks.wait_batch(
-                ["task-c"],
-                timeout=0.0,  # fires the timeout on the first check
+            results = client.tasks.wait(
+                "task-c",
+                timeout=0.0,
                 poll_interval=0.001,
             )
 
-        # Timeout path still returns the task, preserving the last-seen
-        # status so callers can report "stuck: running".
         assert "task-c" in results
         assert results["task-c"]["status"] == "running"
 
@@ -284,20 +272,15 @@ class TestUploadDirectoryPolling:
                 },
             )
         )
-        respx.post(f"{BASE_URL}/tasks/batch-status").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "task-svc1": {
-                        "task_id": "task-svc1",
-                        "state": "SUCCESS",
-                        "status": "completed",
-                        "message": "ok",
-                        "result": {"service_id": "svc-111", "name": "svc1"},
-                    },
-                },
-            )
-        )
+        _mock_tasks_get(**{
+            "task-svc1": {
+                "task_id": "task-svc1",
+                "state": "SUCCESS",
+                "status": "completed",
+                "message": "ok",
+                "result": {"service_id": "svc-111", "name": "svc1"},
+            },
+        })
 
         progress_events: list[tuple[str, str, str, str]] = []
 
@@ -317,12 +300,10 @@ class TestUploadDirectoryPolling:
         assert result.services.success == 1
         assert result.services.failed == 0
 
-        # Progress flow: queued first, then ok.
         kinds = [(kind, status) for kind, status, *_ in progress_events if kind == "service"]
         assert ("service", "queued") in kinds
         assert ("service", "ok") in kinds
 
-        # Override file written with the service_id from task result.
         override = catalog / "acme" / "services" / "svc1" / "listing.override.json"
         assert override.exists()
         assert "svc-111" in override.read_text()
@@ -342,20 +323,15 @@ class TestUploadDirectoryPolling:
                 },
             )
         )
-        respx.post(f"{BASE_URL}/tasks/batch-status").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "task-svc1": {
-                        "task_id": "task-svc1",
-                        "state": "FAILURE",
-                        "status": "failed",
-                        "message": "Task failed",
-                        "error": "ValueError: Secret 'FIREWORKS_API_KEY' not found",
-                    },
-                },
-            )
-        )
+        _mock_tasks_get(**{
+            "task-svc1": {
+                "task_id": "task-svc1",
+                "state": "FAILURE",
+                "status": "failed",
+                "message": "Task failed",
+                "error": "ValueError: Secret 'FIREWORKS_API_KEY' not found",
+            },
+        })
 
         progress_events: list[tuple[str, str, str, str]] = []
 
@@ -377,14 +353,12 @@ class TestUploadDirectoryPolling:
         assert len(result.services.errors) == 1
         assert "FIREWORKS_API_KEY" in result.services.errors[0]["error"]
 
-        # Both events should have fired (queued then error) — no "ok".
         service_events = [(status, detail) for kind, status, _n, detail in progress_events if kind == "service"]
         statuses = {status for status, _ in service_events}
         assert "queued" in statuses
         assert "error" in statuses
         assert "ok" not in statuses
 
-        # Override file must NOT have been written on failure.
         override = catalog / "acme" / "services" / "svc1" / "listing.override.json"
         assert not override.exists()
 
@@ -403,7 +377,7 @@ class TestUploadDirectoryPolling:
                 },
             )
         )
-        respx.post(f"{BASE_URL}/tasks/batch-status").mock(
+        respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
             return_value=httpx.Response(503, json={"detail": "task backend down"})
         )
 
@@ -436,7 +410,7 @@ class TestUploadDirectoryPolling:
                 },
             )
         )
-        respx.post(f"{BASE_URL}/tasks/batch-status").mock(
+        respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
             return_value=httpx.Response(404, json={"detail": "Not Found"})
         )
 
@@ -458,8 +432,6 @@ class TestUploadDirectoryPolling:
     def test_dryrun_skips_polling(self, tmp_path: Path) -> None:
         catalog = _write_catalog(tmp_path)
 
-        # Dryrun uploads still route through POST /services but the
-        # backend runs them synchronously and returns 200, not 202.
         respx.post(f"{BASE_URL}/services").mock(
             return_value=httpx.Response(
                 200,
@@ -476,7 +448,7 @@ class TestUploadDirectoryPolling:
                 },
             )
         )
-        batch_route = respx.post(f"{BASE_URL}/tasks/batch-status").mock(
+        tasks_route = respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
             return_value=httpx.Response(500, json={"detail": "should not be called"})
         )
 
@@ -485,4 +457,4 @@ class TestUploadDirectoryPolling:
 
         assert result.services.success == 1
         assert result.services.failed == 0
-        assert batch_route.called is False
+        assert tasks_route.called is False

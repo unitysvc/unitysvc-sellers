@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -10,8 +12,6 @@ from ..models.price_rule_status_enum import check_price_rule_status_enum
 from ..models.price_rule_status_enum import PriceRuleStatusEnum
 from ..types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 if TYPE_CHECKING:
   from ..models.seller_promotion_update_pricing_type_0 import SellerPromotionUpdatePricingType0
@@ -30,12 +30,12 @@ class SellerPromotionUpdate:
 
      """
 
-    name: Union[None, Unset, str] = UNSET
-    description: Union[None, Unset, str] = UNSET
-    service_groups: Union[None, Unset, list[str]] = UNSET
-    pricing: Union['SellerPromotionUpdatePricingType0', None, Unset] = UNSET
-    priority: Union[None, Unset, int] = UNSET
-    status: Union[None, PriceRuleStatusEnum, Unset] = UNSET
+    name: None | str | Unset = UNSET
+    description: None | str | Unset = UNSET
+    service_groups: list[str] | None | Unset = UNSET
+    pricing: None | SellerPromotionUpdatePricingType0 | Unset = UNSET
+    priority: int | None | Unset = UNSET
+    status: None | PriceRuleStatusEnum | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -44,19 +44,19 @@ class SellerPromotionUpdate:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.seller_promotion_update_pricing_type_0 import SellerPromotionUpdatePricingType0
-        name: Union[None, Unset, str]
+        name: None | str | Unset
         if isinstance(self.name, Unset):
             name = UNSET
         else:
             name = self.name
 
-        description: Union[None, Unset, str]
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        service_groups: Union[None, Unset, list[str]]
+        service_groups: list[str] | None | Unset
         if isinstance(self.service_groups, Unset):
             service_groups = UNSET
         elif isinstance(self.service_groups, list):
@@ -66,7 +66,7 @@ class SellerPromotionUpdate:
         else:
             service_groups = self.service_groups
 
-        pricing: Union[None, Unset, dict[str, Any]]
+        pricing: dict[str, Any] | None | Unset
         if isinstance(self.pricing, Unset):
             pricing = UNSET
         elif isinstance(self.pricing, SellerPromotionUpdatePricingType0):
@@ -74,13 +74,13 @@ class SellerPromotionUpdate:
         else:
             pricing = self.pricing
 
-        priority: Union[None, Unset, int]
+        priority: int | None | Unset
         if isinstance(self.priority, Unset):
             priority = UNSET
         else:
             priority = self.priority
 
-        status: Union[None, Unset, str]
+        status: None | str | Unset
         if isinstance(self.status, Unset):
             status = UNSET
         elif isinstance(self.status, str):
@@ -114,27 +114,27 @@ class SellerPromotionUpdate:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.seller_promotion_update_pricing_type_0 import SellerPromotionUpdatePricingType0
         d = dict(src_dict)
-        def _parse_name(data: object) -> Union[None, Unset, str]:
+        def _parse_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         name = _parse_name(d.pop("name", UNSET))
 
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
 
 
-        def _parse_service_groups(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_service_groups(data: object) -> list[str] | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -145,14 +145,14 @@ class SellerPromotionUpdate:
                 service_groups_type_0 = cast(list[str], data)
 
                 return service_groups_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(list[str] | None | Unset, data)
 
         service_groups = _parse_service_groups(d.pop("service_groups", UNSET))
 
 
-        def _parse_pricing(data: object) -> Union['SellerPromotionUpdatePricingType0', None, Unset]:
+        def _parse_pricing(data: object) -> None | SellerPromotionUpdatePricingType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -165,24 +165,24 @@ class SellerPromotionUpdate:
 
 
                 return pricing_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['SellerPromotionUpdatePricingType0', None, Unset], data)
+            return cast(None | SellerPromotionUpdatePricingType0 | Unset, data)
 
         pricing = _parse_pricing(d.pop("pricing", UNSET))
 
 
-        def _parse_priority(data: object) -> Union[None, Unset, int]:
+        def _parse_priority(data: object) -> int | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(int | None | Unset, data)
 
         priority = _parse_priority(d.pop("priority", UNSET))
 
 
-        def _parse_status(data: object) -> Union[None, PriceRuleStatusEnum, Unset]:
+        def _parse_status(data: object) -> None | PriceRuleStatusEnum | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -195,9 +195,9 @@ class SellerPromotionUpdate:
 
 
                 return status_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, PriceRuleStatusEnum, Unset], data)
+            return cast(None | PriceRuleStatusEnum | Unset, data)
 
         status = _parse_status(d.pop("status", UNSET))
 

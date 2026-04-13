@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -8,8 +10,6 @@ from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 if TYPE_CHECKING:
   from ..models.service_public import ServicePublic
@@ -26,9 +26,9 @@ T = TypeVar("T", bound="CursorPageServicePublic")
 class CursorPageServicePublic:
     
 
-    data: list['ServicePublic']
-    next_cursor: Union[None, Unset, str] = UNSET
-    has_more: Union[Unset, bool] = False
+    data: list[ServicePublic]
+    next_cursor: None | str | Unset = UNSET
+    has_more: bool | Unset = False
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -44,7 +44,7 @@ class CursorPageServicePublic:
 
 
 
-        next_cursor: Union[None, Unset, str]
+        next_cursor: None | str | Unset
         if isinstance(self.next_cursor, Unset):
             next_cursor = UNSET
         else:
@@ -81,12 +81,12 @@ class CursorPageServicePublic:
             data.append(data_item)
 
 
-        def _parse_next_cursor(data: object) -> Union[None, Unset, str]:
+        def _parse_next_cursor(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         next_cursor = _parse_next_cursor(d.pop("next_cursor", UNSET))
 

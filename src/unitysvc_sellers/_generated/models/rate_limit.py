@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -12,8 +14,6 @@ from ..models.time_window_enum import check_time_window_enum
 from ..models.time_window_enum import TimeWindowEnum
 from ..types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 
 
@@ -34,11 +34,11 @@ class RateLimit:
     """ Maximum allowed in the time window """
     unit: RateLimitUnitEnum
     window: TimeWindowEnum
-    description: Union[None, Unset, str] = UNSET
+    description: None | str | Unset = UNSET
     """ Human-readable description """
-    burst_limit: Union[None, Unset, int] = UNSET
+    burst_limit: int | None | Unset = UNSET
     """ Short-term burst allowance """
-    is_active: Union[Unset, bool] = True
+    is_active: bool | Unset = True
     """ Whether rate limit is active """
 
 
@@ -52,13 +52,13 @@ class RateLimit:
 
         window: str = self.window
 
-        description: Union[None, Unset, str]
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        burst_limit: Union[None, Unset, int]
+        burst_limit: int | None | Unset
         if isinstance(self.burst_limit, Unset):
             burst_limit = UNSET
         else:
@@ -100,22 +100,22 @@ class RateLimit:
 
 
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
 
 
-        def _parse_burst_limit(data: object) -> Union[None, Unset, int]:
+        def _parse_burst_limit(data: object) -> int | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(int | None | Unset, data)
 
         burst_limit = _parse_burst_limit(d.pop("burst_limit", UNSET))
 

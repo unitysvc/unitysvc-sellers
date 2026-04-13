@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -15,14 +17,12 @@ from ..models.price_rule_status_enum import PriceRuleStatusEnum
 from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
-from typing import cast, Union
-from typing import Union
 from uuid import UUID
 import datetime
 
 if TYPE_CHECKING:
-  from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
   from ..models.price_rule_pricing_spec import PriceRulePricingSpec
+  from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
 
 
 
@@ -44,31 +44,31 @@ class PriceRulePublic:
     """ Source of code matching for price rules. """
     code: str
     """ The code to match (e.g., 'pro', 'BF2025') """
-    pricing: 'PriceRulePricingSpec'
+    pricing: PriceRulePricingSpec
     """ Pricing specification (percentage, fixed_amount, graduated, etc.) """
     id: UUID
     created_by_id: UUID
     created_at: datetime.datetime
     updated_at: datetime.datetime
-    description: Union[None, Unset, str] = UNSET
+    description: None | str | Unset = UNSET
     """ Optional description """
-    service_groups: Union[None, Unset, list[str]] = UNSET
+    service_groups: list[str] | None | Unset = UNSET
     """ Service group UUIDs this rule applies to. null = all services. """
-    apply_at: Union[Unset, PriceRuleApplyAtEnum] = UNSET
+    apply_at: PriceRuleApplyAtEnum | Unset = UNSET
     """ When the price rule is applied. """
-    priority: Union[Unset, int] = 0
+    priority: int | Unset = 0
     """ Higher priority rules are applied first """
-    status: Union[Unset, PriceRuleStatusEnum] = UNSET
+    status: PriceRuleStatusEnum | Unset = UNSET
     """ Seller-facing status values for promotions.
 
     The backend may define additional statuses (scheduled, expired,
     cancelled) for internal lifecycle management, but sellers only
     interact with these three. """
-    requires_redemption: Union[Unset, bool] = True
+    requires_redemption: bool | Unset = True
     """ Derived from scope: False when scope.customers is '*' or omitted """
-    scope: Union['PriceRulePublicScopeType0', None, Unset] = UNSET
+    scope: None | PriceRulePublicScopeType0 | Unset = UNSET
     """ Customer and service targeting (null = all customers, all services) """
-    seller_id: Union[None, UUID, Unset] = UNSET
+    seller_id: None | Unset | UUID = UNSET
     """ Seller ID for seller-funded promotions (None = platform rule) """
 
 
@@ -76,8 +76,8 @@ class PriceRulePublic:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
         from ..models.price_rule_pricing_spec import PriceRulePricingSpec
+        from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
         name = self.name
 
         source: str = self.source
@@ -94,13 +94,13 @@ class PriceRulePublic:
 
         updated_at = self.updated_at.isoformat()
 
-        description: Union[None, Unset, str]
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        service_groups: Union[None, Unset, list[str]]
+        service_groups: list[str] | None | Unset
         if isinstance(self.service_groups, Unset):
             service_groups = UNSET
         elif isinstance(self.service_groups, list):
@@ -110,21 +110,21 @@ class PriceRulePublic:
         else:
             service_groups = self.service_groups
 
-        apply_at: Union[Unset, str] = UNSET
+        apply_at: str | Unset = UNSET
         if not isinstance(self.apply_at, Unset):
             apply_at = self.apply_at
 
 
         priority = self.priority
 
-        status: Union[Unset, str] = UNSET
+        status: str | Unset = UNSET
         if not isinstance(self.status, Unset):
             status = self.status
 
 
         requires_redemption = self.requires_redemption
 
-        scope: Union[None, Unset, dict[str, Any]]
+        scope: dict[str, Any] | None | Unset
         if isinstance(self.scope, Unset):
             scope = UNSET
         elif isinstance(self.scope, PriceRulePublicScopeType0):
@@ -132,7 +132,7 @@ class PriceRulePublic:
         else:
             scope = self.scope
 
-        seller_id: Union[None, Unset, str]
+        seller_id: None | str | Unset
         if isinstance(self.seller_id, Unset):
             seller_id = UNSET
         elif isinstance(self.seller_id, UUID):
@@ -176,8 +176,8 @@ class PriceRulePublic:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
         from ..models.price_rule_pricing_spec import PriceRulePricingSpec
+        from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
         d = dict(src_dict)
         name = d.pop("name")
 
@@ -213,17 +213,17 @@ class PriceRulePublic:
 
 
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
 
 
-        def _parse_service_groups(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_service_groups(data: object) -> list[str] | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -234,15 +234,15 @@ class PriceRulePublic:
                 service_groups_type_0 = cast(list[str], data)
 
                 return service_groups_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(list[str] | None | Unset, data)
 
         service_groups = _parse_service_groups(d.pop("service_groups", UNSET))
 
 
         _apply_at = d.pop("apply_at", UNSET)
-        apply_at: Union[Unset, PriceRuleApplyAtEnum]
+        apply_at: PriceRuleApplyAtEnum | Unset
         if isinstance(_apply_at,  Unset):
             apply_at = UNSET
         else:
@@ -254,7 +254,7 @@ class PriceRulePublic:
         priority = d.pop("priority", UNSET)
 
         _status = d.pop("status", UNSET)
-        status: Union[Unset, PriceRuleStatusEnum]
+        status: PriceRuleStatusEnum | Unset
         if isinstance(_status,  Unset):
             status = UNSET
         else:
@@ -265,7 +265,7 @@ class PriceRulePublic:
 
         requires_redemption = d.pop("requires_redemption", UNSET)
 
-        def _parse_scope(data: object) -> Union['PriceRulePublicScopeType0', None, Unset]:
+        def _parse_scope(data: object) -> None | PriceRulePublicScopeType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -278,14 +278,14 @@ class PriceRulePublic:
 
 
                 return scope_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['PriceRulePublicScopeType0', None, Unset], data)
+            return cast(None | PriceRulePublicScopeType0 | Unset, data)
 
         scope = _parse_scope(d.pop("scope", UNSET))
 
 
-        def _parse_seller_id(data: object) -> Union[None, UUID, Unset]:
+        def _parse_seller_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -298,9 +298,9 @@ class PriceRulePublic:
 
 
                 return seller_id_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, UUID, Unset], data)
+            return cast(None | Unset | UUID, data)
 
         seller_id = _parse_seller_id(d.pop("seller_id", UNSET))
 

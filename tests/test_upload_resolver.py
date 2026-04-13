@@ -234,7 +234,7 @@ class TestResolveFileReferencesIntegration:
                 },
             )
         )
-        respx.post(f"{BASE_URL}/tasks/batch-status").mock(
+        respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
             return_value=httpx.Response(
                 200,
                 json={

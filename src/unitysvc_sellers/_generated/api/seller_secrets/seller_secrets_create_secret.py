@@ -1,5 +1,6 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
@@ -12,16 +13,14 @@ from ...models.secret_create import SecretCreate
 from ...models.secret_public import SecretPublic
 from ...types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 
 
 def _get_kwargs(
     *,
     body: SecretCreate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -52,7 +51,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[HTTPValidationError, SecretPublic]]:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | SecretPublic | None:
     if response.status_code == 201:
         response_201 = SecretPublic.from_dict(response.json())
 
@@ -73,7 +72,7 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[HTTPValidationError, SecretPublic]]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | SecretPublic]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -84,12 +83,12 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 def sync_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SecretCreate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Response[Union[HTTPValidationError, SecretPublic]]:
+) -> Response[HTTPValidationError | SecretPublic]:
     """ Create Secret
 
      Create a new secret for the current seller.
@@ -99,8 +98,8 @@ def sync_detailed(
     after creation** — store it securely before submitting.
 
     Args:
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (SecretCreate): Schema for creating a secret.
 
     Raises:
@@ -108,7 +107,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[HTTPValidationError, SecretPublic]]
+        Response[HTTPValidationError | SecretPublic]
      """
 
 
@@ -127,12 +126,12 @@ x_role_id=x_role_id,
 
 def sync(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SecretCreate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Optional[Union[HTTPValidationError, SecretPublic]]:
+) -> HTTPValidationError | SecretPublic | None:
     """ Create Secret
 
      Create a new secret for the current seller.
@@ -142,8 +141,8 @@ def sync(
     after creation** — store it securely before submitting.
 
     Args:
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (SecretCreate): Schema for creating a secret.
 
     Raises:
@@ -151,7 +150,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[HTTPValidationError, SecretPublic]
+        HTTPValidationError | SecretPublic
      """
 
 
@@ -165,12 +164,12 @@ x_role_id=x_role_id,
 
 async def asyncio_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SecretCreate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Response[Union[HTTPValidationError, SecretPublic]]:
+) -> Response[HTTPValidationError | SecretPublic]:
     """ Create Secret
 
      Create a new secret for the current seller.
@@ -180,8 +179,8 @@ async def asyncio_detailed(
     after creation** — store it securely before submitting.
 
     Args:
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (SecretCreate): Schema for creating a secret.
 
     Raises:
@@ -189,7 +188,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[HTTPValidationError, SecretPublic]]
+        Response[HTTPValidationError | SecretPublic]
      """
 
 
@@ -208,12 +207,12 @@ x_role_id=x_role_id,
 
 async def asyncio(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SecretCreate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Optional[Union[HTTPValidationError, SecretPublic]]:
+) -> HTTPValidationError | SecretPublic | None:
     """ Create Secret
 
      Create a new secret for the current seller.
@@ -223,8 +222,8 @@ async def asyncio(
     after creation** — store it securely before submitting.
 
     Args:
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (SecretCreate): Schema for creating a secret.
 
     Raises:
@@ -232,7 +231,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[HTTPValidationError, SecretPublic]
+        HTTPValidationError | SecretPublic
      """
 
 

@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -8,8 +10,6 @@ from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 if TYPE_CHECKING:
   from ..models.document_detail_response_meta_type_0 import DocumentDetailResponseMetaType0
@@ -37,15 +37,15 @@ class DocumentDetailResponse:
     title: str
     is_active: bool
     is_public: bool
-    description: Union[None, Unset, str] = UNSET
-    mime_type: Union[None, Unset, str] = UNSET
-    category: Union[None, Unset, str] = UNSET
-    filename: Union[None, Unset, str] = UNSET
-    filesize: Union[None, Unset, int] = UNSET
-    meta: Union['DocumentDetailResponseMetaType0', None, Unset] = UNSET
-    file_content: Union[None, Unset, str] = UNSET
-    created_at: Union[None, Unset, str] = UNSET
-    updated_at: Union[None, Unset, str] = UNSET
+    description: None | str | Unset = UNSET
+    mime_type: None | str | Unset = UNSET
+    category: None | str | Unset = UNSET
+    filename: None | str | Unset = UNSET
+    filesize: int | None | Unset = UNSET
+    meta: DocumentDetailResponseMetaType0 | None | Unset = UNSET
+    file_content: None | str | Unset = UNSET
+    created_at: None | str | Unset = UNSET
+    updated_at: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -66,37 +66,37 @@ class DocumentDetailResponse:
 
         is_public = self.is_public
 
-        description: Union[None, Unset, str]
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        mime_type: Union[None, Unset, str]
+        mime_type: None | str | Unset
         if isinstance(self.mime_type, Unset):
             mime_type = UNSET
         else:
             mime_type = self.mime_type
 
-        category: Union[None, Unset, str]
+        category: None | str | Unset
         if isinstance(self.category, Unset):
             category = UNSET
         else:
             category = self.category
 
-        filename: Union[None, Unset, str]
+        filename: None | str | Unset
         if isinstance(self.filename, Unset):
             filename = UNSET
         else:
             filename = self.filename
 
-        filesize: Union[None, Unset, int]
+        filesize: int | None | Unset
         if isinstance(self.filesize, Unset):
             filesize = UNSET
         else:
             filesize = self.filesize
 
-        meta: Union[None, Unset, dict[str, Any]]
+        meta: dict[str, Any] | None | Unset
         if isinstance(self.meta, Unset):
             meta = UNSET
         elif isinstance(self.meta, DocumentDetailResponseMetaType0):
@@ -104,19 +104,19 @@ class DocumentDetailResponse:
         else:
             meta = self.meta
 
-        file_content: Union[None, Unset, str]
+        file_content: None | str | Unset
         if isinstance(self.file_content, Unset):
             file_content = UNSET
         else:
             file_content = self.file_content
 
-        created_at: Union[None, Unset, str]
+        created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         else:
             created_at = self.created_at
 
-        updated_at: Union[None, Unset, str]
+        updated_at: None | str | Unset
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         else:
@@ -172,57 +172,57 @@ class DocumentDetailResponse:
 
         is_public = d.pop("is_public")
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
 
 
-        def _parse_mime_type(data: object) -> Union[None, Unset, str]:
+        def _parse_mime_type(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         mime_type = _parse_mime_type(d.pop("mime_type", UNSET))
 
 
-        def _parse_category(data: object) -> Union[None, Unset, str]:
+        def _parse_category(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         category = _parse_category(d.pop("category", UNSET))
 
 
-        def _parse_filename(data: object) -> Union[None, Unset, str]:
+        def _parse_filename(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         filename = _parse_filename(d.pop("filename", UNSET))
 
 
-        def _parse_filesize(data: object) -> Union[None, Unset, int]:
+        def _parse_filesize(data: object) -> int | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(int | None | Unset, data)
 
         filesize = _parse_filesize(d.pop("filesize", UNSET))
 
 
-        def _parse_meta(data: object) -> Union['DocumentDetailResponseMetaType0', None, Unset]:
+        def _parse_meta(data: object) -> DocumentDetailResponseMetaType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -235,39 +235,39 @@ class DocumentDetailResponse:
 
 
                 return meta_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['DocumentDetailResponseMetaType0', None, Unset], data)
+            return cast(DocumentDetailResponseMetaType0 | None | Unset, data)
 
         meta = _parse_meta(d.pop("meta", UNSET))
 
 
-        def _parse_file_content(data: object) -> Union[None, Unset, str]:
+        def _parse_file_content(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         file_content = _parse_file_content(d.pop("file_content", UNSET))
 
 
-        def _parse_created_at(data: object) -> Union[None, Unset, str]:
+        def _parse_created_at(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
 
-        def _parse_updated_at(data: object) -> Union[None, Unset, str]:
+        def _parse_updated_at(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 

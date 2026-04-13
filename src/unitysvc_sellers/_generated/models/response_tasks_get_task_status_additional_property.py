@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -12,12 +14,12 @@ from ..types import UNSET, Unset
 
 
 
-T = TypeVar("T", bound="ResponseTasksGetBatchTaskStatusAdditionalProperty")
+T = TypeVar("T", bound="ResponseTasksGetTaskStatusAdditionalProperty")
 
 
 
 @_attrs_define
-class ResponseTasksGetBatchTaskStatusAdditionalProperty:
+class ResponseTasksGetTaskStatusAdditionalProperty:
     
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -38,12 +40,12 @@ class ResponseTasksGetBatchTaskStatusAdditionalProperty:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        response_tasks_get_batch_task_status_additional_property = cls(
+        response_tasks_get_task_status_additional_property = cls(
         )
 
 
-        response_tasks_get_batch_task_status_additional_property.additional_properties = d
-        return response_tasks_get_batch_task_status_additional_property
+        response_tasks_get_task_status_additional_property.additional_properties = d
+        return response_tasks_get_task_status_additional_property
 
     @property
     def additional_keys(self) -> list[str]:

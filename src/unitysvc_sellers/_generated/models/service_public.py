@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -11,8 +13,6 @@ from ..models.service_status_enum import ServiceStatusEnum
 from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
-from typing import cast, Union
-from typing import Union
 from uuid import UUID
 import datetime
 
@@ -52,22 +52,22 @@ class ServicePublic:
     - suspended: Admin suspended due to issues/violations
     - deprecated: Service ending """
     created_at: datetime.datetime
-    provider_id: Union[None, UUID, Unset] = UNSET
-    revision_of: Union[None, UUID, Unset] = UNSET
-    pending_revision_id: Union[None, UUID, Unset] = UNSET
-    name: Union[None, Unset, str] = UNSET
-    display_name: Union[None, Unset, str] = UNSET
-    service_type: Union[None, Unset, str] = UNSET
-    provider_name: Union[None, Unset, str] = UNSET
-    listing_type: Union[None, Unset, str] = UNSET
-    status_message: Union[None, Unset, str] = UNSET
-    is_featured: Union[Unset, bool] = False
-    routing_vars: Union['ServicePublicRoutingVarsType0', None, Unset] = UNSET
-    review_count: Union[Unset, int] = 0
-    average_rating: Union[None, Unset, float] = UNSET
-    ops_subscription_id: Union[None, UUID, Unset] = UNSET
-    ops_customer_id: Union[None, UUID, Unset] = UNSET
-    updated_at: Union[None, Unset, datetime.datetime] = UNSET
+    provider_id: None | Unset | UUID = UNSET
+    revision_of: None | Unset | UUID = UNSET
+    pending_revision_id: None | Unset | UUID = UNSET
+    name: None | str | Unset = UNSET
+    display_name: None | str | Unset = UNSET
+    service_type: None | str | Unset = UNSET
+    provider_name: None | str | Unset = UNSET
+    listing_type: None | str | Unset = UNSET
+    status_message: None | str | Unset = UNSET
+    is_featured: bool | Unset = False
+    routing_vars: None | ServicePublicRoutingVarsType0 | Unset = UNSET
+    review_count: int | Unset = 0
+    average_rating: float | None | Unset = UNSET
+    ops_subscription_id: None | Unset | UUID = UNSET
+    ops_customer_id: None | Unset | UUID = UNSET
+    updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -88,7 +88,7 @@ class ServicePublic:
 
         created_at = self.created_at.isoformat()
 
-        provider_id: Union[None, Unset, str]
+        provider_id: None | str | Unset
         if isinstance(self.provider_id, Unset):
             provider_id = UNSET
         elif isinstance(self.provider_id, UUID):
@@ -96,7 +96,7 @@ class ServicePublic:
         else:
             provider_id = self.provider_id
 
-        revision_of: Union[None, Unset, str]
+        revision_of: None | str | Unset
         if isinstance(self.revision_of, Unset):
             revision_of = UNSET
         elif isinstance(self.revision_of, UUID):
@@ -104,7 +104,7 @@ class ServicePublic:
         else:
             revision_of = self.revision_of
 
-        pending_revision_id: Union[None, Unset, str]
+        pending_revision_id: None | str | Unset
         if isinstance(self.pending_revision_id, Unset):
             pending_revision_id = UNSET
         elif isinstance(self.pending_revision_id, UUID):
@@ -112,37 +112,37 @@ class ServicePublic:
         else:
             pending_revision_id = self.pending_revision_id
 
-        name: Union[None, Unset, str]
+        name: None | str | Unset
         if isinstance(self.name, Unset):
             name = UNSET
         else:
             name = self.name
 
-        display_name: Union[None, Unset, str]
+        display_name: None | str | Unset
         if isinstance(self.display_name, Unset):
             display_name = UNSET
         else:
             display_name = self.display_name
 
-        service_type: Union[None, Unset, str]
+        service_type: None | str | Unset
         if isinstance(self.service_type, Unset):
             service_type = UNSET
         else:
             service_type = self.service_type
 
-        provider_name: Union[None, Unset, str]
+        provider_name: None | str | Unset
         if isinstance(self.provider_name, Unset):
             provider_name = UNSET
         else:
             provider_name = self.provider_name
 
-        listing_type: Union[None, Unset, str]
+        listing_type: None | str | Unset
         if isinstance(self.listing_type, Unset):
             listing_type = UNSET
         else:
             listing_type = self.listing_type
 
-        status_message: Union[None, Unset, str]
+        status_message: None | str | Unset
         if isinstance(self.status_message, Unset):
             status_message = UNSET
         else:
@@ -150,7 +150,7 @@ class ServicePublic:
 
         is_featured = self.is_featured
 
-        routing_vars: Union[None, Unset, dict[str, Any]]
+        routing_vars: dict[str, Any] | None | Unset
         if isinstance(self.routing_vars, Unset):
             routing_vars = UNSET
         elif isinstance(self.routing_vars, ServicePublicRoutingVarsType0):
@@ -160,13 +160,13 @@ class ServicePublic:
 
         review_count = self.review_count
 
-        average_rating: Union[None, Unset, float]
+        average_rating: float | None | Unset
         if isinstance(self.average_rating, Unset):
             average_rating = UNSET
         else:
             average_rating = self.average_rating
 
-        ops_subscription_id: Union[None, Unset, str]
+        ops_subscription_id: None | str | Unset
         if isinstance(self.ops_subscription_id, Unset):
             ops_subscription_id = UNSET
         elif isinstance(self.ops_subscription_id, UUID):
@@ -174,7 +174,7 @@ class ServicePublic:
         else:
             ops_subscription_id = self.ops_subscription_id
 
-        ops_customer_id: Union[None, Unset, str]
+        ops_customer_id: None | str | Unset
         if isinstance(self.ops_customer_id, Unset):
             ops_customer_id = UNSET
         elif isinstance(self.ops_customer_id, UUID):
@@ -182,7 +182,7 @@ class ServicePublic:
         else:
             ops_customer_id = self.ops_customer_id
 
-        updated_at: Union[None, Unset, str]
+        updated_at: None | str | Unset
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -272,7 +272,7 @@ class ServicePublic:
 
 
 
-        def _parse_provider_id(data: object) -> Union[None, UUID, Unset]:
+        def _parse_provider_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -285,14 +285,14 @@ class ServicePublic:
 
 
                 return provider_id_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, UUID, Unset], data)
+            return cast(None | Unset | UUID, data)
 
         provider_id = _parse_provider_id(d.pop("provider_id", UNSET))
 
 
-        def _parse_revision_of(data: object) -> Union[None, UUID, Unset]:
+        def _parse_revision_of(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -305,14 +305,14 @@ class ServicePublic:
 
 
                 return revision_of_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, UUID, Unset], data)
+            return cast(None | Unset | UUID, data)
 
         revision_of = _parse_revision_of(d.pop("revision_of", UNSET))
 
 
-        def _parse_pending_revision_id(data: object) -> Union[None, UUID, Unset]:
+        def _parse_pending_revision_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -325,76 +325,76 @@ class ServicePublic:
 
 
                 return pending_revision_id_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, UUID, Unset], data)
+            return cast(None | Unset | UUID, data)
 
         pending_revision_id = _parse_pending_revision_id(d.pop("pending_revision_id", UNSET))
 
 
-        def _parse_name(data: object) -> Union[None, Unset, str]:
+        def _parse_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         name = _parse_name(d.pop("name", UNSET))
 
 
-        def _parse_display_name(data: object) -> Union[None, Unset, str]:
+        def _parse_display_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         display_name = _parse_display_name(d.pop("display_name", UNSET))
 
 
-        def _parse_service_type(data: object) -> Union[None, Unset, str]:
+        def _parse_service_type(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         service_type = _parse_service_type(d.pop("service_type", UNSET))
 
 
-        def _parse_provider_name(data: object) -> Union[None, Unset, str]:
+        def _parse_provider_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         provider_name = _parse_provider_name(d.pop("provider_name", UNSET))
 
 
-        def _parse_listing_type(data: object) -> Union[None, Unset, str]:
+        def _parse_listing_type(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         listing_type = _parse_listing_type(d.pop("listing_type", UNSET))
 
 
-        def _parse_status_message(data: object) -> Union[None, Unset, str]:
+        def _parse_status_message(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         status_message = _parse_status_message(d.pop("status_message", UNSET))
 
 
         is_featured = d.pop("is_featured", UNSET)
 
-        def _parse_routing_vars(data: object) -> Union['ServicePublicRoutingVarsType0', None, Unset]:
+        def _parse_routing_vars(data: object) -> None | ServicePublicRoutingVarsType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -407,26 +407,26 @@ class ServicePublic:
 
 
                 return routing_vars_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ServicePublicRoutingVarsType0', None, Unset], data)
+            return cast(None | ServicePublicRoutingVarsType0 | Unset, data)
 
         routing_vars = _parse_routing_vars(d.pop("routing_vars", UNSET))
 
 
         review_count = d.pop("review_count", UNSET)
 
-        def _parse_average_rating(data: object) -> Union[None, Unset, float]:
+        def _parse_average_rating(data: object) -> float | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, float], data)
+            return cast(float | None | Unset, data)
 
         average_rating = _parse_average_rating(d.pop("average_rating", UNSET))
 
 
-        def _parse_ops_subscription_id(data: object) -> Union[None, UUID, Unset]:
+        def _parse_ops_subscription_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -439,14 +439,14 @@ class ServicePublic:
 
 
                 return ops_subscription_id_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, UUID, Unset], data)
+            return cast(None | Unset | UUID, data)
 
         ops_subscription_id = _parse_ops_subscription_id(d.pop("ops_subscription_id", UNSET))
 
 
-        def _parse_ops_customer_id(data: object) -> Union[None, UUID, Unset]:
+        def _parse_ops_customer_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -459,14 +459,14 @@ class ServicePublic:
 
 
                 return ops_customer_id_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, UUID, Unset], data)
+            return cast(None | Unset | UUID, data)
 
         ops_customer_id = _parse_ops_customer_id(d.pop("ops_customer_id", UNSET))
 
 
-        def _parse_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -479,9 +479,9 @@ class ServicePublic:
 
 
                 return updated_at_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 

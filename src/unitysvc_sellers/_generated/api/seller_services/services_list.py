@@ -1,5 +1,6 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
@@ -12,21 +13,19 @@ from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 
 
 def _get_kwargs(
     *,
-    cursor: Union[None, Unset, str] = UNSET,
-    limit: Union[Unset, int] = 50,
-    status: Union[None, Unset, str] = UNSET,
-    service_type: Union[None, Unset, str] = UNSET,
-    listing_type: Union[None, Unset, str] = UNSET,
-    name: Union[None, Unset, str] = UNSET,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    cursor: None | str | Unset = UNSET,
+    limit: int | Unset = 50,
+    status: None | str | Unset = UNSET,
+    service_type: None | str | Unset = UNSET,
+    listing_type: None | str | Unset = UNSET,
+    name: None | str | Unset = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -42,7 +41,7 @@ def _get_kwargs(
 
     params: dict[str, Any] = {}
 
-    json_cursor: Union[None, Unset, str]
+    json_cursor: None | str | Unset
     if isinstance(cursor, Unset):
         json_cursor = UNSET
     else:
@@ -51,28 +50,28 @@ def _get_kwargs(
 
     params["limit"] = limit
 
-    json_status: Union[None, Unset, str]
+    json_status: None | str | Unset
     if isinstance(status, Unset):
         json_status = UNSET
     else:
         json_status = status
     params["status"] = json_status
 
-    json_service_type: Union[None, Unset, str]
+    json_service_type: None | str | Unset
     if isinstance(service_type, Unset):
         json_service_type = UNSET
     else:
         json_service_type = service_type
     params["service_type"] = json_service_type
 
-    json_listing_type: Union[None, Unset, str]
+    json_listing_type: None | str | Unset
     if isinstance(listing_type, Unset):
         json_listing_type = UNSET
     else:
         json_listing_type = listing_type
     params["listing_type"] = json_listing_type
 
-    json_name: Union[None, Unset, str]
+    json_name: None | str | Unset
     if isinstance(name, Unset):
         json_name = UNSET
     else:
@@ -95,7 +94,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[CursorPageServicePublic, ErrorResponse, HTTPValidationError]]:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
     if response.status_code == 200:
         response_200 = CursorPageServicePublic.from_dict(response.json())
 
@@ -130,7 +129,7 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[CursorPageServicePublic, ErrorResponse, HTTPValidationError]]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -141,17 +140,17 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 def sync_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
-    cursor: Union[None, Unset, str] = UNSET,
-    limit: Union[Unset, int] = 50,
-    status: Union[None, Unset, str] = UNSET,
-    service_type: Union[None, Unset, str] = UNSET,
-    listing_type: Union[None, Unset, str] = UNSET,
-    name: Union[None, Unset, str] = UNSET,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    client: AuthenticatedClient | Client,
+    cursor: None | str | Unset = UNSET,
+    limit: int | Unset = 50,
+    status: None | str | Unset = UNSET,
+    service_type: None | str | Unset = UNSET,
+    listing_type: None | str | Unset = UNSET,
+    name: None | str | Unset = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Response[Union[CursorPageServicePublic, ErrorResponse, HTTPValidationError]]:
+) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
     """ List My Services
 
      List all services for the current seller.
@@ -170,23 +169,23 @@ def sync_detailed(
     - name: Search by name, display name, or provider name (case-insensitive partial match)
 
     Args:
-        cursor (Union[None, Unset, str]): Opaque pagination cursor from a previous response's
+        cursor (None | str | Unset): Opaque pagination cursor from a previous response's
             `next_cursor`. Omit to start from the first page.
-        limit (Union[Unset, int]): Page size (default 50, max 200). Default: 50.
-        status (Union[None, Unset, str]):
-        service_type (Union[None, Unset, str]): Filter by service type
-        listing_type (Union[None, Unset, str]): Filter by listing type
-        name (Union[None, Unset, str]): Search by name, display name, or provider name (case-
+        limit (int | Unset): Page size (default 50, max 200). Default: 50.
+        status (None | str | Unset):
+        service_type (None | str | Unset): Filter by service type
+        listing_type (None | str | Unset): Filter by listing type
+        name (None | str | Unset): Search by name, display name, or provider name (case-
             insensitive partial match)
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[CursorPageServicePublic, ErrorResponse, HTTPValidationError]]
+        Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]
      """
 
 
@@ -210,17 +209,17 @@ x_role_id=x_role_id,
 
 def sync(
     *,
-    client: Union[AuthenticatedClient, Client],
-    cursor: Union[None, Unset, str] = UNSET,
-    limit: Union[Unset, int] = 50,
-    status: Union[None, Unset, str] = UNSET,
-    service_type: Union[None, Unset, str] = UNSET,
-    listing_type: Union[None, Unset, str] = UNSET,
-    name: Union[None, Unset, str] = UNSET,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    client: AuthenticatedClient | Client,
+    cursor: None | str | Unset = UNSET,
+    limit: int | Unset = 50,
+    status: None | str | Unset = UNSET,
+    service_type: None | str | Unset = UNSET,
+    listing_type: None | str | Unset = UNSET,
+    name: None | str | Unset = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Optional[Union[CursorPageServicePublic, ErrorResponse, HTTPValidationError]]:
+) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
     """ List My Services
 
      List all services for the current seller.
@@ -239,23 +238,23 @@ def sync(
     - name: Search by name, display name, or provider name (case-insensitive partial match)
 
     Args:
-        cursor (Union[None, Unset, str]): Opaque pagination cursor from a previous response's
+        cursor (None | str | Unset): Opaque pagination cursor from a previous response's
             `next_cursor`. Omit to start from the first page.
-        limit (Union[Unset, int]): Page size (default 50, max 200). Default: 50.
-        status (Union[None, Unset, str]):
-        service_type (Union[None, Unset, str]): Filter by service type
-        listing_type (Union[None, Unset, str]): Filter by listing type
-        name (Union[None, Unset, str]): Search by name, display name, or provider name (case-
+        limit (int | Unset): Page size (default 50, max 200). Default: 50.
+        status (None | str | Unset):
+        service_type (None | str | Unset): Filter by service type
+        listing_type (None | str | Unset): Filter by listing type
+        name (None | str | Unset): Search by name, display name, or provider name (case-
             insensitive partial match)
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[CursorPageServicePublic, ErrorResponse, HTTPValidationError]
+        CursorPageServicePublic | ErrorResponse | HTTPValidationError
      """
 
 
@@ -274,17 +273,17 @@ x_role_id=x_role_id,
 
 async def asyncio_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
-    cursor: Union[None, Unset, str] = UNSET,
-    limit: Union[Unset, int] = 50,
-    status: Union[None, Unset, str] = UNSET,
-    service_type: Union[None, Unset, str] = UNSET,
-    listing_type: Union[None, Unset, str] = UNSET,
-    name: Union[None, Unset, str] = UNSET,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    client: AuthenticatedClient | Client,
+    cursor: None | str | Unset = UNSET,
+    limit: int | Unset = 50,
+    status: None | str | Unset = UNSET,
+    service_type: None | str | Unset = UNSET,
+    listing_type: None | str | Unset = UNSET,
+    name: None | str | Unset = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Response[Union[CursorPageServicePublic, ErrorResponse, HTTPValidationError]]:
+) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
     """ List My Services
 
      List all services for the current seller.
@@ -303,23 +302,23 @@ async def asyncio_detailed(
     - name: Search by name, display name, or provider name (case-insensitive partial match)
 
     Args:
-        cursor (Union[None, Unset, str]): Opaque pagination cursor from a previous response's
+        cursor (None | str | Unset): Opaque pagination cursor from a previous response's
             `next_cursor`. Omit to start from the first page.
-        limit (Union[Unset, int]): Page size (default 50, max 200). Default: 50.
-        status (Union[None, Unset, str]):
-        service_type (Union[None, Unset, str]): Filter by service type
-        listing_type (Union[None, Unset, str]): Filter by listing type
-        name (Union[None, Unset, str]): Search by name, display name, or provider name (case-
+        limit (int | Unset): Page size (default 50, max 200). Default: 50.
+        status (None | str | Unset):
+        service_type (None | str | Unset): Filter by service type
+        listing_type (None | str | Unset): Filter by listing type
+        name (None | str | Unset): Search by name, display name, or provider name (case-
             insensitive partial match)
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[CursorPageServicePublic, ErrorResponse, HTTPValidationError]]
+        Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]
      """
 
 
@@ -343,17 +342,17 @@ x_role_id=x_role_id,
 
 async def asyncio(
     *,
-    client: Union[AuthenticatedClient, Client],
-    cursor: Union[None, Unset, str] = UNSET,
-    limit: Union[Unset, int] = 50,
-    status: Union[None, Unset, str] = UNSET,
-    service_type: Union[None, Unset, str] = UNSET,
-    listing_type: Union[None, Unset, str] = UNSET,
-    name: Union[None, Unset, str] = UNSET,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    client: AuthenticatedClient | Client,
+    cursor: None | str | Unset = UNSET,
+    limit: int | Unset = 50,
+    status: None | str | Unset = UNSET,
+    service_type: None | str | Unset = UNSET,
+    listing_type: None | str | Unset = UNSET,
+    name: None | str | Unset = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Optional[Union[CursorPageServicePublic, ErrorResponse, HTTPValidationError]]:
+) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
     """ List My Services
 
      List all services for the current seller.
@@ -372,23 +371,23 @@ async def asyncio(
     - name: Search by name, display name, or provider name (case-insensitive partial match)
 
     Args:
-        cursor (Union[None, Unset, str]): Opaque pagination cursor from a previous response's
+        cursor (None | str | Unset): Opaque pagination cursor from a previous response's
             `next_cursor`. Omit to start from the first page.
-        limit (Union[Unset, int]): Page size (default 50, max 200). Default: 50.
-        status (Union[None, Unset, str]):
-        service_type (Union[None, Unset, str]): Filter by service type
-        listing_type (Union[None, Unset, str]): Filter by listing type
-        name (Union[None, Unset, str]): Search by name, display name, or provider name (case-
+        limit (int | Unset): Page size (default 50, max 200). Default: 50.
+        status (None | str | Unset):
+        service_type (None | str | Unset): Filter by service type
+        listing_type (None | str | Unset): Filter by listing type
+        name (None | str | Unset): Search by name, display name, or provider name (case-
             insensitive partial match)
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[CursorPageServicePublic, ErrorResponse, HTTPValidationError]
+        CursorPageServicePublic | ErrorResponse | HTTPValidationError
      """
 
 
