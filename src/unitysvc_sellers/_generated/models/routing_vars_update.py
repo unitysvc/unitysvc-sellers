@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -8,8 +10,6 @@ from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 if TYPE_CHECKING:
   from ..models.routing_vars_update_set_type_0 import RoutingVarsUpdateSetType0
@@ -28,8 +28,8 @@ class RoutingVarsUpdate:
 
      """
 
-    set_: Union['RoutingVarsUpdateSetType0', None, Unset] = UNSET
-    remove: Union[None, Unset, list[str]] = UNSET
+    set_: None | RoutingVarsUpdateSetType0 | Unset = UNSET
+    remove: list[str] | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -38,7 +38,7 @@ class RoutingVarsUpdate:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.routing_vars_update_set_type_0 import RoutingVarsUpdateSetType0
-        set_: Union[None, Unset, dict[str, Any]]
+        set_: dict[str, Any] | None | Unset
         if isinstance(self.set_, Unset):
             set_ = UNSET
         elif isinstance(self.set_, RoutingVarsUpdateSetType0):
@@ -46,7 +46,7 @@ class RoutingVarsUpdate:
         else:
             set_ = self.set_
 
-        remove: Union[None, Unset, list[str]]
+        remove: list[str] | None | Unset
         if isinstance(self.remove, Unset):
             remove = UNSET
         elif isinstance(self.remove, list):
@@ -74,7 +74,7 @@ class RoutingVarsUpdate:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.routing_vars_update_set_type_0 import RoutingVarsUpdateSetType0
         d = dict(src_dict)
-        def _parse_set_(data: object) -> Union['RoutingVarsUpdateSetType0', None, Unset]:
+        def _parse_set_(data: object) -> None | RoutingVarsUpdateSetType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -87,14 +87,14 @@ class RoutingVarsUpdate:
 
 
                 return set_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['RoutingVarsUpdateSetType0', None, Unset], data)
+            return cast(None | RoutingVarsUpdateSetType0 | Unset, data)
 
         set_ = _parse_set_(d.pop("set", UNSET))
 
 
-        def _parse_remove(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_remove(data: object) -> list[str] | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -105,9 +105,9 @@ class RoutingVarsUpdate:
                 remove_type_0 = cast(list[str], data)
 
                 return remove_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(list[str] | None | Unset, data)
 
         remove = _parse_remove(d.pop("remove", UNSET))
 

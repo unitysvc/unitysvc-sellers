@@ -1,5 +1,6 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
@@ -13,8 +14,6 @@ from ...models.routing_vars_update import RoutingVarsUpdate
 from ...models.routing_vars_update_response import RoutingVarsUpdateResponse
 from ...types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 
 
@@ -22,8 +21,8 @@ def _get_kwargs(
     service_id: str,
     *,
     body: RoutingVarsUpdate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -41,7 +40,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "patch",
-        "url": "/services/{service_id}/routing-vars".format(service_id=service_id,),
+        "url": "/services/{service_id}/routing-vars".format(service_id=quote(str(service_id), safe=""),),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -54,7 +53,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ErrorResponse, HTTPValidationError, RoutingVarsUpdateResponse]]:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ErrorResponse | HTTPValidationError | RoutingVarsUpdateResponse | None:
     if response.status_code == 200:
         response_200 = RoutingVarsUpdateResponse.from_dict(response.json())
 
@@ -89,7 +88,7 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ErrorResponse, HTTPValidationError, RoutingVarsUpdateResponse]]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ErrorResponse | HTTPValidationError | RoutingVarsUpdateResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -101,12 +100,12 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     service_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: RoutingVarsUpdate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Response[Union[ErrorResponse, HTTPValidationError, RoutingVarsUpdateResponse]]:
+) -> Response[ErrorResponse | HTTPValidationError | RoutingVarsUpdateResponse]:
     r""" Update Routing Vars
 
      Update routing_vars on an active service without approval.
@@ -120,8 +119,8 @@ def sync_detailed(
 
     Args:
         service_id (str):
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (RoutingVarsUpdate): Request body for updating routing_vars on an active service.
 
     Raises:
@@ -129,7 +128,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, HTTPValidationError, RoutingVarsUpdateResponse]]
+        Response[ErrorResponse | HTTPValidationError | RoutingVarsUpdateResponse]
      """
 
 
@@ -150,12 +149,12 @@ x_role_id=x_role_id,
 def sync(
     service_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: RoutingVarsUpdate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Optional[Union[ErrorResponse, HTTPValidationError, RoutingVarsUpdateResponse]]:
+) -> ErrorResponse | HTTPValidationError | RoutingVarsUpdateResponse | None:
     r""" Update Routing Vars
 
      Update routing_vars on an active service without approval.
@@ -169,8 +168,8 @@ def sync(
 
     Args:
         service_id (str):
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (RoutingVarsUpdate): Request body for updating routing_vars on an active service.
 
     Raises:
@@ -178,7 +177,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, HTTPValidationError, RoutingVarsUpdateResponse]
+        ErrorResponse | HTTPValidationError | RoutingVarsUpdateResponse
      """
 
 
@@ -194,12 +193,12 @@ x_role_id=x_role_id,
 async def asyncio_detailed(
     service_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: RoutingVarsUpdate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Response[Union[ErrorResponse, HTTPValidationError, RoutingVarsUpdateResponse]]:
+) -> Response[ErrorResponse | HTTPValidationError | RoutingVarsUpdateResponse]:
     r""" Update Routing Vars
 
      Update routing_vars on an active service without approval.
@@ -213,8 +212,8 @@ async def asyncio_detailed(
 
     Args:
         service_id (str):
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (RoutingVarsUpdate): Request body for updating routing_vars on an active service.
 
     Raises:
@@ -222,7 +221,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, HTTPValidationError, RoutingVarsUpdateResponse]]
+        Response[ErrorResponse | HTTPValidationError | RoutingVarsUpdateResponse]
      """
 
 
@@ -243,12 +242,12 @@ x_role_id=x_role_id,
 async def asyncio(
     service_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: RoutingVarsUpdate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Optional[Union[ErrorResponse, HTTPValidationError, RoutingVarsUpdateResponse]]:
+) -> ErrorResponse | HTTPValidationError | RoutingVarsUpdateResponse | None:
     r""" Update Routing Vars
 
      Update routing_vars on an active service without approval.
@@ -262,8 +261,8 @@ async def asyncio(
 
     Args:
         service_id (str):
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (RoutingVarsUpdate): Request body for updating routing_vars on an active service.
 
     Raises:
@@ -271,7 +270,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, HTTPValidationError, RoutingVarsUpdateResponse]
+        ErrorResponse | HTTPValidationError | RoutingVarsUpdateResponse
      """
 
 

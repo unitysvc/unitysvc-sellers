@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -14,14 +16,12 @@ from ..models.service_type_enum import check_service_type_enum
 from ..models.service_type_enum import ServiceTypeEnum
 from ..types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 if TYPE_CHECKING:
-  from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
-  from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
-  from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
   from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
+  from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
+  from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
+  from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
 
 
 
@@ -57,37 +57,37 @@ class ServiceOfferingData:
 
     name: str
     """ Technical service name (e.g., 'gpt-4') """
-    display_name: Union[None, Unset, str] = UNSET
+    display_name: None | str | Unset = UNSET
     """ Human-readable service name for display (e.g., 'GPT-4 Turbo', 'Claude 3 Opus') """
-    service_type: Union[Unset, ServiceTypeEnum] = UNSET
+    service_type: ServiceTypeEnum | Unset = UNSET
     """ Broad service category — defines the access pattern and protocol.
 
     AI modalities (vision, tools, rerank, etc.) are tracked via the
     `capabilities` list on ServiceOffering, not service_type. """
-    capabilities: Union[Unset, list[str]] = UNSET
+    capabilities: list[str] | Unset = UNSET
     """ Specific features this service provides (e.g., 'text_to_speech', 'embedding') """
-    description: Union[None, Unset, str] = UNSET
+    description: None | str | Unset = UNSET
     """ Service description """
-    tagline: Union[None, Unset, str] = UNSET
+    tagline: None | str | Unset = UNSET
     """ Short elevator pitch or description for the service """
-    status: Union[Unset, OfferingStatusEnum] = UNSET
+    status: OfferingStatusEnum | Unset = UNSET
     """ Status values that sellers can set for service offerings.
 
     Seller-accessible statuses:
     - draft: Work in progress, skipped during publish
     - ready: Complete and ready for admin review
     - deprecated: Service is retired/end of life """
-    details: Union['ServiceOfferingDataDetailsType0', None, Unset] = UNSET
+    details: None | ServiceOfferingDataDetailsType0 | Unset = UNSET
     """ Static technical specifications and features """
-    payout_price: Union['ServiceOfferingDataPayoutPriceType0', None, Unset] = UNSET
+    payout_price: None | ServiceOfferingDataPayoutPriceType0 | Unset = UNSET
     """ Payout pricing: How to calculate seller payout """
-    upstream_access_config: Union['ServiceOfferingDataUpstreamAccessConfigType0', None, Unset] = UNSET
+    upstream_access_config: None | ServiceOfferingDataUpstreamAccessConfigType0 | Unset = UNSET
     """ Upstream access interfaces, keyed by name """
-    documents: Union['ServiceOfferingDataDocumentsType0', None, Unset] = UNSET
+    documents: None | ServiceOfferingDataDocumentsType0 | Unset = UNSET
     """ Documents associated with the service, keyed by title """
-    currency: Union[Unset, CurrencyEnum] = UNSET
+    currency: CurrencyEnum | Unset = UNSET
     """ Supported currency codes for pricing. """
-    tags: Union[None, Unset, list[str]] = UNSET
+    tags: list[str] | None | Unset = UNSET
     """ List of tags for the service (arbitrary strings) """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -96,47 +96,47 @@ class ServiceOfferingData:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
-        from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
-        from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
         from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
+        from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
+        from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
+        from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
         name = self.name
 
-        display_name: Union[None, Unset, str]
+        display_name: None | str | Unset
         if isinstance(self.display_name, Unset):
             display_name = UNSET
         else:
             display_name = self.display_name
 
-        service_type: Union[Unset, str] = UNSET
+        service_type: str | Unset = UNSET
         if not isinstance(self.service_type, Unset):
             service_type = self.service_type
 
 
-        capabilities: Union[Unset, list[str]] = UNSET
+        capabilities: list[str] | Unset = UNSET
         if not isinstance(self.capabilities, Unset):
             capabilities = self.capabilities
 
 
 
-        description: Union[None, Unset, str]
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        tagline: Union[None, Unset, str]
+        tagline: None | str | Unset
         if isinstance(self.tagline, Unset):
             tagline = UNSET
         else:
             tagline = self.tagline
 
-        status: Union[Unset, str] = UNSET
+        status: str | Unset = UNSET
         if not isinstance(self.status, Unset):
             status = self.status
 
 
-        details: Union[None, Unset, dict[str, Any]]
+        details: dict[str, Any] | None | Unset
         if isinstance(self.details, Unset):
             details = UNSET
         elif isinstance(self.details, ServiceOfferingDataDetailsType0):
@@ -144,7 +144,7 @@ class ServiceOfferingData:
         else:
             details = self.details
 
-        payout_price: Union[None, Unset, dict[str, Any]]
+        payout_price: dict[str, Any] | None | Unset
         if isinstance(self.payout_price, Unset):
             payout_price = UNSET
         elif isinstance(self.payout_price, ServiceOfferingDataPayoutPriceType0):
@@ -152,7 +152,7 @@ class ServiceOfferingData:
         else:
             payout_price = self.payout_price
 
-        upstream_access_config: Union[None, Unset, dict[str, Any]]
+        upstream_access_config: dict[str, Any] | None | Unset
         if isinstance(self.upstream_access_config, Unset):
             upstream_access_config = UNSET
         elif isinstance(self.upstream_access_config, ServiceOfferingDataUpstreamAccessConfigType0):
@@ -160,7 +160,7 @@ class ServiceOfferingData:
         else:
             upstream_access_config = self.upstream_access_config
 
-        documents: Union[None, Unset, dict[str, Any]]
+        documents: dict[str, Any] | None | Unset
         if isinstance(self.documents, Unset):
             documents = UNSET
         elif isinstance(self.documents, ServiceOfferingDataDocumentsType0):
@@ -168,12 +168,12 @@ class ServiceOfferingData:
         else:
             documents = self.documents
 
-        currency: Union[Unset, str] = UNSET
+        currency: str | Unset = UNSET
         if not isinstance(self.currency, Unset):
             currency = self.currency
 
 
-        tags: Union[None, Unset, list[str]]
+        tags: list[str] | None | Unset
         if isinstance(self.tags, Unset):
             tags = UNSET
         elif isinstance(self.tags, list):
@@ -220,25 +220,25 @@ class ServiceOfferingData:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
-        from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
-        from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
         from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
+        from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
+        from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
+        from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_display_name(data: object) -> Union[None, Unset, str]:
+        def _parse_display_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         display_name = _parse_display_name(d.pop("display_name", UNSET))
 
 
         _service_type = d.pop("service_type", UNSET)
-        service_type: Union[Unset, ServiceTypeEnum]
+        service_type: ServiceTypeEnum | Unset
         if isinstance(_service_type,  Unset):
             service_type = UNSET
         else:
@@ -250,28 +250,28 @@ class ServiceOfferingData:
         capabilities = cast(list[str], d.pop("capabilities", UNSET))
 
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
 
 
-        def _parse_tagline(data: object) -> Union[None, Unset, str]:
+        def _parse_tagline(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         tagline = _parse_tagline(d.pop("tagline", UNSET))
 
 
         _status = d.pop("status", UNSET)
-        status: Union[Unset, OfferingStatusEnum]
+        status: OfferingStatusEnum | Unset
         if isinstance(_status,  Unset):
             status = UNSET
         else:
@@ -280,7 +280,7 @@ class ServiceOfferingData:
 
 
 
-        def _parse_details(data: object) -> Union['ServiceOfferingDataDetailsType0', None, Unset]:
+        def _parse_details(data: object) -> None | ServiceOfferingDataDetailsType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -293,14 +293,14 @@ class ServiceOfferingData:
 
 
                 return details_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ServiceOfferingDataDetailsType0', None, Unset], data)
+            return cast(None | ServiceOfferingDataDetailsType0 | Unset, data)
 
         details = _parse_details(d.pop("details", UNSET))
 
 
-        def _parse_payout_price(data: object) -> Union['ServiceOfferingDataPayoutPriceType0', None, Unset]:
+        def _parse_payout_price(data: object) -> None | ServiceOfferingDataPayoutPriceType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -313,14 +313,14 @@ class ServiceOfferingData:
 
 
                 return payout_price_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ServiceOfferingDataPayoutPriceType0', None, Unset], data)
+            return cast(None | ServiceOfferingDataPayoutPriceType0 | Unset, data)
 
         payout_price = _parse_payout_price(d.pop("payout_price", UNSET))
 
 
-        def _parse_upstream_access_config(data: object) -> Union['ServiceOfferingDataUpstreamAccessConfigType0', None, Unset]:
+        def _parse_upstream_access_config(data: object) -> None | ServiceOfferingDataUpstreamAccessConfigType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -333,14 +333,14 @@ class ServiceOfferingData:
 
 
                 return upstream_access_config_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ServiceOfferingDataUpstreamAccessConfigType0', None, Unset], data)
+            return cast(None | ServiceOfferingDataUpstreamAccessConfigType0 | Unset, data)
 
         upstream_access_config = _parse_upstream_access_config(d.pop("upstream_access_config", UNSET))
 
 
-        def _parse_documents(data: object) -> Union['ServiceOfferingDataDocumentsType0', None, Unset]:
+        def _parse_documents(data: object) -> None | ServiceOfferingDataDocumentsType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -353,15 +353,15 @@ class ServiceOfferingData:
 
 
                 return documents_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ServiceOfferingDataDocumentsType0', None, Unset], data)
+            return cast(None | ServiceOfferingDataDocumentsType0 | Unset, data)
 
         documents = _parse_documents(d.pop("documents", UNSET))
 
 
         _currency = d.pop("currency", UNSET)
-        currency: Union[Unset, CurrencyEnum]
+        currency: CurrencyEnum | Unset
         if isinstance(_currency,  Unset):
             currency = UNSET
         else:
@@ -370,7 +370,7 @@ class ServiceOfferingData:
 
 
 
-        def _parse_tags(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_tags(data: object) -> list[str] | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -381,9 +381,9 @@ class ServiceOfferingData:
                 tags_type_0 = cast(list[str], data)
 
                 return tags_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(list[str] | None | Unset, data)
 
         tags = _parse_tags(d.pop("tags", UNSET))
 

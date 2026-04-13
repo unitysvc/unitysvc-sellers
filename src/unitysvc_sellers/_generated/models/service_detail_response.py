@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -8,16 +10,14 @@ from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 if TYPE_CHECKING:
   from ..models.access_interface_public import AccessInterfacePublic
   from ..models.provider_data import ProviderData
+  from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
   from ..models.service_document_item import ServiceDocumentItem
   from ..models.service_listing_data import ServiceListingData
   from ..models.service_offering_data import ServiceOfferingData
-  from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
 
 
 
@@ -50,14 +50,14 @@ class ServiceDetailResponse:
 
     service_id: str
     status: str
-    documents: list['ServiceDocumentItem']
-    interfaces: list['AccessInterfacePublic']
-    service_name: Union[None, Unset, str] = UNSET
-    status_message: Union[None, Unset, str] = UNSET
-    routing_vars: Union['ServiceDetailResponseRoutingVarsType0', None, Unset] = UNSET
-    provider: Union['ProviderData', None, Unset] = UNSET
-    offering: Union['ServiceOfferingData', None, Unset] = UNSET
-    listing: Union['ServiceListingData', None, Unset] = UNSET
+    documents: list[ServiceDocumentItem]
+    interfaces: list[AccessInterfacePublic]
+    service_name: None | str | Unset = UNSET
+    status_message: None | str | Unset = UNSET
+    routing_vars: None | ServiceDetailResponseRoutingVarsType0 | Unset = UNSET
+    provider: None | ProviderData | Unset = UNSET
+    offering: None | ServiceOfferingData | Unset = UNSET
+    listing: None | ServiceListingData | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -67,10 +67,10 @@ class ServiceDetailResponse:
     def to_dict(self) -> dict[str, Any]:
         from ..models.access_interface_public import AccessInterfacePublic
         from ..models.provider_data import ProviderData
+        from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         from ..models.service_document_item import ServiceDocumentItem
         from ..models.service_listing_data import ServiceListingData
         from ..models.service_offering_data import ServiceOfferingData
-        from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         service_id = self.service_id
 
         status = self.status
@@ -89,19 +89,19 @@ class ServiceDetailResponse:
 
 
 
-        service_name: Union[None, Unset, str]
+        service_name: None | str | Unset
         if isinstance(self.service_name, Unset):
             service_name = UNSET
         else:
             service_name = self.service_name
 
-        status_message: Union[None, Unset, str]
+        status_message: None | str | Unset
         if isinstance(self.status_message, Unset):
             status_message = UNSET
         else:
             status_message = self.status_message
 
-        routing_vars: Union[None, Unset, dict[str, Any]]
+        routing_vars: dict[str, Any] | None | Unset
         if isinstance(self.routing_vars, Unset):
             routing_vars = UNSET
         elif isinstance(self.routing_vars, ServiceDetailResponseRoutingVarsType0):
@@ -109,7 +109,7 @@ class ServiceDetailResponse:
         else:
             routing_vars = self.routing_vars
 
-        provider: Union[None, Unset, dict[str, Any]]
+        provider: dict[str, Any] | None | Unset
         if isinstance(self.provider, Unset):
             provider = UNSET
         elif isinstance(self.provider, ProviderData):
@@ -117,7 +117,7 @@ class ServiceDetailResponse:
         else:
             provider = self.provider
 
-        offering: Union[None, Unset, dict[str, Any]]
+        offering: dict[str, Any] | None | Unset
         if isinstance(self.offering, Unset):
             offering = UNSET
         elif isinstance(self.offering, ServiceOfferingData):
@@ -125,7 +125,7 @@ class ServiceDetailResponse:
         else:
             offering = self.offering
 
-        listing: Union[None, Unset, dict[str, Any]]
+        listing: dict[str, Any] | None | Unset
         if isinstance(self.listing, Unset):
             listing = UNSET
         elif isinstance(self.listing, ServiceListingData):
@@ -163,10 +163,10 @@ class ServiceDetailResponse:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.access_interface_public import AccessInterfacePublic
         from ..models.provider_data import ProviderData
+        from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         from ..models.service_document_item import ServiceDocumentItem
         from ..models.service_listing_data import ServiceListingData
         from ..models.service_offering_data import ServiceOfferingData
-        from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         d = dict(src_dict)
         service_id = d.pop("service_id")
 
@@ -192,27 +192,27 @@ class ServiceDetailResponse:
             interfaces.append(interfaces_item)
 
 
-        def _parse_service_name(data: object) -> Union[None, Unset, str]:
+        def _parse_service_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         service_name = _parse_service_name(d.pop("service_name", UNSET))
 
 
-        def _parse_status_message(data: object) -> Union[None, Unset, str]:
+        def _parse_status_message(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         status_message = _parse_status_message(d.pop("status_message", UNSET))
 
 
-        def _parse_routing_vars(data: object) -> Union['ServiceDetailResponseRoutingVarsType0', None, Unset]:
+        def _parse_routing_vars(data: object) -> None | ServiceDetailResponseRoutingVarsType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -225,14 +225,14 @@ class ServiceDetailResponse:
 
 
                 return routing_vars_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ServiceDetailResponseRoutingVarsType0', None, Unset], data)
+            return cast(None | ServiceDetailResponseRoutingVarsType0 | Unset, data)
 
         routing_vars = _parse_routing_vars(d.pop("routing_vars", UNSET))
 
 
-        def _parse_provider(data: object) -> Union['ProviderData', None, Unset]:
+        def _parse_provider(data: object) -> None | ProviderData | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -245,14 +245,14 @@ class ServiceDetailResponse:
 
 
                 return provider_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ProviderData', None, Unset], data)
+            return cast(None | ProviderData | Unset, data)
 
         provider = _parse_provider(d.pop("provider", UNSET))
 
 
-        def _parse_offering(data: object) -> Union['ServiceOfferingData', None, Unset]:
+        def _parse_offering(data: object) -> None | ServiceOfferingData | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -265,14 +265,14 @@ class ServiceDetailResponse:
 
 
                 return offering_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ServiceOfferingData', None, Unset], data)
+            return cast(None | ServiceOfferingData | Unset, data)
 
         offering = _parse_offering(d.pop("offering", UNSET))
 
 
-        def _parse_listing(data: object) -> Union['ServiceListingData', None, Unset]:
+        def _parse_listing(data: object) -> None | ServiceListingData | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -285,9 +285,9 @@ class ServiceDetailResponse:
 
 
                 return listing_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ServiceListingData', None, Unset], data)
+            return cast(None | ServiceListingData | Unset, data)
 
         listing = _parse_listing(d.pop("listing", UNSET))
 

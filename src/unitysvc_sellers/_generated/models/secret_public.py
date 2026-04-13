@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -10,7 +12,6 @@ from ..models.secret_owner_type_enum import check_secret_owner_type_enum
 from ..models.secret_owner_type_enum import SecretOwnerTypeEnum
 from dateutil.parser import isoparse
 from typing import cast
-from typing import cast, Union
 from uuid import UUID
 import datetime
 
@@ -36,8 +37,8 @@ class SecretPublic:
     """ Owner type for secrets - determines which entity owns the secret. """
     owner_id: UUID
     created_at: datetime.datetime
-    updated_at: Union[None, datetime.datetime]
-    last_used_at: Union[None, datetime.datetime]
+    updated_at: datetime.datetime | None
+    last_used_at: datetime.datetime | None
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -55,13 +56,13 @@ class SecretPublic:
 
         created_at = self.created_at.isoformat()
 
-        updated_at: Union[None, str]
+        updated_at: None | str
         if isinstance(self.updated_at, datetime.datetime):
             updated_at = self.updated_at.isoformat()
         else:
             updated_at = self.updated_at
 
-        last_used_at: Union[None, str]
+        last_used_at: None | str
         if isinstance(self.last_used_at, datetime.datetime):
             last_used_at = self.last_used_at.isoformat()
         else:
@@ -109,7 +110,7 @@ class SecretPublic:
 
 
 
-        def _parse_updated_at(data: object) -> Union[None, datetime.datetime]:
+        def _parse_updated_at(data: object) -> datetime.datetime | None:
             if data is None:
                 return data
             try:
@@ -120,14 +121,14 @@ class SecretPublic:
 
 
                 return updated_at_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, datetime.datetime], data)
+            return cast(datetime.datetime | None, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at"))
 
 
-        def _parse_last_used_at(data: object) -> Union[None, datetime.datetime]:
+        def _parse_last_used_at(data: object) -> datetime.datetime | None:
             if data is None:
                 return data
             try:
@@ -138,9 +139,9 @@ class SecretPublic:
 
 
                 return last_used_at_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, datetime.datetime], data)
+            return cast(datetime.datetime | None, data)
 
         last_used_at = _parse_last_used_at(d.pop("last_used_at"))
 

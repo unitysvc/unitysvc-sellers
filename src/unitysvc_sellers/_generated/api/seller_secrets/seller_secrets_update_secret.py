@@ -1,5 +1,6 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
@@ -12,8 +13,6 @@ from ...models.secret_public import SecretPublic
 from ...models.secret_update import SecretUpdate
 from ...types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 
 
@@ -21,8 +20,8 @@ def _get_kwargs(
     name: str,
     *,
     body: SecretUpdate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -40,7 +39,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "put",
-        "url": "/secrets/{name}".format(name=name,),
+        "url": "/secrets/{name}".format(name=quote(str(name), safe=""),),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -53,7 +52,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[HTTPValidationError, SecretPublic]]:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | SecretPublic | None:
     if response.status_code == 200:
         response_200 = SecretPublic.from_dict(response.json())
 
@@ -74,7 +73,7 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[HTTPValidationError, SecretPublic]]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | SecretPublic]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -86,12 +85,12 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     name: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SecretUpdate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Response[Union[HTTPValidationError, SecretPublic]]:
+) -> Response[HTTPValidationError | SecretPublic]:
     """ Update Secret
 
      Rotate the value of an existing seller secret.
@@ -101,8 +100,8 @@ def sync_detailed(
 
     Args:
         name (str):
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (SecretUpdate): Schema for updating a secret (value only - name cannot be changed).
 
     Raises:
@@ -110,7 +109,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[HTTPValidationError, SecretPublic]]
+        Response[HTTPValidationError | SecretPublic]
      """
 
 
@@ -131,12 +130,12 @@ x_role_id=x_role_id,
 def sync(
     name: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SecretUpdate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Optional[Union[HTTPValidationError, SecretPublic]]:
+) -> HTTPValidationError | SecretPublic | None:
     """ Update Secret
 
      Rotate the value of an existing seller secret.
@@ -146,8 +145,8 @@ def sync(
 
     Args:
         name (str):
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (SecretUpdate): Schema for updating a secret (value only - name cannot be changed).
 
     Raises:
@@ -155,7 +154,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[HTTPValidationError, SecretPublic]
+        HTTPValidationError | SecretPublic
      """
 
 
@@ -171,12 +170,12 @@ x_role_id=x_role_id,
 async def asyncio_detailed(
     name: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SecretUpdate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Response[Union[HTTPValidationError, SecretPublic]]:
+) -> Response[HTTPValidationError | SecretPublic]:
     """ Update Secret
 
      Rotate the value of an existing seller secret.
@@ -186,8 +185,8 @@ async def asyncio_detailed(
 
     Args:
         name (str):
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (SecretUpdate): Schema for updating a secret (value only - name cannot be changed).
 
     Raises:
@@ -195,7 +194,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[HTTPValidationError, SecretPublic]]
+        Response[HTTPValidationError | SecretPublic]
      """
 
 
@@ -216,12 +215,12 @@ x_role_id=x_role_id,
 async def asyncio(
     name: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SecretUpdate,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Optional[Union[HTTPValidationError, SecretPublic]]:
+) -> HTTPValidationError | SecretPublic | None:
     """ Update Secret
 
      Rotate the value of an existing seller secret.
@@ -231,8 +230,8 @@ async def asyncio(
 
     Args:
         name (str):
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (SecretUpdate): Schema for updating a secret (value only - name cannot be changed).
 
     Raises:
@@ -240,7 +239,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[HTTPValidationError, SecretPublic]
+        HTTPValidationError | SecretPublic
      """
 
 

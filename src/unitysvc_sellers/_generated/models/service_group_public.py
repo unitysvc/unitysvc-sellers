@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -15,15 +17,13 @@ from ..models.service_group_status_enum import ServiceGroupStatusEnum
 from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
-from typing import cast, Union
-from typing import Union
 from uuid import UUID
 import datetime
 
 if TYPE_CHECKING:
-  from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
-  from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
   from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
+  from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
+  from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
 
 
 
@@ -48,11 +48,11 @@ class ServiceGroupPublic:
     status: ServiceGroupStatusEnum
     """ Status of a service group. """
     created_at: datetime.datetime
-    description: Union[None, Unset, str] = UNSET
-    membership_rules: Union['ServiceGroupPublicMembershipRulesType0', None, Unset] = UNSET
-    user_access_interfaces: Union['ServiceGroupPublicUserAccessInterfacesType0', None, Unset] = UNSET
-    routing_policy: Union['ServiceGroupPublicRoutingPolicyType0', None, Unset] = UNSET
-    group_type: Union[Unset, GroupTypeEnum] = UNSET
+    description: None | str | Unset = UNSET
+    membership_rules: None | ServiceGroupPublicMembershipRulesType0 | Unset = UNSET
+    user_access_interfaces: None | ServiceGroupPublicUserAccessInterfacesType0 | Unset = UNSET
+    routing_policy: None | ServiceGroupPublicRoutingPolicyType0 | Unset = UNSET
+    group_type: GroupTypeEnum | Unset = UNSET
     """ Type of service group — derived from configuration, not set directly.
 
     Derivation rules:
@@ -60,12 +60,12 @@ class ServiceGroupPublic:
     - Rules, no access interfaces → collection (curated set for browsing)
     - Rules + access interfaces → group (has own API endpoint + routing)
     - System-generated catch-all → misc """
-    sort_order: Union[Unset, int] = 0
-    ancestor_path: Union[Unset, str] = '/'
-    service_count: Union[None, Unset, int] = UNSET
-    enrolled_count: Union[None, Unset, int] = UNSET
-    unenrolled_count: Union[None, Unset, int] = UNSET
-    updated_at: Union[None, Unset, datetime.datetime] = UNSET
+    sort_order: int | Unset = 0
+    ancestor_path: str | Unset = '/'
+    service_count: int | None | Unset = UNSET
+    enrolled_count: int | None | Unset = UNSET
+    unenrolled_count: int | None | Unset = UNSET
+    updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -73,9 +73,9 @@ class ServiceGroupPublic:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
-        from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
         from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
+        from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
+        from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
         id = str(self.id)
 
         owner_id = str(self.owner_id)
@@ -90,13 +90,13 @@ class ServiceGroupPublic:
 
         created_at = self.created_at.isoformat()
 
-        description: Union[None, Unset, str]
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        membership_rules: Union[None, Unset, dict[str, Any]]
+        membership_rules: dict[str, Any] | None | Unset
         if isinstance(self.membership_rules, Unset):
             membership_rules = UNSET
         elif isinstance(self.membership_rules, ServiceGroupPublicMembershipRulesType0):
@@ -104,7 +104,7 @@ class ServiceGroupPublic:
         else:
             membership_rules = self.membership_rules
 
-        user_access_interfaces: Union[None, Unset, dict[str, Any]]
+        user_access_interfaces: dict[str, Any] | None | Unset
         if isinstance(self.user_access_interfaces, Unset):
             user_access_interfaces = UNSET
         elif isinstance(self.user_access_interfaces, ServiceGroupPublicUserAccessInterfacesType0):
@@ -112,7 +112,7 @@ class ServiceGroupPublic:
         else:
             user_access_interfaces = self.user_access_interfaces
 
-        routing_policy: Union[None, Unset, dict[str, Any]]
+        routing_policy: dict[str, Any] | None | Unset
         if isinstance(self.routing_policy, Unset):
             routing_policy = UNSET
         elif isinstance(self.routing_policy, ServiceGroupPublicRoutingPolicyType0):
@@ -120,7 +120,7 @@ class ServiceGroupPublic:
         else:
             routing_policy = self.routing_policy
 
-        group_type: Union[Unset, str] = UNSET
+        group_type: str | Unset = UNSET
         if not isinstance(self.group_type, Unset):
             group_type = self.group_type
 
@@ -129,25 +129,25 @@ class ServiceGroupPublic:
 
         ancestor_path = self.ancestor_path
 
-        service_count: Union[None, Unset, int]
+        service_count: int | None | Unset
         if isinstance(self.service_count, Unset):
             service_count = UNSET
         else:
             service_count = self.service_count
 
-        enrolled_count: Union[None, Unset, int]
+        enrolled_count: int | None | Unset
         if isinstance(self.enrolled_count, Unset):
             enrolled_count = UNSET
         else:
             enrolled_count = self.enrolled_count
 
-        unenrolled_count: Union[None, Unset, int]
+        unenrolled_count: int | None | Unset
         if isinstance(self.unenrolled_count, Unset):
             unenrolled_count = UNSET
         else:
             unenrolled_count = self.unenrolled_count
 
-        updated_at: Union[None, Unset, str]
+        updated_at: None | str | Unset
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -196,9 +196,9 @@ class ServiceGroupPublic:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
-        from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
         from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
+        from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
+        from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
         d = dict(src_dict)
         id = UUID(d.pop("id"))
 
@@ -229,17 +229,17 @@ class ServiceGroupPublic:
 
 
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
 
 
-        def _parse_membership_rules(data: object) -> Union['ServiceGroupPublicMembershipRulesType0', None, Unset]:
+        def _parse_membership_rules(data: object) -> None | ServiceGroupPublicMembershipRulesType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -252,14 +252,14 @@ class ServiceGroupPublic:
 
 
                 return membership_rules_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ServiceGroupPublicMembershipRulesType0', None, Unset], data)
+            return cast(None | ServiceGroupPublicMembershipRulesType0 | Unset, data)
 
         membership_rules = _parse_membership_rules(d.pop("membership_rules", UNSET))
 
 
-        def _parse_user_access_interfaces(data: object) -> Union['ServiceGroupPublicUserAccessInterfacesType0', None, Unset]:
+        def _parse_user_access_interfaces(data: object) -> None | ServiceGroupPublicUserAccessInterfacesType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -272,14 +272,14 @@ class ServiceGroupPublic:
 
 
                 return user_access_interfaces_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ServiceGroupPublicUserAccessInterfacesType0', None, Unset], data)
+            return cast(None | ServiceGroupPublicUserAccessInterfacesType0 | Unset, data)
 
         user_access_interfaces = _parse_user_access_interfaces(d.pop("user_access_interfaces", UNSET))
 
 
-        def _parse_routing_policy(data: object) -> Union['ServiceGroupPublicRoutingPolicyType0', None, Unset]:
+        def _parse_routing_policy(data: object) -> None | ServiceGroupPublicRoutingPolicyType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -292,15 +292,15 @@ class ServiceGroupPublic:
 
 
                 return routing_policy_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ServiceGroupPublicRoutingPolicyType0', None, Unset], data)
+            return cast(None | ServiceGroupPublicRoutingPolicyType0 | Unset, data)
 
         routing_policy = _parse_routing_policy(d.pop("routing_policy", UNSET))
 
 
         _group_type = d.pop("group_type", UNSET)
-        group_type: Union[Unset, GroupTypeEnum]
+        group_type: GroupTypeEnum | Unset
         if isinstance(_group_type,  Unset):
             group_type = UNSET
         else:
@@ -313,37 +313,37 @@ class ServiceGroupPublic:
 
         ancestor_path = d.pop("ancestor_path", UNSET)
 
-        def _parse_service_count(data: object) -> Union[None, Unset, int]:
+        def _parse_service_count(data: object) -> int | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(int | None | Unset, data)
 
         service_count = _parse_service_count(d.pop("service_count", UNSET))
 
 
-        def _parse_enrolled_count(data: object) -> Union[None, Unset, int]:
+        def _parse_enrolled_count(data: object) -> int | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(int | None | Unset, data)
 
         enrolled_count = _parse_enrolled_count(d.pop("enrolled_count", UNSET))
 
 
-        def _parse_unenrolled_count(data: object) -> Union[None, Unset, int]:
+        def _parse_unenrolled_count(data: object) -> int | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(int | None | Unset, data)
 
         unenrolled_count = _parse_unenrolled_count(d.pop("unenrolled_count", UNSET))
 
 
-        def _parse_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -356,9 +356,9 @@ class ServiceGroupPublic:
 
 
                 return updated_at_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 

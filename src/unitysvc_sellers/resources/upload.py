@@ -452,8 +452,8 @@ def upload_directory(
             _ = (done, total, last_ids)
 
         try:
-            terminal_states = client.tasks.wait_batch(
-                list(pending_tasks.keys()),
+            terminal_states = client.tasks.wait(
+                *pending_tasks.keys(),
                 timeout=task_wait_timeout,
                 poll_interval=task_poll_interval,
                 on_update=_poll_progress,

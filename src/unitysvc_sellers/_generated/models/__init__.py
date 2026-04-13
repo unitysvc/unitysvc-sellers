@@ -48,9 +48,8 @@ from .quota_reset_cycle_enum import QuotaResetCycleEnum
 from .rate_limit import RateLimit
 from .rate_limit_unit_enum import RateLimitUnitEnum
 from .request_transform_enum import RequestTransformEnum
-from .response_tasks_get_batch_task_status import ResponseTasksGetBatchTaskStatus
-from .response_tasks_get_batch_task_status_additional_property import ResponseTasksGetBatchTaskStatusAdditionalProperty
 from .response_tasks_get_task_status import ResponseTasksGetTaskStatus
+from .response_tasks_get_task_status_additional_property import ResponseTasksGetTaskStatusAdditionalProperty
 from .routing_vars_update import RoutingVarsUpdate
 from .routing_vars_update_response import RoutingVarsUpdateResponse
 from .routing_vars_update_response_routing_vars_type_0 import RoutingVarsUpdateResponseRoutingVarsType0
@@ -161,9 +160,8 @@ __all__ = (
     "RateLimit",
     "RateLimitUnitEnum",
     "RequestTransformEnum",
-    "ResponseTasksGetBatchTaskStatus",
-    "ResponseTasksGetBatchTaskStatusAdditionalProperty",
     "ResponseTasksGetTaskStatus",
+    "ResponseTasksGetTaskStatusAdditionalProperty",
     "RoutingVarsUpdate",
     "RoutingVarsUpdateResponse",
     "RoutingVarsUpdateResponseRoutingVarsType0",

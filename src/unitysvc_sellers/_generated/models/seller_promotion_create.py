@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -13,8 +15,6 @@ from ..models.price_rule_status_enum import PriceRuleStatusEnum
 from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
-from typing import cast, Union
-from typing import Union
 import datetime
 
 if TYPE_CHECKING:
@@ -43,25 +43,25 @@ class SellerPromotionCreate:
 
     name: str
     """ Display name of the promotion (unique per seller) """
-    pricing: 'Pricing'
+    pricing: Pricing
     """ Pricing specification (e.g., multiply, constant, add) """
-    description: Union[None, Unset, str] = UNSET
+    description: None | str | Unset = UNSET
     """ Human-readable description """
-    scope: Union['SellerPromotionCreateScopeType0', None, Unset] = UNSET
+    scope: None | SellerPromotionCreateScopeType0 | Unset = UNSET
     """ Customer and service targeting. null = all customers, all services (blanket promotion). """
-    apply_at: Union[Unset, PriceRuleApplyAtEnum] = UNSET
+    apply_at: PriceRuleApplyAtEnum | Unset = UNSET
     """ When the price rule is applied. """
-    priority: Union[Unset, int] = 0
+    priority: int | Unset = 0
     """ Higher priority rules are applied first """
-    status: Union[Unset, PriceRuleStatusEnum] = UNSET
+    status: PriceRuleStatusEnum | Unset = UNSET
     """ Seller-facing status values for promotions.
 
     The backend may define additional statuses (scheduled, expired,
     cancelled) for internal lifecycle management, but sellers only
     interact with these three. """
-    expires_at: Union[None, Unset, datetime.datetime] = UNSET
+    expires_at: datetime.datetime | None | Unset = UNSET
     """ When the promotion expires (code-based only) """
-    max_uses: Union[None, Unset, int] = UNSET
+    max_uses: int | None | Unset = UNSET
     """ Maximum total redemptions (code-based only) """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -76,13 +76,13 @@ class SellerPromotionCreate:
 
         pricing = self.pricing.to_dict()
 
-        description: Union[None, Unset, str]
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        scope: Union[None, Unset, dict[str, Any]]
+        scope: dict[str, Any] | None | Unset
         if isinstance(self.scope, Unset):
             scope = UNSET
         elif isinstance(self.scope, SellerPromotionCreateScopeType0):
@@ -90,19 +90,19 @@ class SellerPromotionCreate:
         else:
             scope = self.scope
 
-        apply_at: Union[Unset, str] = UNSET
+        apply_at: str | Unset = UNSET
         if not isinstance(self.apply_at, Unset):
             apply_at = self.apply_at
 
 
         priority = self.priority
 
-        status: Union[Unset, str] = UNSET
+        status: str | Unset = UNSET
         if not isinstance(self.status, Unset):
             status = self.status
 
 
-        expires_at: Union[None, Unset, str]
+        expires_at: None | str | Unset
         if isinstance(self.expires_at, Unset):
             expires_at = UNSET
         elif isinstance(self.expires_at, datetime.datetime):
@@ -110,7 +110,7 @@ class SellerPromotionCreate:
         else:
             expires_at = self.expires_at
 
-        max_uses: Union[None, Unset, int]
+        max_uses: int | None | Unset
         if isinstance(self.max_uses, Unset):
             max_uses = UNSET
         else:
@@ -154,17 +154,17 @@ class SellerPromotionCreate:
 
 
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
 
 
-        def _parse_scope(data: object) -> Union['SellerPromotionCreateScopeType0', None, Unset]:
+        def _parse_scope(data: object) -> None | SellerPromotionCreateScopeType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -177,15 +177,15 @@ class SellerPromotionCreate:
 
 
                 return scope_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['SellerPromotionCreateScopeType0', None, Unset], data)
+            return cast(None | SellerPromotionCreateScopeType0 | Unset, data)
 
         scope = _parse_scope(d.pop("scope", UNSET))
 
 
         _apply_at = d.pop("apply_at", UNSET)
-        apply_at: Union[Unset, PriceRuleApplyAtEnum]
+        apply_at: PriceRuleApplyAtEnum | Unset
         if isinstance(_apply_at,  Unset):
             apply_at = UNSET
         else:
@@ -197,7 +197,7 @@ class SellerPromotionCreate:
         priority = d.pop("priority", UNSET)
 
         _status = d.pop("status", UNSET)
-        status: Union[Unset, PriceRuleStatusEnum]
+        status: PriceRuleStatusEnum | Unset
         if isinstance(_status,  Unset):
             status = UNSET
         else:
@@ -206,7 +206,7 @@ class SellerPromotionCreate:
 
 
 
-        def _parse_expires_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -219,19 +219,19 @@ class SellerPromotionCreate:
 
 
                 return expires_at_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
 
 
-        def _parse_max_uses(data: object) -> Union[None, Unset, int]:
+        def _parse_max_uses(data: object) -> int | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(int | None | Unset, data)
 
         max_uses = _parse_max_uses(d.pop("max_uses", UNSET))
 

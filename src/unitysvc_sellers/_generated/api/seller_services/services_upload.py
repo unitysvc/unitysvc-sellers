@@ -1,5 +1,6 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
@@ -13,18 +14,16 @@ from ...models.service_data_input import ServiceDataInput
 from ...models.service_upload_response import ServiceUploadResponse
 from ...types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 
 
 def _get_kwargs(
     *,
     body: ServiceDataInput,
-    dryrun: Union[Unset, bool] = False,
-    idempotency_key: Union[None, Unset, str] = UNSET,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    dryrun: bool | Unset = False,
+    idempotency_key: None | str | Unset = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -65,7 +64,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ErrorResponse, HTTPValidationError, ServiceUploadResponse]]:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ErrorResponse | HTTPValidationError | ServiceUploadResponse | None:
     if response.status_code == 202:
         response_202 = ServiceUploadResponse.from_dict(response.json())
 
@@ -100,7 +99,7 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ErrorResponse, HTTPValidationError, ServiceUploadResponse]]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ErrorResponse | HTTPValidationError | ServiceUploadResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -111,14 +110,14 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 def sync_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: ServiceDataInput,
-    dryrun: Union[Unset, bool] = False,
-    idempotency_key: Union[None, Unset, str] = UNSET,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    dryrun: bool | Unset = False,
+    idempotency_key: None | str | Unset = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Response[Union[ErrorResponse, HTTPValidationError, ServiceUploadResponse]]:
+) -> Response[ErrorResponse | HTTPValidationError | ServiceUploadResponse]:
     """ Upload My Service
 
      Upload a complete service (provider, offering, and listing) together.
@@ -146,13 +145,13 @@ def sync_detailed(
     set; the task can be polled via the Celery result backend.
 
     Args:
-        dryrun (Union[Unset, bool]):  Default: False.
-        idempotency_key (Union[None, Unset, str]): Optional client-supplied key for safe retries.
-            When set, the server guarantees the underlying work runs at most once for this key within
-            a 24h window — replaying the same key returns the same task id without queueing the work
-            twice. Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1–128.
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        dryrun (bool | Unset):  Default: False.
+        idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
+            set, the server guarantees the underlying work runs at most once for this key within a 24h
+            window — replaying the same key returns the same task id without queueing the work twice.
+            Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1–128.
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (ServiceDataInput): Complete service data input for publishing.
 
             Fields are typed against the shared ``unitysvc_core`` models so the
@@ -164,7 +163,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, HTTPValidationError, ServiceUploadResponse]]
+        Response[ErrorResponse | HTTPValidationError | ServiceUploadResponse]
      """
 
 
@@ -185,14 +184,14 @@ x_role_id=x_role_id,
 
 def sync(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: ServiceDataInput,
-    dryrun: Union[Unset, bool] = False,
-    idempotency_key: Union[None, Unset, str] = UNSET,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    dryrun: bool | Unset = False,
+    idempotency_key: None | str | Unset = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Optional[Union[ErrorResponse, HTTPValidationError, ServiceUploadResponse]]:
+) -> ErrorResponse | HTTPValidationError | ServiceUploadResponse | None:
     """ Upload My Service
 
      Upload a complete service (provider, offering, and listing) together.
@@ -220,13 +219,13 @@ def sync(
     set; the task can be polled via the Celery result backend.
 
     Args:
-        dryrun (Union[Unset, bool]):  Default: False.
-        idempotency_key (Union[None, Unset, str]): Optional client-supplied key for safe retries.
-            When set, the server guarantees the underlying work runs at most once for this key within
-            a 24h window — replaying the same key returns the same task id without queueing the work
-            twice. Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1–128.
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        dryrun (bool | Unset):  Default: False.
+        idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
+            set, the server guarantees the underlying work runs at most once for this key within a 24h
+            window — replaying the same key returns the same task id without queueing the work twice.
+            Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1–128.
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (ServiceDataInput): Complete service data input for publishing.
 
             Fields are typed against the shared ``unitysvc_core`` models so the
@@ -238,7 +237,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, HTTPValidationError, ServiceUploadResponse]
+        ErrorResponse | HTTPValidationError | ServiceUploadResponse
      """
 
 
@@ -254,14 +253,14 @@ x_role_id=x_role_id,
 
 async def asyncio_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: ServiceDataInput,
-    dryrun: Union[Unset, bool] = False,
-    idempotency_key: Union[None, Unset, str] = UNSET,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    dryrun: bool | Unset = False,
+    idempotency_key: None | str | Unset = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Response[Union[ErrorResponse, HTTPValidationError, ServiceUploadResponse]]:
+) -> Response[ErrorResponse | HTTPValidationError | ServiceUploadResponse]:
     """ Upload My Service
 
      Upload a complete service (provider, offering, and listing) together.
@@ -289,13 +288,13 @@ async def asyncio_detailed(
     set; the task can be polled via the Celery result backend.
 
     Args:
-        dryrun (Union[Unset, bool]):  Default: False.
-        idempotency_key (Union[None, Unset, str]): Optional client-supplied key for safe retries.
-            When set, the server guarantees the underlying work runs at most once for this key within
-            a 24h window — replaying the same key returns the same task id without queueing the work
-            twice. Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1–128.
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        dryrun (bool | Unset):  Default: False.
+        idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
+            set, the server guarantees the underlying work runs at most once for this key within a 24h
+            window — replaying the same key returns the same task id without queueing the work twice.
+            Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1–128.
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (ServiceDataInput): Complete service data input for publishing.
 
             Fields are typed against the shared ``unitysvc_core`` models so the
@@ -307,7 +306,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, HTTPValidationError, ServiceUploadResponse]]
+        Response[ErrorResponse | HTTPValidationError | ServiceUploadResponse]
      """
 
 
@@ -328,14 +327,14 @@ x_role_id=x_role_id,
 
 async def asyncio(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: ServiceDataInput,
-    dryrun: Union[Unset, bool] = False,
-    idempotency_key: Union[None, Unset, str] = UNSET,
-    authorization: Union[None, Unset, str] = UNSET,
-    x_role_id: Union[None, Unset, str] = UNSET,
+    dryrun: bool | Unset = False,
+    idempotency_key: None | str | Unset = UNSET,
+    authorization: None | str | Unset = UNSET,
+    x_role_id: None | str | Unset = UNSET,
 
-) -> Optional[Union[ErrorResponse, HTTPValidationError, ServiceUploadResponse]]:
+) -> ErrorResponse | HTTPValidationError | ServiceUploadResponse | None:
     """ Upload My Service
 
      Upload a complete service (provider, offering, and listing) together.
@@ -363,13 +362,13 @@ async def asyncio(
     set; the task can be polled via the Celery result backend.
 
     Args:
-        dryrun (Union[Unset, bool]):  Default: False.
-        idempotency_key (Union[None, Unset, str]): Optional client-supplied key for safe retries.
-            When set, the server guarantees the underlying work runs at most once for this key within
-            a 24h window — replaying the same key returns the same task id without queueing the work
-            twice. Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1–128.
-        authorization (Union[None, Unset, str]):
-        x_role_id (Union[None, Unset, str]):
+        dryrun (bool | Unset):  Default: False.
+        idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
+            set, the server guarantees the underlying work runs at most once for this key within a 24h
+            window — replaying the same key returns the same task id without queueing the work twice.
+            Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1–128.
+        authorization (None | str | Unset):
+        x_role_id (None | str | Unset):
         body (ServiceDataInput): Complete service data input for publishing.
 
             Fields are typed against the shared ``unitysvc_core`` models so the
@@ -381,7 +380,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, HTTPValidationError, ServiceUploadResponse]
+        ErrorResponse | HTTPValidationError | ServiceUploadResponse
      """
 
 

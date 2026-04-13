@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -8,8 +10,6 @@ from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 if TYPE_CHECKING:
   from ..models.list_price_update_response_list_price_type_0 import ListPriceUpdateResponseListPriceType0
@@ -29,7 +29,7 @@ class ListPriceUpdateResponse:
      """
 
     id: str
-    list_price: Union['ListPriceUpdateResponseListPriceType0', None, Unset] = UNSET
+    list_price: ListPriceUpdateResponseListPriceType0 | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -40,7 +40,7 @@ class ListPriceUpdateResponse:
         from ..models.list_price_update_response_list_price_type_0 import ListPriceUpdateResponseListPriceType0
         id = self.id
 
-        list_price: Union[None, Unset, dict[str, Any]]
+        list_price: dict[str, Any] | None | Unset
         if isinstance(self.list_price, Unset):
             list_price = UNSET
         elif isinstance(self.list_price, ListPriceUpdateResponseListPriceType0):
@@ -67,7 +67,7 @@ class ListPriceUpdateResponse:
         d = dict(src_dict)
         id = d.pop("id")
 
-        def _parse_list_price(data: object) -> Union['ListPriceUpdateResponseListPriceType0', None, Unset]:
+        def _parse_list_price(data: object) -> ListPriceUpdateResponseListPriceType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -80,9 +80,9 @@ class ListPriceUpdateResponse:
 
 
                 return list_price_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union['ListPriceUpdateResponseListPriceType0', None, Unset], data)
+            return cast(ListPriceUpdateResponseListPriceType0 | None | Unset, data)
 
         list_price = _parse_list_price(d.pop("list_price", UNSET))
 

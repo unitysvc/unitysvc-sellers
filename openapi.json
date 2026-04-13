@@ -2681,23 +2681,29 @@
         }
       }
     },
-    "/tasks/{task_id}": {
+    "/tasks/": {
       "get": {
         "tags": [
           "tasks"
         ],
         "summary": "Get Task Status",
-        "description": "Get the status of a single Celery task.",
+        "description": "Get the status of one or more Celery tasks.\n\nPass one or more ``id`` query parameters to poll task status.\nReturns a mapping of task_id \u2192 status for every requested ID.\n\nExamples::\n\n    GET /v1/tasks?id=abc\n    GET /v1/tasks?id=abc&id=def&id=ghi\n\nAccepts up to 100 task IDs per request.",
         "operationId": "tasks-get_task_status",
         "parameters": [
           {
-            "name": "task_id",
-            "in": "path",
+            "name": "id",
+            "in": "query",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Task Id"
-            }
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 100,
+              "description": "Task ID(s) to poll",
+              "title": "Id"
+            },
+            "description": "Task ID(s) to poll"
           },
           {
             "name": "authorization",
@@ -2732,89 +2738,6 @@
             }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Tasks-Get Task Status"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/tasks/batch-status": {
-      "post": {
-        "tags": [
-          "tasks"
-        ],
-        "summary": "Get Batch Task Status",
-        "description": "Get the status of multiple Celery tasks in a single request.\n\nAccepts up to 100 task IDs and returns a mapping of task_id -> status.\nThis is more efficient than polling each task individually.",
-        "operationId": "tasks-get_batch_task_status",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-role-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "maxItems": 100,
-                "title": "Task Ids"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2826,7 +2749,7 @@
                     "type": "object",
                     "additionalProperties": true
                   },
-                  "title": "Response Tasks-Get Batch Task Status"
+                  "title": "Response Tasks-Get Task Status"
                 }
               }
             }
