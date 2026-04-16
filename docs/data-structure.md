@@ -254,7 +254,7 @@ data/
     └── volume-tier.json
 ```
 
-**Note:** The `promotions/` directory can live at the top level of the data directory (alongside provider directories). Promotion files use the `promotion_v1` schema and are managed via `usvc_seller promotions` commands. See [CLI Reference](cli-reference.md#usvc_seller-promotions-promotion-management) for details.
+**Note:** The `promotions/` directory can live at the top level of the data directory (alongside provider directories). Promotion files use the `promotion_v1` schema and are managed via `usvc_seller promotions` commands. See the [CLI Guide](cli-guide.md#promotion-file-format) for details.
 
 ## Naming Rules and Restrictions
 
@@ -585,5 +585,5 @@ The provider and offering data are sent with each upload but are deduplicated on
 ## Next Steps
 
 -   [File Schemas](file-schemas.md) - Detailed schema specifications
--   [CLI Reference](cli-reference.md#usvc_seller-data-upload-upload-services-to-backend) - Upload command details
+-   [CLI Guide](cli-guide.md#how-uploading-works) - Upload workflow details
 -   [Workflows](workflows.md) - Learn about manual and automated workflows

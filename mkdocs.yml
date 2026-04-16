@@ -82,9 +82,10 @@ nav:
       - Workflows: workflows.md
       - Seller Lifecycle: seller-lifecycle.md
   - Reference:
-      - CLI Commands: cli-reference.md
-      - Python SDK: sdk-reference.md
-      - API Reference: api-reference.md
+      - CLI Reference: cli-reference.md
+      - CLI Guide: cli-guide.md
+      - SDK Reference: sdk-reference.md
+      - SDK Guide: sdk-guide.md
       - File Schemas: file-schemas.md
       - Pricing: pricing.md
       - Code Examples: code-examples.md

@@ -2,7 +2,7 @@
 
 This guide explains the different workflows for managing service data with the UnitySVC Seller SDK.
 
-**Note:** All examples use the `usvc_seller` CLI (installed as a console entry point by the `unitysvc-sellers` package). For programmatic access to the same operations, see the [SDK Reference](sdk-reference.md).
+**Note:** All examples use the `usvc_seller` CLI (installed as a console entry point by the `unitysvc-sellers` package). For programmatic access to the same operations, see the [SDK Guide](sdk-guide.md).
 
 ## Overview
 

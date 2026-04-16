@@ -1049,7 +1049,7 @@ The SDK preserves the original format when updating files.
 - [Service Groups](#schema-service_group_v1) - Organize services with rule-based membership
 - [Pricing Specification](pricing.md) - Complete pricing documentation
 - [Data Structure](data-structure.md) - File organization rules
-- [CLI Reference](cli-reference.md#usvc_seller-data-validate-validate-data) - Validation command
+- [CLI Reference](cli-reference.md#usvc_seller-data-validate) - Validation command
 - [Getting Started](getting-started.md) - Create your first files
 
 ---
@@ -1061,7 +1061,7 @@ promotion targeting. Groups use rule-based membership to automatically
 include/exclude services based on their properties.
 
 > **Note:** Seller-defined service groups are currently used primarily for
-> promotion targeting (see [Promotions](cli-reference.md#usvc_seller-promotions-promotion-management)).
+> promotion targeting (see [Promotions](cli-guide.md#promotion-file-format)).
 > Groups created by sellers are nested under an auto-created root group
 > (`seller:{seller_name}`).
 

@@ -10,7 +10,7 @@ UnitySVC platform:
 -   **Python SDK** — `unitysvc_sellers.Client` / `AsyncClient` — a typed
     HTTP client the CLI itself is built on. Use it when you want to
     embed catalog management into your own scripts, CI/CD jobs, or
-    applications. See the [SDK Reference](sdk-reference.md).
+    applications. See the [SDK Guide](sdk-guide.md).
 
 Both front-ends talk to the same `/v1/seller/*` HTTP API, so anything
 you can do from the CLI you can also do from the SDK.
@@ -85,9 +85,9 @@ asyncio.run(main())
     onboarding, and your first upload.
 -   [Data Structure](data-structure.md) — how a seller catalog is
     organized on disk.
--   [CLI Reference](cli-reference.md) — every command, option, and
-    subcommand of `usvc_seller`.
--   [SDK Reference](sdk-reference.md) — `Client`, `AsyncClient`, resource
-    namespaces, exceptions, and end-to-end examples.
+-   [CLI Guide](cli-guide.md) / [CLI Reference](cli-reference.md) —
+    workflows and complete command listing.
+-   [SDK Guide](sdk-guide.md) / [SDK Reference](sdk-reference.md) —
+    usage patterns and auto-generated class docs.
 -   [Workflows](workflows.md) — manual, web-assisted, and automated
     catalog-authoring patterns.

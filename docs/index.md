@@ -18,8 +18,8 @@ match freely.
 
 -   **[Getting Started](getting-started.md)** - Installation and first steps
 -   **[Data Structure](data-structure.md)** - Understanding the Service Data model
--   **[CLI Reference](cli-reference.md)** - Complete command-line interface guide
--   **[SDK Reference](sdk-reference.md)** - Python `Client` / `AsyncClient`, resources, and examples
+-   **[CLI Guide](cli-guide.md)** / **[CLI Reference](cli-reference.md)** - Command-line workflows and complete option listing
+-   **[SDK Guide](sdk-guide.md)** / **[SDK Reference](sdk-reference.md)** - Python SDK usage and auto-generated class docs
 -   **[Workflows](workflows.md)** - Common usage patterns and best practices
 
 ## What the package gives you
@@ -94,8 +94,8 @@ This enables scenarios like:
 
 ### For Reference
 
--   [**CLI Reference**](cli-reference.md) - All `usvc_seller` commands and options
--   [**SDK Reference**](sdk-reference.md) - `Client`, `AsyncClient`, resource namespaces, and end-to-end examples
+-   [**CLI Guide**](cli-guide.md) / [**CLI Reference**](cli-reference.md) - Workflows and complete command listing
+-   [**SDK Guide**](sdk-guide.md) / [**SDK Reference**](sdk-reference.md) - Usage patterns and auto-generated class docs
 -   [**File Schemas**](file-schemas.md) - Detailed schema specifications for provider / offering / listing files
 
 ## Community & Support
