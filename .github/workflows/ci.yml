@@ -64,3 +64,26 @@ jobs:
             exit 1
           fi
           echo "Spec fingerprint OK: $ACTUAL"
+
+  docs-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[docs]"
+      - name: Verify CLI reference is up-to-date
+        run: |
+          ./scripts/generate_cli_reference.sh
+          if ! git diff --quiet docs/cli-reference.md; then
+            echo "::error::docs/cli-reference.md is out of date!"
+            echo ""
+            echo "Run ./scripts/generate_cli_reference.sh to regenerate."
+            echo ""
+            git diff docs/cli-reference.md | head -40
+            exit 1
+          fi
+          echo "CLI reference is up-to-date."
+      - name: Verify docs build
+        run: mkdocs build --strict 2>&1 | grep -v "^INFO" || true
