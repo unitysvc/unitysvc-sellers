@@ -203,6 +203,33 @@ class TestTasksResource:
         assert "task-c" in results
         assert results["task-c"]["status"] == "running"
 
+    @respx.mock
+    def test_wait_retries_transient_404_then_succeeds(self) -> None:
+        """A few 404s (task not yet visible) followed by success should work."""
+        responses = iter([
+            httpx.Response(404, json={"detail": "Not Found"}),
+            httpx.Response(404, json={"detail": "Not Found"}),
+            httpx.Response(
+                200,
+                json={
+                    "task-d": {
+                        "task_id": "task-d",
+                        "state": "SUCCESS",
+                        "status": "completed",
+                        "result": {"service_id": "svc-d"},
+                    },
+                },
+            ),
+        ])
+        respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
+            side_effect=lambda req: next(responses)
+        )
+
+        with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
+            results = client.tasks.wait("task-d", timeout=5.0, poll_interval=0.001)
+
+        assert results["task-d"]["status"] == "completed"
+
 
 # ---------------------------------------------------------------------------
 # upload_directory — polling integrated into the upload flow
