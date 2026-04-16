@@ -9,9 +9,8 @@ manage services, promotions, groups, secrets, and documents via
 
 | Path | Purpose |
 |------|---------|
-| `src/unitysvc_sellers/` | Package root — client, resources, CLI, utilities |
+| `src/unitysvc_sellers/` | Package root — client, resource facades, CLI, utilities |
 | `src/unitysvc_sellers/_generated/` | Auto-generated HTTP client from OpenAPI spec. **Do not edit by hand.** |
-| `src/unitysvc_sellers/resources/` | Hand-written resource facades (services, tasks, secrets, etc.) |
 | `scripts/` | Code-generation and doc-generation scripts |
 | `docs/` | mkdocs site — tutorials (guides) and references |
 | `openapi.json` | Committed snapshot of the seller OpenAPI spec (input for code gen + CI fingerprint check) |

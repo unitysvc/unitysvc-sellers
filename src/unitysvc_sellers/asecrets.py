@@ -1,18 +1,18 @@
-"""Async mirror of :mod:`unitysvc_sellers.resources.secrets`."""
+"""Async mirror of :mod:`secrets`."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._http import unwrap
+from ._http import unwrap
 
 if TYPE_CHECKING:
-    from .._generated.client import AuthenticatedClient
-    from .._generated.models.secret_public import SecretPublic
-    from .._generated.models.secrets_public import SecretsPublic
+    from ._generated.client import AuthenticatedClient
+    from ._generated.models.secret_public import SecretPublic
+    from ._generated.models.secrets_public import SecretsPublic
 
 
-class AsyncSecretsResource:
+class AsyncSecrets:
     """Async operations on the seller's secrets."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
@@ -20,7 +20,7 @@ class AsyncSecretsResource:
 
     async def list(self, *, skip: int = 0, limit: int = 100) -> SecretsPublic:
         """List the seller's secrets (metadata only)."""
-        from .._generated.api.seller_secrets import seller_secrets_list_secrets
+        from ._generated.api.seller_secrets import seller_secrets_list_secrets
 
         return unwrap(
             await seller_secrets_list_secrets.asyncio_detailed(
@@ -32,7 +32,7 @@ class AsyncSecretsResource:
 
     async def get(self, name: str) -> SecretPublic:
         """Get metadata for a single secret by name."""
-        from .._generated.api.seller_secrets import seller_secrets_get_secret
+        from ._generated.api.seller_secrets import seller_secrets_get_secret
 
         return unwrap(
             await seller_secrets_get_secret.asyncio_detailed(
@@ -43,8 +43,8 @@ class AsyncSecretsResource:
 
     async def create(self, name: str, value: str) -> SecretPublic:
         """Create a new secret. The value cannot be retrieved after creation."""
-        from .._generated.api.seller_secrets import seller_secrets_create_secret
-        from .._generated.models.secret_create import SecretCreate
+        from ._generated.api.seller_secrets import seller_secrets_create_secret
+        from ._generated.models.secret_create import SecretCreate
 
         return unwrap(
             await seller_secrets_create_secret.asyncio_detailed(
@@ -55,8 +55,8 @@ class AsyncSecretsResource:
 
     async def rotate(self, name: str, value: str) -> SecretPublic:
         """Rotate (update) the value of an existing secret by name."""
-        from .._generated.api.seller_secrets import seller_secrets_update_secret
-        from .._generated.models.secret_update import SecretUpdate
+        from ._generated.api.seller_secrets import seller_secrets_update_secret
+        from ._generated.models.secret_update import SecretUpdate
 
         return unwrap(
             await seller_secrets_update_secret.asyncio_detailed(
@@ -68,7 +68,7 @@ class AsyncSecretsResource:
 
     async def delete(self, name: str) -> None:
         """Delete a secret by name. This action cannot be undone."""
-        from .._generated.api.seller_secrets import seller_secrets_delete_secret
+        from ._generated.api.seller_secrets import seller_secrets_delete_secret
 
         unwrap(
             await seller_secrets_delete_secret.asyncio_detailed(

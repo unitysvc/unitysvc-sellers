@@ -316,13 +316,13 @@ with Client() as client:
 For the common case of "upload a whole seller catalog directory,
 wait for every task, write `.override.json` files so the next run
 knows what already exists", use the `upload_directory` helper from
-`unitysvc_sellers.resources.upload`. This is the same code path the
+`unitysvc_sellers.upload`. This is the same code path the
 `usvc_seller data upload` CLI command uses.
 
 ```python
 from pathlib import Path
 from unitysvc_sellers import Client
-from unitysvc_sellers.resources.upload import upload_directory
+from unitysvc_sellers.upload import upload_directory
 
 with Client() as client:
     result = upload_directory(
@@ -508,7 +508,7 @@ import sys
 from pathlib import Path
 
 from unitysvc_sellers import Client
-from unitysvc_sellers.resources.upload import upload_directory
+from unitysvc_sellers.upload import upload_directory
 
 
 def main() -> int:

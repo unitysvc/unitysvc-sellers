@@ -1,18 +1,18 @@
-"""Async mirror of :mod:`unitysvc_sellers.resources.tasks`."""
+"""Async mirror of :mod:`tasks`."""
 
 from __future__ import annotations
 
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from .._http import unwrap
+from ._http import unwrap
 from .tasks import TERMINAL_STATUSES, _coerce_status
 
 if TYPE_CHECKING:
-    from .._generated.client import AuthenticatedClient
+    from ._generated.client import AuthenticatedClient
 
 
-class AsyncTasksResource:
+class AsyncTasks:
     """Async operations on Celery task status (``GET /tasks/?id=…``)."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
@@ -20,7 +20,7 @@ class AsyncTasksResource:
 
     async def get(self, *task_ids: str) -> dict[str, dict[str, Any]]:
         """Return a mapping of ``task_id → status dict``."""
-        from .._generated.api.tasks import tasks_get_task_status
+        from ._generated.api.tasks import tasks_get_task_status
 
         response = unwrap(
             await tasks_get_task_status.asyncio_detailed(

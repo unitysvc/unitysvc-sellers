@@ -8,20 +8,20 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from .._http import unwrap
+from ._http import unwrap
 
 if TYPE_CHECKING:
-    from .._generated.client import AuthenticatedClient
-    from .._generated.models.cursor_page_price_rule_public import (
+    from ._generated.client import AuthenticatedClient
+    from ._generated.models.cursor_page_price_rule_public import (
         CursorPagePriceRulePublic,
     )
-    from .._generated.models.price_rule_public import PriceRulePublic
-    from .._generated.models.price_rule_status_enum import PriceRuleStatusEnum
-    from .._generated.models.seller_promotion_create import SellerPromotionCreate
-    from .._generated.models.seller_promotion_update import SellerPromotionUpdate
+    from ._generated.models.price_rule_public import PriceRulePublic
+    from ._generated.models.price_rule_status_enum import PriceRuleStatusEnum
+    from ._generated.models.seller_promotion_create import SellerPromotionCreate
+    from ._generated.models.seller_promotion_update import SellerPromotionUpdate
 
 
-class PromotionsResource:
+class Promotions:
     """Operations on the seller's promotions (``/v1/seller/promotions``)."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
@@ -39,8 +39,8 @@ class PromotionsResource:
         Pass ``cursor=response.next_cursor`` on subsequent calls until
         ``response.has_more`` is ``False``.
         """
-        from .._generated.api.seller_promotions import promotions_list
-        from .._generated.types import UNSET
+        from ._generated.api.seller_promotions import promotions_list
+        from ._generated.types import UNSET
 
         return unwrap(
             promotions_list.sync_detailed(
@@ -53,7 +53,7 @@ class PromotionsResource:
 
     def get(self, promotion_id: str | UUID) -> PriceRulePublic:
         """Get a single promotion by id."""
-        from .._generated.api.seller_promotions import promotions_get
+        from ._generated.api.seller_promotions import promotions_get
 
         return unwrap(
             promotions_get.sync_detailed(
@@ -73,8 +73,8 @@ class PromotionsResource:
         Use this for CLI-driven workflows where promotions are managed
         as files identified by name.
         """
-        from .._generated.api.seller_promotions import promotions_upsert
-        from .._generated.models.seller_promotion_create import SellerPromotionCreate
+        from ._generated.api.seller_promotions import promotions_upsert
+        from ._generated.models.seller_promotion_create import SellerPromotionCreate
 
         if isinstance(body, dict):
             body = SellerPromotionCreate.from_dict(body)
@@ -92,8 +92,8 @@ class PromotionsResource:
         body: SellerPromotionUpdate | dict[str, Any],
     ) -> PriceRulePublic:
         """Patch a single promotion by id (partial update)."""
-        from .._generated.api.seller_promotions import promotions_update
-        from .._generated.models.seller_promotion_update import SellerPromotionUpdate
+        from ._generated.api.seller_promotions import promotions_update
+        from ._generated.models.seller_promotion_update import SellerPromotionUpdate
 
         if isinstance(body, dict):
             body = SellerPromotionUpdate.from_dict(body)
@@ -108,7 +108,7 @@ class PromotionsResource:
 
     def delete(self, promotion_id: str | UUID) -> None:
         """Delete a promotion. Returns nothing on success."""
-        from .._generated.api.seller_promotions import promotions_delete
+        from ._generated.api.seller_promotions import promotions_delete
 
         unwrap(
             promotions_delete.sync_detailed(

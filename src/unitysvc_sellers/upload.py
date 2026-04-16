@@ -47,11 +47,11 @@ from typing import TYPE_CHECKING, Any
 
 from unitysvc_core.utils import find_files_by_schema, write_override_file
 
-from ..exceptions import APIError
-from ..utils import convert_convenience_fields_to_documents
+from .exceptions import APIError
+from .utils import convert_convenience_fields_to_documents
 
 if TYPE_CHECKING:
-    from ..client import Client
+    from .client import Client
 
 
 @dataclass
@@ -200,7 +200,7 @@ def _resolve_file_references(
             result[key] = processed
         elif key == "file_path" and isinstance(value, str):
             # Resolve the path relative to the source file's directory.
-            from ..utils import render_template_file
+            from .utils import render_template_file
 
             full_path = base_path / value if not Path(value).is_absolute() else Path(value)
             if not full_path.exists():

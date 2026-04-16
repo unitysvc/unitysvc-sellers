@@ -20,11 +20,11 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any
 
-from .._http import unwrap
-from ..exceptions import NotFoundError
+from ._http import unwrap
+from .exceptions import NotFoundError
 
 if TYPE_CHECKING:
-    from .._generated.client import AuthenticatedClient
+    from ._generated.client import AuthenticatedClient
 
 
 # Terminal states — anything else means the task is still in flight.
@@ -42,7 +42,7 @@ def _coerce_status(payload: Any) -> dict[str, Any]:
     return {"raw": repr(payload)}
 
 
-class TasksResource:
+class Tasks:
     """Operations on Celery task status (``GET /tasks/?id=…``)."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
@@ -54,7 +54,7 @@ class TasksResource:
         Accepts one or more task IDs. Uses ``GET /tasks/?id=a&id=b&…``
         (up to 100 IDs per call).
         """
-        from .._generated.api.tasks import tasks_get_task_status
+        from ._generated.api.tasks import tasks_get_task_status
 
         response = unwrap(
             tasks_get_task_status.sync_detailed(

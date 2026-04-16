@@ -1,24 +1,24 @@
-"""Async mirror of :mod:`unitysvc_sellers.resources.groups`."""
+"""Async mirror of :mod:`groups`."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from .._http import unwrap
+from ._http import unwrap
 
 if TYPE_CHECKING:
-    from .._generated.client import AuthenticatedClient
-    from .._generated.models.cursor_page_service_group_public import (
+    from ._generated.client import AuthenticatedClient
+    from ._generated.models.cursor_page_service_group_public import (
         CursorPageServiceGroupPublic,
     )
-    from .._generated.models.service_group_create import ServiceGroupCreate
-    from .._generated.models.service_group_public import ServiceGroupPublic
-    from .._generated.models.service_group_status_enum import ServiceGroupStatusEnum
-    from .._generated.models.service_group_update import ServiceGroupUpdate
+    from ._generated.models.service_group_create import ServiceGroupCreate
+    from ._generated.models.service_group_public import ServiceGroupPublic
+    from ._generated.models.service_group_status_enum import ServiceGroupStatusEnum
+    from ._generated.models.service_group_update import ServiceGroupUpdate
 
 
-class AsyncGroupsResource:
+class AsyncGroups:
     """Async operations on the seller's service groups."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
@@ -31,8 +31,8 @@ class AsyncGroupsResource:
         limit: int = 50,
         status: ServiceGroupStatusEnum | str | None = None,
     ) -> CursorPageServiceGroupPublic:
-        from .._generated.api.seller_service_groups import groups_list
-        from .._generated.types import UNSET
+        from ._generated.api.seller_service_groups import groups_list
+        from ._generated.types import UNSET
 
         return unwrap(
             await groups_list.asyncio_detailed(
@@ -44,7 +44,7 @@ class AsyncGroupsResource:
         )
 
     async def get(self, group_id: str | UUID) -> ServiceGroupPublic:
-        from .._generated.api.seller_service_groups import groups_get
+        from ._generated.api.seller_service_groups import groups_get
 
         return unwrap(
             await groups_get.asyncio_detailed(
@@ -57,8 +57,8 @@ class AsyncGroupsResource:
         self,
         body: ServiceGroupCreate | dict[str, Any],
     ) -> ServiceGroupPublic:
-        from .._generated.api.seller_service_groups import groups_upsert
-        from .._generated.models.service_group_create import ServiceGroupCreate
+        from ._generated.api.seller_service_groups import groups_upsert
+        from ._generated.models.service_group_create import ServiceGroupCreate
 
         if isinstance(body, dict):
             body = ServiceGroupCreate.from_dict(body)
@@ -75,8 +75,8 @@ class AsyncGroupsResource:
         group_id: str | UUID,
         body: ServiceGroupUpdate | dict[str, Any],
     ) -> ServiceGroupPublic:
-        from .._generated.api.seller_service_groups import groups_update
-        from .._generated.models.service_group_update import ServiceGroupUpdate
+        from ._generated.api.seller_service_groups import groups_update
+        from ._generated.models.service_group_update import ServiceGroupUpdate
 
         if isinstance(body, dict):
             body = ServiceGroupUpdate.from_dict(body)
@@ -90,7 +90,7 @@ class AsyncGroupsResource:
         )
 
     async def delete(self, group_id: str | UUID) -> None:
-        from .._generated.api.seller_service_groups import groups_delete
+        from ._generated.api.seller_service_groups import groups_delete
 
         unwrap(
             await groups_delete.asyncio_detailed(

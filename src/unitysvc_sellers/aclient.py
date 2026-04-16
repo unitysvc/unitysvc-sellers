@@ -36,12 +36,12 @@ from ._generated.client import AuthenticatedClient as _LowLevelClient
 from .client import DEFAULT_SELLER_API_URL, ENV_SELLER_API_KEY, ENV_SELLER_API_URL
 
 if TYPE_CHECKING:
-    from .resources.adocuments import AsyncDocumentsResource
-    from .resources.agroups import AsyncGroupsResource
-    from .resources.apromotions import AsyncPromotionsResource
-    from .resources.asecrets import AsyncSecretsResource
-    from .resources.aservices import AsyncServicesResource
-    from .resources.atasks import AsyncTasksResource
+    from .adocuments import AsyncDocuments
+    from .agroups import AsyncGroups
+    from .apromotions import AsyncPromotions
+    from .asecrets import AsyncSecrets
+    from .aservices import AsyncServices
+    from .atasks import AsyncTasks
 
 
 class AsyncClient:
@@ -85,12 +85,12 @@ class AsyncClient:
         self._api_key = api_key
         self._base_url = resolved_base_url
 
-        self._services: AsyncServicesResource | None = None
-        self._promotions: AsyncPromotionsResource | None = None
-        self._groups: AsyncGroupsResource | None = None
-        self._documents: AsyncDocumentsResource | None = None
-        self._tasks: AsyncTasksResource | None = None
-        self._secrets: AsyncSecretsResource | None = None
+        self._services: AsyncServices | None = None
+        self._promotions: AsyncPromotions | None = None
+        self._groups: AsyncGroups | None = None
+        self._documents: AsyncDocuments | None = None
+        self._tasks: AsyncTasks | None = None
+        self._secrets: AsyncSecrets | None = None
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -110,51 +110,51 @@ class AsyncClient:
     # Resource namespaces (lazy)
     # ------------------------------------------------------------------
     @property
-    def services(self) -> AsyncServicesResource:
+    def services(self) -> AsyncServices:
         if self._services is None:
-            from .resources.aservices import AsyncServicesResource
+            from .aservices import AsyncServices
 
-            self._services = AsyncServicesResource(self._client)
+            self._services = AsyncServices(self._client)
         return self._services
 
     @property
-    def promotions(self) -> AsyncPromotionsResource:
+    def promotions(self) -> AsyncPromotions:
         if self._promotions is None:
-            from .resources.apromotions import AsyncPromotionsResource
+            from .apromotions import AsyncPromotions
 
-            self._promotions = AsyncPromotionsResource(self._client)
+            self._promotions = AsyncPromotions(self._client)
         return self._promotions
 
     @property
-    def groups(self) -> AsyncGroupsResource:
+    def groups(self) -> AsyncGroups:
         if self._groups is None:
-            from .resources.agroups import AsyncGroupsResource
+            from .agroups import AsyncGroups
 
-            self._groups = AsyncGroupsResource(self._client)
+            self._groups = AsyncGroups(self._client)
         return self._groups
 
     @property
-    def documents(self) -> AsyncDocumentsResource:
+    def documents(self) -> AsyncDocuments:
         if self._documents is None:
-            from .resources.adocuments import AsyncDocumentsResource
+            from .adocuments import AsyncDocuments
 
-            self._documents = AsyncDocumentsResource(self._client)
+            self._documents = AsyncDocuments(self._client)
         return self._documents
 
     @property
-    def tasks(self) -> AsyncTasksResource:
+    def tasks(self) -> AsyncTasks:
         if self._tasks is None:
-            from .resources.atasks import AsyncTasksResource
+            from .atasks import AsyncTasks
 
-            self._tasks = AsyncTasksResource(self._client)
+            self._tasks = AsyncTasks(self._client)
         return self._tasks
 
     @property
-    def secrets(self) -> AsyncSecretsResource:
+    def secrets(self) -> AsyncSecrets:
         if self._secrets is None:
-            from .resources.asecrets import AsyncSecretsResource
+            from .asecrets import AsyncSecrets
 
-            self._secrets = AsyncSecretsResource(self._client)
+            self._secrets = AsyncSecrets(self._client)
         return self._secrets
 
     # ------------------------------------------------------------------

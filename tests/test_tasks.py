@@ -21,7 +21,7 @@ import httpx
 import respx
 
 from unitysvc_sellers import Client
-from unitysvc_sellers.resources.upload import upload_directory
+from unitysvc_sellers.upload import upload_directory
 
 BASE_URL = "https://seller.staging.unitysvc.test"
 
