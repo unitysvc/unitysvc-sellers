@@ -19,7 +19,7 @@ import pytest
 import respx
 
 from unitysvc_sellers import Client
-from unitysvc_sellers.resources.upload import (
+from unitysvc_sellers.upload import (
     _resolve_file_references,
     upload_directory,
 )

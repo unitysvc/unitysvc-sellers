@@ -57,13 +57,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from .resources.documents import DocumentsResource
-    from .resources.groups import GroupsResource
-    from .resources.promotions import PromotionsResource
-    from .resources.secrets import SecretsResource
-    from .resources.services import ServicesResource
-    from .resources.tasks import TasksResource
-    from .resources.upload import UploadResult
+    from .documents import Documents
+    from .groups import Groups
+    from .promotions import Promotions
+    from .secrets import Secrets
+    from .services import Services
+    from .tasks import Tasks
+    from .upload import UploadResult
 
 DEFAULT_SELLER_API_URL = "https://seller.unitysvc.com/v1"
 ENV_SELLER_API_KEY = "UNITYSVC_SELLER_API_KEY"
@@ -115,12 +115,12 @@ class Client:
 
         # Lazy resource initialization happens on first attribute access
         # via the cached properties below.
-        self._services: ServicesResource | None = None
-        self._promotions: PromotionsResource | None = None
-        self._groups: GroupsResource | None = None
-        self._documents: DocumentsResource | None = None
-        self._tasks: TasksResource | None = None
-        self._secrets: SecretsResource | None = None
+        self._services: Services | None = None
+        self._promotions: Promotions | None = None
+        self._groups: Groups | None = None
+        self._documents: Documents | None = None
+        self._tasks: Tasks | None = None
+        self._secrets: Secrets | None = None
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -145,51 +145,51 @@ class Client:
     # Resource namespaces (lazy)
     # ------------------------------------------------------------------
     @property
-    def services(self) -> ServicesResource:
+    def services(self) -> Services:
         if self._services is None:
-            from .resources.services import ServicesResource
+            from .services import Services
 
-            self._services = ServicesResource(self._client)
+            self._services = Services(self._client)
         return self._services
 
     @property
-    def promotions(self) -> PromotionsResource:
+    def promotions(self) -> Promotions:
         if self._promotions is None:
-            from .resources.promotions import PromotionsResource
+            from .promotions import Promotions
 
-            self._promotions = PromotionsResource(self._client)
+            self._promotions = Promotions(self._client)
         return self._promotions
 
     @property
-    def groups(self) -> GroupsResource:
+    def groups(self) -> Groups:
         if self._groups is None:
-            from .resources.groups import GroupsResource
+            from .groups import Groups
 
-            self._groups = GroupsResource(self._client)
+            self._groups = Groups(self._client)
         return self._groups
 
     @property
-    def documents(self) -> DocumentsResource:
+    def documents(self) -> Documents:
         if self._documents is None:
-            from .resources.documents import DocumentsResource
+            from .documents import Documents
 
-            self._documents = DocumentsResource(self._client)
+            self._documents = Documents(self._client)
         return self._documents
 
     @property
-    def tasks(self) -> TasksResource:
+    def tasks(self) -> Tasks:
         if self._tasks is None:
-            from .resources.tasks import TasksResource
+            from .tasks import Tasks
 
-            self._tasks = TasksResource(self._client)
+            self._tasks = Tasks(self._client)
         return self._tasks
 
     @property
-    def secrets(self) -> SecretsResource:
+    def secrets(self) -> Secrets:
         if self._secrets is None:
-            from .resources.secrets import SecretsResource
+            from .secrets import Secrets
 
-            self._secrets = SecretsResource(self._client)
+            self._secrets = Secrets(self._client)
         return self._secrets
 
     # ------------------------------------------------------------------
@@ -208,12 +208,12 @@ class Client:
         """Upload an entire seller catalog directory.
 
         Thin wrapper around
-        :func:`unitysvc_sellers.resources.upload.upload_directory`.
+        :func:`upload.upload_directory`.
         See that function for argument and return-type docs.
         """
         from pathlib import Path as _Path
 
-        from .resources.upload import upload_directory
+        from .upload import upload_directory
 
         return upload_directory(
             self,

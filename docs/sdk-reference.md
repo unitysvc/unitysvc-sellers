@@ -33,9 +33,9 @@ documentation with examples, see the [SDK Guide](sdk-guide.md).
 
 ## Resources
 
-### SecretsResource
+### Secrets
 
-::: unitysvc_sellers.resources.secrets.SecretsResource
+::: unitysvc_sellers.secrets.Secrets
     options:
       members:
         - list
@@ -44,33 +44,33 @@ documentation with examples, see the [SDK Guide](sdk-guide.md).
         - rotate
         - delete
 
-### ServicesResource
+### Services
 
-::: unitysvc_sellers.resources.services.ServicesResource
+::: unitysvc_sellers.services.Services
     options:
       show_root_heading: true
 
-### PromotionsResource
+### Promotions
 
-::: unitysvc_sellers.resources.promotions.PromotionsResource
+::: unitysvc_sellers.promotions.Promotions
     options:
       show_root_heading: true
 
-### GroupsResource
+### Groups
 
-::: unitysvc_sellers.resources.groups.GroupsResource
+::: unitysvc_sellers.groups.Groups
     options:
       show_root_heading: true
 
-### DocumentsResource
+### Documents
 
-::: unitysvc_sellers.resources.documents.DocumentsResource
+::: unitysvc_sellers.documents.Documents
     options:
       show_root_heading: true
 
-### TasksResource
+### Tasks
 
-::: unitysvc_sellers.resources.tasks.TasksResource
+::: unitysvc_sellers.tasks.Tasks
     options:
       members:
         - get

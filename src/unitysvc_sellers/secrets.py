@@ -8,15 +8,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._http import unwrap
+from ._http import unwrap
 
 if TYPE_CHECKING:
-    from .._generated.client import AuthenticatedClient
-    from .._generated.models.secret_public import SecretPublic
-    from .._generated.models.secrets_public import SecretsPublic
+    from ._generated.client import AuthenticatedClient
+    from ._generated.models.secret_public import SecretPublic
+    from ._generated.models.secrets_public import SecretsPublic
 
 
-class SecretsResource:
+class Secrets:
     """Operations on the seller's secrets (``/v1/seller/secrets``)."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
@@ -24,7 +24,7 @@ class SecretsResource:
 
     def list(self, *, skip: int = 0, limit: int = 100) -> SecretsPublic:
         """List the seller's secrets (metadata only — values are never returned)."""
-        from .._generated.api.seller_secrets import seller_secrets_list_secrets
+        from ._generated.api.seller_secrets import seller_secrets_list_secrets
 
         return unwrap(
             seller_secrets_list_secrets.sync_detailed(
@@ -36,7 +36,7 @@ class SecretsResource:
 
     def get(self, name: str) -> SecretPublic:
         """Get metadata for a single secret by name."""
-        from .._generated.api.seller_secrets import seller_secrets_get_secret
+        from ._generated.api.seller_secrets import seller_secrets_get_secret
 
         return unwrap(
             seller_secrets_get_secret.sync_detailed(
@@ -47,8 +47,8 @@ class SecretsResource:
 
     def create(self, name: str, value: str) -> SecretPublic:
         """Create a new secret. The value cannot be retrieved after creation."""
-        from .._generated.api.seller_secrets import seller_secrets_create_secret
-        from .._generated.models.secret_create import SecretCreate
+        from ._generated.api.seller_secrets import seller_secrets_create_secret
+        from ._generated.models.secret_create import SecretCreate
 
         return unwrap(
             seller_secrets_create_secret.sync_detailed(
@@ -59,8 +59,8 @@ class SecretsResource:
 
     def rotate(self, name: str, value: str) -> SecretPublic:
         """Rotate (update) the value of an existing secret by name."""
-        from .._generated.api.seller_secrets import seller_secrets_update_secret
-        from .._generated.models.secret_update import SecretUpdate
+        from ._generated.api.seller_secrets import seller_secrets_update_secret
+        from ._generated.models.secret_update import SecretUpdate
 
         return unwrap(
             seller_secrets_update_secret.sync_detailed(
@@ -72,7 +72,7 @@ class SecretsResource:
 
     def delete(self, name: str) -> None:
         """Delete a secret by name. This action cannot be undone."""
-        from .._generated.api.seller_secrets import seller_secrets_delete_secret
+        from ._generated.api.seller_secrets import seller_secrets_delete_secret
 
         unwrap(
             seller_secrets_delete_secret.sync_detailed(

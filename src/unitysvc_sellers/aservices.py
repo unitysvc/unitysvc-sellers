@@ -1,7 +1,7 @@
-"""Async mirror of :mod:`unitysvc_sellers.resources.services`.
+"""Async mirror of :mod:`services`.
 
 Each method has the same signature as the corresponding sync method on
-:class:`~unitysvc_sellers.resources.services.ServicesResource` but is
+:class:`~services.Services` but is
 declared ``async def`` and calls the generated ``asyncio_detailed``
 entry point.
 """
@@ -11,31 +11,31 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from .._http import unwrap
+from ._http import unwrap
 
 if TYPE_CHECKING:
-    from .._generated.client import AuthenticatedClient
-    from .._generated.models.cursor_page_service_public import (
+    from ._generated.client import AuthenticatedClient
+    from ._generated.models.cursor_page_service_public import (
         CursorPageServicePublic,
     )
-    from .._generated.models.list_price_update import ListPriceUpdate
-    from .._generated.models.list_price_update_response import ListPriceUpdateResponse
-    from .._generated.models.routing_vars_update import RoutingVarsUpdate
-    from .._generated.models.routing_vars_update_response import (
+    from ._generated.models.list_price_update import ListPriceUpdate
+    from ._generated.models.list_price_update_response import ListPriceUpdateResponse
+    from ._generated.models.routing_vars_update import RoutingVarsUpdate
+    from ._generated.models.routing_vars_update_response import (
         RoutingVarsUpdateResponse,
     )
-    from .._generated.models.service_data_input import ServiceDataInput
-    from .._generated.models.service_delete_response import ServiceDeleteResponse
-    from .._generated.models.service_detail_response import ServiceDetailResponse
-    from .._generated.models.service_status_update import ServiceStatusUpdate
-    from .._generated.models.service_status_update_response import (
+    from ._generated.models.service_data_input import ServiceDataInput
+    from ._generated.models.service_delete_response import ServiceDeleteResponse
+    from ._generated.models.service_detail_response import ServiceDetailResponse
+    from ._generated.models.service_status_update import ServiceStatusUpdate
+    from ._generated.models.service_status_update_response import (
         ServiceStatusUpdateResponse,
     )
-    from .._generated.models.task_queued_response import TaskQueuedResponse
-    from .._generated.models.test_env_response import TestEnvResponse
+    from ._generated.models.task_queued_response import TaskQueuedResponse
+    from ._generated.models.test_env_response import TestEnvResponse
 
 
-class AsyncServicesResource:
+class AsyncServices:
     """Async operations on the seller's service catalog."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
@@ -51,8 +51,8 @@ class AsyncServicesResource:
         listing_type: str | None = None,
         name: str | None = None,
     ) -> CursorPageServicePublic:
-        from .._generated.api.seller_services import services_list
-        from .._generated.types import UNSET
+        from ._generated.api.seller_services import services_list
+        from ._generated.types import UNSET
 
         return unwrap(
             await services_list.asyncio_detailed(
@@ -67,7 +67,7 @@ class AsyncServicesResource:
         )
 
     async def get(self, service_id: str | UUID) -> ServiceDetailResponse:
-        from .._generated.api.seller_services import services_get
+        from ._generated.api.seller_services import services_get
 
         return unwrap(
             await services_get.asyncio_detailed(
@@ -77,7 +77,7 @@ class AsyncServicesResource:
         )
 
     async def get_test_env(self, service_id: str | UUID) -> TestEnvResponse:
-        from .._generated.api.seller_services import services_get_test_env
+        from ._generated.api.seller_services import services_get_test_env
 
         return unwrap(
             await services_get_test_env.asyncio_detailed(
@@ -92,8 +92,8 @@ class AsyncServicesResource:
         *,
         dryrun: bool = False,
     ) -> TaskQueuedResponse:
-        from .._generated.api.seller_services import services_upload
-        from .._generated.models.service_data_input import ServiceDataInput
+        from ._generated.api.seller_services import services_upload
+        from ._generated.models.service_data_input import ServiceDataInput
 
         if isinstance(body, dict):
             body = ServiceDataInput.from_dict(body)
@@ -111,8 +111,8 @@ class AsyncServicesResource:
         service_id: str | UUID,
         body: ServiceStatusUpdate | dict[str, Any],
     ) -> ServiceStatusUpdateResponse:
-        from .._generated.api.seller_services import services_set_status
-        from .._generated.models.service_status_update import ServiceStatusUpdate
+        from ._generated.api.seller_services import services_set_status
+        from ._generated.models.service_status_update import ServiceStatusUpdate
 
         if isinstance(body, dict):
             body = ServiceStatusUpdate.from_dict(body)
@@ -130,8 +130,8 @@ class AsyncServicesResource:
         service_id: str | UUID,
         body: RoutingVarsUpdate | dict[str, Any],
     ) -> RoutingVarsUpdateResponse:
-        from .._generated.api.seller_services import services_set_routing_vars
-        from .._generated.models.routing_vars_update import RoutingVarsUpdate
+        from ._generated.api.seller_services import services_set_routing_vars
+        from ._generated.models.routing_vars_update import RoutingVarsUpdate
 
         if isinstance(body, dict):
             body = RoutingVarsUpdate.from_dict(body)
@@ -149,8 +149,8 @@ class AsyncServicesResource:
         service_id: str | UUID,
         body: ListPriceUpdate | dict[str, Any],
     ) -> ListPriceUpdateResponse:
-        from .._generated.api.seller_services import services_set_list_price
-        from .._generated.models.list_price_update import ListPriceUpdate
+        from ._generated.api.seller_services import services_set_list_price
+        from ._generated.models.list_price_update import ListPriceUpdate
 
         if isinstance(body, dict):
             body = ListPriceUpdate.from_dict(body)
@@ -169,7 +169,7 @@ class AsyncServicesResource:
         *,
         dryrun: bool = False,
     ) -> ServiceDeleteResponse:
-        from .._generated.api.seller_services import services_delete
+        from ._generated.api.seller_services import services_delete
 
         return unwrap(
             await services_delete.asyncio_detailed(

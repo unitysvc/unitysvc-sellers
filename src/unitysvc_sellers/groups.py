@@ -8,20 +8,20 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from .._http import unwrap
+from ._http import unwrap
 
 if TYPE_CHECKING:
-    from .._generated.client import AuthenticatedClient
-    from .._generated.models.cursor_page_service_group_public import (
+    from ._generated.client import AuthenticatedClient
+    from ._generated.models.cursor_page_service_group_public import (
         CursorPageServiceGroupPublic,
     )
-    from .._generated.models.service_group_create import ServiceGroupCreate
-    from .._generated.models.service_group_public import ServiceGroupPublic
-    from .._generated.models.service_group_status_enum import ServiceGroupStatusEnum
-    from .._generated.models.service_group_update import ServiceGroupUpdate
+    from ._generated.models.service_group_create import ServiceGroupCreate
+    from ._generated.models.service_group_public import ServiceGroupPublic
+    from ._generated.models.service_group_status_enum import ServiceGroupStatusEnum
+    from ._generated.models.service_group_update import ServiceGroupUpdate
 
 
-class GroupsResource:
+class Groups:
     """Operations on the seller's service groups (``/v1/seller/service-groups``)."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
@@ -39,8 +39,8 @@ class GroupsResource:
         Pass ``cursor=response.next_cursor`` on subsequent calls until
         ``response.has_more`` is ``False``.
         """
-        from .._generated.api.seller_service_groups import groups_list
-        from .._generated.types import UNSET
+        from ._generated.api.seller_service_groups import groups_list
+        from ._generated.types import UNSET
 
         return unwrap(
             groups_list.sync_detailed(
@@ -53,7 +53,7 @@ class GroupsResource:
 
     def get(self, group_id: str | UUID) -> ServiceGroupPublic:
         """Get a single service group by id."""
-        from .._generated.api.seller_service_groups import groups_get
+        from ._generated.api.seller_service_groups import groups_get
 
         return unwrap(
             groups_get.sync_detailed(
@@ -67,8 +67,8 @@ class GroupsResource:
         body: ServiceGroupCreate | dict[str, Any],
     ) -> ServiceGroupPublic:
         """Create or update a service group by name (idempotent)."""
-        from .._generated.api.seller_service_groups import groups_upsert
-        from .._generated.models.service_group_create import ServiceGroupCreate
+        from ._generated.api.seller_service_groups import groups_upsert
+        from ._generated.models.service_group_create import ServiceGroupCreate
 
         if isinstance(body, dict):
             body = ServiceGroupCreate.from_dict(body)
@@ -86,8 +86,8 @@ class GroupsResource:
         body: ServiceGroupUpdate | dict[str, Any],
     ) -> ServiceGroupPublic:
         """Patch a single service group by id."""
-        from .._generated.api.seller_service_groups import groups_update
-        from .._generated.models.service_group_update import ServiceGroupUpdate
+        from ._generated.api.seller_service_groups import groups_update
+        from ._generated.models.service_group_update import ServiceGroupUpdate
 
         if isinstance(body, dict):
             body = ServiceGroupUpdate.from_dict(body)
@@ -102,7 +102,7 @@ class GroupsResource:
 
     def delete(self, group_id: str | UUID) -> None:
         """Delete a service group."""
-        from .._generated.api.seller_service_groups import groups_delete
+        from ._generated.api.seller_service_groups import groups_delete
 
         unwrap(
             groups_delete.sync_detailed(

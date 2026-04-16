@@ -12,29 +12,29 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from .._http import unwrap
+from ._http import unwrap
 
 if TYPE_CHECKING:
-    from .._generated.client import AuthenticatedClient
-    from .._generated.models.cursor_page_service_public import CursorPageServicePublic
-    from .._generated.models.list_price_update import ListPriceUpdate
-    from .._generated.models.list_price_update_response import ListPriceUpdateResponse
-    from .._generated.models.routing_vars_update import RoutingVarsUpdate
-    from .._generated.models.routing_vars_update_response import (
+    from ._generated.client import AuthenticatedClient
+    from ._generated.models.cursor_page_service_public import CursorPageServicePublic
+    from ._generated.models.list_price_update import ListPriceUpdate
+    from ._generated.models.list_price_update_response import ListPriceUpdateResponse
+    from ._generated.models.routing_vars_update import RoutingVarsUpdate
+    from ._generated.models.routing_vars_update_response import (
         RoutingVarsUpdateResponse,
     )
-    from .._generated.models.service_data_input import ServiceDataInput
-    from .._generated.models.service_delete_response import ServiceDeleteResponse
-    from .._generated.models.service_detail_response import ServiceDetailResponse
-    from .._generated.models.service_status_update import ServiceStatusUpdate
-    from .._generated.models.service_status_update_response import (
+    from ._generated.models.service_data_input import ServiceDataInput
+    from ._generated.models.service_delete_response import ServiceDeleteResponse
+    from ._generated.models.service_detail_response import ServiceDetailResponse
+    from ._generated.models.service_status_update import ServiceStatusUpdate
+    from ._generated.models.service_status_update_response import (
         ServiceStatusUpdateResponse,
     )
-    from .._generated.models.task_queued_response import TaskQueuedResponse
-    from .._generated.models.test_env_response import TestEnvResponse
+    from ._generated.models.task_queued_response import TaskQueuedResponse
+    from ._generated.models.test_env_response import TestEnvResponse
 
 
-class ServicesResource:
+class Services:
     """Operations on the seller's service catalog (``/v1/seller/services``)."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
@@ -74,8 +74,8 @@ class ServicesResource:
             :class:`CursorPageServicePublic` with ``data``,
             ``next_cursor``, and ``has_more`` fields.
         """
-        from .._generated.api.seller_services import services_list
-        from .._generated.types import UNSET
+        from ._generated.api.seller_services import services_list
+        from ._generated.types import UNSET
 
         return unwrap(
             services_list.sync_detailed(
@@ -91,7 +91,7 @@ class ServicesResource:
 
     def get(self, service_id: str | UUID) -> ServiceDetailResponse:
         """Get the full record for a single service, including documents and interfaces."""
-        from .._generated.api.seller_services import services_get
+        from ._generated.api.seller_services import services_get
 
         return unwrap(
             services_get.sync_detailed(
@@ -102,7 +102,7 @@ class ServicesResource:
 
     def get_test_env(self, service_id: str | UUID) -> TestEnvResponse:
         """Return the rendered environment used to run code-example scripts for a service."""
-        from .._generated.api.seller_services import services_get_test_env
+        from ._generated.api.seller_services import services_get_test_env
 
         return unwrap(
             services_get_test_env.sync_detailed(
@@ -130,12 +130,12 @@ class ServicesResource:
         Args:
             body: Either a typed :class:`ServiceDataInput` or a plain
                 dict matching its shape (the high-level
-                :func:`unitysvc_sellers.resources.upload.upload_directory`
+                :func:`upload.upload_directory`
                 helper builds these from a seller's catalog directory).
             dryrun: If True, validate the payload without persisting it.
         """
-        from .._generated.api.seller_services import services_upload
-        from .._generated.models.service_data_input import ServiceDataInput
+        from ._generated.api.seller_services import services_upload
+        from ._generated.models.service_data_input import ServiceDataInput
 
         if isinstance(body, dict):
             body = ServiceDataInput.from_dict(body)
@@ -157,8 +157,8 @@ class ServicesResource:
         body: ServiceStatusUpdate | dict[str, Any],
     ) -> ServiceStatusUpdateResponse:
         """Update a service's seller-facing status (draft / ready / deprecated)."""
-        from .._generated.api.seller_services import services_set_status
-        from .._generated.models.service_status_update import ServiceStatusUpdate
+        from ._generated.api.seller_services import services_set_status
+        from ._generated.models.service_status_update import ServiceStatusUpdate
 
         if isinstance(body, dict):
             body = ServiceStatusUpdate.from_dict(body)
@@ -177,8 +177,8 @@ class ServicesResource:
         body: RoutingVarsUpdate | dict[str, Any],
     ) -> RoutingVarsUpdateResponse:
         """Update the seller-managed routing variables used for request templating."""
-        from .._generated.api.seller_services import services_set_routing_vars
-        from .._generated.models.routing_vars_update import RoutingVarsUpdate
+        from ._generated.api.seller_services import services_set_routing_vars
+        from ._generated.models.routing_vars_update import RoutingVarsUpdate
 
         if isinstance(body, dict):
             body = RoutingVarsUpdate.from_dict(body)
@@ -197,8 +197,8 @@ class ServicesResource:
         body: ListPriceUpdate | dict[str, Any],
     ) -> ListPriceUpdateResponse:
         """Update a service's customer-facing list price."""
-        from .._generated.api.seller_services import services_set_list_price
-        from .._generated.models.list_price_update import ListPriceUpdate
+        from ._generated.api.seller_services import services_set_list_price
+        from ._generated.models.list_price_update import ListPriceUpdate
 
         if isinstance(body, dict):
             body = ListPriceUpdate.from_dict(body)
@@ -224,7 +224,7 @@ class ServicesResource:
             dryrun: If True, return what would be deleted without
                 actually deleting anything.
         """
-        from .._generated.api.seller_services import services_delete
+        from ._generated.api.seller_services import services_delete
 
         return unwrap(
             services_delete.sync_detailed(
