@@ -21,6 +21,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from .._http import unwrap
+from ..exceptions import NotFoundError
 
 if TYPE_CHECKING:
     from .._generated.client import AuthenticatedClient
@@ -98,7 +99,11 @@ class TasksResource:
             chunk_ids = list(remaining)
             for start in range(0, len(chunk_ids), 100):
                 chunk = chunk_ids[start : start + 100]
-                batch = self.get(*chunk)
+                try:
+                    batch = self.get(*chunk)
+                except NotFoundError:
+                    # Task may not be visible yet right after submission
+                    break
                 for tid, status in batch.items():
                     last_seen[tid] = status
                     if status.get("status") in TERMINAL_STATUSES:
