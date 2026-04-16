@@ -21,6 +21,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from .._http import unwrap
+from ..exceptions import NotFoundError
 
 if TYPE_CHECKING:
     from .._generated.client import AuthenticatedClient
@@ -92,19 +93,35 @@ class TasksResource:
         terminal: dict[str, dict[str, Any]] = {}
         last_seen: dict[str, dict[str, Any]] = {}
         deadline = time.time() + timeout
+        # Allow a few consecutive 404s for task-visibility lag after
+        # submission, but re-raise once the threshold is exceeded so
+        # callers can surface "endpoint missing" diagnostics.
+        consecutive_not_found = 0
+        _MAX_NOT_FOUND_RETRIES = 3
 
         while remaining:
             finished_this_round: list[str] = []
             chunk_ids = list(remaining)
+            got_not_found = False
             for start in range(0, len(chunk_ids), 100):
                 chunk = chunk_ids[start : start + 100]
-                batch = self.get(*chunk)
+                try:
+                    batch = self.get(*chunk)
+                except NotFoundError:
+                    consecutive_not_found += 1
+                    if consecutive_not_found > _MAX_NOT_FOUND_RETRIES:
+                        raise
+                    got_not_found = True
+                    break
                 for tid, status in batch.items():
                     last_seen[tid] = status
                     if status.get("status") in TERMINAL_STATUSES:
                         terminal[tid] = status
                         remaining.discard(tid)
                         finished_this_round.append(tid)
+
+            if not got_not_found:
+                consecutive_not_found = 0
 
             if finished_this_round and on_update is not None:
                 try:

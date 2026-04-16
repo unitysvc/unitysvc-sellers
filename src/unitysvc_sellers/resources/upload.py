@@ -93,9 +93,9 @@ def _strip_schema(payload: dict[str, Any]) -> dict[str, Any]:
 def _format_polling_error(exc: APIError) -> str:
     """Translate an APIError raised during task polling into a user-friendly hint.
 
-    The most common failure mode is a 404 / 405 on ``/tasks/batch-status``
-    when the seller points ``UNITYSVC_SELLER_API_URL`` at a composite
-    deployment (``.../v1/seller``) that predates the commit exposing
+    The most common failure mode is a 404 / 405 on ``/tasks/`` when the
+    seller points ``UNITYSVC_SELLER_API_URL`` at a composite deployment
+    (``.../v1/seller``) that predates the commit exposing
     ``/seller/tasks/*``. Generic "404 Not Found" tells them nothing
     useful; an explicit hint saves them a trip to the backend logs.
     """
@@ -462,7 +462,7 @@ def upload_directory(
             # Polling itself blew up — mark every pending task as failed
             # and surface an actionable hint for the common failure modes:
             #
-            #   * 404 / 405 → the backend doesn't expose /tasks/batch-status
+            #   * 404 / 405 → the backend doesn't expose /tasks/
             #     under this base URL. Most likely the seller is pointing
             #     the SDK at a composite deployment (base_url ends in
             #     /seller) that predates the ``Mount tasks router under

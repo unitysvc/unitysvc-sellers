@@ -1187,4 +1187,4 @@ The backend calculates costs using these formulas:
 
 - [File Schemas](file-schemas.md) - Complete schema reference
 - [Data Structure](data-structure.md) - File organization
-- [CLI Reference](cli-reference.md#usvc_seller-data-validate-validate-data) - Validation command
+- [CLI Reference](cli-reference.md#usvc_seller-data-validate) - Validation command

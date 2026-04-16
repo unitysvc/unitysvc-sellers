@@ -10,11 +10,11 @@ API (`https://seller.unitysvc.com/v1`). This package provides:
    seller operations (catalog management, secret rotation, service
    lifecycle) without writing code.
 
-| | Documentation |
-|-|---------------|
-| **Upstream API** | [Swagger UI](https://seller.unitysvc.com/docs) · [ReDoc](https://seller.unitysvc.com/redoc) |
-| **Python SDK** | [SDK Reference](https://unitysvc-sellers.readthedocs.io/en/latest/sdk-reference/) · [API Reference (auto-generated)](https://unitysvc-sellers.readthedocs.io/en/latest/api-reference/) |
-| **CLI** | [CLI Reference](https://unitysvc-sellers.readthedocs.io/en/latest/cli-reference/) |
+| | Guide | Reference |
+|-|-------|-----------|
+| **Upstream API** | | [Swagger UI](https://seller.unitysvc.com/docs) · [ReDoc](https://seller.unitysvc.com/redoc) |
+| **Python SDK** | [SDK Guide](https://unitysvc-sellers.readthedocs.io/en/latest/sdk-guide/) | [SDK Reference](https://unitysvc-sellers.readthedocs.io/en/latest/sdk-reference/) (auto-generated from docstrings) |
+| **CLI** | [CLI Guide](https://unitysvc-sellers.readthedocs.io/en/latest/cli-guide/) | [CLI Reference](https://unitysvc-sellers.readthedocs.io/en/latest/cli-reference/) (auto-generated from `typer`) |
 
 ## Install
 
