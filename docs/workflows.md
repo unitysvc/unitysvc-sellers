@@ -176,6 +176,20 @@ usvc_seller services list --fields id,name,status
 usvc_seller services list --status active
 ```
 
+#### 8. Publish to Marketplace
+
+After your service is activated (approved by admin), it starts as **unlisted**. Set visibility to `public` when you're ready for it to appear in the catalog:
+
+```bash
+# Publish a specific service
+usvc_seller services update <service-id> --visibility public
+
+# Or publish all active services at once
+usvc_seller services set-visibility --all --visibility public --yes
+```
+
+See [Seller Lifecycle](seller-lifecycle.md#visibility) for details on visibility settings.
+
 ### Version Control Integration
 
 ```bash

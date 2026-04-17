@@ -16,8 +16,9 @@ flowchart TD
     end
 
     subgraph Active["3. Active Service"]
-        D[Service goes live]
-        E[Usage tracked per request]
+        D[Service activated<br/>visibility: unlisted]
+        D2{Seller sets<br/>visibility: public}
+        E[Listed on marketplace<br/>Usage tracked]
     end
 
     subgraph Billing["4. Monthly Billing"]
@@ -35,7 +36,8 @@ flowchart TD
     A --> C
     B --> C
     C -->|Approved| D
-    D --> E
+    D --> D2
+    D2 -->|Published| E
     E --> F
     F --> G
     G -->|No dispute| H
@@ -80,7 +82,47 @@ flowchart LR
 
 ## 2. Active Service
 
-Once approved, your service goes live:
+Once approved by admin, your service is **activated** but starts as **unlisted** — it is live and routable, but not yet visible in the public marketplace catalog.
+
+### Visibility
+
+Every service has a visibility setting that controls catalog presence:
+
+| Visibility | In catalog? | Routable? | Use case |
+|---|---|---|---|
+| **`unlisted`** (default) | No | Yes | Soft launch — test with beta customers via direct link |
+| **`public`** | Yes | Yes | Fully discoverable in the marketplace |
+| **`private`** | No | Yes | Internal/ops services, not for customers |
+
+**After activation, you must explicitly publish your service** by setting visibility to `public`. This gives you a soft-launch period to:
+
+-   Verify billing and usage tracking work correctly
+-   Test with a small group of customers via direct link
+-   Confirm documentation and pricing are final
+
+### Publishing your service
+
+**CLI:**
+
+```bash
+# Set a single service to public
+usvc_seller services update <service-id> --visibility public
+
+# Set all active services to public (bulk)
+usvc_seller services set-visibility --all --visibility public --yes
+```
+
+**SDK:**
+
+```python
+client.services.update(service_id, {"visibility": "public"})
+```
+
+**Web interface:** Use the visibility toggle on the service detail page.
+
+You can switch back to `unlisted` at any time to temporarily remove a service from the catalog without affecting existing enrollments or routing.
+
+### Once published
 
 -   **Listed on marketplace** - Users can discover and subscribe
 -   **API routing configured** - Requests flow through UnitySVC gateway
@@ -234,13 +276,14 @@ The payout window (default 2 months) provides time for:
 
 ## Summary
 
-1. **Publish** your ServiceOffering and ServiceListing
+1. **Upload** your ServiceOffering and ServiceListing
 2. **UnitySVC reviews** and approves your submission
-3. **Service goes live** and usage is tracked
-4. **Monthly invoice** generated based on usage × payout_price
-5. **Dispute window** gives you time to review (1-2 weeks)
-6. **Payout window** protects against chargebacks (1-2 months)
-7. **Payout** when balance becomes available
+3. **Service activated** as `unlisted` — live and routable, not in catalog
+4. **Set visibility to `public`** when ready for the marketplace
+5. **Monthly invoice** generated based on usage × payout_price
+6. **Dispute window** gives you time to review (1-2 weeks)
+7. **Payout window** protects against chargebacks (1-2 months)
+8. **Payout** when balance becomes available
 
 ## Questions?
 
