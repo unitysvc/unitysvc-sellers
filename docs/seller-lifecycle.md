@@ -94,10 +94,13 @@ Every service has a visibility setting that controls catalog presence:
 | **`public`** | Yes | Yes | Fully discoverable in the marketplace |
 | **`private`** | No | Yes | Internal/ops services, not for customers |
 
+!!! note "Unlisted services are fully functional"
+    Unlisted services are not hidden — they are simply not listed in the catalog. Anyone with the direct URL can view the service page, enroll, and use the API without any additional restriction. This makes `unlisted` ideal for sharing with beta customers before a public launch: just send them the link.
+
 **After activation, you must explicitly publish your service** by setting visibility to `public`. This gives you a soft-launch period to:
 
 -   Verify billing and usage tracking work correctly
--   Test with a small group of customers via direct link
+-   Share the direct link with beta customers for early feedback
 -   Confirm documentation and pricing are final
 
 ### Publishing your service
