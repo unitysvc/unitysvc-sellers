@@ -10,6 +10,8 @@ from ..types import UNSET, Unset
 
 from ..models.service_status_enum import check_service_status_enum
 from ..models.service_status_enum import ServiceStatusEnum
+from ..models.service_visibility_enum import check_service_visibility_enum
+from ..models.service_visibility_enum import ServiceVisibilityEnum
 from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
@@ -62,6 +64,12 @@ class ServicePublic:
     listing_type: None | str | Unset = UNSET
     status_message: None | str | Unset = UNSET
     is_featured: bool | Unset = False
+    visibility: ServiceVisibilityEnum | Unset = UNSET
+    """ Visibility of a service in the catalog.
+
+    - unlisted: Live and routable, not in catalog, accessible via direct link
+    - public: In catalog, fully discoverable
+    - private: Live and routable, ops/internal use only """
     routing_vars: None | ServicePublicRoutingVarsType0 | Unset = UNSET
     review_count: int | Unset = 0
     average_rating: float | None | Unset = UNSET
@@ -150,6 +158,11 @@ class ServicePublic:
 
         is_featured = self.is_featured
 
+        visibility: str | Unset = UNSET
+        if not isinstance(self.visibility, Unset):
+            visibility = self.visibility
+
+
         routing_vars: dict[str, Any] | None | Unset
         if isinstance(self.routing_vars, Unset):
             routing_vars = UNSET
@@ -221,6 +234,8 @@ class ServicePublic:
             field_dict["status_message"] = status_message
         if is_featured is not UNSET:
             field_dict["is_featured"] = is_featured
+        if visibility is not UNSET:
+            field_dict["visibility"] = visibility
         if routing_vars is not UNSET:
             field_dict["routing_vars"] = routing_vars
         if review_count is not UNSET:
@@ -394,6 +409,16 @@ class ServicePublic:
 
         is_featured = d.pop("is_featured", UNSET)
 
+        _visibility = d.pop("visibility", UNSET)
+        visibility: ServiceVisibilityEnum | Unset
+        if isinstance(_visibility,  Unset):
+            visibility = UNSET
+        else:
+            visibility = check_service_visibility_enum(_visibility)
+
+
+
+
         def _parse_routing_vars(data: object) -> None | ServicePublicRoutingVarsType0 | Unset:
             if data is None:
                 return data
@@ -503,6 +528,7 @@ class ServicePublic:
             listing_type=listing_type,
             status_message=status_message,
             is_featured=is_featured,
+            visibility=visibility,
             routing_vars=routing_vars,
             review_count=review_count,
             average_rating=average_rating,

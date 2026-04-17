@@ -106,10 +106,13 @@ from .service_status_update_response import ServiceStatusUpdateResponse
 from .service_type_enum import ServiceTypeEnum
 from .service_upload_response import ServiceUploadResponse
 from .service_upload_response_dryrun_result_type_0 import ServiceUploadResponseDryrunResultType0
+from .service_visibility_enum import ServiceVisibilityEnum
 from .test_env_response import TestEnvResponse
 from .time_window_enum import TimeWindowEnum
 from .validation_error import ValidationError
 from .vars_ import Vars
+from .visibility_update import VisibilityUpdate
+from .visibility_update_response import VisibilityUpdateResponse
 
 __all__ = (
     "AccessInterfacePublic",
@@ -218,8 +221,11 @@ __all__ = (
     "ServiceTypeEnum",
     "ServiceUploadResponse",
     "ServiceUploadResponseDryrunResultType0",
+    "ServiceVisibilityEnum",
     "TestEnvResponse",
     "TimeWindowEnum",
     "ValidationError",
     "Vars",
+    "VisibilityUpdate",
+    "VisibilityUpdateResponse",
 )

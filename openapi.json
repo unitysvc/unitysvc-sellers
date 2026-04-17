@@ -2586,6 +2586,111 @@
         }
       }
     },
+    "/services/{service_id}/visibility": {
+      "patch": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Update Visibility",
+        "description": "Update visibility on a service.\n\nControls whether the service appears in the public catalog.\nOnly active services can be set to public visibility.",
+        "operationId": "services_set_visibility",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisibilityUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisibilityUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/services/{service_id}/test-env": {
       "get": {
         "tags": [
@@ -5532,6 +5637,10 @@
             "title": "Is Featured",
             "default": false
           },
+          "visibility": {
+            "$ref": "#/components/schemas/ServiceVisibilityEnum",
+            "default": "unlisted"
+          },
           "routing_vars": {
             "anyOf": [
               {
@@ -5681,6 +5790,7 @@
           "content",
           "streaming",
           "compute",
+          "proxy",
           "database",
           "monitoring",
           "analytics"
@@ -5729,6 +5839,16 @@
         ],
         "title": "ServiceUploadResponse",
         "description": "POST /seller/services \u2014 unified response for dryrun and real uploads.\n\nWhen ``dryrun=True`` the upload runs synchronously inside the request:\n``dryrun_result`` carries the validation report (provider / offering /\nlisting / service sub-results) and ``task_id`` is None.\n\nWhen ``dryrun=False`` the upload is queued via Celery and ``task_id``\nis the task id (== Idempotency-Key when one was supplied);\n``dryrun_result`` is None."
+      },
+      "ServiceVisibilityEnum": {
+        "type": "string",
+        "enum": [
+          "unlisted",
+          "public",
+          "private"
+        ],
+        "title": "ServiceVisibilityEnum",
+        "description": "Visibility of a service in the catalog.\n\n- unlisted: Live and routable, not in catalog, accessible via direct link\n- public: In catalog, fully discoverable\n- private: Live and routable, ops/internal use only"
       },
       "TestEnvResponse": {
         "properties": {
@@ -5790,6 +5910,38 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VisibilityUpdate": {
+        "properties": {
+          "visibility": {
+            "$ref": "#/components/schemas/ServiceVisibilityEnum"
+          }
+        },
+        "type": "object",
+        "required": [
+          "visibility"
+        ],
+        "title": "VisibilityUpdate",
+        "description": "Request body for updating visibility on a service."
+      },
+      "VisibilityUpdateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "visibility": {
+            "type": "string",
+            "title": "Visibility"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "visibility"
+        ],
+        "title": "VisibilityUpdateResponse",
+        "description": "PATCH /seller/services/{id}/visibility."
       }
     }
   },

@@ -32,6 +32,9 @@ if TYPE_CHECKING:
     )
     from ._generated.models.task_queued_response import TaskQueuedResponse
     from ._generated.models.test_env_response import TestEnvResponse
+    from ._generated.models.visibility_update_response import (
+        VisibilityUpdateResponse,
+    )
 
 
 class Services:
@@ -208,6 +211,29 @@ class Services:
                 service_id=str(service_id),
                 client=self._client,
                 body=body,
+            )
+        )
+
+    def set_visibility(
+        self,
+        service_id: str | UUID,
+        visibility: str,
+    ) -> VisibilityUpdateResponse:
+        """Update a service's catalog visibility.
+
+        Args:
+            service_id: Service to update.
+            visibility: One of ``"public"``, ``"unlisted"``, or ``"private"``.
+                Only active services can be set to ``"public"``.
+        """
+        from ._generated.api.seller_services import services_set_visibility
+        from ._generated.models.visibility_update import VisibilityUpdate
+
+        return unwrap(
+            services_set_visibility.sync_detailed(
+                service_id=str(service_id),
+                client=self._client,
+                body=VisibilityUpdate.from_dict({"visibility": visibility}),
             )
         )
 

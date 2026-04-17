@@ -44,7 +44,7 @@ from ._helpers import (
 console = Console()
 
 app = typer.Typer(
-    help="Remote service operations (list, show, submit, withdraw, deprecate, delete, update).",
+    help="Remote service operations (list, show, submit, withdraw, deprecate, delete, update, set-visibility).",
 )
 
 
@@ -407,6 +407,74 @@ def deprecate_service(
         confirm_prompt=f"Mark {len(ids)} service(s) as deprecated?",
         yes=yes,
     )
+
+
+# ---------------------------------------------------------------------------
+# set-visibility
+# ---------------------------------------------------------------------------
+@app.command("set-visibility")
+def set_visibility_service(
+    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to update (>=8 chars)."),
+    visibility: str = typer.Option(..., "--visibility", "-v", help="Visibility: public, unlisted, or private."),
+    all_active: bool = typer.Option(False, "--all", help="Apply to all active services."),
+    provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Set catalog visibility on services (public / unlisted / private).
+
+    Only active services can be set to public.
+    """
+    valid = {"public", "unlisted", "private"}
+    if visibility not in valid:
+        console.print(f"[red]Invalid visibility '{visibility}'. Must be one of: {', '.join(sorted(valid))}[/red]")
+        raise typer.Exit(code=1)
+
+    ids = _resolve_or_fetch_ids(
+        api_key=api_key,
+        base_url=base_url,
+        service_ids=service_ids,
+        use_all=all_active,
+        statuses_when_all=["active"],
+        provider=provider,
+        flag_name="all",
+    )
+
+    count = len(ids)
+    if not yes:
+        if not typer.confirm(f"Set {count} service(s) to visibility={visibility}?"):
+            console.print("[yellow]Cancelled[/yellow]")
+            raise typer.Exit(code=0)
+
+    async def _impl() -> list[tuple[str, Exception | None]]:
+        results: list[tuple[str, Exception | None]] = []
+        async with async_client(api_key, base_url) as client:
+            for sid in ids:
+                try:
+                    await client.services.set_visibility(sid, visibility)
+                    results.append((sid, None))
+                except Exception as exc:  # noqa: BLE001
+                    results.append((sid, exc))
+        return results
+
+    results = run_async(_impl(), error_prefix="Set visibility failed")
+
+    success = 0
+    failed = 0
+    for sid, err in results:
+        if err is None:
+            console.print(f"  [green]\u2713[/green] {sid}: visibility={visibility}")
+            success += 1
+        else:
+            console.print(f"  [red]\u2717[/red] {sid}: {err}")
+            failed += 1
+
+    if count > 1:
+        console.print(f"\n[green]\u2713 Success:[/green] {success}/{count}")
+        if failed:
+            console.print(f"[red]\u2717 Failed:[/red] {failed}/{count}")
+            raise typer.Exit(code=1)
 
 
 # ---------------------------------------------------------------------------
