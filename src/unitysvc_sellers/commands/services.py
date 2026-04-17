@@ -44,7 +44,7 @@ from ._helpers import (
 console = Console()
 
 app = typer.Typer(
-    help="Remote service operations (list, show, submit, withdraw, deprecate, delete, update, set-visibility).",
+    help="Remote service operations (list, show, submit, withdraw, deprecate, set-visibility, delete, update).",
 )
 
 
@@ -236,7 +236,7 @@ def _bulk_status_change(
     confirm_prompt: str,
     yes: bool,
 ) -> None:
-    """Apply ``set_status`` across many services with consistent UX."""
+    """Apply status change across many services with consistent UX."""
     count = len(service_ids)
     if not yes:
         if not typer.confirm(confirm_prompt):
@@ -248,7 +248,7 @@ def _bulk_status_change(
         async with async_client(api_key, base_url) as client:
             for sid in service_ids:
                 try:
-                    await client.services.set_status(sid, {"status": status})
+                    await client.services.update(sid, {"status": status})
                     results.append((sid, None))
                 except Exception as exc:  # noqa: BLE001
                     results.append((sid, exc))
@@ -452,7 +452,7 @@ def set_visibility_service(
         async with async_client(api_key, base_url) as client:
             for sid in ids:
                 try:
-                    await client.services.set_visibility(sid, visibility)
+                    await client.services.update(sid, {"visibility": visibility})
                     results.append((sid, None))
                 except Exception as exc:  # noqa: BLE001
                     results.append((sid, exc))
@@ -595,6 +595,11 @@ def _parse_set_options(items: list[str], option_name: str) -> dict[str, Any]:
 @app.command("update")
 def update_service(
     service_id: str = typer.Argument(..., help="Service ID (full or partial, ≥8 chars)."),
+    visibility: str | None = typer.Option(
+        None,
+        "--visibility", "-v",
+        help="Set catalog visibility: public, unlisted, or private.",
+    ),
     set_routing_var: list[str] = typer.Option(
         None,
         "--set-routing-var",
@@ -608,7 +613,7 @@ def update_service(
     load_routing_vars: str | None = typer.Option(
         None,
         "--load-routing-vars",
-        help="Merge routing vars from a JSON file.",
+        help="Replace all routing vars from a JSON file.",
     ),
     set_price: list[str] = typer.Option(
         None,
@@ -623,27 +628,35 @@ def update_service(
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Update routing vars and/or list price on a live service."""
+    """Update visibility, routing vars, and/or list price on a live service.
+
+    All updates are sent in a single PATCH request.
+    """
     has_routing = bool(set_routing_var or remove_routing_var or load_routing_vars)
     has_price = bool(set_price or remove_price_field)
 
-    if not has_routing and not has_price:
+    if not has_routing and not has_price and not visibility:
         console.print(
-            "[yellow]Nothing to do:[/yellow] provide --set-routing-var,"
-            " --remove-routing-var, --load-routing-vars, --set-price,"
-            " or --remove-price-field"
+            "[yellow]Nothing to do:[/yellow] provide --visibility,"
+            " --set-routing-var, --remove-routing-var, --load-routing-vars,"
+            " --set-price, or --remove-price-field"
         )
         raise typer.Exit(code=0)
 
+    # Build unified update body
+    update_body: dict[str, Any] = {}
+
+    if visibility:
+        valid = {"public", "unlisted", "private"}
+        if visibility not in valid:
+            console.print(f"[red]Invalid visibility '{visibility}'. Must be one of: {', '.join(sorted(valid))}[/red]")
+            raise typer.Exit(code=1)
+        update_body["visibility"] = visibility
+
     # Routing vars
     if has_routing:
-        set_dict: dict[str, Any] = {}
-        remove_list = list(remove_routing_var) if remove_routing_var else []
-
-        if set_routing_var:
-            set_dict.update(_parse_set_options(set_routing_var, "--set-routing-var"))
-
-        if load_routing_vars:
+        if load_routing_vars and not set_routing_var and not remove_routing_var:
+            # Full replacement from file
             try:
                 with open(load_routing_vars, encoding="utf-8") as f:
                     loaded = json.load(f)
@@ -653,26 +666,33 @@ def update_service(
             if not isinstance(loaded, dict):
                 console.print("[red]Error:[/red] JSON file must contain an object (dict)")
                 raise typer.Exit(code=1)
-            set_dict.update(loaded)
+            update_body["routing_vars"] = loaded
+        else:
+            # Partial update via set/remove
+            rv_body: dict[str, Any] = {}
+            set_dict: dict[str, Any] = {}
+            remove_list = list(remove_routing_var) if remove_routing_var else []
 
-        body: dict[str, Any] = {}
-        if set_dict:
-            body["set"] = set_dict
-        if remove_list:
-            body["remove"] = remove_list
+            if set_routing_var:
+                set_dict.update(_parse_set_options(set_routing_var, "--set-routing-var"))
+            if load_routing_vars:
+                try:
+                    with open(load_routing_vars, encoding="utf-8") as f:
+                        loaded = json.load(f)
+                except (OSError, json.JSONDecodeError) as exc:
+                    console.print(f"[red]Error:[/red] Failed to load {load_routing_vars}: {exc}")
+                    raise typer.Exit(code=1) from exc
+                if not isinstance(loaded, dict):
+                    console.print("[red]Error:[/red] JSON file must contain an object (dict)")
+                    raise typer.Exit(code=1)
+                set_dict.update(loaded)
 
-        if body:
-
-            async def _routing() -> dict[str, Any]:
-                async with async_client(api_key, base_url) as client:
-                    return model_to_dict(await client.services.set_routing_vars(service_id, body))
-
-            result = run_async(_routing(), error_prefix="Failed to update routing_vars")
-            console.print(f"[green]✓[/green] routing_vars updated for service {result.get('id', service_id)}")
-            if result.get("routing_vars"):
-                console.print(json.dumps(result["routing_vars"], indent=2))
-            else:
-                console.print("[dim](empty)[/dim]")
+            if set_dict:
+                rv_body["set"] = set_dict
+            if remove_list:
+                rv_body["remove"] = remove_list
+            if rv_body:
+                update_body["routing_vars"] = rv_body
 
     # List price
     if has_price:
@@ -691,24 +711,35 @@ def update_service(
                         pass
                 price_dict.update(_parse_set_options([item], "--set-price"))
 
-        body = {}
+        lp_body: dict[str, Any] = {}
         if price_dict:
-            body["set"] = price_dict
+            lp_body["set"] = price_dict
         if price_remove:
-            body["remove"] = price_remove
+            lp_body["remove"] = price_remove
+        if lp_body:
+            update_body["list_price"] = lp_body
 
-        if body:
+    if not update_body:
+        console.print("[yellow]Nothing to do[/yellow]")
+        raise typer.Exit(code=0)
 
-            async def _price() -> dict[str, Any]:
-                async with async_client(api_key, base_url) as client:
-                    return model_to_dict(await client.services.set_list_price(service_id, body))
+    async def _update() -> dict[str, Any]:
+        async with async_client(api_key, base_url) as client:
+            return model_to_dict(await client.services.update(service_id, update_body))
 
-            result = run_async(_price(), error_prefix="Failed to update list_price")
-            console.print(f"[green]✓[/green] list_price updated for service {result.get('id', service_id)}")
-            if result.get("list_price"):
-                console.print(json.dumps(result["list_price"], indent=2))
-            else:
-                console.print("[dim](empty)[/dim]")
+    result = run_async(_update(), error_prefix="Failed to update service")
+    sid = result.get("id", service_id)
+
+    if result.get("visibility"):
+        console.print(f"[green]\u2713[/green] visibility={result['visibility']} for service {sid}")
+    if result.get("routing_vars") is not None:
+        console.print(f"[green]\u2713[/green] routing_vars updated for service {sid}")
+        console.print(json.dumps(result["routing_vars"], indent=2))
+    if result.get("list_price") is not None:
+        console.print(f"[green]\u2713[/green] list_price updated for service {sid}")
+        console.print(json.dumps(result["list_price"], indent=2))
+    if result.get("message"):
+        console.print(f"[green]\u2713[/green] {result['message']}")
 
 
 # Suppress unused-import warning for SellerSDKError, kept available for callers.

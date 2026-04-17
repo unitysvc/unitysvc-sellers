@@ -14,18 +14,14 @@ from ..types import UNSET, Unset
 
 
 
-T = TypeVar("T", bound="VisibilityUpdateResponse")
+T = TypeVar("T", bound="ServiceUpdateRoutingVarsType0")
 
 
 
 @_attrs_define
-class VisibilityUpdateResponse:
-    """ PATCH /seller/services/{id}/visibility.
+class ServiceUpdateRoutingVarsType0:
+    
 
-     """
-
-    id: str
-    visibility: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -33,17 +29,9 @@ class VisibilityUpdateResponse:
 
 
     def to_dict(self) -> dict[str, Any]:
-        id = self.id
-
-        visibility = self.visibility
-
-
+        
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "id": id,
-            "visibility": visibility,
-        })
 
         return field_dict
 
@@ -52,18 +40,12 @@ class VisibilityUpdateResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        id = d.pop("id")
-
-        visibility = d.pop("visibility")
-
-        visibility_update_response = cls(
-            id=id,
-            visibility=visibility,
+        service_update_routing_vars_type_0 = cls(
         )
 
 
-        visibility_update_response.additional_properties = d
-        return visibility_update_response
+        service_update_routing_vars_type_0.additional_properties = d
+        return service_update_routing_vars_type_0
 
     @property
     def additional_keys(self) -> list[str]:
