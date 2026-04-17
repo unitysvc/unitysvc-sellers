@@ -14,19 +14,14 @@ from ..types import UNSET, Unset
 
 
 
-T = TypeVar("T", bound="ServiceStatusUpdateResponse")
+T = TypeVar("T", bound="ServiceUpdateRoutingVarsType0")
 
 
 
 @_attrs_define
-class ServiceStatusUpdateResponse:
-    """ PATCH /seller/services/{id}.
+class ServiceUpdateRoutingVarsType0:
+    
 
-     """
-
-    id: str
-    status: str
-    message: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -34,20 +29,9 @@ class ServiceStatusUpdateResponse:
 
 
     def to_dict(self) -> dict[str, Any]:
-        id = self.id
-
-        status = self.status
-
-        message = self.message
-
-
+        
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "id": id,
-            "status": status,
-            "message": message,
-        })
 
         return field_dict
 
@@ -56,21 +40,12 @@ class ServiceStatusUpdateResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        id = d.pop("id")
-
-        status = d.pop("status")
-
-        message = d.pop("message")
-
-        service_status_update_response = cls(
-            id=id,
-            status=status,
-            message=message,
+        service_update_routing_vars_type_0 = cls(
         )
 
 
-        service_status_update_response.additional_properties = d
-        return service_status_update_response
+        service_update_routing_vars_type_0.additional_properties = d
+        return service_update_routing_vars_type_0
 
     @property
     def additional_keys(self) -> list[str]:

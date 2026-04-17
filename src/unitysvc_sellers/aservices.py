@@ -18,19 +18,10 @@ if TYPE_CHECKING:
     from ._generated.models.cursor_page_service_public import (
         CursorPageServicePublic,
     )
-    from ._generated.models.list_price_update import ListPriceUpdate
-    from ._generated.models.list_price_update_response import ListPriceUpdateResponse
-    from ._generated.models.routing_vars_update import RoutingVarsUpdate
-    from ._generated.models.routing_vars_update_response import (
-        RoutingVarsUpdateResponse,
-    )
     from ._generated.models.service_data_input import ServiceDataInput
     from ._generated.models.service_delete_response import ServiceDeleteResponse
     from ._generated.models.service_detail_response import ServiceDetailResponse
-    from ._generated.models.service_status_update import ServiceStatusUpdate
-    from ._generated.models.service_status_update_response import (
-        ServiceStatusUpdateResponse,
-    )
+    from ._generated.models.service_update_response import ServiceUpdateResponse
     from ._generated.models.task_queued_response import TaskQueuedResponse
     from ._generated.models.test_env_response import TestEnvResponse
 
@@ -106,60 +97,20 @@ class AsyncServices:
             )
         )
 
-    async def set_status(
+    async def update(
         self,
         service_id: str | UUID,
-        body: ServiceStatusUpdate | dict[str, Any],
-    ) -> ServiceStatusUpdateResponse:
-        from ._generated.api.seller_services import services_set_status
-        from ._generated.models.service_status_update import ServiceStatusUpdate
-
-        if isinstance(body, dict):
-            body = ServiceStatusUpdate.from_dict(body)
+        body: dict[str, Any],
+    ) -> ServiceUpdateResponse:
+        """Update a service — status, visibility, routing vars, and/or list price."""
+        from ._generated.api.seller_services import services_update
+        from ._generated.models.service_update import ServiceUpdate
 
         return unwrap(
-            await services_set_status.asyncio_detailed(
+            await services_update.asyncio_detailed(
                 service_id=str(service_id),
                 client=self._client,
-                body=body,
-            )
-        )
-
-    async def set_routing_vars(
-        self,
-        service_id: str | UUID,
-        body: RoutingVarsUpdate | dict[str, Any],
-    ) -> RoutingVarsUpdateResponse:
-        from ._generated.api.seller_services import services_set_routing_vars
-        from ._generated.models.routing_vars_update import RoutingVarsUpdate
-
-        if isinstance(body, dict):
-            body = RoutingVarsUpdate.from_dict(body)
-
-        return unwrap(
-            await services_set_routing_vars.asyncio_detailed(
-                service_id=str(service_id),
-                client=self._client,
-                body=body,
-            )
-        )
-
-    async def set_list_price(
-        self,
-        service_id: str | UUID,
-        body: ListPriceUpdate | dict[str, Any],
-    ) -> ListPriceUpdateResponse:
-        from ._generated.api.seller_services import services_set_list_price
-        from ._generated.models.list_price_update import ListPriceUpdate
-
-        if isinstance(body, dict):
-            body = ListPriceUpdate.from_dict(body)
-
-        return unwrap(
-            await services_set_list_price.asyncio_detailed(
-                service_id=str(service_id),
-                client=self._client,
-                body=body,
+                body=ServiceUpdate.from_dict(body),
             )
         )
 

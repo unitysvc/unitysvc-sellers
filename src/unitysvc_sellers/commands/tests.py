@@ -436,7 +436,7 @@ def run_tests(
             #    active already route correctly.
             elevated = False
             if original_status in ("draft", "rejected"):
-                await client.services.set_status(
+                await client.services.update(
                     full_service_id,
                     {"status": "pending", "run_tests": False},
                 )
@@ -563,7 +563,7 @@ def run_tests(
                 #    results.
                 if elevated and original_status:
                     try:
-                        await client.services.set_status(
+                        await client.services.update(
                             full_service_id,
                             {"status": original_status, "run_tests": False},
                         )

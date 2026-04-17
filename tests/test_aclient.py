@@ -78,11 +78,9 @@ def _service_group_public(**overrides) -> dict:
     return base
 
 
-def _service_status_update_response(**overrides) -> dict:
+def _service_update_response(**overrides) -> dict:
     base = {
         "id": str(uuid.uuid4()),
-        "status": "active",
-        "message": "ok",
     }
     base.update(overrides)
     return base
@@ -131,17 +129,17 @@ class TestAsyncClient:
 
     @pytest.mark.asyncio
     @respx.mock
-    async def test_services_set_status_sends_body(self) -> None:
+    async def test_services_update_sends_body(self) -> None:
         sid = uuid.uuid4()
         route = respx.patch(f"{BASE_URL}/services/{sid}").mock(
             return_value=httpx.Response(
                 200,
-                json=_service_status_update_response(id=str(sid), status="deprecated"),
+                json=_service_update_response(id=str(sid), status="deprecated"),
             )
         )
 
         async with AsyncClient(api_key="svcpass_test", base_url=BASE_URL) as client:
-            await client.services.set_status(sid, {"status": "deprecated"})
+            await client.services.update(sid, {"status": "deprecated"})
 
         body = json.loads(route.calls.last.request.content.decode())
         assert body["status"] == "deprecated"
@@ -527,7 +525,7 @@ class TestRunTestsLocalExecution:
         set_status_route = respx.patch(f"{BASE_URL}/services/{service_id}").mock(
             return_value=httpx.Response(
                 200,
-                json={"id": service_id, "status": "pending", "message": "ok"},
+                json={"id": service_id},
             )
         )
 

@@ -495,7 +495,7 @@ $ usvc_seller data list listings [OPTIONS] [DATA_DIR]
 
 ## `usvc_seller services`
 
-Remote service operations (list, show, submit, withdraw, deprecate, delete, update).
+Remote service operations (list, show, submit, withdraw, deprecate, set-visibility, delete, update).
 
 **Usage**:
 
@@ -514,8 +514,9 @@ $ usvc_seller services [OPTIONS] COMMAND [ARGS]...
 * `submit`: Submit services for review (draft|rejected...
 * `withdraw`: Withdraw services back to draft...
 * `deprecate`: Mark services as deprecated.
+* `set-visibility`: Set catalog visibility on services (public...
 * `delete`: Permanently delete services.
-* `update`: Update routing vars and/or list price on a...
+* `update`: Update visibility, routing vars, and/or...
 * `list-tests`: List testable documents for one service or...
 * `show-test`: Show the latest test result for a single...
 * `run-tests`: Run a service&#x27;s testable documents locally...
@@ -639,6 +640,32 @@ $ usvc_seller services deprecate [OPTIONS] [SERVICE_IDS]...
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
+### `usvc_seller services set-visibility`
+
+Set catalog visibility on services (public / unlisted / private).
+
+Only active services can be set to public.
+
+**Usage**:
+
+```console
+$ usvc_seller services set-visibility [OPTIONS] [SERVICE_IDS]...
+```
+
+**Arguments**:
+
+* `[SERVICE_IDS]...`: Service ID(s) to update (&gt;=8 chars).
+
+**Options**:
+
+* `-v, --visibility TEXT`: Visibility: public, unlisted, or private.  [required]
+* `--all`: Apply to all active services.
+* `--provider TEXT`: Filter by provider when --all is set.
+* `-y, --yes`: Skip confirmation prompt.
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
 ### `usvc_seller services delete`
 
 Permanently delete services.
@@ -666,7 +693,9 @@ $ usvc_seller services delete [OPTIONS] [SERVICE_IDS]...
 
 ### `usvc_seller services update`
 
-Update routing vars and/or list price on a live service.
+Update visibility, routing vars, and/or list price on a live service.
+
+All updates are sent in a single PATCH request.
 
 **Usage**:
 
@@ -680,9 +709,10 @@ $ usvc_seller services update [OPTIONS] SERVICE_ID
 
 **Options**:
 
+* `-v, --visibility TEXT`: Set catalog visibility: public, unlisted, or private.
 * `--set-routing-var TEXT`: Set routing var(s): key=value or JSON object &#x27;{...}&#x27; (repeatable).
 * `--remove-routing-var TEXT`: Remove a routing var by key or dotted path (repeatable).
-* `--load-routing-vars TEXT`: Merge routing vars from a JSON file.
+* `--load-routing-vars TEXT`: Replace all routing vars from a JSON file.
 * `--set-price TEXT`: Set list_price: key=value, JSON &#x27;{...}&#x27;, or plain number for constant pricing (repeatable).
 * `--remove-price-field TEXT`: Remove a list_price field by key or dotted path (repeatable).
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]

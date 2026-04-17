@@ -2276,9 +2276,9 @@
         "tags": [
           "seller-services"
         ],
-        "summary": "Update Service Status",
-        "description": "Update a service's status.\n\nSellers can update their service status for workflow transitions:\n- draft -> pending (submit for review)\n- rejected -> pending (resubmit for review)\n- rejected -> draft (re-edit after rejection)\n- pending -> draft (withdraw submission)\n- active -> deprecated (deprecate)\n\nSupports partial ID matching (minimum 8 characters).\n\nReturns:\n- id: Service ID\n- status: New status\n- message: Success message",
-        "operationId": "services_set_status",
+        "summary": "Update Service",
+        "description": "Update a service \u2014 status, visibility, routing vars, and/or list price.\n\nAll fields are optional. Include only the fields you want to change.\nMultiple fields can be updated in a single request.\n\n**Status** transitions (seller-allowed):\ndraft \u2192 pending, rejected \u2192 pending, rejected \u2192 draft,\npending \u2192 draft, active \u2192 deprecated.\n\n**Visibility**: ``public`` / ``unlisted`` / ``private``.\nOnly active services can be set to ``public``.\n\n**Routing vars** and **list price** accept two forms:\n\n- *Full replacement* \u2014 a plain dict replaces the entire value::\n\n    {\"routing_vars\": {\"region\": \"us-east\", \"count\": 42}}\n    {\"list_price\": {\"type\": \"constant\", \"price\": \"1.00\"}}\n\n- *Partial update* \u2014 a dict with ``set`` and/or ``remove`` keys::\n\n    {\"routing_vars\": {\"set\": {\"count\": 43}, \"remove\": [\"region\"]}}\n    {\"list_price\": {\"set\": {\"input\": \"0.40\"}, \"remove\": [\"reference\"]}}",
+        "operationId": "services_update",
         "parameters": [
           {
             "name": "service_id",
@@ -2327,7 +2327,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ServiceStatusUpdate"
+                "$ref": "#/components/schemas/ServiceUpdate"
               }
             }
           }
@@ -2338,217 +2338,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ServiceStatusUpdateResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/services/{service_id}/routing-vars": {
-      "patch": {
-        "tags": [
-          "seller-services"
-        ],
-        "summary": "Update Routing Vars",
-        "description": "Update routing_vars on an active service without approval.\n\nThe template is the security boundary \u2014 sellers can only change values\nwithin the boundaries the admin-approved template defines.\n\nSupports:\n- set: dict of key-value pairs to add/update\n- remove: list of keys to remove (supports dot-paths for nested keys, e.g. \"users.alice\")",
-        "operationId": "services_set_routing_vars",
-        "parameters": [
-          {
-            "name": "service_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Service Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-role-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RoutingVarsUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoutingVarsUpdateResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/services/{service_id}/list-price": {
-      "patch": {
-        "tags": [
-          "seller-services"
-        ],
-        "summary": "Update List Price",
-        "description": "Update list_price on an active service without approval.\n\nAllows sellers to quickly adjust pricing without re-uploading the service.\nOnly works on active services.\n\nSupports:\n- set: dict of key-value pairs to add/update in the list_price JSONB\n  (e.g. {\"input\": \"0.40\"} to update a single field, or a full pricing\n  object to replace entirely)\n- remove: list of keys to remove (supports dot-paths for nested keys)",
-        "operationId": "services_set_list_price",
-        "parameters": [
-          {
-            "name": "service_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Service Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-role-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ListPriceUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListPriceUpdateResponse"
+                  "$ref": "#/components/schemas/ServiceUpdateResponse"
                 }
               }
             }
@@ -3443,65 +3233,6 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "ListPriceUpdate": {
-        "properties": {
-          "set": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Set"
-          },
-          "remove": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Remove"
-          }
-        },
-        "type": "object",
-        "title": "ListPriceUpdate",
-        "description": "Request body for updating list_price on an active service."
-      },
-      "ListPriceUpdateResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "list_price": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "List Price"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id"
-        ],
-        "title": "ListPriceUpdateResponse",
-        "description": "PATCH /seller/services/{id}/list-price."
-      },
       "ListingStatusEnum": {
         "type": "string",
         "enum": [
@@ -3899,65 +3630,6 @@
           "set_body"
         ],
         "title": "RequestTransformEnum"
-      },
-      "RoutingVarsUpdate": {
-        "properties": {
-          "set": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Set"
-          },
-          "remove": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Remove"
-          }
-        },
-        "type": "object",
-        "title": "RoutingVarsUpdate",
-        "description": "Request body for updating routing_vars on an active service."
-      },
-      "RoutingVarsUpdateResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "routing_vars": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Routing Vars"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id"
-        ],
-        "title": "RoutingVarsUpdateResponse",
-        "description": "PATCH /seller/services/{id}/routing-vars."
       },
       "SecretCreate": {
         "properties": {
@@ -5532,6 +5204,10 @@
             "title": "Is Featured",
             "default": false
           },
+          "visibility": {
+            "$ref": "#/components/schemas/ServiceVisibilityEnum",
+            "default": "unlisted"
+          },
           "routing_vars": {
             "anyOf": [
               {
@@ -5628,48 +5304,6 @@
         "title": "ServiceStatusEnum",
         "description": "Status of a Service (identity layer).\n\nWorkflow:\n- draft: Not yet submitted for review (default, seller still editing)\n- pending: Tests running (transient, after seller publishes)\n- review: Tests passed, awaiting admin approval\n- active: Approved and operational, accepting requests\n- rejected: Admin rejected (seller can revise and republish)\n- suspended: Admin suspended due to issues/violations\n- deprecated: Service ending"
       },
-      "ServiceStatusUpdate": {
-        "properties": {
-          "status": {
-            "$ref": "#/components/schemas/ServiceStatusEnum"
-          },
-          "run_tests": {
-            "type": "boolean",
-            "title": "Run Tests",
-            "default": true
-          }
-        },
-        "type": "object",
-        "required": [
-          "status"
-        ],
-        "title": "ServiceStatusUpdate",
-        "description": "Request model for updating service status."
-      },
-      "ServiceStatusUpdateResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "status",
-          "message"
-        ],
-        "title": "ServiceStatusUpdateResponse",
-        "description": "PATCH /seller/services/{id}."
-      },
       "ServiceTypeEnum": {
         "type": "string",
         "enum": [
@@ -5681,12 +5315,140 @@
           "content",
           "streaming",
           "compute",
+          "proxy",
           "database",
           "monitoring",
           "analytics"
         ],
         "title": "ServiceTypeEnum",
         "description": "Broad service category \u2014 defines the access pattern and protocol.\n\nAI modalities (vision, tools, rerank, etc.) are tracked via the\n`capabilities` list on ServiceOffering, not service_type."
+      },
+      "ServiceUpdate": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceStatusEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run_tests": {
+            "type": "boolean",
+            "title": "Run Tests",
+            "default": true
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceVisibilityEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "routing_vars": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Vars"
+          },
+          "list_price": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "List Price"
+          }
+        },
+        "type": "object",
+        "title": "ServiceUpdate",
+        "description": "Unified request body for updating a service.\n\nAll fields are optional \u2014 include only the fields you want to change.\nMultiple fields can be updated in a single request.\n\n``routing_vars`` and ``list_price`` accept two forms:\n\n- **Full replacement** \u2014 a plain dict replaces the entire value::\n\n    {\"routing_vars\": {\"region\": \"us-east\", \"count\": 42}}\n\n- **Partial update** \u2014 a dict with ``set`` and/or ``remove`` keys::\n\n    {\"routing_vars\": {\"set\": {\"count\": 43}, \"remove\": [\"region\"]}}"
+      },
+      "ServiceUpdateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibility"
+          },
+          "routing_vars": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Vars"
+          },
+          "list_price": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "List Price"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ServiceUpdateResponse",
+        "description": "Only updated fields are returned."
       },
       "ServiceUploadResponse": {
         "properties": {
@@ -5729,6 +5491,16 @@
         ],
         "title": "ServiceUploadResponse",
         "description": "POST /seller/services \u2014 unified response for dryrun and real uploads.\n\nWhen ``dryrun=True`` the upload runs synchronously inside the request:\n``dryrun_result`` carries the validation report (provider / offering /\nlisting / service sub-results) and ``task_id`` is None.\n\nWhen ``dryrun=False`` the upload is queued via Celery and ``task_id``\nis the task id (== Idempotency-Key when one was supplied);\n``dryrun_result`` is None."
+      },
+      "ServiceVisibilityEnum": {
+        "type": "string",
+        "enum": [
+          "unlisted",
+          "public",
+          "private"
+        ],
+        "title": "ServiceVisibilityEnum",
+        "description": "Visibility of a service in the catalog.\n\n- unlisted: Live and routable, not in catalog, accessible via direct link\n- public: In catalog, fully discoverable\n- private: Live and routable, ops/internal use only"
       },
       "TestEnvResponse": {
         "properties": {

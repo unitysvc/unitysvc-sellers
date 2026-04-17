@@ -14,12 +14,12 @@ from ..types import UNSET, Unset
 
 
 
-T = TypeVar("T", bound="RoutingVarsUpdateSetType0")
+T = TypeVar("T", bound="ServiceUpdateResponseListPriceType0")
 
 
 
 @_attrs_define
-class RoutingVarsUpdateSetType0:
+class ServiceUpdateResponseListPriceType0:
     
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -40,12 +40,12 @@ class RoutingVarsUpdateSetType0:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        routing_vars_update_set_type_0 = cls(
+        service_update_response_list_price_type_0 = cls(
         )
 
 
-        routing_vars_update_set_type_0.additional_properties = d
-        return routing_vars_update_set_type_0
+        service_update_response_list_price_type_0.additional_properties = d
+        return service_update_response_list_price_type_0
 
     @property
     def additional_keys(self) -> list[str]:
