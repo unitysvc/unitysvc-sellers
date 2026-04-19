@@ -1,11 +1,10 @@
-"""``usvc_seller secrets`` — remote seller secret operations.
+"""``usvc secrets`` — remote seller secret operations.
 
 Commands:
 
 - ``list``   — list the seller's secrets (metadata only)
 - ``show``   — show one secret's metadata by name
-- ``create`` — create a new secret
-- ``rotate`` — rotate (update) an existing secret's value
+- ``set``    — set a secret (idempotent — creates or rotates)
 - ``delete`` — permanently delete a secret
 """
 
@@ -14,7 +13,6 @@ from __future__ import annotations
 import json
 import sys
 from getpass import getpass
-from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -32,41 +30,33 @@ from ._helpers import (
 console = Console()
 
 app = typer.Typer(
-    help="Remote secret operations (list, show, create, rotate, delete).",
+    help="Remote secret operations (list, show, set, delete).",
 )
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _read_value(
-    value: str | None,
-    value_file: Path | None,
-    value_stdin: bool,
-) -> str:
-    """Resolve a secret value from flags or interactive prompt.
+def _resolve_value(value: str | None, *, name: str) -> str:
+    """Resolve a secret value with mainstream-CLI semantics.
 
-    Priority: --value-stdin > --value-file > --value > interactive prompt.
+    Resolution order:
+      1. ``--value VALUE``  — explicit literal (also covers shell expansion
+                              like ``--value "$ENV_NAME"``)
+      2. piped stdin        — ``echo v | usvc secret set X``
+                              (trailing newline stripped)
+      3. interactive prompt — TTY only; hidden input
+
+    Mirrors ``gh secret set`` and ``vault kv put``.
     """
-    if value_stdin:
-        v = sys.stdin.read().strip()
-        if not v:
-            console.print("[red]Error:[/red] No value received on stdin")
-            raise typer.Exit(code=1)
-        return v
-    if value_file is not None:
-        if not value_file.exists():
-            console.print(f"[red]Error:[/red] File not found: {value_file}")
-            raise typer.Exit(code=1)
-        return value_file.read_text().strip()
     if value is not None:
         return value
-    # Interactive secure prompt
-    v = getpass("Secret value: ")
-    if not v:
-        console.print("[red]Error:[/red] No value provided")
-        raise typer.Exit(code=1)
-    return v
+    if not sys.stdin.isatty():
+        # Piped (or closed) stdin: read it. Strip a single trailing
+        # newline so ``echo "$X" | ...`` works as expected.
+        return sys.stdin.read().rstrip("\n")
+    # Terminal: prompt with hidden input.
+    return getpass(f"Value for secret '{name}': ")
 
 
 # ---------------------------------------------------------------------------
@@ -151,19 +141,31 @@ def show_secret(
 @app.command("set")
 def set_secret(
     name: str = typer.Argument(..., help="Secret name (uppercase + underscores, e.g. OPENAI_API_KEY)."),
-    value: str | None = typer.Option(None, "--value", "-v", help="Secret value. Omit to prompt securely."),
-    value_file: Path | None = typer.Option(None, "--value-file", help="Read value from file."),
-    value_stdin: bool = typer.Option(False, "--value-stdin", help="Read value from stdin."),
+    value: str | None = typer.Option(
+        None,
+        "--value",
+        "-v",
+        help=(
+            "Secret value. If omitted: reads from stdin when piped, prompts with hidden input when run interactively."
+        ),
+    ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
     """Set a secret to ``value`` (idempotent — creates or rotates).
 
-    Maps to ``PUT /v1/seller/secrets/{name}``. The value cannot be
-    retrieved after this call — store it securely if you need a copy.
+    Maps to ``PUT /v1/seller/secrets/{name}``. The value is encrypted
+    server-side and cannot be retrieved later. Resolution order:
+
+      1. ``--value VALUE``  — explicit literal (or ``--value "$ENV"``
+                              via shell expansion)
+      2. piped stdin        — ``echo v | usvc secrets set X``
+      3. interactive prompt — TTY only; hidden input
+
+    Mirrors ``gh secret set`` and ``vault kv put``.
     """
-    resolved_value = _read_value(value, value_file, value_stdin)
+    resolved_value = _resolve_value(value, name=name)
 
     async def _impl():
         async with async_client(api_key, base_url) as client:
