@@ -28,7 +28,7 @@ $ usvc_seller [OPTIONS] COMMAND [ARGS]...
 * `services`: Remote service operations (list, show,...
 * `promotions`: Remote promotion operations (list, show,...
 * `groups`: Remote service group operations (list,...
-* `secrets`: Remote secret operations (list, show,...
+* `secrets`: Remote secret operations (list, show, set,...
 
 ## `usvc_seller data`
 
@@ -1050,7 +1050,7 @@ $ usvc_seller groups delete [OPTIONS] NAME_OR_ID
 
 ## `usvc_seller secrets`
 
-Remote secret operations (list, show, create, rotate, delete).
+Remote secret operations (list, show, set, delete).
 
 **Usage**:
 
@@ -1111,8 +1111,15 @@ $ usvc_seller secrets show [OPTIONS] NAME
 
 Set a secret to ``value`` (idempotent — creates or rotates).
 
-Maps to ``PUT /v1/seller/secrets/{name}``. The value cannot be
-retrieved after this call — store it securely if you need a copy.
+Maps to ``PUT /v1/seller/secrets/{name}``. The value is encrypted
+server-side and cannot be retrieved later. Resolution order:
+
+  1. ``--value VALUE``  — explicit literal (or ``--value &quot;$ENV&quot;``
+                          via shell expansion)
+  2. piped stdin        — ``echo v | usvc secrets set X``
+  3. interactive prompt — TTY only; hidden input
+
+Mirrors ``gh secret set`` and ``vault kv put``.
 
 **Usage**:
 
@@ -1126,9 +1133,7 @@ $ usvc_seller secrets set [OPTIONS] NAME
 
 **Options**:
 
-* `-v, --value TEXT`: Secret value. Omit to prompt securely.
-* `--value-file PATH`: Read value from file.
-* `--value-stdin`: Read value from stdin.
+* `-v, --value TEXT`: Secret value. If omitted: reads from stdin when piped, prompts with hidden input when run interactively.
 * `-f, --format TEXT`: Output format: table | json.  [default: table]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
