@@ -1,39 +1,31 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.currency_enum import CurrencyEnum, check_currency_enum
+from ..models.offering_status_enum import OfferingStatusEnum, check_offering_status_enum
+from ..models.service_type_enum import ServiceTypeEnum, check_service_type_enum
 from ..types import UNSET, Unset
-
-from ..models.currency_enum import check_currency_enum
-from ..models.currency_enum import CurrencyEnum
-from ..models.offering_status_enum import check_offering_status_enum
-from ..models.offering_status_enum import OfferingStatusEnum
-from ..models.service_type_enum import check_service_type_enum
-from ..models.service_type_enum import ServiceTypeEnum
-from ..types import UNSET, Unset
-from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
-  from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
-  from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
-  from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
-
-
-
+    from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
+    from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
+    from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
+    from ..models.service_offering_data_upstream_access_config_type_0 import (
+        ServiceOfferingDataUpstreamAccessConfigType0,
+    )
 
 
 T = TypeVar("T", bound="ServiceOfferingData")
 
 
-
 @_attrs_define
 class ServiceOfferingData:
-    """ Base data structure for service offering information.
+    """Base data structure for service offering information.
 
     This model contains the core fields needed to describe a service offering,
     without file-specific validation fields. It serves as:
@@ -53,7 +45,7 @@ class ServiceOfferingData:
     - Provider relationship is determined by file location (SDK mode) or
       by being published together in a single API call (API mode)
 
-     """
+    """
 
     name: str
     """ Technical service name (e.g., 'gpt-4') """
@@ -91,15 +83,14 @@ class ServiceOfferingData:
     """ List of tags for the service (arbitrary strings) """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
         from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
         from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
-        from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
+        from ..models.service_offering_data_upstream_access_config_type_0 import (
+            ServiceOfferingDataUpstreamAccessConfigType0,
+        )
+
         name = self.name
 
         display_name: None | str | Unset
@@ -112,12 +103,9 @@ class ServiceOfferingData:
         if not isinstance(self.service_type, Unset):
             service_type = self.service_type
 
-
         capabilities: list[str] | Unset = UNSET
         if not isinstance(self.capabilities, Unset):
             capabilities = self.capabilities
-
-
 
         description: None | str | Unset
         if isinstance(self.description, Unset):
@@ -134,7 +122,6 @@ class ServiceOfferingData:
         status: str | Unset = UNSET
         if not isinstance(self.status, Unset):
             status = self.status
-
 
         details: dict[str, Any] | None | Unset
         if isinstance(self.details, Unset):
@@ -172,23 +159,22 @@ class ServiceOfferingData:
         if not isinstance(self.currency, Unset):
             currency = self.currency
 
-
         tags: list[str] | None | Unset
         if isinstance(self.tags, Unset):
             tags = UNSET
         elif isinstance(self.tags, list):
             tags = self.tags
 
-
         else:
             tags = self.tags
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "name": name,
-        })
+        field_dict.update(
+            {
+                "name": name,
+            }
+        )
         if display_name is not UNSET:
             field_dict["display_name"] = display_name
         if service_type is not UNSET:
@@ -216,14 +202,15 @@ class ServiceOfferingData:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
         from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
         from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
-        from ..models.service_offering_data_upstream_access_config_type_0 import ServiceOfferingDataUpstreamAccessConfigType0
+        from ..models.service_offering_data_upstream_access_config_type_0 import (
+            ServiceOfferingDataUpstreamAccessConfigType0,
+        )
+
         d = dict(src_dict)
         name = d.pop("name")
 
@@ -236,19 +223,14 @@ class ServiceOfferingData:
 
         display_name = _parse_display_name(d.pop("display_name", UNSET))
 
-
         _service_type = d.pop("service_type", UNSET)
         service_type: ServiceTypeEnum | Unset
-        if isinstance(_service_type,  Unset):
+        if isinstance(_service_type, Unset):
             service_type = UNSET
         else:
             service_type = check_service_type_enum(_service_type)
 
-
-
-
         capabilities = cast(list[str], d.pop("capabilities", UNSET))
-
 
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
@@ -259,7 +241,6 @@ class ServiceOfferingData:
 
         description = _parse_description(d.pop("description", UNSET))
 
-
         def _parse_tagline(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -269,16 +250,12 @@ class ServiceOfferingData:
 
         tagline = _parse_tagline(d.pop("tagline", UNSET))
 
-
         _status = d.pop("status", UNSET)
         status: OfferingStatusEnum | Unset
-        if isinstance(_status,  Unset):
+        if isinstance(_status, Unset):
             status = UNSET
         else:
             status = check_offering_status_enum(_status)
-
-
-
 
         def _parse_details(data: object) -> None | ServiceOfferingDataDetailsType0 | Unset:
             if data is None:
@@ -290,15 +267,12 @@ class ServiceOfferingData:
                     raise TypeError()
                 details_type_0 = ServiceOfferingDataDetailsType0.from_dict(data)
 
-
-
                 return details_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceOfferingDataDetailsType0 | Unset, data)
 
         details = _parse_details(d.pop("details", UNSET))
-
 
         def _parse_payout_price(data: object) -> None | ServiceOfferingDataPayoutPriceType0 | Unset:
             if data is None:
@@ -310,15 +284,12 @@ class ServiceOfferingData:
                     raise TypeError()
                 payout_price_type_0 = ServiceOfferingDataPayoutPriceType0.from_dict(data)
 
-
-
                 return payout_price_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceOfferingDataPayoutPriceType0 | Unset, data)
 
         payout_price = _parse_payout_price(d.pop("payout_price", UNSET))
-
 
         def _parse_upstream_access_config(data: object) -> None | ServiceOfferingDataUpstreamAccessConfigType0 | Unset:
             if data is None:
@@ -330,15 +301,12 @@ class ServiceOfferingData:
                     raise TypeError()
                 upstream_access_config_type_0 = ServiceOfferingDataUpstreamAccessConfigType0.from_dict(data)
 
-
-
                 return upstream_access_config_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceOfferingDataUpstreamAccessConfigType0 | Unset, data)
 
         upstream_access_config = _parse_upstream_access_config(d.pop("upstream_access_config", UNSET))
-
 
         def _parse_documents(data: object) -> None | ServiceOfferingDataDocumentsType0 | Unset:
             if data is None:
@@ -350,8 +318,6 @@ class ServiceOfferingData:
                     raise TypeError()
                 documents_type_0 = ServiceOfferingDataDocumentsType0.from_dict(data)
 
-
-
                 return documents_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
@@ -359,16 +325,12 @@ class ServiceOfferingData:
 
         documents = _parse_documents(d.pop("documents", UNSET))
 
-
         _currency = d.pop("currency", UNSET)
         currency: CurrencyEnum | Unset
-        if isinstance(_currency,  Unset):
+        if isinstance(_currency, Unset):
             currency = UNSET
         else:
             currency = check_currency_enum(_currency)
-
-
-
 
         def _parse_tags(data: object) -> list[str] | None | Unset:
             if data is None:
@@ -387,7 +349,6 @@ class ServiceOfferingData:
 
         tags = _parse_tags(d.pop("tags", UNSET))
 
-
         service_offering_data = cls(
             name=name,
             display_name=display_name,
@@ -403,7 +364,6 @@ class ServiceOfferingData:
             currency=currency,
             tags=tags,
         )
-
 
         service_offering_data.additional_properties = d
         return service_offering_data

@@ -1,8 +1,15 @@
 from typing import Literal, cast
 
-TimeWindowEnum = Literal['day', 'hour', 'minute', 'month', 'second']
+TimeWindowEnum = Literal["day", "hour", "minute", "month", "second"]
 
-TIME_WINDOW_ENUM_VALUES: set[TimeWindowEnum] = { 'day', 'hour', 'minute', 'month', 'second',  }
+TIME_WINDOW_ENUM_VALUES: set[TimeWindowEnum] = {
+    "day",
+    "hour",
+    "minute",
+    "month",
+    "second",
+}
+
 
 def check_time_window_enum(value: str) -> TimeWindowEnum:
     if value in TIME_WINDOW_ENUM_VALUES:

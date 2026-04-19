@@ -1,36 +1,29 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..types import UNSET, Unset
-from typing import cast
-
 if TYPE_CHECKING:
-  from ..models.document_execute_response_test_type_0 import DocumentExecuteResponseTestType0
-
-
-
+    from ..models.document_execute_response_test_type_0 import DocumentExecuteResponseTestType0
 
 
 T = TypeVar("T", bound="DocumentExecuteResponse")
 
 
-
 @_attrs_define
 class DocumentExecuteResponse:
-    """ POST /seller/documents/{id}/execute — queues a Celery test run.
+    """POST /seller/documents/{id}/execute — queues a Celery test run.
 
     This is the seller's pre-submission dry-run tool. It does NOT touch
     service status or trigger admin review — contrast with the formal
     submission flow via PATCH /seller/services/{id} (set_status=pending).
 
-     """
+    """
 
     document_id: str
     status: str
@@ -39,12 +32,9 @@ class DocumentExecuteResponse:
     test: DocumentExecuteResponseTestType0 | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.document_execute_response_test_type_0 import DocumentExecuteResponseTestType0
+
         document_id = self.document_id
 
         status = self.status
@@ -65,14 +55,15 @@ class DocumentExecuteResponse:
         else:
             test = self.test
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "document_id": document_id,
-            "status": status,
-            "message": message,
-        })
+        field_dict.update(
+            {
+                "document_id": document_id,
+                "status": status,
+                "message": message,
+            }
+        )
         if task_id is not UNSET:
             field_dict["task_id"] = task_id
         if test is not UNSET:
@@ -80,11 +71,10 @@ class DocumentExecuteResponse:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.document_execute_response_test_type_0 import DocumentExecuteResponseTestType0
+
         d = dict(src_dict)
         document_id = d.pop("document_id")
 
@@ -101,7 +91,6 @@ class DocumentExecuteResponse:
 
         task_id = _parse_task_id(d.pop("task_id", UNSET))
 
-
         def _parse_test(data: object) -> DocumentExecuteResponseTestType0 | None | Unset:
             if data is None:
                 return data
@@ -112,15 +101,12 @@ class DocumentExecuteResponse:
                     raise TypeError()
                 test_type_0 = DocumentExecuteResponseTestType0.from_dict(data)
 
-
-
                 return test_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(DocumentExecuteResponseTestType0 | None | Unset, data)
 
         test = _parse_test(d.pop("test", UNSET))
-
 
         document_execute_response = cls(
             document_id=document_id,
@@ -129,7 +115,6 @@ class DocumentExecuteResponse:
             task_id=task_id,
             test=test,
         )
-
 
         document_execute_response.additional_properties = d
         return document_execute_response

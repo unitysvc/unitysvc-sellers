@@ -1,11 +1,8 @@
 import ssl
 from typing import Any
 
-from attrs import define, field, evolve
 import httpx
-
-
-
+from attrs import define, evolve, field
 
 
 @define
@@ -31,6 +28,7 @@ class Client:
         ``httpx_args``: A dictionary of additional arguments to be passed to the ``httpx.Client`` and ``httpx.AsyncClient`` constructor.
 
     """
+
     raise_on_unexpected_status: bool = field(default=False, kw_only=True)
     """Whether or not to raise an errors.UnexpectedStatus if the API returns a status code that was not documented in the source OpenAPI document. Can also be provided as a keyword argument to the constructor."""
     _base_url: str = field(alias="base_url")
@@ -260,4 +258,3 @@ class AuthenticatedClient:
     async def __aexit__(self, *args: Any, **kwargs: Any) -> None:
         """Exit a context manager for underlying httpx.AsyncClient (see httpx docs)"""
         await self.get_async_httpx_client().__aexit__(*args, **kwargs)
-

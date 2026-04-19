@@ -4,18 +4,13 @@ from urllib.parse import quote
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.cursor_page_service_group_public import CursorPageServiceGroupPublic
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
-from ...models.service_group_status_enum import check_service_group_status_enum
-from ...models.service_group_status_enum import ServiceGroupStatusEnum
-from ...types import UNSET, Unset
-from typing import cast
-
+from ...models.service_group_status_enum import ServiceGroupStatusEnum, check_service_group_status_enum
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -25,7 +20,6 @@ def _get_kwargs(
     status: None | ServiceGroupStatusEnum | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
     if not isinstance(authorization, Unset):
@@ -33,10 +27,6 @@ def _get_kwargs(
 
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
-
-
-
-    
 
     params: dict[str, Any] = {}
 
@@ -58,9 +48,7 @@ def _get_kwargs(
         json_status = status
     params["status"] = json_status
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -68,38 +56,30 @@ def _get_kwargs(
         "params": params,
     }
 
-
     _kwargs["headers"] = headers
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError | None:
     if response.status_code == 200:
         response_200 = CursorPageServiceGroupPublic.from_dict(response.json())
-
-
 
         return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_400
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_404
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -109,7 +89,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -126,9 +108,8 @@ def sync_detailed(
     status: None | ServiceGroupStatusEnum | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError]:
-    """ List Seller Groups
+    """List Seller Groups
 
      List seller's own service groups.
 
@@ -149,16 +130,14 @@ def sync_detailed(
 
     Returns:
         Response[CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         cursor=cursor,
-limit=limit,
-status=status,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        limit=limit,
+        status=status,
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
     response = client.get_httpx_client().request(
@@ -166,6 +145,7 @@ x_role_id=x_role_id,
     )
 
     return _build_response(client=client, response=response)
+
 
 def sync(
     *,
@@ -175,9 +155,8 @@ def sync(
     status: None | ServiceGroupStatusEnum | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError | None:
-    """ List Seller Groups
+    """List Seller Groups
 
      List seller's own service groups.
 
@@ -198,18 +177,17 @@ def sync(
 
     Returns:
         CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-cursor=cursor,
-limit=limit,
-status=status,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        cursor=cursor,
+        limit=limit,
+        status=status,
+        authorization=authorization,
+        x_role_id=x_role_id,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
@@ -219,9 +197,8 @@ async def asyncio_detailed(
     status: None | ServiceGroupStatusEnum | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError]:
-    """ List Seller Groups
+    """List Seller Groups
 
      List seller's own service groups.
 
@@ -242,23 +219,20 @@ async def asyncio_detailed(
 
     Returns:
         Response[CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         cursor=cursor,
-limit=limit,
-status=status,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        limit=limit,
+        status=status,
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
@@ -268,9 +242,8 @@ async def asyncio(
     status: None | ServiceGroupStatusEnum | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError | None:
-    """ List Seller Groups
+    """List Seller Groups
 
      List seller's own service groups.
 
@@ -291,15 +264,15 @@ async def asyncio(
 
     Returns:
         CursorPageServiceGroupPublic | ErrorResponse | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-cursor=cursor,
-limit=limit,
-status=status,
-authorization=authorization,
-x_role_id=x_role_id,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            cursor=cursor,
+            limit=limit,
+            status=status,
+            authorization=authorization,
+            x_role_id=x_role_id,
+        )
+    ).parsed

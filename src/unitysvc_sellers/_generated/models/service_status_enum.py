@@ -1,8 +1,17 @@
 from typing import Literal, cast
 
-ServiceStatusEnum = Literal['active', 'deprecated', 'draft', 'pending', 'rejected', 'review', 'suspended']
+ServiceStatusEnum = Literal["active", "deprecated", "draft", "pending", "rejected", "review", "suspended"]
 
-SERVICE_STATUS_ENUM_VALUES: set[ServiceStatusEnum] = { 'active', 'deprecated', 'draft', 'pending', 'rejected', 'review', 'suspended',  }
+SERVICE_STATUS_ENUM_VALUES: set[ServiceStatusEnum] = {
+    "active",
+    "deprecated",
+    "draft",
+    "pending",
+    "rejected",
+    "review",
+    "suspended",
+}
+
 
 def check_service_status_enum(value: str) -> ServiceStatusEnum:
     if value in SERVICE_STATUS_ENUM_VALUES:

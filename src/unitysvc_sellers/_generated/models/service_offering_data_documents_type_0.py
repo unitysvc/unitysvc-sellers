@@ -1,61 +1,51 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from typing import cast
-
 if TYPE_CHECKING:
-  from ..models.service_offering_data_documents_type_0_additional_property import ServiceOfferingDataDocumentsType0AdditionalProperty
-
-
-
+    from ..models.service_offering_data_documents_type_0_additional_property import (
+        ServiceOfferingDataDocumentsType0AdditionalProperty,
+    )
 
 
 T = TypeVar("T", bound="ServiceOfferingDataDocumentsType0")
 
 
-
 @_attrs_define
 class ServiceOfferingDataDocumentsType0:
-    
-
-    additional_properties: dict[str, ServiceOfferingDataDocumentsType0AdditionalProperty] = _attrs_field(init=False, factory=dict)
-
-
-
-
+    additional_properties: dict[str, ServiceOfferingDataDocumentsType0AdditionalProperty] = _attrs_field(
+        init=False, factory=dict
+    )
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.service_offering_data_documents_type_0_additional_property import ServiceOfferingDataDocumentsType0AdditionalProperty
-        
+        from ..models.service_offering_data_documents_type_0_additional_property import (
+            ServiceOfferingDataDocumentsType0AdditionalProperty,
+        )
+
         field_dict: dict[str, Any] = {}
         for prop_name, prop in self.additional_properties.items():
             field_dict[prop_name] = prop.to_dict()
 
-
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.service_offering_data_documents_type_0_additional_property import ServiceOfferingDataDocumentsType0AdditionalProperty
-        d = dict(src_dict)
-        service_offering_data_documents_type_0 = cls(
+        from ..models.service_offering_data_documents_type_0_additional_property import (
+            ServiceOfferingDataDocumentsType0AdditionalProperty,
         )
 
+        d = dict(src_dict)
+        service_offering_data_documents_type_0 = cls()
 
         additional_properties = {}
         for prop_name, prop_dict in d.items():
             additional_property = ServiceOfferingDataDocumentsType0AdditionalProperty.from_dict(prop_dict)
-
-
 
             additional_properties[prop_name] = additional_property
 

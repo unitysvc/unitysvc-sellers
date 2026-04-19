@@ -1,37 +1,27 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.secret_owner_type_enum import check_secret_owner_type_enum
-from ..models.secret_owner_type_enum import SecretOwnerTypeEnum
 from dateutil.parser import isoparse
-from typing import cast
-from uuid import UUID
-import datetime
 
-
-
-
-
+from ..models.secret_owner_type_enum import SecretOwnerTypeEnum, check_secret_owner_type_enum
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="SecretPublic")
 
 
-
 @_attrs_define
 class SecretPublic:
-    """ Public schema for secret info (excludes value - write-only).
-
-     """
+    """Public schema for secret info (excludes value - write-only)."""
 
     name: str
-    """ Secret name (e.g., OPENAI_API_KEY). Must be uppercase with underscores. """
+    """ Secret name (e.g., OPENAI_API_KEY). Must be uppercase letters, digits, and underscores; must start with a
+    letter or underscore. """
     id: UUID
     owner_type: SecretOwnerTypeEnum
     """ Owner type for secrets - determines which entity owns the secret. """
@@ -40,10 +30,6 @@ class SecretPublic:
     updated_at: datetime.datetime | None
     last_used_at: datetime.datetime | None
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
@@ -68,22 +54,21 @@ class SecretPublic:
         else:
             last_used_at = self.last_used_at
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "name": name,
-            "id": id,
-            "owner_type": owner_type,
-            "owner_id": owner_id,
-            "created_at": created_at,
-            "updated_at": updated_at,
-            "last_used_at": last_used_at,
-        })
+        field_dict.update(
+            {
+                "name": name,
+                "id": id,
+                "owner_type": owner_type,
+                "owner_id": owner_id,
+                "created_at": created_at,
+                "updated_at": updated_at,
+                "last_used_at": last_used_at,
+            }
+        )
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -92,23 +77,11 @@ class SecretPublic:
 
         id = UUID(d.pop("id"))
 
-
-
-
         owner_type = check_secret_owner_type_enum(d.pop("owner_type"))
-
-
-
 
         owner_id = UUID(d.pop("owner_id"))
 
-
-
-
         created_at = isoparse(d.pop("created_at"))
-
-
-
 
         def _parse_updated_at(data: object) -> datetime.datetime | None:
             if data is None:
@@ -118,15 +91,12 @@ class SecretPublic:
                     raise TypeError()
                 updated_at_type_0 = isoparse(data)
 
-
-
                 return updated_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(datetime.datetime | None, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at"))
-
 
         def _parse_last_used_at(data: object) -> datetime.datetime | None:
             if data is None:
@@ -136,15 +106,12 @@ class SecretPublic:
                     raise TypeError()
                 last_used_at_type_0 = isoparse(data)
 
-
-
                 return last_used_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(datetime.datetime | None, data)
 
         last_used_at = _parse_last_used_at(d.pop("last_used_at"))
-
 
         secret_public = cls(
             name=name,
@@ -155,7 +122,6 @@ class SecretPublic:
             updated_at=updated_at,
             last_used_at=last_used_at,
         )
-
 
         secret_public.additional_properties = d
         return secret_public

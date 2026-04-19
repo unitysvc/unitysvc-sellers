@@ -1,69 +1,63 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from typing import cast
-
 if TYPE_CHECKING:
-  from ..models.access_interface_public_request_transformer_type_0_additional_property_type_0 import AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0
-
-
-
+    from ..models.access_interface_public_request_transformer_type_0_additional_property_type_0 import (
+        AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0,
+    )
 
 
 T = TypeVar("T", bound="AccessInterfacePublicRequestTransformerType0")
 
 
-
 @_attrs_define
 class AccessInterfacePublicRequestTransformerType0:
-    
-
-    additional_properties: dict[str, AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str] = _attrs_field(init=False, factory=dict)
-
-
-
-
+    additional_properties: dict[str, AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str] = (
+        _attrs_field(init=False, factory=dict)
+    )
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.access_interface_public_request_transformer_type_0_additional_property_type_0 import AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0
-        
+        from ..models.access_interface_public_request_transformer_type_0_additional_property_type_0 import (
+            AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0,
+        )
+
         field_dict: dict[str, Any] = {}
         for prop_name, prop in self.additional_properties.items():
-            
             if isinstance(prop, AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0):
                 field_dict[prop_name] = prop.to_dict()
             else:
                 field_dict[prop_name] = prop
 
-
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.access_interface_public_request_transformer_type_0_additional_property_type_0 import AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0
-        d = dict(src_dict)
-        access_interface_public_request_transformer_type_0 = cls(
+        from ..models.access_interface_public_request_transformer_type_0_additional_property_type_0 import (
+            AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0,
         )
 
+        d = dict(src_dict)
+        access_interface_public_request_transformer_type_0 = cls()
 
         additional_properties = {}
         for prop_name, prop_dict in d.items():
-            def _parse_additional_property(data: object) -> AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str:
+
+            def _parse_additional_property(
+                data: object,
+            ) -> AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str:
                 try:
                     if not isinstance(data, dict):
                         raise TypeError()
-                    additional_property_type_0 = AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0.from_dict(data)
-
-
+                    additional_property_type_0 = (
+                        AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0.from_dict(data)
+                    )
 
                     return additional_property_type_0
                 except (TypeError, ValueError, AttributeError, KeyError):
@@ -84,7 +78,9 @@ class AccessInterfacePublicRequestTransformerType0:
     def __getitem__(self, key: str) -> AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str) -> None:
+    def __setitem__(
+        self, key: str, value: AccessInterfacePublicRequestTransformerType0AdditionalPropertyType0 | str
+    ) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

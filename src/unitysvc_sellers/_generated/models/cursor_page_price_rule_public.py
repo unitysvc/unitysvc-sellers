@@ -1,48 +1,34 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..types import UNSET, Unset
-from typing import cast
-
 if TYPE_CHECKING:
-  from ..models.price_rule_public import PriceRulePublic
-
-
-
+    from ..models.price_rule_public import PriceRulePublic
 
 
 T = TypeVar("T", bound="CursorPagePriceRulePublic")
 
 
-
 @_attrs_define
 class CursorPagePriceRulePublic:
-    
-
     data: list[PriceRulePublic]
     next_cursor: None | str | Unset = UNSET
     has_more: bool | Unset = False
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.price_rule_public import PriceRulePublic
+
         data = []
         for data_item_data in self.data:
             data_item = data_item_data.to_dict()
             data.append(data_item)
-
-
 
         next_cursor: None | str | Unset
         if isinstance(self.next_cursor, Unset):
@@ -52,12 +38,13 @@ class CursorPagePriceRulePublic:
 
         has_more = self.has_more
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "data": data,
-        })
+        field_dict.update(
+            {
+                "data": data,
+            }
+        )
         if next_cursor is not UNSET:
             field_dict["next_cursor"] = next_cursor
         if has_more is not UNSET:
@@ -65,21 +52,17 @@ class CursorPagePriceRulePublic:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.price_rule_public import PriceRulePublic
+
         d = dict(src_dict)
         data = []
         _data = d.pop("data")
-        for data_item_data in (_data):
+        for data_item_data in _data:
             data_item = PriceRulePublic.from_dict(data_item_data)
 
-
-
             data.append(data_item)
-
 
         def _parse_next_cursor(data: object) -> None | str | Unset:
             if data is None:
@@ -90,7 +73,6 @@ class CursorPagePriceRulePublic:
 
         next_cursor = _parse_next_cursor(d.pop("next_cursor", UNSET))
 
-
         has_more = d.pop("has_more", UNSET)
 
         cursor_page_price_rule_public = cls(
@@ -98,7 +80,6 @@ class CursorPagePriceRulePublic:
             next_cursor=next_cursor,
             has_more=has_more,
         )
-
 
         cursor_page_price_rule_public.additional_properties = d
         return cursor_page_price_rule_public

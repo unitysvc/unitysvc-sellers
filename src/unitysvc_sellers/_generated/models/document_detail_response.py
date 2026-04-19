@@ -1,35 +1,28 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..types import UNSET, Unset
-from typing import cast
-
 if TYPE_CHECKING:
-  from ..models.document_detail_response_meta_type_0 import DocumentDetailResponseMetaType0
-
-
-
+    from ..models.document_detail_response_meta_type_0 import DocumentDetailResponseMetaType0
 
 
 T = TypeVar("T", bound="DocumentDetailResponse")
 
 
-
 @_attrs_define
 class DocumentDetailResponse:
-    """ GET /seller/documents/{id} — full document including file content.
+    """GET /seller/documents/{id} — full document including file content.
 
     The prior behaviour was file_content=false by default; this response
     always includes file_content for predictable codegen.
 
-     """
+    """
 
     id: str
     entity_id: str
@@ -48,12 +41,9 @@ class DocumentDetailResponse:
     updated_at: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.document_detail_response_meta_type_0 import DocumentDetailResponseMetaType0
+
         id = self.id
 
         entity_id = self.entity_id
@@ -122,17 +112,18 @@ class DocumentDetailResponse:
         else:
             updated_at = self.updated_at
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "id": id,
-            "entity_id": entity_id,
-            "context_type": context_type,
-            "title": title,
-            "is_active": is_active,
-            "is_public": is_public,
-        })
+        field_dict.update(
+            {
+                "id": id,
+                "entity_id": entity_id,
+                "context_type": context_type,
+                "title": title,
+                "is_active": is_active,
+                "is_public": is_public,
+            }
+        )
         if description is not UNSET:
             field_dict["description"] = description
         if mime_type is not UNSET:
@@ -154,11 +145,10 @@ class DocumentDetailResponse:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.document_detail_response_meta_type_0 import DocumentDetailResponseMetaType0
+
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -181,7 +171,6 @@ class DocumentDetailResponse:
 
         description = _parse_description(d.pop("description", UNSET))
 
-
         def _parse_mime_type(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -190,7 +179,6 @@ class DocumentDetailResponse:
             return cast(None | str | Unset, data)
 
         mime_type = _parse_mime_type(d.pop("mime_type", UNSET))
-
 
         def _parse_category(data: object) -> None | str | Unset:
             if data is None:
@@ -201,7 +189,6 @@ class DocumentDetailResponse:
 
         category = _parse_category(d.pop("category", UNSET))
 
-
         def _parse_filename(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -211,7 +198,6 @@ class DocumentDetailResponse:
 
         filename = _parse_filename(d.pop("filename", UNSET))
 
-
         def _parse_filesize(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -220,7 +206,6 @@ class DocumentDetailResponse:
             return cast(int | None | Unset, data)
 
         filesize = _parse_filesize(d.pop("filesize", UNSET))
-
 
         def _parse_meta(data: object) -> DocumentDetailResponseMetaType0 | None | Unset:
             if data is None:
@@ -232,15 +217,12 @@ class DocumentDetailResponse:
                     raise TypeError()
                 meta_type_0 = DocumentDetailResponseMetaType0.from_dict(data)
 
-
-
                 return meta_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(DocumentDetailResponseMetaType0 | None | Unset, data)
 
         meta = _parse_meta(d.pop("meta", UNSET))
-
 
         def _parse_file_content(data: object) -> None | str | Unset:
             if data is None:
@@ -251,7 +233,6 @@ class DocumentDetailResponse:
 
         file_content = _parse_file_content(d.pop("file_content", UNSET))
 
-
         def _parse_created_at(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -261,7 +242,6 @@ class DocumentDetailResponse:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-
         def _parse_updated_at(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -270,7 +250,6 @@ class DocumentDetailResponse:
             return cast(None | str | Unset, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
-
 
         document_detail_response = cls(
             id=id,
@@ -289,7 +268,6 @@ class DocumentDetailResponse:
             created_at=created_at,
             updated_at=updated_at,
         )
-
 
         document_detail_response.additional_properties = d
         return document_detail_response

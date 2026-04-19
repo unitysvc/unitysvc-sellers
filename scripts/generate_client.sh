@@ -47,19 +47,32 @@ ERR
 fi
 
 # ---------------------------------------------------------------------------
-# Tool bootstrap
+# Tool bootstrap (always uses the pinned version — never trusts $PATH)
 # ---------------------------------------------------------------------------
-if ! command -v openapi-python-client >/dev/null 2>&1; then
-    if [ ! -x "${REPO_ROOT}/.tool-venv/bin/openapi-python-client" ]; then
-        echo "==> Bootstrapping openapi-python-client into .tool-venv"
-        # Requires Python 3.10+; prefer a recent version if available.
-        PYTHON=$(command -v python3.13 || command -v python3.12 || command -v python3.11 || command -v python3.10 || command -v python3)
-        "${PYTHON}" -m venv "${REPO_ROOT}/.tool-venv"
-        "${REPO_ROOT}/.tool-venv/bin/pip" install --quiet "openapi-python-client @ git+https://github.com/openapi-generators/openapi-python-client@v0.28.3"
-    fi
-    OAPI_CLIENT="${REPO_ROOT}/.tool-venv/bin/openapi-python-client"
-else
-    OAPI_CLIENT="$(command -v openapi-python-client)"
+# Pinned to keep generated output stable across contributors. If you bump
+# this, expect a one-time churn diff in src/unitysvc_sellers/_generated/.
+PINNED_OAPI_VERSION="0.28.3"
+PINNED_RUFF_VERSION="0.14.0"
+
+OAPI_CLIENT="${REPO_ROOT}/.tool-venv/bin/openapi-python-client"
+RUFF="${REPO_ROOT}/.tool-venv/bin/ruff"
+
+# Re-bootstrap if missing or version-mismatched.
+need_bootstrap=0
+if [ ! -x "${OAPI_CLIENT}" ] || [ ! -x "${RUFF}" ]; then
+    need_bootstrap=1
+elif ! "${OAPI_CLIENT}" --version 2>/dev/null | grep -q "version: ${PINNED_OAPI_VERSION}\$"; then
+    need_bootstrap=1
+fi
+
+if [ "${need_bootstrap}" = "1" ]; then
+    echo "==> Bootstrapping openapi-python-client ${PINNED_OAPI_VERSION} + ruff ${PINNED_RUFF_VERSION} into .tool-venv"
+    rm -rf "${REPO_ROOT}/.tool-venv"
+    PYTHON=$(command -v python3.13 || command -v python3.12 || command -v python3.11 || command -v python3.10 || command -v python3)
+    "${PYTHON}" -m venv "${REPO_ROOT}/.tool-venv"
+    "${REPO_ROOT}/.tool-venv/bin/pip" install --quiet \
+        "openapi-python-client @ git+https://github.com/openapi-generators/openapi-python-client@v${PINNED_OAPI_VERSION}" \
+        "ruff==${PINNED_RUFF_VERSION}"
 fi
 
 # ---------------------------------------------------------------------------
@@ -83,6 +96,15 @@ rm -rf src/unitysvc_sellers/_generated
     --meta none \
     --output-path src/unitysvc_sellers/_generated \
     --overwrite
+
+# Normalize style of the generated output so it doesn't drift across
+# tool minor versions:
+#   - UP007 / UP045: rewrite ``Union[X, Y]`` and ``Optional[X]`` to PEP 604 ``X | Y``
+#   - I001:          sort imports
+# We pin ruff above for the same reason we pin the generator.
+echo "==> Normalizing generated style with ruff"
+"${RUFF}" check --select UP007,UP045,I001 --fix --quiet src/unitysvc_sellers/_generated/ || true
+"${RUFF}" format --quiet src/unitysvc_sellers/_generated/
 
 # ---------------------------------------------------------------------------
 # Generate spec fingerprint

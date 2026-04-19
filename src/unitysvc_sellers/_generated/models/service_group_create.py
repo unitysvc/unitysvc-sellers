@@ -1,34 +1,25 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..types import UNSET, Unset
-from typing import cast
-
 if TYPE_CHECKING:
-  from ..models.service_group_create_membership_rules_type_0 import ServiceGroupCreateMembershipRulesType0
-  from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
-  from ..models.service_group_create_user_access_interfaces_type_0 import ServiceGroupCreateUserAccessInterfacesType0
-
-
-
+    from ..models.service_group_create_membership_rules_type_0 import ServiceGroupCreateMembershipRulesType0
+    from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
+    from ..models.service_group_create_user_access_interfaces_type_0 import ServiceGroupCreateUserAccessInterfacesType0
 
 
 T = TypeVar("T", bound="ServiceGroupCreate")
 
 
-
 @_attrs_define
 class ServiceGroupCreate:
-    """ Schema for creating a ServiceGroup.
-
-     """
+    """Schema for creating a ServiceGroup."""
 
     name: str
     display_name: str
@@ -41,14 +32,13 @@ class ServiceGroupCreate:
     """ Parent group name. Resolved to ancestor_path based on owner context. """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.service_group_create_membership_rules_type_0 import ServiceGroupCreateMembershipRulesType0
         from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
-        from ..models.service_group_create_user_access_interfaces_type_0 import ServiceGroupCreateUserAccessInterfacesType0
+        from ..models.service_group_create_user_access_interfaces_type_0 import (
+            ServiceGroupCreateUserAccessInterfacesType0,
+        )
+
         name = self.name
 
         display_name = self.display_name
@@ -91,13 +81,14 @@ class ServiceGroupCreate:
         else:
             parent_group_name = self.parent_group_name
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "name": name,
-            "display_name": display_name,
-        })
+        field_dict.update(
+            {
+                "name": name,
+                "display_name": display_name,
+            }
+        )
         if description is not UNSET:
             field_dict["description"] = description
         if membership_rules is not UNSET:
@@ -113,13 +104,14 @@ class ServiceGroupCreate:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.service_group_create_membership_rules_type_0 import ServiceGroupCreateMembershipRulesType0
         from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
-        from ..models.service_group_create_user_access_interfaces_type_0 import ServiceGroupCreateUserAccessInterfacesType0
+        from ..models.service_group_create_user_access_interfaces_type_0 import (
+            ServiceGroupCreateUserAccessInterfacesType0,
+        )
+
         d = dict(src_dict)
         name = d.pop("name")
 
@@ -134,7 +126,6 @@ class ServiceGroupCreate:
 
         description = _parse_description(d.pop("description", UNSET))
 
-
         def _parse_membership_rules(data: object) -> None | ServiceGroupCreateMembershipRulesType0 | Unset:
             if data is None:
                 return data
@@ -145,15 +136,12 @@ class ServiceGroupCreate:
                     raise TypeError()
                 membership_rules_type_0 = ServiceGroupCreateMembershipRulesType0.from_dict(data)
 
-
-
                 return membership_rules_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceGroupCreateMembershipRulesType0 | Unset, data)
 
         membership_rules = _parse_membership_rules(d.pop("membership_rules", UNSET))
-
 
         def _parse_user_access_interfaces(data: object) -> None | ServiceGroupCreateUserAccessInterfacesType0 | Unset:
             if data is None:
@@ -165,15 +153,12 @@ class ServiceGroupCreate:
                     raise TypeError()
                 user_access_interfaces_type_0 = ServiceGroupCreateUserAccessInterfacesType0.from_dict(data)
 
-
-
                 return user_access_interfaces_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceGroupCreateUserAccessInterfacesType0 | Unset, data)
 
         user_access_interfaces = _parse_user_access_interfaces(d.pop("user_access_interfaces", UNSET))
-
 
         def _parse_routing_policy(data: object) -> None | ServiceGroupCreateRoutingPolicyType0 | Unset:
             if data is None:
@@ -185,15 +170,12 @@ class ServiceGroupCreate:
                     raise TypeError()
                 routing_policy_type_0 = ServiceGroupCreateRoutingPolicyType0.from_dict(data)
 
-
-
                 return routing_policy_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceGroupCreateRoutingPolicyType0 | Unset, data)
 
         routing_policy = _parse_routing_policy(d.pop("routing_policy", UNSET))
-
 
         sort_order = d.pop("sort_order", UNSET)
 
@@ -206,7 +188,6 @@ class ServiceGroupCreate:
 
         parent_group_name = _parse_parent_group_name(d.pop("parent_group_name", UNSET))
 
-
         service_group_create = cls(
             name=name,
             display_name=display_name,
@@ -217,7 +198,6 @@ class ServiceGroupCreate:
             sort_order=sort_order,
             parent_group_name=parent_group_name,
         )
-
 
         service_group_create.additional_properties = d
         return service_group_create

@@ -1,8 +1,13 @@
 from typing import Literal, cast
 
-ServiceVisibilityEnum = Literal['private', 'public', 'unlisted']
+ServiceVisibilityEnum = Literal["private", "public", "unlisted"]
 
-SERVICE_VISIBILITY_ENUM_VALUES: set[ServiceVisibilityEnum] = { 'private', 'public', 'unlisted',  }
+SERVICE_VISIBILITY_ENUM_VALUES: set[ServiceVisibilityEnum] = {
+    "private",
+    "public",
+    "unlisted",
+}
+
 
 def check_service_visibility_enum(value: str) -> ServiceVisibilityEnum:
     if value in SERVICE_VISIBILITY_ENUM_VALUES:

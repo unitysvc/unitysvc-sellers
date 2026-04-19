@@ -1,71 +1,33 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-
-
-
-
-
-
-T = TypeVar("T", bound="SecretCreate")
-
+T = TypeVar("T", bound="ServiceUpdatePriceType0")
 
 
 @_attrs_define
-class SecretCreate:
-    """ Schema for creating a secret.
-
-     """
-
-    name: str
-    """ Secret name (e.g., OPENAI_API_KEY). Must be uppercase with underscores. """
-    value: str
-    """ Secret value (will be encrypted) """
+class ServiceUpdatePriceType0:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        name = self.name
-
-        value = self.value
-
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "name": name,
-            "value": value,
-        })
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        name = d.pop("name")
+        service_update_price_type_0 = cls()
 
-        value = d.pop("value")
-
-        secret_create = cls(
-            name=name,
-            value=value,
-        )
-
-
-        secret_create.additional_properties = d
-        return secret_create
+        service_update_price_type_0.additional_properties = d
+        return service_update_price_type_0
 
     @property
     def additional_keys(self) -> list[str]:

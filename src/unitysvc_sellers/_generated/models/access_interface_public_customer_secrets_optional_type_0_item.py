@@ -1,60 +1,42 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-
-
-
-
-
-
-T = TypeVar("T", bound="ServiceUpdateListPriceType0")
-
+T = TypeVar("T", bound="AccessInterfacePublicCustomerSecretsOptionalType0Item")
 
 
 @_attrs_define
-class ServiceUpdateListPriceType0:
-    
-
-    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
-
-
-
-
+class AccessInterfacePublicCustomerSecretsOptionalType0Item:
+    additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        service_update_list_price_type_0 = cls(
-        )
+        access_interface_public_customer_secrets_optional_type_0_item = cls()
 
-
-        service_update_list_price_type_0.additional_properties = d
-        return service_update_list_price_type_0
+        access_interface_public_customer_secrets_optional_type_0_item.additional_properties = d
+        return access_interface_public_customer_secrets_optional_type_0_item
 
     @property
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> str:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: str, value: str) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

@@ -1066,8 +1066,7 @@ $ usvc_seller secrets [OPTIONS] COMMAND [ARGS]...
 
 * `list`: List the seller&#x27;s secrets (metadata only —...
 * `show`: Show metadata for a single secret by name.
-* `create`: Create a new secret.
-* `rotate`: Rotate (update) the value of an existing...
+* `set`: Set a secret to ``value`` (idempotent —...
 * `delete`: Permanently delete a secret.
 
 ### `usvc_seller secrets list`
@@ -1108,14 +1107,17 @@ $ usvc_seller secrets show [OPTIONS] NAME
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller secrets create`
+### `usvc_seller secrets set`
 
-Create a new secret. The value cannot be retrieved after creation.
+Set a secret to ``value`` (idempotent — creates or rotates).
+
+Maps to ``PUT /v1/seller/secrets/{name}``. The value cannot be
+retrieved after this call — store it securely if you need a copy.
 
 **Usage**:
 
 ```console
-$ usvc_seller secrets create [OPTIONS] NAME
+$ usvc_seller secrets set [OPTIONS] NAME
 ```
 
 **Arguments**:
@@ -1128,29 +1130,6 @@ $ usvc_seller secrets create [OPTIONS] NAME
 * `--value-file PATH`: Read value from file.
 * `--value-stdin`: Read value from stdin.
 * `-f, --format TEXT`: Output format: table | json.  [default: table]
-* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
-* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
-* `--help`: Show this message and exit.
-
-### `usvc_seller secrets rotate`
-
-Rotate (update) the value of an existing secret.
-
-**Usage**:
-
-```console
-$ usvc_seller secrets rotate [OPTIONS] NAME
-```
-
-**Arguments**:
-
-* `NAME`: Secret name (e.g. OPENAI_API_KEY).  [required]
-
-**Options**:
-
-* `-v, --value TEXT`: New secret value. Omit to prompt securely.
-* `--value-file PATH`: Read value from file.
-* `--value-stdin`: Read value from stdin.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.

@@ -4,17 +4,13 @@ from urllib.parse import quote
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...models.service_data_input import ServiceDataInput
 from ...models.service_upload_response import ServiceUploadResponse
-from ...types import UNSET, Unset
-from typing import cast
-
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -24,7 +20,6 @@ def _get_kwargs(
     idempotency_key: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
     if not isinstance(idempotency_key, Unset):
@@ -36,17 +31,11 @@ def _get_kwargs(
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
-
-
-    
-
     params: dict[str, Any] = {}
 
     params["dryrun"] = dryrun
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -56,40 +45,32 @@ def _get_kwargs(
 
     _kwargs["json"] = body.to_dict()
 
-
     headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ErrorResponse | HTTPValidationError | ServiceUploadResponse | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | HTTPValidationError | ServiceUploadResponse | None:
     if response.status_code == 202:
         response_202 = ServiceUploadResponse.from_dict(response.json())
-
-
 
         return response_202
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_400
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_404
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -99,7 +80,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ErrorResponse | HTTPValidationError | ServiceUploadResponse]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | HTTPValidationError | ServiceUploadResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -116,9 +99,8 @@ def sync_detailed(
     idempotency_key: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[ErrorResponse | HTTPValidationError | ServiceUploadResponse]:
-    """ Upload My Service
+    """Upload My Service
 
      Upload a complete service (provider, offering, and listing) together.
 
@@ -164,16 +146,14 @@ def sync_detailed(
 
     Returns:
         Response[ErrorResponse | HTTPValidationError | ServiceUploadResponse]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-dryrun=dryrun,
-idempotency_key=idempotency_key,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        dryrun=dryrun,
+        idempotency_key=idempotency_key,
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
     response = client.get_httpx_client().request(
@@ -181,6 +161,7 @@ x_role_id=x_role_id,
     )
 
     return _build_response(client=client, response=response)
+
 
 def sync(
     *,
@@ -190,9 +171,8 @@ def sync(
     idempotency_key: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> ErrorResponse | HTTPValidationError | ServiceUploadResponse | None:
-    """ Upload My Service
+    """Upload My Service
 
      Upload a complete service (provider, offering, and listing) together.
 
@@ -238,18 +218,17 @@ def sync(
 
     Returns:
         ErrorResponse | HTTPValidationError | ServiceUploadResponse
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-dryrun=dryrun,
-idempotency_key=idempotency_key,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        body=body,
+        dryrun=dryrun,
+        idempotency_key=idempotency_key,
+        authorization=authorization,
+        x_role_id=x_role_id,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
@@ -259,9 +238,8 @@ async def asyncio_detailed(
     idempotency_key: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[ErrorResponse | HTTPValidationError | ServiceUploadResponse]:
-    """ Upload My Service
+    """Upload My Service
 
      Upload a complete service (provider, offering, and listing) together.
 
@@ -307,23 +285,20 @@ async def asyncio_detailed(
 
     Returns:
         Response[ErrorResponse | HTTPValidationError | ServiceUploadResponse]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-dryrun=dryrun,
-idempotency_key=idempotency_key,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        dryrun=dryrun,
+        idempotency_key=idempotency_key,
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
@@ -333,9 +308,8 @@ async def asyncio(
     idempotency_key: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> ErrorResponse | HTTPValidationError | ServiceUploadResponse | None:
-    """ Upload My Service
+    """Upload My Service
 
      Upload a complete service (provider, offering, and listing) together.
 
@@ -381,15 +355,15 @@ async def asyncio(
 
     Returns:
         ErrorResponse | HTTPValidationError | ServiceUploadResponse
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-dryrun=dryrun,
-idempotency_key=idempotency_key,
-authorization=authorization,
-x_role_id=x_role_id,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+            dryrun=dryrun,
+            idempotency_key=idempotency_key,
+            authorization=authorization,
+            x_role_id=x_role_id,
+        )
+    ).parsed

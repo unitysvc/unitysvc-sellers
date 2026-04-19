@@ -4,15 +4,11 @@ from urllib.parse import quote
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
 from ...models.secret_public import SecretPublic
-from ...types import UNSET, Unset
-from typing import cast
-
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -20,7 +16,6 @@ def _get_kwargs(
     *,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
     if not isinstance(authorization, Unset):
@@ -29,35 +24,27 @@ def _get_kwargs(
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
-
-
-    
-
-    
-
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/secrets/{name}".format(name=quote(str(name), safe=""),),
+        "url": "/secrets/{name}".format(
+            name=quote(str(name), safe=""),
+        ),
     }
-
 
     _kwargs["headers"] = headers
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | SecretPublic | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> HTTPValidationError | SecretPublic | None:
     if response.status_code == 200:
         response_200 = SecretPublic.from_dict(response.json())
-
-
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -67,7 +54,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | SecretPublic]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[HTTPValidationError | SecretPublic]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -82,9 +71,8 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[HTTPValidationError | SecretPublic]:
-    """ Get Secret
+    """Get Secret
 
      Get metadata for one of the current seller's secrets by name.
 
@@ -101,14 +89,12 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | SecretPublic]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         name=name,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
     response = client.get_httpx_client().request(
@@ -117,15 +103,15 @@ x_role_id=x_role_id,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     name: str,
     *,
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> HTTPValidationError | SecretPublic | None:
-    """ Get Secret
+    """Get Secret
 
      Get metadata for one of the current seller's secrets by name.
 
@@ -142,16 +128,15 @@ def sync(
 
     Returns:
         HTTPValidationError | SecretPublic
-     """
-
+    """
 
     return sync_detailed(
         name=name,
-client=client,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        client=client,
+        authorization=authorization,
+        x_role_id=x_role_id,
     ).parsed
+
 
 async def asyncio_detailed(
     name: str,
@@ -159,9 +144,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[HTTPValidationError | SecretPublic]:
-    """ Get Secret
+    """Get Secret
 
      Get metadata for one of the current seller's secrets by name.
 
@@ -178,21 +162,18 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | SecretPublic]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         name=name,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     name: str,
@@ -200,9 +181,8 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> HTTPValidationError | SecretPublic | None:
-    """ Get Secret
+    """Get Secret
 
      Get metadata for one of the current seller's secrets by name.
 
@@ -219,13 +199,13 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | SecretPublic
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        name=name,
-client=client,
-authorization=authorization,
-x_role_id=x_role_id,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            name=name,
+            client=client,
+            authorization=authorization,
+            x_role_id=x_role_id,
+        )
+    ).parsed

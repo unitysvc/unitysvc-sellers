@@ -4,17 +4,13 @@ from urllib.parse import quote
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...models.service_update import ServiceUpdate
 from ...models.service_update_response import ServiceUpdateResponse
-from ...types import UNSET, Unset
-from typing import cast
-
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -23,7 +19,6 @@ def _get_kwargs(
     body: ServiceUpdate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
     if not isinstance(authorization, Unset):
@@ -32,19 +27,14 @@ def _get_kwargs(
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
-
-
-    
-
-    
-
     _kwargs: dict[str, Any] = {
         "method": "patch",
-        "url": "/services/{service_id}".format(service_id=quote(str(service_id), safe=""),),
+        "url": "/services/{service_id}".format(
+            service_id=quote(str(service_id), safe=""),
+        ),
     }
 
     _kwargs["json"] = body.to_dict()
-
 
     headers["Content-Type"] = "application/json"
 
@@ -52,33 +42,26 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ErrorResponse | HTTPValidationError | ServiceUpdateResponse | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | HTTPValidationError | ServiceUpdateResponse | None:
     if response.status_code == 200:
         response_200 = ServiceUpdateResponse.from_dict(response.json())
-
-
 
         return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_400
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_404
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -88,7 +71,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ErrorResponse | HTTPValidationError | ServiceUpdateResponse]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | HTTPValidationError | ServiceUpdateResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -104,9 +89,8 @@ def sync_detailed(
     body: ServiceUpdate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[ErrorResponse | HTTPValidationError | ServiceUpdateResponse]:
-    r""" Update Service
+    r"""Update Service
 
      Update a service — status, visibility, routing vars, and/or list price.
 
@@ -141,7 +125,7 @@ def sync_detailed(
             All fields are optional — include only the fields you want to change.
             Multiple fields can be updated in a single request.
 
-            ``routing_vars`` and ``list_price`` accept two forms:
+            ``routing_vars`` and ``price`` accept two forms:
 
             - **Full replacement** — a plain dict replaces the entire value::
 
@@ -157,15 +141,13 @@ def sync_detailed(
 
     Returns:
         Response[ErrorResponse | HTTPValidationError | ServiceUpdateResponse]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         service_id=service_id,
-body=body,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        body=body,
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
     response = client.get_httpx_client().request(
@@ -174,6 +156,7 @@ x_role_id=x_role_id,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     service_id: str,
     *,
@@ -181,9 +164,8 @@ def sync(
     body: ServiceUpdate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> ErrorResponse | HTTPValidationError | ServiceUpdateResponse | None:
-    r""" Update Service
+    r"""Update Service
 
      Update a service — status, visibility, routing vars, and/or list price.
 
@@ -218,7 +200,7 @@ def sync(
             All fields are optional — include only the fields you want to change.
             Multiple fields can be updated in a single request.
 
-            ``routing_vars`` and ``list_price`` accept two forms:
+            ``routing_vars`` and ``price`` accept two forms:
 
             - **Full replacement** — a plain dict replaces the entire value::
 
@@ -234,17 +216,16 @@ def sync(
 
     Returns:
         ErrorResponse | HTTPValidationError | ServiceUpdateResponse
-     """
-
+    """
 
     return sync_detailed(
         service_id=service_id,
-client=client,
-body=body,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        client=client,
+        body=body,
+        authorization=authorization,
+        x_role_id=x_role_id,
     ).parsed
+
 
 async def asyncio_detailed(
     service_id: str,
@@ -253,9 +234,8 @@ async def asyncio_detailed(
     body: ServiceUpdate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[ErrorResponse | HTTPValidationError | ServiceUpdateResponse]:
-    r""" Update Service
+    r"""Update Service
 
      Update a service — status, visibility, routing vars, and/or list price.
 
@@ -290,7 +270,7 @@ async def asyncio_detailed(
             All fields are optional — include only the fields you want to change.
             Multiple fields can be updated in a single request.
 
-            ``routing_vars`` and ``list_price`` accept two forms:
+            ``routing_vars`` and ``price`` accept two forms:
 
             - **Full replacement** — a plain dict replaces the entire value::
 
@@ -306,22 +286,19 @@ async def asyncio_detailed(
 
     Returns:
         Response[ErrorResponse | HTTPValidationError | ServiceUpdateResponse]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         service_id=service_id,
-body=body,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        body=body,
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     service_id: str,
@@ -330,9 +307,8 @@ async def asyncio(
     body: ServiceUpdate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> ErrorResponse | HTTPValidationError | ServiceUpdateResponse | None:
-    r""" Update Service
+    r"""Update Service
 
      Update a service — status, visibility, routing vars, and/or list price.
 
@@ -367,7 +343,7 @@ async def asyncio(
             All fields are optional — include only the fields you want to change.
             Multiple fields can be updated in a single request.
 
-            ``routing_vars`` and ``list_price`` accept two forms:
+            ``routing_vars`` and ``price`` accept two forms:
 
             - **Full replacement** — a plain dict replaces the entire value::
 
@@ -383,14 +359,14 @@ async def asyncio(
 
     Returns:
         ErrorResponse | HTTPValidationError | ServiceUpdateResponse
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        service_id=service_id,
-client=client,
-body=body,
-authorization=authorization,
-x_role_id=x_role_id,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            service_id=service_id,
+            client=client,
+            body=body,
+            authorization=authorization,
+            x_role_id=x_role_id,
+        )
+    ).parsed

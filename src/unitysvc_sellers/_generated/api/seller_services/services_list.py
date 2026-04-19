@@ -4,16 +4,12 @@ from urllib.parse import quote
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.cursor_page_service_public import CursorPageServicePublic
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
-from ...types import UNSET, Unset
-from typing import cast
-
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -26,7 +22,6 @@ def _get_kwargs(
     name: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
     if not isinstance(authorization, Unset):
@@ -34,10 +29,6 @@ def _get_kwargs(
 
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
-
-
-
-    
 
     params: dict[str, Any] = {}
 
@@ -78,9 +69,7 @@ def _get_kwargs(
         json_name = name
     params["name"] = json_name
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -88,38 +77,30 @@ def _get_kwargs(
         "params": params,
     }
 
-
     _kwargs["headers"] = headers
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
     if response.status_code == 200:
         response_200 = CursorPageServicePublic.from_dict(response.json())
-
-
 
         return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_400
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_404
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -129,7 +110,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -149,9 +132,8 @@ def sync_detailed(
     name: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
-    """ List My Services
+    """List My Services
 
      List all services for the current seller.
 
@@ -186,19 +168,17 @@ def sync_detailed(
 
     Returns:
         Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         cursor=cursor,
-limit=limit,
-status=status,
-service_type=service_type,
-listing_type=listing_type,
-name=name,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        limit=limit,
+        status=status,
+        service_type=service_type,
+        listing_type=listing_type,
+        name=name,
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
     response = client.get_httpx_client().request(
@@ -206,6 +186,7 @@ x_role_id=x_role_id,
     )
 
     return _build_response(client=client, response=response)
+
 
 def sync(
     *,
@@ -218,9 +199,8 @@ def sync(
     name: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
-    """ List My Services
+    """List My Services
 
      List all services for the current seller.
 
@@ -255,21 +235,20 @@ def sync(
 
     Returns:
         CursorPageServicePublic | ErrorResponse | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-cursor=cursor,
-limit=limit,
-status=status,
-service_type=service_type,
-listing_type=listing_type,
-name=name,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        cursor=cursor,
+        limit=limit,
+        status=status,
+        service_type=service_type,
+        listing_type=listing_type,
+        name=name,
+        authorization=authorization,
+        x_role_id=x_role_id,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
@@ -282,9 +261,8 @@ async def asyncio_detailed(
     name: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
-    """ List My Services
+    """List My Services
 
      List all services for the current seller.
 
@@ -319,26 +297,23 @@ async def asyncio_detailed(
 
     Returns:
         Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         cursor=cursor,
-limit=limit,
-status=status,
-service_type=service_type,
-listing_type=listing_type,
-name=name,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        limit=limit,
+        status=status,
+        service_type=service_type,
+        listing_type=listing_type,
+        name=name,
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
@@ -351,9 +326,8 @@ async def asyncio(
     name: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
-    """ List My Services
+    """List My Services
 
      List all services for the current seller.
 
@@ -388,18 +362,18 @@ async def asyncio(
 
     Returns:
         CursorPageServicePublic | ErrorResponse | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-cursor=cursor,
-limit=limit,
-status=status,
-service_type=service_type,
-listing_type=listing_type,
-name=name,
-authorization=authorization,
-x_role_id=x_role_id,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            cursor=cursor,
+            limit=limit,
+            status=status,
+            service_type=service_type,
+            listing_type=listing_type,
+            name=name,
+            authorization=authorization,
+            x_role_id=x_role_id,
+        )
+    ).parsed

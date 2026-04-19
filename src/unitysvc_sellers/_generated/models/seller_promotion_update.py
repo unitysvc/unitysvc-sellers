@@ -1,34 +1,24 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.price_rule_status_enum import PriceRuleStatusEnum, check_price_rule_status_enum
 from ..types import UNSET, Unset
-
-from ..models.price_rule_status_enum import check_price_rule_status_enum
-from ..models.price_rule_status_enum import PriceRuleStatusEnum
-from ..types import UNSET, Unset
-from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.seller_promotion_update_pricing_type_0 import SellerPromotionUpdatePricingType0
-
-
-
+    from ..models.seller_promotion_update_pricing_type_0 import SellerPromotionUpdatePricingType0
 
 
 T = TypeVar("T", bound="SellerPromotionUpdate")
 
 
-
 @_attrs_define
 class SellerPromotionUpdate:
-    """ Schema for updating a seller promotion.
-
-     """
+    """Schema for updating a seller promotion."""
 
     name: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
@@ -38,12 +28,9 @@ class SellerPromotionUpdate:
     status: None | PriceRuleStatusEnum | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.seller_promotion_update_pricing_type_0 import SellerPromotionUpdatePricingType0
+
         name: None | str | Unset
         if isinstance(self.name, Unset):
             name = UNSET
@@ -61,7 +48,6 @@ class SellerPromotionUpdate:
             service_groups = UNSET
         elif isinstance(self.service_groups, list):
             service_groups = self.service_groups
-
 
         else:
             service_groups = self.service_groups
@@ -88,11 +74,9 @@ class SellerPromotionUpdate:
         else:
             status = self.status
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-        })
+        field_dict.update({})
         if name is not UNSET:
             field_dict["name"] = name
         if description is not UNSET:
@@ -108,12 +92,12 @@ class SellerPromotionUpdate:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.seller_promotion_update_pricing_type_0 import SellerPromotionUpdatePricingType0
+
         d = dict(src_dict)
+
         def _parse_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -123,7 +107,6 @@ class SellerPromotionUpdate:
 
         name = _parse_name(d.pop("name", UNSET))
 
-
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -132,7 +115,6 @@ class SellerPromotionUpdate:
             return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
-
 
         def _parse_service_groups(data: object) -> list[str] | None | Unset:
             if data is None:
@@ -151,7 +133,6 @@ class SellerPromotionUpdate:
 
         service_groups = _parse_service_groups(d.pop("service_groups", UNSET))
 
-
         def _parse_pricing(data: object) -> None | SellerPromotionUpdatePricingType0 | Unset:
             if data is None:
                 return data
@@ -162,15 +143,12 @@ class SellerPromotionUpdate:
                     raise TypeError()
                 pricing_type_0 = SellerPromotionUpdatePricingType0.from_dict(data)
 
-
-
                 return pricing_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | SellerPromotionUpdatePricingType0 | Unset, data)
 
         pricing = _parse_pricing(d.pop("pricing", UNSET))
-
 
         def _parse_priority(data: object) -> int | None | Unset:
             if data is None:
@@ -180,7 +158,6 @@ class SellerPromotionUpdate:
             return cast(int | None | Unset, data)
 
         priority = _parse_priority(d.pop("priority", UNSET))
-
 
         def _parse_status(data: object) -> None | PriceRuleStatusEnum | Unset:
             if data is None:
@@ -192,15 +169,12 @@ class SellerPromotionUpdate:
                     raise TypeError()
                 status_type_0 = check_price_rule_status_enum(data)
 
-
-
                 return status_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | PriceRuleStatusEnum | Unset, data)
 
         status = _parse_status(d.pop("status", UNSET))
-
 
         seller_promotion_update = cls(
             name=name,
@@ -210,7 +184,6 @@ class SellerPromotionUpdate:
             priority=priority,
             status=status,
         )
-
 
         seller_promotion_update.additional_properties = d
         return seller_promotion_update
