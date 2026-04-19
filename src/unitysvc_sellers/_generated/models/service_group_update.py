@@ -1,36 +1,26 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.service_group_status_enum import ServiceGroupStatusEnum, check_service_group_status_enum
 from ..types import UNSET, Unset
-
-from ..models.service_group_status_enum import check_service_group_status_enum
-from ..models.service_group_status_enum import ServiceGroupStatusEnum
-from ..types import UNSET, Unset
-from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
-  from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
-  from ..models.service_group_update_user_access_interfaces_type_0 import ServiceGroupUpdateUserAccessInterfacesType0
-
-
-
+    from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
+    from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
+    from ..models.service_group_update_user_access_interfaces_type_0 import ServiceGroupUpdateUserAccessInterfacesType0
 
 
 T = TypeVar("T", bound="ServiceGroupUpdate")
 
 
-
 @_attrs_define
 class ServiceGroupUpdate:
-    """ Schema for updating a ServiceGroup.
-
-     """
+    """Schema for updating a ServiceGroup."""
 
     display_name: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
@@ -43,14 +33,13 @@ class ServiceGroupUpdate:
     """ Parent group name. Resolved to ancestor_path based on owner context. """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
         from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
-        from ..models.service_group_update_user_access_interfaces_type_0 import ServiceGroupUpdateUserAccessInterfacesType0
+        from ..models.service_group_update_user_access_interfaces_type_0 import (
+            ServiceGroupUpdateUserAccessInterfacesType0,
+        )
+
         display_name: None | str | Unset
         if isinstance(self.display_name, Unset):
             display_name = UNSET
@@ -107,11 +96,9 @@ class ServiceGroupUpdate:
         else:
             parent_group_name = self.parent_group_name
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-        })
+        field_dict.update({})
         if display_name is not UNSET:
             field_dict["display_name"] = display_name
         if description is not UNSET:
@@ -131,14 +118,16 @@ class ServiceGroupUpdate:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
         from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
-        from ..models.service_group_update_user_access_interfaces_type_0 import ServiceGroupUpdateUserAccessInterfacesType0
+        from ..models.service_group_update_user_access_interfaces_type_0 import (
+            ServiceGroupUpdateUserAccessInterfacesType0,
+        )
+
         d = dict(src_dict)
+
         def _parse_display_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -148,7 +137,6 @@ class ServiceGroupUpdate:
 
         display_name = _parse_display_name(d.pop("display_name", UNSET))
 
-
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -157,7 +145,6 @@ class ServiceGroupUpdate:
             return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
-
 
         def _parse_membership_rules(data: object) -> None | ServiceGroupUpdateMembershipRulesType0 | Unset:
             if data is None:
@@ -169,15 +156,12 @@ class ServiceGroupUpdate:
                     raise TypeError()
                 membership_rules_type_0 = ServiceGroupUpdateMembershipRulesType0.from_dict(data)
 
-
-
                 return membership_rules_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceGroupUpdateMembershipRulesType0 | Unset, data)
 
         membership_rules = _parse_membership_rules(d.pop("membership_rules", UNSET))
-
 
         def _parse_user_access_interfaces(data: object) -> None | ServiceGroupUpdateUserAccessInterfacesType0 | Unset:
             if data is None:
@@ -189,15 +173,12 @@ class ServiceGroupUpdate:
                     raise TypeError()
                 user_access_interfaces_type_0 = ServiceGroupUpdateUserAccessInterfacesType0.from_dict(data)
 
-
-
                 return user_access_interfaces_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceGroupUpdateUserAccessInterfacesType0 | Unset, data)
 
         user_access_interfaces = _parse_user_access_interfaces(d.pop("user_access_interfaces", UNSET))
-
 
         def _parse_routing_policy(data: object) -> None | ServiceGroupUpdateRoutingPolicyType0 | Unset:
             if data is None:
@@ -209,15 +190,12 @@ class ServiceGroupUpdate:
                     raise TypeError()
                 routing_policy_type_0 = ServiceGroupUpdateRoutingPolicyType0.from_dict(data)
 
-
-
                 return routing_policy_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceGroupUpdateRoutingPolicyType0 | Unset, data)
 
         routing_policy = _parse_routing_policy(d.pop("routing_policy", UNSET))
-
 
         def _parse_status(data: object) -> None | ServiceGroupStatusEnum | Unset:
             if data is None:
@@ -229,15 +207,12 @@ class ServiceGroupUpdate:
                     raise TypeError()
                 status_type_0 = check_service_group_status_enum(data)
 
-
-
                 return status_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceGroupStatusEnum | Unset, data)
 
         status = _parse_status(d.pop("status", UNSET))
-
 
         def _parse_sort_order(data: object) -> int | None | Unset:
             if data is None:
@@ -248,7 +223,6 @@ class ServiceGroupUpdate:
 
         sort_order = _parse_sort_order(d.pop("sort_order", UNSET))
 
-
         def _parse_parent_group_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -257,7 +231,6 @@ class ServiceGroupUpdate:
             return cast(None | str | Unset, data)
 
         parent_group_name = _parse_parent_group_name(d.pop("parent_group_name", UNSET))
-
 
         service_group_update = cls(
             display_name=display_name,
@@ -269,7 +242,6 @@ class ServiceGroupUpdate:
             sort_order=sort_order,
             parent_group_name=parent_group_name,
         )
-
 
         service_group_update.additional_properties = d
         return service_group_update

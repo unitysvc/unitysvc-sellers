@@ -1,39 +1,23 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.auth_method_enum import AuthMethodEnum, check_auth_method_enum
+from ..models.content_filter_enum import ContentFilterEnum, check_content_filter_enum
+from ..models.overage_policy_enum import OveragePolicyEnum, check_overage_policy_enum
+from ..models.quota_reset_cycle_enum import QuotaResetCycleEnum, check_quota_reset_cycle_enum
+from ..models.rate_limit_unit_enum import RateLimitUnitEnum, check_rate_limit_unit_enum
 from ..types import UNSET, Unset
-
-from ..models.auth_method_enum import AuthMethodEnum
-from ..models.auth_method_enum import check_auth_method_enum
-from ..models.content_filter_enum import check_content_filter_enum
-from ..models.content_filter_enum import ContentFilterEnum
-from ..models.overage_policy_enum import check_overage_policy_enum
-from ..models.overage_policy_enum import OveragePolicyEnum
-from ..models.quota_reset_cycle_enum import check_quota_reset_cycle_enum
-from ..models.quota_reset_cycle_enum import QuotaResetCycleEnum
-from ..models.rate_limit_unit_enum import check_rate_limit_unit_enum
-from ..models.rate_limit_unit_enum import RateLimitUnitEnum
-from ..types import UNSET, Unset
-from typing import cast
-
-
-
-
-
 
 T = TypeVar("T", bound="ServiceConstraints")
 
 
-
 @_attrs_define
 class ServiceConstraints:
-    
-
     monthly_quota: int | None | Unset = UNSET
     """ Monthly usage quota (requests, tokens, etc.) """
     daily_quota: int | None | Unset = UNSET
@@ -81,10 +65,6 @@ class ServiceConstraints:
     max_connections_per_ip: int | None | Unset = UNSET
     """ Maximum connections per IP address """
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         monthly_quota: int | None | Unset
         if isinstance(self.monthly_quota, Unset):
@@ -130,7 +110,6 @@ class ServiceConstraints:
             for auth_methods_type_0_item_data in self.auth_methods:
                 auth_methods_type_0_item: str = auth_methods_type_0_item_data
                 auth_methods.append(auth_methods_type_0_item)
-
 
         else:
             auth_methods = self.auth_methods
@@ -180,7 +159,6 @@ class ServiceConstraints:
                 content_filters_type_0_item: str = content_filters_type_0_item_data
                 content_filters.append(content_filters_type_0_item)
 
-
         else:
             content_filters = self.content_filters
 
@@ -190,7 +168,6 @@ class ServiceConstraints:
         elif isinstance(self.input_languages, list):
             input_languages = self.input_languages
 
-
         else:
             input_languages = self.input_languages
 
@@ -199,7 +176,6 @@ class ServiceConstraints:
             output_languages = UNSET
         elif isinstance(self.output_languages, list):
             output_languages = self.output_languages
-
 
         else:
             output_languages = self.output_languages
@@ -215,7 +191,6 @@ class ServiceConstraints:
             region_restrictions = UNSET
         elif isinstance(self.region_restrictions, list):
             region_restrictions = self.region_restrictions
-
 
         else:
             region_restrictions = self.region_restrictions
@@ -238,7 +213,6 @@ class ServiceConstraints:
         elif isinstance(self.maintenance_windows, list):
             maintenance_windows = self.maintenance_windows
 
-
         else:
             maintenance_windows = self.maintenance_windows
 
@@ -260,11 +234,9 @@ class ServiceConstraints:
         else:
             max_connections_per_ip = self.max_connections_per_ip
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-        })
+        field_dict.update({})
         if monthly_quota is not UNSET:
             field_dict["monthly_quota"] = monthly_quota
         if daily_quota is not UNSET:
@@ -314,11 +286,10 @@ class ServiceConstraints:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+
         def _parse_monthly_quota(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -328,7 +299,6 @@ class ServiceConstraints:
 
         monthly_quota = _parse_monthly_quota(d.pop("monthly_quota", UNSET))
 
-
         def _parse_daily_quota(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -337,7 +307,6 @@ class ServiceConstraints:
             return cast(int | None | Unset, data)
 
         daily_quota = _parse_daily_quota(d.pop("daily_quota", UNSET))
-
 
         def _parse_quota_unit(data: object) -> None | RateLimitUnitEnum | Unset:
             if data is None:
@@ -349,15 +318,12 @@ class ServiceConstraints:
                     raise TypeError()
                 quota_unit_type_0 = check_rate_limit_unit_enum(data)
 
-
-
                 return quota_unit_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | RateLimitUnitEnum | Unset, data)
 
         quota_unit = _parse_quota_unit(d.pop("quota_unit", UNSET))
-
 
         def _parse_quota_reset_cycle(data: object) -> None | QuotaResetCycleEnum | Unset:
             if data is None:
@@ -369,15 +335,12 @@ class ServiceConstraints:
                     raise TypeError()
                 quota_reset_cycle_type_0 = check_quota_reset_cycle_enum(data)
 
-
-
                 return quota_reset_cycle_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | QuotaResetCycleEnum | Unset, data)
 
         quota_reset_cycle = _parse_quota_reset_cycle(d.pop("quota_reset_cycle", UNSET))
-
 
         def _parse_overage_policy(data: object) -> None | OveragePolicyEnum | Unset:
             if data is None:
@@ -389,15 +352,12 @@ class ServiceConstraints:
                     raise TypeError()
                 overage_policy_type_0 = check_overage_policy_enum(data)
 
-
-
                 return overage_policy_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | OveragePolicyEnum | Unset, data)
 
         overage_policy = _parse_overage_policy(d.pop("overage_policy", UNSET))
-
 
         def _parse_auth_methods(data: object) -> list[AuthMethodEnum] | None | Unset:
             if data is None:
@@ -409,10 +369,8 @@ class ServiceConstraints:
                     raise TypeError()
                 auth_methods_type_0 = []
                 _auth_methods_type_0 = data
-                for auth_methods_type_0_item_data in (_auth_methods_type_0):
+                for auth_methods_type_0_item_data in _auth_methods_type_0:
                     auth_methods_type_0_item = check_auth_method_enum(auth_methods_type_0_item_data)
-
-
 
                     auth_methods_type_0.append(auth_methods_type_0_item)
 
@@ -423,7 +381,6 @@ class ServiceConstraints:
 
         auth_methods = _parse_auth_methods(d.pop("auth_methods", UNSET))
 
-
         def _parse_ip_whitelist_required(data: object) -> bool | None | Unset:
             if data is None:
                 return data
@@ -432,7 +389,6 @@ class ServiceConstraints:
             return cast(bool | None | Unset, data)
 
         ip_whitelist_required = _parse_ip_whitelist_required(d.pop("ip_whitelist_required", UNSET))
-
 
         def _parse_tls_version_min(data: object) -> None | str | Unset:
             if data is None:
@@ -443,7 +399,6 @@ class ServiceConstraints:
 
         tls_version_min = _parse_tls_version_min(d.pop("tls_version_min", UNSET))
 
-
         def _parse_max_request_size_bytes(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -452,7 +407,6 @@ class ServiceConstraints:
             return cast(int | None | Unset, data)
 
         max_request_size_bytes = _parse_max_request_size_bytes(d.pop("max_request_size_bytes", UNSET))
-
 
         def _parse_max_response_size_bytes(data: object) -> int | None | Unset:
             if data is None:
@@ -463,7 +417,6 @@ class ServiceConstraints:
 
         max_response_size_bytes = _parse_max_response_size_bytes(d.pop("max_response_size_bytes", UNSET))
 
-
         def _parse_timeout_seconds(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -473,7 +426,6 @@ class ServiceConstraints:
 
         timeout_seconds = _parse_timeout_seconds(d.pop("timeout_seconds", UNSET))
 
-
         def _parse_max_batch_size(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -482,7 +434,6 @@ class ServiceConstraints:
             return cast(int | None | Unset, data)
 
         max_batch_size = _parse_max_batch_size(d.pop("max_batch_size", UNSET))
-
 
         def _parse_content_filters(data: object) -> list[ContentFilterEnum] | None | Unset:
             if data is None:
@@ -494,10 +445,8 @@ class ServiceConstraints:
                     raise TypeError()
                 content_filters_type_0 = []
                 _content_filters_type_0 = data
-                for content_filters_type_0_item_data in (_content_filters_type_0):
+                for content_filters_type_0_item_data in _content_filters_type_0:
                     content_filters_type_0_item = check_content_filter_enum(content_filters_type_0_item_data)
-
-
 
                     content_filters_type_0.append(content_filters_type_0_item)
 
@@ -507,7 +456,6 @@ class ServiceConstraints:
             return cast(list[ContentFilterEnum] | None | Unset, data)
 
         content_filters = _parse_content_filters(d.pop("content_filters", UNSET))
-
 
         def _parse_input_languages(data: object) -> list[str] | None | Unset:
             if data is None:
@@ -526,7 +474,6 @@ class ServiceConstraints:
 
         input_languages = _parse_input_languages(d.pop("input_languages", UNSET))
 
-
         def _parse_output_languages(data: object) -> list[str] | None | Unset:
             if data is None:
                 return data
@@ -544,7 +491,6 @@ class ServiceConstraints:
 
         output_languages = _parse_output_languages(d.pop("output_languages", UNSET))
 
-
         def _parse_max_context_length(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -553,7 +499,6 @@ class ServiceConstraints:
             return cast(int | None | Unset, data)
 
         max_context_length = _parse_max_context_length(d.pop("max_context_length", UNSET))
-
 
         def _parse_region_restrictions(data: object) -> list[str] | None | Unset:
             if data is None:
@@ -572,7 +517,6 @@ class ServiceConstraints:
 
         region_restrictions = _parse_region_restrictions(d.pop("region_restrictions", UNSET))
 
-
         def _parse_uptime_sla_percent(data: object) -> float | None | Unset:
             if data is None:
                 return data
@@ -582,7 +526,6 @@ class ServiceConstraints:
 
         uptime_sla_percent = _parse_uptime_sla_percent(d.pop("uptime_sla_percent", UNSET))
 
-
         def _parse_response_time_sla_ms(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -591,7 +534,6 @@ class ServiceConstraints:
             return cast(int | None | Unset, data)
 
         response_time_sla_ms = _parse_response_time_sla_ms(d.pop("response_time_sla_ms", UNSET))
-
 
         def _parse_maintenance_windows(data: object) -> list[str] | None | Unset:
             if data is None:
@@ -610,7 +552,6 @@ class ServiceConstraints:
 
         maintenance_windows = _parse_maintenance_windows(d.pop("maintenance_windows", UNSET))
 
-
         def _parse_max_concurrent_requests(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -619,7 +560,6 @@ class ServiceConstraints:
             return cast(int | None | Unset, data)
 
         max_concurrent_requests = _parse_max_concurrent_requests(d.pop("max_concurrent_requests", UNSET))
-
 
         def _parse_connection_timeout_seconds(data: object) -> int | None | Unset:
             if data is None:
@@ -630,7 +570,6 @@ class ServiceConstraints:
 
         connection_timeout_seconds = _parse_connection_timeout_seconds(d.pop("connection_timeout_seconds", UNSET))
 
-
         def _parse_max_connections_per_ip(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -639,7 +578,6 @@ class ServiceConstraints:
             return cast(int | None | Unset, data)
 
         max_connections_per_ip = _parse_max_connections_per_ip(d.pop("max_connections_per_ip", UNSET))
-
 
         service_constraints = cls(
             monthly_quota=monthly_quota,
@@ -668,4 +606,3 @@ class ServiceConstraints:
         )
 
         return service_constraints
-

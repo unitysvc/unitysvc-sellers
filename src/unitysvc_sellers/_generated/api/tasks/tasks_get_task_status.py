@@ -4,15 +4,11 @@ from urllib.parse import quote
 
 import httpx
 
-from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
 from ... import errors
-
+from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
 from ...models.response_tasks_get_task_status import ResponseTasksGetTaskStatus
-from ...types import UNSET, Unset
-from typing import cast
-
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -20,7 +16,6 @@ def _get_kwargs(
     id: list[str],
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
     if not isinstance(authorization, Unset):
@@ -29,20 +24,13 @@ def _get_kwargs(
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
-
-
-    
-
     params: dict[str, Any] = {}
 
     json_id = id
 
-
     params["id"] = json_id
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -50,24 +38,20 @@ def _get_kwargs(
         "params": params,
     }
 
-
     _kwargs["headers"] = headers
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | ResponseTasksGetTaskStatus | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> HTTPValidationError | ResponseTasksGetTaskStatus | None:
     if response.status_code == 200:
         response_200 = ResponseTasksGetTaskStatus.from_dict(response.json())
-
-
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -77,7 +61,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | ResponseTasksGetTaskStatus]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[HTTPValidationError | ResponseTasksGetTaskStatus]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -92,9 +78,8 @@ def sync_detailed(
     id: list[str],
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[HTTPValidationError | ResponseTasksGetTaskStatus]:
-    """ Get Task Status
+    """Get Task Status
 
      Get the status of one or more Celery tasks.
 
@@ -119,14 +104,12 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | ResponseTasksGetTaskStatus]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         id=id,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
     response = client.get_httpx_client().request(
@@ -135,15 +118,15 @@ x_role_id=x_role_id,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     id: list[str],
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> HTTPValidationError | ResponseTasksGetTaskStatus | None:
-    """ Get Task Status
+    """Get Task Status
 
      Get the status of one or more Celery tasks.
 
@@ -168,16 +151,15 @@ def sync(
 
     Returns:
         HTTPValidationError | ResponseTasksGetTaskStatus
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-id=id,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        id=id,
+        authorization=authorization,
+        x_role_id=x_role_id,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
@@ -185,9 +167,8 @@ async def asyncio_detailed(
     id: list[str],
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> Response[HTTPValidationError | ResponseTasksGetTaskStatus]:
-    """ Get Task Status
+    """Get Task Status
 
      Get the status of one or more Celery tasks.
 
@@ -212,21 +193,18 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | ResponseTasksGetTaskStatus]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         id=id,
-authorization=authorization,
-x_role_id=x_role_id,
-
+        authorization=authorization,
+        x_role_id=x_role_id,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
@@ -234,9 +212,8 @@ async def asyncio(
     id: list[str],
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-
 ) -> HTTPValidationError | ResponseTasksGetTaskStatus | None:
-    """ Get Task Status
+    """Get Task Status
 
      Get the status of one or more Celery tasks.
 
@@ -261,13 +238,13 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | ResponseTasksGetTaskStatus
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-id=id,
-authorization=authorization,
-x_role_id=x_role_id,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            id=id,
+            authorization=authorization,
+            x_role_id=x_role_id,
+        )
+    ).parsed

@@ -1,8 +1,13 @@
 from typing import Literal, cast
 
-ProviderStatusEnum = Literal['deprecated', 'draft', 'ready']
+ProviderStatusEnum = Literal["deprecated", "draft", "ready"]
 
-PROVIDER_STATUS_ENUM_VALUES: set[ProviderStatusEnum] = { 'deprecated', 'draft', 'ready',  }
+PROVIDER_STATUS_ENUM_VALUES: set[ProviderStatusEnum] = {
+    "deprecated",
+    "draft",
+    "ready",
+}
+
 
 def check_provider_status_enum(value: str) -> ProviderStatusEnum:
     if value in PROVIDER_STATUS_ENUM_VALUES:

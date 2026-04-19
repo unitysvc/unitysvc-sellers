@@ -2,6 +2,16 @@
 
 Wraps the seller-tagged ``/v1/seller/secrets/*`` operations.
 Secret values are write-only — only metadata is ever returned.
+
+API shape mirrors GitHub's secrets API (see unitysvc/unitysvc#798):
+
+* :meth:`list`   — ``GET /``
+* :meth:`get`    — ``GET /{name}``  (metadata only)
+* :meth:`set`    — ``PUT /{name}``  (idempotent create-or-replace)
+* :meth:`delete` — ``DELETE /{name}``
+
+There is no separate ``create`` or ``rotate`` method — :meth:`set`
+does both create and rotate in one idempotent call.
 """
 
 from __future__ import annotations
@@ -45,25 +55,17 @@ class Secrets:
             )
         )
 
-    def create(self, name: str, value: str) -> SecretPublic:
-        """Create a new secret. The value cannot be retrieved after creation."""
-        from ._generated.api.seller_secrets import seller_secrets_create_secret
-        from ._generated.models.secret_create import SecretCreate
+    def set(self, name: str, value: str) -> SecretPublic:
+        """Set ``name`` to ``value`` (idempotent — creates or replaces).
 
-        return unwrap(
-            seller_secrets_create_secret.sync_detailed(
-                client=self._client,
-                body=SecretCreate(name=name, value=value),
-            )
-        )
-
-    def rotate(self, name: str, value: str) -> SecretPublic:
-        """Rotate (update) the value of an existing secret by name."""
-        from ._generated.api.seller_secrets import seller_secrets_update_secret
+        Maps to ``PUT /v1/seller/secrets/{name}``. Returns the secret's
+        public metadata; the value itself is never echoed back.
+        """
+        from ._generated.api.seller_secrets import seller_secrets_set_secret
         from ._generated.models.secret_update import SecretUpdate
 
         return unwrap(
-            seller_secrets_update_secret.sync_detailed(
+            seller_secrets_set_secret.sync_detailed(
                 name=name,
                 client=self._client,
                 body=SecretUpdate(value=value),

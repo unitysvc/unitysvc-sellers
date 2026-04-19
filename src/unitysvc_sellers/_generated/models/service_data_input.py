@@ -1,37 +1,31 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from typing import cast
-
 if TYPE_CHECKING:
-  from ..models.provider_data import ProviderData
-  from ..models.service_listing_data import ServiceListingData
-  from ..models.service_offering_data import ServiceOfferingData
-
-
-
+    from ..models.provider_data import ProviderData
+    from ..models.service_listing_data import ServiceListingData
+    from ..models.service_offering_data import ServiceOfferingData
 
 
 T = TypeVar("T", bound="ServiceDataInput")
 
 
-
 @_attrs_define
 class ServiceDataInput:
-    """ Complete service data input for publishing.
+    """Complete service data input for publishing.
 
     Fields are typed against the shared ``unitysvc_core`` models so the
     OpenAPI spec carries the full provider/offering/listing schemas, and
     generated clients expose typed upload methods instead of ``dict[str, Any]``.
 
-     """
+    """
 
     provider_data: ProviderData
     """ Base data structure for provider information.
@@ -94,60 +88,47 @@ class ServiceDataInput:
       by being published together in a single API call (API mode) """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.provider_data import ProviderData
         from ..models.service_listing_data import ServiceListingData
         from ..models.service_offering_data import ServiceOfferingData
+
         provider_data = self.provider_data.to_dict()
 
         offering_data = self.offering_data.to_dict()
 
         listing_data = self.listing_data.to_dict()
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "provider_data": provider_data,
-            "offering_data": offering_data,
-            "listing_data": listing_data,
-        })
+        field_dict.update(
+            {
+                "provider_data": provider_data,
+                "offering_data": offering_data,
+                "listing_data": listing_data,
+            }
+        )
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.provider_data import ProviderData
         from ..models.service_listing_data import ServiceListingData
         from ..models.service_offering_data import ServiceOfferingData
+
         d = dict(src_dict)
         provider_data = ProviderData.from_dict(d.pop("provider_data"))
 
-
-
-
         offering_data = ServiceOfferingData.from_dict(d.pop("offering_data"))
 
-
-
-
         listing_data = ServiceListingData.from_dict(d.pop("listing_data"))
-
-
-
 
         service_data_input = cls(
             provider_data=provider_data,
             offering_data=offering_data,
             listing_data=listing_data,
         )
-
 
         service_data_input.additional_properties = d
         return service_data_input

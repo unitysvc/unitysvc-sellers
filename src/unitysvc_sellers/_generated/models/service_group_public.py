@@ -1,43 +1,31 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.group_owner_type_enum import check_group_owner_type_enum
-from ..models.group_owner_type_enum import GroupOwnerTypeEnum
-from ..models.group_type_enum import check_group_type_enum
-from ..models.group_type_enum import GroupTypeEnum
-from ..models.service_group_status_enum import check_service_group_status_enum
-from ..models.service_group_status_enum import ServiceGroupStatusEnum
-from ..types import UNSET, Unset
 from dateutil.parser import isoparse
-from typing import cast
-from uuid import UUID
-import datetime
+
+from ..models.group_owner_type_enum import GroupOwnerTypeEnum, check_group_owner_type_enum
+from ..models.group_type_enum import GroupTypeEnum, check_group_type_enum
+from ..models.service_group_status_enum import ServiceGroupStatusEnum, check_service_group_status_enum
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-  from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
-  from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
-  from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
-
-
-
+    from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
+    from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
+    from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
 
 
 T = TypeVar("T", bound="ServiceGroupPublic")
 
 
-
 @_attrs_define
 class ServiceGroupPublic:
-    """ Public response model for ServiceGroup.
-
-     """
+    """Public response model for ServiceGroup."""
 
     id: UUID
     owner_id: UUID
@@ -61,21 +49,20 @@ class ServiceGroupPublic:
     - Rules + access interfaces → group (has own API endpoint + routing)
     - System-generated catch-all → misc """
     sort_order: int | Unset = 0
-    ancestor_path: str | Unset = '/'
+    ancestor_path: str | Unset = "/"
     service_count: int | None | Unset = UNSET
     enrolled_count: int | None | Unset = UNSET
     unenrolled_count: int | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
         from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
-        from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
+        from ..models.service_group_public_user_access_interfaces_type_0 import (
+            ServiceGroupPublicUserAccessInterfacesType0,
+        )
+
         id = str(self.id)
 
         owner_id = str(self.owner_id)
@@ -124,7 +111,6 @@ class ServiceGroupPublic:
         if not isinstance(self.group_type, Unset):
             group_type = self.group_type
 
-
         sort_order = self.sort_order
 
         ancestor_path = self.ancestor_path
@@ -155,18 +141,19 @@ class ServiceGroupPublic:
         else:
             updated_at = self.updated_at
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "id": id,
-            "owner_id": owner_id,
-            "owner_type": owner_type,
-            "name": name,
-            "display_name": display_name,
-            "status": status,
-            "created_at": created_at,
-        })
+        field_dict.update(
+            {
+                "id": id,
+                "owner_id": owner_id,
+                "owner_type": owner_type,
+                "name": name,
+                "display_name": display_name,
+                "status": status,
+                "created_at": created_at,
+            }
+        )
         if description is not UNSET:
             field_dict["description"] = description
         if membership_rules is not UNSET:
@@ -192,28 +179,20 @@ class ServiceGroupPublic:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
         from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
-        from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
+        from ..models.service_group_public_user_access_interfaces_type_0 import (
+            ServiceGroupPublicUserAccessInterfacesType0,
+        )
+
         d = dict(src_dict)
         id = UUID(d.pop("id"))
 
-
-
-
         owner_id = UUID(d.pop("owner_id"))
 
-
-
-
         owner_type = check_group_owner_type_enum(d.pop("owner_type"))
-
-
-
 
         name = d.pop("name")
 
@@ -221,13 +200,7 @@ class ServiceGroupPublic:
 
         status = check_service_group_status_enum(d.pop("status"))
 
-
-
-
         created_at = isoparse(d.pop("created_at"))
-
-
-
 
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
@@ -237,7 +210,6 @@ class ServiceGroupPublic:
             return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
-
 
         def _parse_membership_rules(data: object) -> None | ServiceGroupPublicMembershipRulesType0 | Unset:
             if data is None:
@@ -249,15 +221,12 @@ class ServiceGroupPublic:
                     raise TypeError()
                 membership_rules_type_0 = ServiceGroupPublicMembershipRulesType0.from_dict(data)
 
-
-
                 return membership_rules_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceGroupPublicMembershipRulesType0 | Unset, data)
 
         membership_rules = _parse_membership_rules(d.pop("membership_rules", UNSET))
-
 
         def _parse_user_access_interfaces(data: object) -> None | ServiceGroupPublicUserAccessInterfacesType0 | Unset:
             if data is None:
@@ -269,15 +238,12 @@ class ServiceGroupPublic:
                     raise TypeError()
                 user_access_interfaces_type_0 = ServiceGroupPublicUserAccessInterfacesType0.from_dict(data)
 
-
-
                 return user_access_interfaces_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceGroupPublicUserAccessInterfacesType0 | Unset, data)
 
         user_access_interfaces = _parse_user_access_interfaces(d.pop("user_access_interfaces", UNSET))
-
 
         def _parse_routing_policy(data: object) -> None | ServiceGroupPublicRoutingPolicyType0 | Unset:
             if data is None:
@@ -289,8 +255,6 @@ class ServiceGroupPublic:
                     raise TypeError()
                 routing_policy_type_0 = ServiceGroupPublicRoutingPolicyType0.from_dict(data)
 
-
-
                 return routing_policy_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
@@ -298,16 +262,12 @@ class ServiceGroupPublic:
 
         routing_policy = _parse_routing_policy(d.pop("routing_policy", UNSET))
 
-
         _group_type = d.pop("group_type", UNSET)
         group_type: GroupTypeEnum | Unset
-        if isinstance(_group_type,  Unset):
+        if isinstance(_group_type, Unset):
             group_type = UNSET
         else:
             group_type = check_group_type_enum(_group_type)
-
-
-
 
         sort_order = d.pop("sort_order", UNSET)
 
@@ -322,7 +282,6 @@ class ServiceGroupPublic:
 
         service_count = _parse_service_count(d.pop("service_count", UNSET))
 
-
         def _parse_enrolled_count(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -332,7 +291,6 @@ class ServiceGroupPublic:
 
         enrolled_count = _parse_enrolled_count(d.pop("enrolled_count", UNSET))
 
-
         def _parse_unenrolled_count(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -341,7 +299,6 @@ class ServiceGroupPublic:
             return cast(int | None | Unset, data)
 
         unenrolled_count = _parse_unenrolled_count(d.pop("unenrolled_count", UNSET))
-
 
         def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -353,15 +310,12 @@ class ServiceGroupPublic:
                     raise TypeError()
                 updated_at_type_0 = isoparse(data)
 
-
-
                 return updated_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(datetime.datetime | None | Unset, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
-
 
         service_group_public = cls(
             id=id,
@@ -383,7 +337,6 @@ class ServiceGroupPublic:
             unenrolled_count=unenrolled_count,
             updated_at=updated_at,
         )
-
 
         service_group_public.additional_properties = d
         return service_group_public

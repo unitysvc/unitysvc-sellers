@@ -1,30 +1,23 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..types import UNSET, Unset
-from typing import cast
-
 if TYPE_CHECKING:
-  from ..models.document_test_update_tests_type_0 import DocumentTestUpdateTestsType0
-
-
-
+    from ..models.document_test_update_tests_type_0 import DocumentTestUpdateTestsType0
 
 
 T = TypeVar("T", bound="DocumentTestUpdate")
 
 
-
 @_attrs_define
 class DocumentTestUpdate:
-    """ Request body for updating document test status.
+    """Request body for updating document test status.
 
     The ``status`` field drives dispatch:
 
@@ -40,7 +33,7 @@ class DocumentTestUpdate:
     This endpoint replaces the previously-separate /skip and /unskip routes,
     which dispatched to the same backing field via different HTTP verbs.
 
-     """
+    """
 
     status: str
     """ skip | pending | success | task_failed | script_failed | unexpected_output """
@@ -50,12 +43,9 @@ class DocumentTestUpdate:
     """ Per-interface test results: {name: {status, exit_code, stdout, stderr, error}} """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.document_test_update_tests_type_0 import DocumentTestUpdateTestsType0
+
         status = self.status
 
         executed_at: None | str | Unset
@@ -72,12 +62,13 @@ class DocumentTestUpdate:
         else:
             tests = self.tests
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "status": status,
-        })
+        field_dict.update(
+            {
+                "status": status,
+            }
+        )
         if executed_at is not UNSET:
             field_dict["executed_at"] = executed_at
         if tests is not UNSET:
@@ -85,11 +76,10 @@ class DocumentTestUpdate:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.document_test_update_tests_type_0 import DocumentTestUpdateTestsType0
+
         d = dict(src_dict)
         status = d.pop("status")
 
@@ -102,7 +92,6 @@ class DocumentTestUpdate:
 
         executed_at = _parse_executed_at(d.pop("executed_at", UNSET))
 
-
         def _parse_tests(data: object) -> DocumentTestUpdateTestsType0 | None | Unset:
             if data is None:
                 return data
@@ -113,8 +102,6 @@ class DocumentTestUpdate:
                     raise TypeError()
                 tests_type_0 = DocumentTestUpdateTestsType0.from_dict(data)
 
-
-
                 return tests_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
@@ -122,13 +109,11 @@ class DocumentTestUpdate:
 
         tests = _parse_tests(d.pop("tests", UNSET))
 
-
         document_test_update = cls(
             status=status,
             executed_at=executed_at,
             tests=tests,
         )
-
 
         document_test_update.additional_properties = d
         return document_test_update

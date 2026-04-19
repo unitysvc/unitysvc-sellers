@@ -146,10 +146,10 @@ def show_secret(
 
 
 # ---------------------------------------------------------------------------
-# create
+# set (idempotent — creates or rotates)
 # ---------------------------------------------------------------------------
-@app.command("create")
-def create_secret(
+@app.command("set")
+def set_secret(
     name: str = typer.Argument(..., help="Secret name (uppercase + underscores, e.g. OPENAI_API_KEY)."),
     value: str | None = typer.Option(None, "--value", "-v", help="Secret value. Omit to prompt securely."),
     value_file: Path | None = typer.Option(None, "--value-file", help="Read value from file."),
@@ -158,42 +158,23 @@ def create_secret(
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Create a new secret. The value cannot be retrieved after creation."""
+    """Set a secret to ``value`` (idempotent — creates or rotates).
+
+    Maps to ``PUT /v1/seller/secrets/{name}``. The value cannot be
+    retrieved after this call — store it securely if you need a copy.
+    """
     resolved_value = _read_value(value, value_file, value_stdin)
 
     async def _impl():
         async with async_client(api_key, base_url) as client:
-            return model_to_dict(await client.secrets.create(name, resolved_value))
+            return model_to_dict(await client.secrets.set(name, resolved_value))
 
-    result = run_async(_impl(), error_prefix="Failed to create secret")
+    result = run_async(_impl(), error_prefix="Failed to set secret")
 
     if output_format == "json":
         console.print(json.dumps(result, indent=2, default=str))
     else:
-        console.print(f"[green]✓[/green] Created secret: [bold]{result.get('name', name)}[/bold]")
-
-
-# ---------------------------------------------------------------------------
-# rotate
-# ---------------------------------------------------------------------------
-@app.command("rotate")
-def rotate_secret(
-    name: str = typer.Argument(..., help="Secret name (e.g. OPENAI_API_KEY)."),
-    value: str | None = typer.Option(None, "--value", "-v", help="New secret value. Omit to prompt securely."),
-    value_file: Path | None = typer.Option(None, "--value-file", help="Read value from file."),
-    value_stdin: bool = typer.Option(False, "--value-stdin", help="Read value from stdin."),
-    api_key: str | None = api_key_option(),
-    base_url: str = base_url_option(),
-) -> None:
-    """Rotate (update) the value of an existing secret."""
-    resolved_value = _read_value(value, value_file, value_stdin)
-
-    async def _impl():
-        async with async_client(api_key, base_url) as client:
-            return model_to_dict(await client.secrets.rotate(name, resolved_value))
-
-    result = run_async(_impl(), error_prefix="Failed to rotate secret")
-    console.print(f"[green]✓[/green] Rotated secret: [bold]{result.get('name', name)}[/bold]")
+        console.print(f"[green]✓[/green] Set secret: [bold]{result.get('name', name)}[/bold]")
 
 
 # ---------------------------------------------------------------------------

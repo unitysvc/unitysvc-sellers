@@ -1,42 +1,30 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.price_rule_apply_at_enum import check_price_rule_apply_at_enum
-from ..models.price_rule_apply_at_enum import PriceRuleApplyAtEnum
-from ..models.price_rule_source_enum import check_price_rule_source_enum
-from ..models.price_rule_source_enum import PriceRuleSourceEnum
-from ..models.price_rule_status_enum import check_price_rule_status_enum
-from ..models.price_rule_status_enum import PriceRuleStatusEnum
-from ..types import UNSET, Unset
 from dateutil.parser import isoparse
-from typing import cast
-from uuid import UUID
-import datetime
+
+from ..models.price_rule_apply_at_enum import PriceRuleApplyAtEnum, check_price_rule_apply_at_enum
+from ..models.price_rule_source_enum import PriceRuleSourceEnum, check_price_rule_source_enum
+from ..models.price_rule_status_enum import PriceRuleStatusEnum, check_price_rule_status_enum
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-  from ..models.price_rule_pricing_spec import PriceRulePricingSpec
-  from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
-
-
-
+    from ..models.price_rule_pricing_spec import PriceRulePricingSpec
+    from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
 
 
 T = TypeVar("T", bound="PriceRulePublic")
 
 
-
 @_attrs_define
 class PriceRulePublic:
-    """ Public schema for PriceRule API responses.
-
-     """
+    """Public schema for PriceRule API responses."""
 
     name: str
     """ Display name of the price rule """
@@ -71,13 +59,10 @@ class PriceRulePublic:
     seller_id: None | Unset | UUID = UNSET
     """ Seller ID for seller-funded promotions (None = platform rule) """
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.price_rule_pricing_spec import PriceRulePricingSpec
         from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
+
         name = self.name
 
         source: str = self.source
@@ -106,7 +91,6 @@ class PriceRulePublic:
         elif isinstance(self.service_groups, list):
             service_groups = self.service_groups
 
-
         else:
             service_groups = self.service_groups
 
@@ -114,13 +98,11 @@ class PriceRulePublic:
         if not isinstance(self.apply_at, Unset):
             apply_at = self.apply_at
 
-
         priority = self.priority
 
         status: str | Unset = UNSET
         if not isinstance(self.status, Unset):
             status = self.status
-
 
         requires_redemption = self.requires_redemption
 
@@ -140,19 +122,20 @@ class PriceRulePublic:
         else:
             seller_id = self.seller_id
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "name": name,
-            "source": source,
-            "code": code,
-            "pricing": pricing,
-            "id": id,
-            "created_by_id": created_by_id,
-            "created_at": created_at,
-            "updated_at": updated_at,
-        })
+        field_dict.update(
+            {
+                "name": name,
+                "source": source,
+                "code": code,
+                "pricing": pricing,
+                "id": id,
+                "created_by_id": created_by_id,
+                "created_at": created_at,
+                "updated_at": updated_at,
+            }
+        )
         if description is not UNSET:
             field_dict["description"] = description
         if service_groups is not UNSET:
@@ -172,46 +155,27 @@ class PriceRulePublic:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.price_rule_pricing_spec import PriceRulePricingSpec
         from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
+
         d = dict(src_dict)
         name = d.pop("name")
 
         source = check_price_rule_source_enum(d.pop("source"))
 
-
-
-
         code = d.pop("code")
 
         pricing = PriceRulePricingSpec.from_dict(d.pop("pricing"))
 
-
-
-
         id = UUID(d.pop("id"))
-
-
-
 
         created_by_id = UUID(d.pop("created_by_id"))
 
-
-
-
         created_at = isoparse(d.pop("created_at"))
 
-
-
-
         updated_at = isoparse(d.pop("updated_at"))
-
-
-
 
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
@@ -221,7 +185,6 @@ class PriceRulePublic:
             return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
-
 
         def _parse_service_groups(data: object) -> list[str] | None | Unset:
             if data is None:
@@ -240,28 +203,21 @@ class PriceRulePublic:
 
         service_groups = _parse_service_groups(d.pop("service_groups", UNSET))
 
-
         _apply_at = d.pop("apply_at", UNSET)
         apply_at: PriceRuleApplyAtEnum | Unset
-        if isinstance(_apply_at,  Unset):
+        if isinstance(_apply_at, Unset):
             apply_at = UNSET
         else:
             apply_at = check_price_rule_apply_at_enum(_apply_at)
-
-
-
 
         priority = d.pop("priority", UNSET)
 
         _status = d.pop("status", UNSET)
         status: PriceRuleStatusEnum | Unset
-        if isinstance(_status,  Unset):
+        if isinstance(_status, Unset):
             status = UNSET
         else:
             status = check_price_rule_status_enum(_status)
-
-
-
 
         requires_redemption = d.pop("requires_redemption", UNSET)
 
@@ -275,15 +231,12 @@ class PriceRulePublic:
                     raise TypeError()
                 scope_type_0 = PriceRulePublicScopeType0.from_dict(data)
 
-
-
                 return scope_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | PriceRulePublicScopeType0 | Unset, data)
 
         scope = _parse_scope(d.pop("scope", UNSET))
-
 
         def _parse_seller_id(data: object) -> None | Unset | UUID:
             if data is None:
@@ -295,15 +248,12 @@ class PriceRulePublic:
                     raise TypeError()
                 seller_id_type_0 = UUID(data)
 
-
-
                 return seller_id_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | Unset | UUID, data)
 
         seller_id = _parse_seller_id(d.pop("seller_id", UNSET))
-
 
         price_rule_public = cls(
             name=name,
@@ -325,4 +275,3 @@ class PriceRulePublic:
         )
 
         return price_rule_public
-

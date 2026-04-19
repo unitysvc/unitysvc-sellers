@@ -1,50 +1,47 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-
-
-
-
-
-
 T = TypeVar("T", bound="SecretUpdate")
-
 
 
 @_attrs_define
 class SecretUpdate:
-    """ Schema for updating a secret (value only - name cannot be changed).
+    """Request body for ``PUT /secrets/{name}``.
 
-     """
+    Carries only the value — the name comes from the URL path. The same
+    schema is used for both create and update because ``PUT`` is
+    idempotent (see issue #798).
+
+    Empty string is allowed: a customer may deliberately store ``""``
+    to override a non-empty default in a ``${ secrets.X ?? default }``
+    reference. ``??`` coalesces on null only, so the explicit empty
+    value is preserved.
+
+    """
 
     value: str
-    """ New secret value (will be encrypted) """
+    """ Secret value (will be encrypted). May be empty. """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         value = self.value
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "value": value,
-        })
+        field_dict.update(
+            {
+                "value": value,
+            }
+        )
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -54,7 +51,6 @@ class SecretUpdate:
         secret_update = cls(
             value=value,
         )
-
 
         secret_update.additional_properties = d
         return secret_update

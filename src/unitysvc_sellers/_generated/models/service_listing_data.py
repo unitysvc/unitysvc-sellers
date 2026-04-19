@@ -1,40 +1,33 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.currency_enum import CurrencyEnum, check_currency_enum
+from ..models.listing_status_enum import ListingStatusEnum, check_listing_status_enum
 from ..types import UNSET, Unset
-
-from ..models.currency_enum import check_currency_enum
-from ..models.currency_enum import CurrencyEnum
-from ..models.listing_status_enum import check_listing_status_enum
-from ..models.listing_status_enum import ListingStatusEnum
-from ..types import UNSET, Unset
-from typing import cast
-from uuid import UUID
 
 if TYPE_CHECKING:
-  from ..models.service_listing_data_documents_type_0 import ServiceListingDataDocumentsType0
-  from ..models.service_listing_data_list_price_type_0 import ServiceListingDataListPriceType0
-  from ..models.service_listing_data_service_options_type_0 import ServiceListingDataServiceOptionsType0
-  from ..models.service_listing_data_user_access_interfaces_type_0 import ServiceListingDataUserAccessInterfacesType0
-  from ..models.service_listing_data_user_parameters_schema_type_0 import ServiceListingDataUserParametersSchemaType0
-  from ..models.service_listing_data_user_parameters_ui_schema_type_0 import ServiceListingDataUserParametersUiSchemaType0
-
-
-
+    from ..models.service_listing_data_documents_type_0 import ServiceListingDataDocumentsType0
+    from ..models.service_listing_data_list_price_type_0 import ServiceListingDataListPriceType0
+    from ..models.service_listing_data_service_options_type_0 import ServiceListingDataServiceOptionsType0
+    from ..models.service_listing_data_user_access_interfaces_type_0 import ServiceListingDataUserAccessInterfacesType0
+    from ..models.service_listing_data_user_parameters_schema_type_0 import ServiceListingDataUserParametersSchemaType0
+    from ..models.service_listing_data_user_parameters_ui_schema_type_0 import (
+        ServiceListingDataUserParametersUiSchemaType0,
+    )
 
 
 T = TypeVar("T", bound="ServiceListingData")
 
 
-
 @_attrs_define
 class ServiceListingData:
-    """ Base data structure for service listing information.
+    """Base data structure for service listing information.
 
     This model contains the core fields needed to describe a service listing,
     without file-specific validation fields. It serves as:
@@ -55,7 +48,7 @@ class ServiceListingData:
     - Service/provider relationships are determined by file location (SDK mode) or
       by being published together in a single API call (API mode)
 
-     """
+    """
 
     service_id: None | Unset | UUID = UNSET
     """ Service ID from previous publish. If provided, updates existing service. Stored in override file (e.g.,
@@ -92,17 +85,20 @@ class ServiceListingData:
     configurations. The backend decides which options it supports. """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.service_listing_data_documents_type_0 import ServiceListingDataDocumentsType0
         from ..models.service_listing_data_list_price_type_0 import ServiceListingDataListPriceType0
         from ..models.service_listing_data_service_options_type_0 import ServiceListingDataServiceOptionsType0
-        from ..models.service_listing_data_user_access_interfaces_type_0 import ServiceListingDataUserAccessInterfacesType0
-        from ..models.service_listing_data_user_parameters_schema_type_0 import ServiceListingDataUserParametersSchemaType0
-        from ..models.service_listing_data_user_parameters_ui_schema_type_0 import ServiceListingDataUserParametersUiSchemaType0
+        from ..models.service_listing_data_user_access_interfaces_type_0 import (
+            ServiceListingDataUserAccessInterfacesType0,
+        )
+        from ..models.service_listing_data_user_parameters_schema_type_0 import (
+            ServiceListingDataUserParametersSchemaType0,
+        )
+        from ..models.service_listing_data_user_parameters_ui_schema_type_0 import (
+            ServiceListingDataUserParametersUiSchemaType0,
+        )
+
         service_id: None | str | Unset
         if isinstance(self.service_id, Unset):
             service_id = UNSET
@@ -127,7 +123,6 @@ class ServiceListingData:
         if not isinstance(self.status, Unset):
             status = self.status
 
-
         list_price: dict[str, Any] | None | Unset
         if isinstance(self.list_price, Unset):
             list_price = UNSET
@@ -139,7 +134,6 @@ class ServiceListingData:
         currency: str | Unset = UNSET
         if not isinstance(self.currency, Unset):
             currency = self.currency
-
 
         user_access_interfaces: dict[str, Any] | None | Unset
         if isinstance(self.user_access_interfaces, Unset):
@@ -181,11 +175,9 @@ class ServiceListingData:
         else:
             service_options = self.service_options
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-        })
+        field_dict.update({})
         if service_id is not UNSET:
             field_dict["service_id"] = service_id
         if name is not UNSET:
@@ -211,17 +203,23 @@ class ServiceListingData:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.service_listing_data_documents_type_0 import ServiceListingDataDocumentsType0
         from ..models.service_listing_data_list_price_type_0 import ServiceListingDataListPriceType0
         from ..models.service_listing_data_service_options_type_0 import ServiceListingDataServiceOptionsType0
-        from ..models.service_listing_data_user_access_interfaces_type_0 import ServiceListingDataUserAccessInterfacesType0
-        from ..models.service_listing_data_user_parameters_schema_type_0 import ServiceListingDataUserParametersSchemaType0
-        from ..models.service_listing_data_user_parameters_ui_schema_type_0 import ServiceListingDataUserParametersUiSchemaType0
+        from ..models.service_listing_data_user_access_interfaces_type_0 import (
+            ServiceListingDataUserAccessInterfacesType0,
+        )
+        from ..models.service_listing_data_user_parameters_schema_type_0 import (
+            ServiceListingDataUserParametersSchemaType0,
+        )
+        from ..models.service_listing_data_user_parameters_ui_schema_type_0 import (
+            ServiceListingDataUserParametersUiSchemaType0,
+        )
+
         d = dict(src_dict)
+
         def _parse_service_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
@@ -232,15 +230,12 @@ class ServiceListingData:
                     raise TypeError()
                 service_id_type_0 = UUID(data)
 
-
-
                 return service_id_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | Unset | UUID, data)
 
         service_id = _parse_service_id(d.pop("service_id", UNSET))
-
 
         def _parse_name(data: object) -> None | str | Unset:
             if data is None:
@@ -251,7 +246,6 @@ class ServiceListingData:
 
         name = _parse_name(d.pop("name", UNSET))
 
-
         def _parse_display_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -261,16 +255,12 @@ class ServiceListingData:
 
         display_name = _parse_display_name(d.pop("display_name", UNSET))
 
-
         _status = d.pop("status", UNSET)
         status: ListingStatusEnum | Unset
-        if isinstance(_status,  Unset):
+        if isinstance(_status, Unset):
             status = UNSET
         else:
             status = check_listing_status_enum(_status)
-
-
-
 
         def _parse_list_price(data: object) -> None | ServiceListingDataListPriceType0 | Unset:
             if data is None:
@@ -282,8 +272,6 @@ class ServiceListingData:
                     raise TypeError()
                 list_price_type_0 = ServiceListingDataListPriceType0.from_dict(data)
 
-
-
                 return list_price_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
@@ -291,16 +279,12 @@ class ServiceListingData:
 
         list_price = _parse_list_price(d.pop("list_price", UNSET))
 
-
         _currency = d.pop("currency", UNSET)
         currency: CurrencyEnum | Unset
-        if isinstance(_currency,  Unset):
+        if isinstance(_currency, Unset):
             currency = UNSET
         else:
             currency = check_currency_enum(_currency)
-
-
-
 
         def _parse_user_access_interfaces(data: object) -> None | ServiceListingDataUserAccessInterfacesType0 | Unset:
             if data is None:
@@ -312,15 +296,12 @@ class ServiceListingData:
                     raise TypeError()
                 user_access_interfaces_type_0 = ServiceListingDataUserAccessInterfacesType0.from_dict(data)
 
-
-
                 return user_access_interfaces_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceListingDataUserAccessInterfacesType0 | Unset, data)
 
         user_access_interfaces = _parse_user_access_interfaces(d.pop("user_access_interfaces", UNSET))
-
 
         def _parse_documents(data: object) -> None | ServiceListingDataDocumentsType0 | Unset:
             if data is None:
@@ -332,15 +313,12 @@ class ServiceListingData:
                     raise TypeError()
                 documents_type_0 = ServiceListingDataDocumentsType0.from_dict(data)
 
-
-
                 return documents_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceListingDataDocumentsType0 | Unset, data)
 
         documents = _parse_documents(d.pop("documents", UNSET))
-
 
         def _parse_user_parameters_schema(data: object) -> None | ServiceListingDataUserParametersSchemaType0 | Unset:
             if data is None:
@@ -352,8 +330,6 @@ class ServiceListingData:
                     raise TypeError()
                 user_parameters_schema_type_0 = ServiceListingDataUserParametersSchemaType0.from_dict(data)
 
-
-
                 return user_parameters_schema_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
@@ -361,8 +337,9 @@ class ServiceListingData:
 
         user_parameters_schema = _parse_user_parameters_schema(d.pop("user_parameters_schema", UNSET))
 
-
-        def _parse_user_parameters_ui_schema(data: object) -> None | ServiceListingDataUserParametersUiSchemaType0 | Unset:
+        def _parse_user_parameters_ui_schema(
+            data: object,
+        ) -> None | ServiceListingDataUserParametersUiSchemaType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -372,15 +349,12 @@ class ServiceListingData:
                     raise TypeError()
                 user_parameters_ui_schema_type_0 = ServiceListingDataUserParametersUiSchemaType0.from_dict(data)
 
-
-
                 return user_parameters_ui_schema_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceListingDataUserParametersUiSchemaType0 | Unset, data)
 
         user_parameters_ui_schema = _parse_user_parameters_ui_schema(d.pop("user_parameters_ui_schema", UNSET))
-
 
         def _parse_service_options(data: object) -> None | ServiceListingDataServiceOptionsType0 | Unset:
             if data is None:
@@ -392,15 +366,12 @@ class ServiceListingData:
                     raise TypeError()
                 service_options_type_0 = ServiceListingDataServiceOptionsType0.from_dict(data)
 
-
-
                 return service_options_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceListingDataServiceOptionsType0 | Unset, data)
 
         service_options = _parse_service_options(d.pop("service_options", UNSET))
-
 
         service_listing_data = cls(
             service_id=service_id,
@@ -415,7 +386,6 @@ class ServiceListingData:
             user_parameters_ui_schema=user_parameters_ui_schema,
             service_options=service_options,
         )
-
 
         service_listing_data.additional_properties = d
         return service_listing_data

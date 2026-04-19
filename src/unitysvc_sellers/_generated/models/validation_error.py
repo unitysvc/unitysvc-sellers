@@ -1,36 +1,22 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from typing import cast
-
-
-
-
-
-
 T = TypeVar("T", bound="ValidationError")
-
 
 
 @_attrs_define
 class ValidationError:
-    
-
     loc: list[int | str]
     msg: str
     type_: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         loc = []
@@ -39,38 +25,35 @@ class ValidationError:
             loc_item = loc_item_data
             loc.append(loc_item)
 
-
-
         msg = self.msg
 
         type_ = self.type_
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "loc": loc,
-            "msg": msg,
-            "type": type_,
-        })
+        field_dict.update(
+            {
+                "loc": loc,
+                "msg": msg,
+                "type": type_,
+            }
+        )
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
         loc = []
         _loc = d.pop("loc")
-        for loc_item_data in (_loc):
+        for loc_item_data in _loc:
+
             def _parse_loc_item(data: object) -> int | str:
                 return cast(int | str, data)
 
             loc_item = _parse_loc_item(loc_item_data)
 
             loc.append(loc_item)
-
 
         msg = d.pop("msg")
 
@@ -81,7 +64,6 @@ class ValidationError:
             msg=msg,
             type_=type_,
         )
-
 
         validation_error.additional_properties = d
         return validation_error

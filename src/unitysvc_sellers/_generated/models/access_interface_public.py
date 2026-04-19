@@ -1,39 +1,32 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.access_method_enum import AccessMethodEnum, check_access_method_enum
 from ..types import UNSET, Unset
-
-from ..models.access_method_enum import AccessMethodEnum
-from ..models.access_method_enum import check_access_method_enum
-from ..types import UNSET, Unset
-from typing import cast
-from uuid import UUID
 
 if TYPE_CHECKING:
-  from ..models.access_interface_public_request_transformer_type_0 import AccessInterfacePublicRequestTransformerType0
-  from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
-  from ..models.access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
-  from ..models.rate_limit import RateLimit
-  from ..models.service_constraints import ServiceConstraints
-
-
-
+    from ..models.access_interface_public_customer_secrets_optional_type_0_item import (
+        AccessInterfacePublicCustomerSecretsOptionalType0Item,
+    )
+    from ..models.access_interface_public_request_transformer_type_0 import AccessInterfacePublicRequestTransformerType0
+    from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
+    from ..models.access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
+    from ..models.rate_limit import RateLimit
+    from ..models.service_constraints import ServiceConstraints
 
 
 T = TypeVar("T", bound="AccessInterfacePublic")
 
 
-
 @_attrs_define
 class AccessInterfacePublic:
-    """ Public AccessInterface model for API responses.
-
-     """
+    """Public AccessInterface model for API responses."""
 
     id: UUID
     access_method: AccessMethodEnum
@@ -54,19 +47,23 @@ class AccessInterfacePublic:
     response_rules: AccessInterfacePublicResponseRulesType0 | None | Unset = UNSET
     routing_key: AccessInterfacePublicRoutingKeyType0 | None | Unset = UNSET
     enrollment_id: None | Unset | UUID = UNSET
+    customer_secrets_needed: list[str] | None | Unset = UNSET
+    customer_secrets_optional: list[AccessInterfacePublicCustomerSecretsOptionalType0Item] | None | Unset = UNSET
     updated_at: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        from ..models.access_interface_public_request_transformer_type_0 import AccessInterfacePublicRequestTransformerType0
+        from ..models.access_interface_public_customer_secrets_optional_type_0_item import (
+            AccessInterfacePublicCustomerSecretsOptionalType0Item,
+        )
+        from ..models.access_interface_public_request_transformer_type_0 import (
+            AccessInterfacePublicRequestTransformerType0,
+        )
         from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
         from ..models.access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
         from ..models.rate_limit import RateLimit
         from ..models.service_constraints import ServiceConstraints
+
         id = str(self.id)
 
         access_method: str = self.access_method
@@ -134,7 +131,6 @@ class AccessInterfacePublic:
                 rate_limits_type_0_item = rate_limits_type_0_item_data.to_dict()
                 rate_limits.append(rate_limits_type_0_item)
 
-
         else:
             rate_limits = self.rate_limits
 
@@ -170,24 +166,46 @@ class AccessInterfacePublic:
         else:
             enrollment_id = self.enrollment_id
 
+        customer_secrets_needed: list[str] | None | Unset
+        if isinstance(self.customer_secrets_needed, Unset):
+            customer_secrets_needed = UNSET
+        elif isinstance(self.customer_secrets_needed, list):
+            customer_secrets_needed = self.customer_secrets_needed
+
+        else:
+            customer_secrets_needed = self.customer_secrets_needed
+
+        customer_secrets_optional: list[dict[str, Any]] | None | Unset
+        if isinstance(self.customer_secrets_optional, Unset):
+            customer_secrets_optional = UNSET
+        elif isinstance(self.customer_secrets_optional, list):
+            customer_secrets_optional = []
+            for customer_secrets_optional_type_0_item_data in self.customer_secrets_optional:
+                customer_secrets_optional_type_0_item = customer_secrets_optional_type_0_item_data.to_dict()
+                customer_secrets_optional.append(customer_secrets_optional_type_0_item)
+
+        else:
+            customer_secrets_optional = self.customer_secrets_optional
+
         updated_at: None | str | Unset
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         else:
             updated_at = self.updated_at
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "id": id,
-            "access_method": access_method,
-            "name": name,
-            "is_active": is_active,
-            "is_primary": is_primary,
-            "sort_order": sort_order,
-            "created_at": created_at,
-        })
+        field_dict.update(
+            {
+                "id": id,
+                "access_method": access_method,
+                "name": name,
+                "is_active": is_active,
+                "is_primary": is_primary,
+                "sort_order": sort_order,
+                "created_at": created_at,
+            }
+        )
         if service_id is not UNSET:
             field_dict["service_id"] = service_id
         if group_id is not UNSET:
@@ -212,30 +230,32 @@ class AccessInterfacePublic:
             field_dict["routing_key"] = routing_key
         if enrollment_id is not UNSET:
             field_dict["enrollment_id"] = enrollment_id
+        if customer_secrets_needed is not UNSET:
+            field_dict["customer_secrets_needed"] = customer_secrets_needed
+        if customer_secrets_optional is not UNSET:
+            field_dict["customer_secrets_optional"] = customer_secrets_optional
         if updated_at is not UNSET:
             field_dict["updated_at"] = updated_at
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.access_interface_public_request_transformer_type_0 import AccessInterfacePublicRequestTransformerType0
+        from ..models.access_interface_public_customer_secrets_optional_type_0_item import (
+            AccessInterfacePublicCustomerSecretsOptionalType0Item,
+        )
+        from ..models.access_interface_public_request_transformer_type_0 import (
+            AccessInterfacePublicRequestTransformerType0,
+        )
         from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
         from ..models.access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
         from ..models.rate_limit import RateLimit
         from ..models.service_constraints import ServiceConstraints
+
         d = dict(src_dict)
         id = UUID(d.pop("id"))
 
-
-
-
         access_method = check_access_method_enum(d.pop("access_method"))
-
-
-
 
         name = d.pop("name")
 
@@ -257,15 +277,12 @@ class AccessInterfacePublic:
                     raise TypeError()
                 service_id_type_0 = UUID(data)
 
-
-
                 return service_id_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | Unset | UUID, data)
 
         service_id = _parse_service_id(d.pop("service_id", UNSET))
-
 
         def _parse_group_id(data: object) -> None | Unset | UUID:
             if data is None:
@@ -277,15 +294,12 @@ class AccessInterfacePublic:
                     raise TypeError()
                 group_id_type_0 = UUID(data)
 
-
-
                 return group_id_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | Unset | UUID, data)
 
         group_id = _parse_group_id(d.pop("group_id", UNSET))
-
 
         has_api_key = d.pop("has_api_key", UNSET)
 
@@ -298,7 +312,6 @@ class AccessInterfacePublic:
 
         base_url = _parse_base_url(d.pop("base_url", UNSET))
 
-
         def _parse_base_url_pattern(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -308,7 +321,6 @@ class AccessInterfacePublic:
 
         base_url_pattern = _parse_base_url_pattern(d.pop("base_url_pattern", UNSET))
 
-
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -317,7 +329,6 @@ class AccessInterfacePublic:
             return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
-
 
         def _parse_request_transformer(data: object) -> AccessInterfacePublicRequestTransformerType0 | None | Unset:
             if data is None:
@@ -329,15 +340,12 @@ class AccessInterfacePublic:
                     raise TypeError()
                 request_transformer_type_0 = AccessInterfacePublicRequestTransformerType0.from_dict(data)
 
-
-
                 return request_transformer_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(AccessInterfacePublicRequestTransformerType0 | None | Unset, data)
 
         request_transformer = _parse_request_transformer(d.pop("request_transformer", UNSET))
-
 
         def _parse_rate_limits(data: object) -> list[RateLimit] | None | Unset:
             if data is None:
@@ -349,10 +357,8 @@ class AccessInterfacePublic:
                     raise TypeError()
                 rate_limits_type_0 = []
                 _rate_limits_type_0 = data
-                for rate_limits_type_0_item_data in (_rate_limits_type_0):
+                for rate_limits_type_0_item_data in _rate_limits_type_0:
                     rate_limits_type_0_item = RateLimit.from_dict(rate_limits_type_0_item_data)
-
-
 
                     rate_limits_type_0.append(rate_limits_type_0_item)
 
@@ -362,7 +368,6 @@ class AccessInterfacePublic:
             return cast(list[RateLimit] | None | Unset, data)
 
         rate_limits = _parse_rate_limits(d.pop("rate_limits", UNSET))
-
 
         def _parse_constraint(data: object) -> None | ServiceConstraints | Unset:
             if data is None:
@@ -374,15 +379,12 @@ class AccessInterfacePublic:
                     raise TypeError()
                 constraint_type_0 = ServiceConstraints.from_dict(data)
 
-
-
                 return constraint_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServiceConstraints | Unset, data)
 
         constraint = _parse_constraint(d.pop("constraint", UNSET))
-
 
         def _parse_response_rules(data: object) -> AccessInterfacePublicResponseRulesType0 | None | Unset:
             if data is None:
@@ -394,15 +396,12 @@ class AccessInterfacePublic:
                     raise TypeError()
                 response_rules_type_0 = AccessInterfacePublicResponseRulesType0.from_dict(data)
 
-
-
                 return response_rules_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(AccessInterfacePublicResponseRulesType0 | None | Unset, data)
 
         response_rules = _parse_response_rules(d.pop("response_rules", UNSET))
-
 
         def _parse_routing_key(data: object) -> AccessInterfacePublicRoutingKeyType0 | None | Unset:
             if data is None:
@@ -414,15 +413,12 @@ class AccessInterfacePublic:
                     raise TypeError()
                 routing_key_type_0 = AccessInterfacePublicRoutingKeyType0.from_dict(data)
 
-
-
                 return routing_key_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(AccessInterfacePublicRoutingKeyType0 | None | Unset, data)
 
         routing_key = _parse_routing_key(d.pop("routing_key", UNSET))
-
 
         def _parse_enrollment_id(data: object) -> None | Unset | UUID:
             if data is None:
@@ -434,8 +430,6 @@ class AccessInterfacePublic:
                     raise TypeError()
                 enrollment_id_type_0 = UUID(data)
 
-
-
                 return enrollment_id_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
@@ -443,6 +437,50 @@ class AccessInterfacePublic:
 
         enrollment_id = _parse_enrollment_id(d.pop("enrollment_id", UNSET))
 
+        def _parse_customer_secrets_needed(data: object) -> list[str] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                customer_secrets_needed_type_0 = cast(list[str], data)
+
+                return customer_secrets_needed_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[str] | None | Unset, data)
+
+        customer_secrets_needed = _parse_customer_secrets_needed(d.pop("customer_secrets_needed", UNSET))
+
+        def _parse_customer_secrets_optional(
+            data: object,
+        ) -> list[AccessInterfacePublicCustomerSecretsOptionalType0Item] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                customer_secrets_optional_type_0 = []
+                _customer_secrets_optional_type_0 = data
+                for customer_secrets_optional_type_0_item_data in _customer_secrets_optional_type_0:
+                    customer_secrets_optional_type_0_item = (
+                        AccessInterfacePublicCustomerSecretsOptionalType0Item.from_dict(
+                            customer_secrets_optional_type_0_item_data
+                        )
+                    )
+
+                    customer_secrets_optional_type_0.append(customer_secrets_optional_type_0_item)
+
+                return customer_secrets_optional_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[AccessInterfacePublicCustomerSecretsOptionalType0Item] | None | Unset, data)
+
+        customer_secrets_optional = _parse_customer_secrets_optional(d.pop("customer_secrets_optional", UNSET))
 
         def _parse_updated_at(data: object) -> None | str | Unset:
             if data is None:
@@ -452,7 +490,6 @@ class AccessInterfacePublic:
             return cast(None | str | Unset, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
-
 
         access_interface_public = cls(
             id=id,
@@ -474,9 +511,10 @@ class AccessInterfacePublic:
             response_rules=response_rules,
             routing_key=routing_key,
             enrollment_id=enrollment_id,
+            customer_secrets_needed=customer_secrets_needed,
+            customer_secrets_optional=customer_secrets_optional,
             updated_at=updated_at,
         )
-
 
         access_interface_public.additional_properties = d
         return access_interface_public

@@ -1,42 +1,33 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.service_status_enum import check_service_status_enum
-from ..models.service_status_enum import ServiceStatusEnum
-from ..models.service_visibility_enum import check_service_visibility_enum
-from ..models.service_visibility_enum import ServiceVisibilityEnum
-from ..types import UNSET, Unset
 from dateutil.parser import isoparse
-from typing import cast
-from uuid import UUID
-import datetime
+
+from ..models.service_status_enum import ServiceStatusEnum, check_service_status_enum
+from ..models.service_visibility_enum import ServiceVisibilityEnum, check_service_visibility_enum
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-  from ..models.service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
-
-
-
+    from ..models.service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
 
 
 T = TypeVar("T", bound="ServicePublic")
 
 
-
 @_attrs_define
 class ServicePublic:
-    """ Public Service model for API responses.
+    """Public Service model for API responses.
 
     Note: name, display_name, and other derived fields are populated from
     the materialized view (ServiceMView) in the API layer.
 
-     """
+    """
 
     id: UUID
     seller_id: UUID
@@ -78,12 +69,9 @@ class ServicePublic:
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         from ..models.service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
+
         id = str(self.id)
 
         seller_id = str(self.seller_id)
@@ -162,7 +150,6 @@ class ServicePublic:
         if not isinstance(self.visibility, Unset):
             visibility = self.visibility
 
-
         routing_vars: dict[str, Any] | None | Unset
         if isinstance(self.routing_vars, Unset):
             routing_vars = UNSET
@@ -203,17 +190,18 @@ class ServicePublic:
         else:
             updated_at = self.updated_at
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "id": id,
-            "seller_id": seller_id,
-            "offering_id": offering_id,
-            "listing_id": listing_id,
-            "status": status,
-            "created_at": created_at,
-        })
+        field_dict.update(
+            {
+                "id": id,
+                "seller_id": seller_id,
+                "offering_id": offering_id,
+                "listing_id": listing_id,
+                "status": status,
+                "created_at": created_at,
+            }
+        )
         if provider_id is not UNSET:
             field_dict["provider_id"] = provider_id
         if revision_of is not UNSET:
@@ -251,41 +239,22 @@ class ServicePublic:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
+
         d = dict(src_dict)
         id = UUID(d.pop("id"))
 
-
-
-
         seller_id = UUID(d.pop("seller_id"))
-
-
-
 
         offering_id = UUID(d.pop("offering_id"))
 
-
-
-
         listing_id = UUID(d.pop("listing_id"))
-
-
-
 
         status = check_service_status_enum(d.pop("status"))
 
-
-
-
         created_at = isoparse(d.pop("created_at"))
-
-
-
 
         def _parse_provider_id(data: object) -> None | Unset | UUID:
             if data is None:
@@ -297,15 +266,12 @@ class ServicePublic:
                     raise TypeError()
                 provider_id_type_0 = UUID(data)
 
-
-
                 return provider_id_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | Unset | UUID, data)
 
         provider_id = _parse_provider_id(d.pop("provider_id", UNSET))
-
 
         def _parse_revision_of(data: object) -> None | Unset | UUID:
             if data is None:
@@ -317,15 +283,12 @@ class ServicePublic:
                     raise TypeError()
                 revision_of_type_0 = UUID(data)
 
-
-
                 return revision_of_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | Unset | UUID, data)
 
         revision_of = _parse_revision_of(d.pop("revision_of", UNSET))
-
 
         def _parse_pending_revision_id(data: object) -> None | Unset | UUID:
             if data is None:
@@ -337,15 +300,12 @@ class ServicePublic:
                     raise TypeError()
                 pending_revision_id_type_0 = UUID(data)
 
-
-
                 return pending_revision_id_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | Unset | UUID, data)
 
         pending_revision_id = _parse_pending_revision_id(d.pop("pending_revision_id", UNSET))
-
 
         def _parse_name(data: object) -> None | str | Unset:
             if data is None:
@@ -356,7 +316,6 @@ class ServicePublic:
 
         name = _parse_name(d.pop("name", UNSET))
 
-
         def _parse_display_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -365,7 +324,6 @@ class ServicePublic:
             return cast(None | str | Unset, data)
 
         display_name = _parse_display_name(d.pop("display_name", UNSET))
-
 
         def _parse_service_type(data: object) -> None | str | Unset:
             if data is None:
@@ -376,7 +334,6 @@ class ServicePublic:
 
         service_type = _parse_service_type(d.pop("service_type", UNSET))
 
-
         def _parse_provider_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -385,7 +342,6 @@ class ServicePublic:
             return cast(None | str | Unset, data)
 
         provider_name = _parse_provider_name(d.pop("provider_name", UNSET))
-
 
         def _parse_listing_type(data: object) -> None | str | Unset:
             if data is None:
@@ -396,7 +352,6 @@ class ServicePublic:
 
         listing_type = _parse_listing_type(d.pop("listing_type", UNSET))
 
-
         def _parse_status_message(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -406,18 +361,14 @@ class ServicePublic:
 
         status_message = _parse_status_message(d.pop("status_message", UNSET))
 
-
         is_featured = d.pop("is_featured", UNSET)
 
         _visibility = d.pop("visibility", UNSET)
         visibility: ServiceVisibilityEnum | Unset
-        if isinstance(_visibility,  Unset):
+        if isinstance(_visibility, Unset):
             visibility = UNSET
         else:
             visibility = check_service_visibility_enum(_visibility)
-
-
-
 
         def _parse_routing_vars(data: object) -> None | ServicePublicRoutingVarsType0 | Unset:
             if data is None:
@@ -429,15 +380,12 @@ class ServicePublic:
                     raise TypeError()
                 routing_vars_type_0 = ServicePublicRoutingVarsType0.from_dict(data)
 
-
-
                 return routing_vars_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | ServicePublicRoutingVarsType0 | Unset, data)
 
         routing_vars = _parse_routing_vars(d.pop("routing_vars", UNSET))
-
 
         review_count = d.pop("review_count", UNSET)
 
@@ -450,7 +398,6 @@ class ServicePublic:
 
         average_rating = _parse_average_rating(d.pop("average_rating", UNSET))
 
-
         def _parse_ops_subscription_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
@@ -461,15 +408,12 @@ class ServicePublic:
                     raise TypeError()
                 ops_subscription_id_type_0 = UUID(data)
 
-
-
                 return ops_subscription_id_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | Unset | UUID, data)
 
         ops_subscription_id = _parse_ops_subscription_id(d.pop("ops_subscription_id", UNSET))
-
 
         def _parse_ops_customer_id(data: object) -> None | Unset | UUID:
             if data is None:
@@ -481,15 +425,12 @@ class ServicePublic:
                     raise TypeError()
                 ops_customer_id_type_0 = UUID(data)
 
-
-
                 return ops_customer_id_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | Unset | UUID, data)
 
         ops_customer_id = _parse_ops_customer_id(d.pop("ops_customer_id", UNSET))
-
 
         def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -501,15 +442,12 @@ class ServicePublic:
                     raise TypeError()
                 updated_at_type_0 = isoparse(data)
 
-
-
                 return updated_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(datetime.datetime | None | Unset, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
-
 
         service_public = cls(
             id=id,
@@ -536,7 +474,6 @@ class ServicePublic:
             ops_customer_id=ops_customer_id,
             updated_at=updated_at,
         )
-
 
         service_public.additional_properties = d
         return service_public

@@ -41,25 +41,16 @@ class AsyncSecrets:
             )
         )
 
-    async def create(self, name: str, value: str) -> SecretPublic:
-        """Create a new secret. The value cannot be retrieved after creation."""
-        from ._generated.api.seller_secrets import seller_secrets_create_secret
-        from ._generated.models.secret_create import SecretCreate
+    async def set(self, name: str, value: str) -> SecretPublic:
+        """Set ``name`` to ``value`` (idempotent — creates or replaces).
 
-        return unwrap(
-            await seller_secrets_create_secret.asyncio_detailed(
-                client=self._client,
-                body=SecretCreate(name=name, value=value),
-            )
-        )
-
-    async def rotate(self, name: str, value: str) -> SecretPublic:
-        """Rotate (update) the value of an existing secret by name."""
-        from ._generated.api.seller_secrets import seller_secrets_update_secret
+        See :class:`unitysvc_sellers.secrets.Secrets.set`.
+        """
+        from ._generated.api.seller_secrets import seller_secrets_set_secret
         from ._generated.models.secret_update import SecretUpdate
 
         return unwrap(
-            await seller_secrets_update_secret.asyncio_detailed(
+            await seller_secrets_set_secret.asyncio_detailed(
                 name=name,
                 client=self._client,
                 body=SecretUpdate(value=value),
