@@ -321,7 +321,15 @@ def load_related_data(listing_file: Path) -> dict[str, Any]:
     return result
 
 
-_SECRETS_RE = re.compile(r"^\$\{\s*(?:secrets|customer_secrets)\.([A-Za-z_][A-Za-z0-9_]*)\s*\}$")
+_SECRETS_RE = re.compile(
+    # Two valid forms (matching backend/app/core/var_substitution.py):
+    #   ${ namespace.VAR }                   — required
+    #   ${ namespace.VAR ?? default }        — optional with fallback
+    # Default is free-form (hyphens, slashes, spaces, URLs, empty).
+    r"^\$\{\s*(?:secrets|customer_secrets)\.([A-Za-z_][A-Za-z0-9_]*)"
+    r"(?:\s*\?\?\s*(.*?))?\s*\}$",
+    re.DOTALL,
+)
 
 
 class MissingSecretEnvVar(typer.Exit):
@@ -348,23 +356,35 @@ def resolve_secret_ref(value: str, field_name: str) -> str:
     """Resolve a ``${ secrets.VAR }`` or ``${ customer_secrets.VAR }`` reference.
 
     If *value* is a literal string (not a secrets reference) it is returned
-    as-is.  If it matches the pattern the corresponding environment variable
+    as-is. If it matches the pattern the corresponding environment variable
     is looked up and returned.
 
+    Supports the ``??`` default-value operator:
+
+    * ``${ ns.VAR }`` — required. Missing env var raises
+      :class:`MissingSecretEnvVar`.
+    * ``${ ns.VAR ?? default }`` — optional. If the env var is unset the
+      literal ``default`` is returned. An explicitly-empty env var value
+      is preserved (``??`` coalesces on null, not on empty) — matches the
+      backend ``var_substitution`` parser exactly.
+
     Raises:
-        MissingSecretEnvVar: When the environment variable is not set.
-            Subclass of ``typer.Exit`` — callers that want to collect
-            missing secrets should catch this specifically; callers that
-            just want to skip-on-failure can continue catching
-            ``typer.Exit``.
+        MissingSecretEnvVar: When the environment variable is not set
+            *and* no ``?? default`` is provided. Subclass of
+            ``typer.Exit`` — callers that want to collect missing secrets
+            should catch this specifically; callers that just want to
+            skip-on-failure can continue catching ``typer.Exit``.
     """
     m = _SECRETS_RE.match(value)
     if not m:
         return value
 
     var_name = m.group(1)
+    default = m.group(2)  # None when no `??` in the reference.
     env_value = os.environ.get(var_name)
-    if not env_value:
+    if env_value is None:
+        if default is not None:
+            return default
         raise MissingSecretEnvVar(var_name, field_name)
     return env_value
 
