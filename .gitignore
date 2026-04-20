@@ -39,3 +39,4 @@ htmlcov/
 uv.lock
 .tool-venv/
 site/
+.claude/
