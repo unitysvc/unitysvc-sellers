@@ -188,26 +188,47 @@ async def fetch_service_ids_by_status(
 ) -> list[str]:
     """List all service ids matching any of ``statuses``, optionally filtered by provider.
 
-    Replacement for the legacy
-    ``unitysvc_services.lifecycle.fetch_service_ids_by_status`` helper.
+    Follows cursor pagination to completion so sellers with more than
+    one page of services in a given status aren't silently truncated.
     """
     provider_lower = provider.lower() if provider else None
     all_ids: list[str] = []
 
-    for status in statuses:
-        try:
-            services = model_list(await client.services.list(status=status, limit=1000))
-        except SellerSDKError:
-            continue
+    # Backend caps page size at 200 (see seller/_pagination.LimitParam);
+    # requesting more raises 422 which previously was caught by a blanket
+    # `except SellerSDKError: continue` and silently returned no ids.
+    PAGE_SIZE = 200
 
-        for svc in services:
-            if not svc.get("id"):
-                continue
-            if provider_lower:
-                svc_provider = svc.get("provider_name", "") or ""
-                if provider_lower not in svc_provider.lower():
+    for status in statuses:
+        cursor: str | None = None
+        while True:
+            try:
+                response = await client.services.list(
+                    status=status,
+                    limit=PAGE_SIZE,
+                    cursor=cursor,
+                )
+            except SellerSDKError as exc:
+                # Surface the error instead of silently skipping — previously
+                # this branch masked a limit-validation failure and produced
+                # empty results with no indication of the cause.
+                console.print(f"[yellow]Warning:[/yellow] failed to list services with status={status}: {exc}")
+                break
+
+            for svc in model_list(response):
+                if not svc.get("id"):
                     continue
-            all_ids.append(str(svc["id"]))
+                if provider_lower:
+                    svc_provider = svc.get("provider_name", "") or ""
+                    if provider_lower not in svc_provider.lower():
+                        continue
+                all_ids.append(str(svc["id"]))
+
+            next_cursor = getattr(response, "next_cursor", None)
+            has_more = getattr(response, "has_more", False)
+            if not has_more or not next_cursor:
+                break
+            cursor = str(next_cursor)
 
     return all_ids
 
