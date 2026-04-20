@@ -321,9 +321,27 @@ def load_related_data(listing_file: Path) -> dict[str, Any]:
     return result
 
 
-_SECRETS_RE = re.compile(
-    r"^\$\{\s*(?:secrets|customer_secrets)\.([A-Za-z_][A-Za-z0-9_]*)\s*\}$"
-)
+_SECRETS_RE = re.compile(r"^\$\{\s*(?:secrets|customer_secrets)\.([A-Za-z_][A-Za-z0-9_]*)\s*\}$")
+
+
+class MissingSecretEnvVar(typer.Exit):
+    """Raised when a ``${ secrets.X }`` / ``${ customer_secrets.X }``
+    reference needs an env var that isn't set.
+
+    Carries the secret name and the field path so callers can aggregate
+    missing secrets for a single clear skip reason instead of the
+    previous behaviour of quietly catching a plain ``typer.Exit`` and
+    dropping the field.
+
+    Extends ``typer.Exit`` so pre-existing ``except (typer.Exit,
+    SystemExit)`` blocks continue to compile and the old behaviour is
+    preserved for any call site that hasn't been updated.
+    """
+
+    def __init__(self, secret_name: str, field_name: str):
+        super().__init__(code=1)
+        self.secret_name = secret_name
+        self.field_name = field_name
 
 
 def resolve_secret_ref(value: str, field_name: str) -> str:
@@ -334,7 +352,11 @@ def resolve_secret_ref(value: str, field_name: str) -> str:
     is looked up and returned.
 
     Raises:
-        typer.Exit: When the environment variable is not set.
+        MissingSecretEnvVar: When the environment variable is not set.
+            Subclass of ``typer.Exit`` — callers that want to collect
+            missing secrets should catch this specifically; callers that
+            just want to skip-on-failure can continue catching
+            ``typer.Exit``.
     """
     m = _SECRETS_RE.match(value)
     if not m:
@@ -343,12 +365,7 @@ def resolve_secret_ref(value: str, field_name: str) -> str:
     var_name = m.group(1)
     env_value = os.environ.get(var_name)
     if not env_value:
-        console.print(
-            f"[red]Error:[/red] {field_name} references secret [bold]{var_name}[/bold] "
-            f"but the environment variable is not set.\n"
-            f"  Set it with: [cyan]export {var_name}=<value>[/cyan]",
-        )
-        raise typer.Exit(code=1)
+        raise MissingSecretEnvVar(var_name, field_name)
     return env_value
 
 
@@ -376,10 +393,7 @@ def load_upstream_access_interface(listing_file: Path) -> dict[str, str] | None:
         listing_data, _fmt = load_data_file(listing_file)
         listing_so = listing_data.get("service_options", {}) or {}
         rendered_vars = expand_template_strings(listing_so.get("enrollment_vars", {}) or {})
-        rendered_vars = {
-            k: resolve_secret_ref(str(v), f"enrollment_vars.{k}")
-            for k, v in rendered_vars.items()
-        }
+        rendered_vars = {k: resolve_secret_ref(str(v), f"enrollment_vars.{k}") for k, v in rendered_vars.items()}
 
         # Merge ops_testing_parameters as the "params" context
         # (simulates what the backend does at enrollment time)
@@ -424,9 +438,7 @@ def load_upstream_access_interface(listing_file: Path) -> dict[str, str] | None:
                 credentials["base_url"] = credentials["s3_endpoint"]
             elif "bucket" in credentials and "region" in credentials:
                 # AWS S3: construct virtual-hosted URL
-                credentials["base_url"] = (
-                    f"https://{credentials['bucket']}.s3.{credentials['region']}.amazonaws.com"
-                )
+                credentials["base_url"] = f"https://{credentials['bucket']}.s3.{credentials['region']}.amazonaws.com"
 
         # Return credentials if we have any meaningful content
         # (base_url for HTTP/S3, or host for SMTP, or any resolved fields)
@@ -963,6 +975,12 @@ def run_local(
     if test_file:
         discovered = [(e, p) for e, p in discovered if e.get("file_path", "").endswith(test_file)]
 
+    # Results accumulate from two sources: (a) tests that skip during the
+    # credential-resolution pass because a required secret env var is missing,
+    # (b) tests that actually run. Declaring `results` here lets the
+    # credential-resolution pass append skipped entries directly.
+    results: list[dict[str, Any]] = []
+
     # Resolve credentials from upstream_interface in each discovered example
     all_code_examples: list[tuple[dict[str, Any], str, dict[str, str]]] = []
     warned_listings: set[str] = set()
@@ -971,10 +989,7 @@ def run_local(
         # Render enrollment_vars first, resolve secret refs, then use as context
         listing_so = example.get("listing_data", {}).get("service_options", {}) or {}
         rendered_vars = expand_template_strings(listing_so.get("enrollment_vars", {}) or {})
-        rendered_vars = {
-            k: resolve_secret_ref(str(v), f"enrollment_vars.{k}")
-            for k, v in rendered_vars.items()
-        }
+        rendered_vars = {k: resolve_secret_ref(str(v), f"enrollment_vars.{k}") for k, v in rendered_vars.items()}
         ops_params = listing_so.get("ops_testing_parameters", {}) or {}
         routing_vars = listing_so.get("routing_vars", {}) or {}
         iface = expand_template_strings(
@@ -988,16 +1003,19 @@ def run_local(
             },
         )
         iface_name = example.get("upstream_interface_name", "default")
-        # Build credentials from all fields, resolving secrets gracefully
+        # Build credentials from all fields, resolving secrets and
+        # collecting the names of any secrets whose env vars aren't set.
         credentials: dict[str, Any] = {}
+        missing_secrets: list[str] = []
         for field, val in iface.items():
             if field == "routing_key" and isinstance(val, dict):
                 credentials[field] = val  # Keep as dict for flattening later
             elif val is not None and isinstance(val, str):
                 try:
                     credentials[field] = resolve_secret_ref(val, f"{iface_name}.{field}")
-                except (typer.Exit, SystemExit):
-                    pass  # Secret env var not set — skip field
+                except MissingSecretEnvVar as exc:
+                    if exc.secret_name not in missing_secrets:
+                        missing_secrets.append(exc.secret_name)
             elif val is not None:
                 credentials[field] = str(val)
 
@@ -1011,19 +1029,49 @@ def run_local(
             credentials.setdefault("api_key", "")
             all_code_examples.append((example, prov_name, credentials))
         else:
+            # Record the test as explicitly skipped with the specific
+            # missing env vars so the summary table gets a row with a
+            # clear reason rather than just dropping the test.
             listing_file_str = str(example.get("listing_file", ""))
+            if missing_secrets:
+                reason = (
+                    f"missing environment variable"
+                    f"{'s' if len(missing_secrets) > 1 else ''}: "
+                    f"{', '.join(missing_secrets)}"
+                )
+            else:
+                reason = "no resolvable upstream credentials"
             if listing_file_str not in warned_listings:
-                console.print(f"[yellow]⚠ No credentials found for listing: {listing_file_str}[/yellow]")
+                console.print(
+                    f"[yellow]⊘ Skipping[/yellow] {example['service_name']} - "
+                    f"{example['title']} [{iface_name}]: {reason}"
+                )
                 warned_listings.add(listing_file_str)
+            results.append(
+                {
+                    "service_name": example["service_name"],
+                    "provider": prov_name,
+                    "title": example["title"],
+                    "interface": iface_name,
+                    "result": {
+                        "success": True,
+                        "exit_code": None,
+                        "skipped": True,
+                        "skip_reason": reason,
+                    },
+                }
+            )
 
-    if not all_code_examples:
+    if not all_code_examples and not results:
         console.print("[yellow]No code examples found in listings.[/yellow]")
         raise typer.Exit(code=0)
 
-    console.print(f"[cyan]Found {len(all_code_examples)} test case(s)[/cyan]\n")
+    if all_code_examples:
+        console.print(f"[cyan]Found {len(all_code_examples)} test case(s)[/cyan]\n")
 
-    # Execute each test case (one entry per document × upstream interface)
-    results = []
+    # Execute each test case (one entry per document × upstream interface).
+    # `results` may already contain entries from the credential-resolution
+    # pass above (tests skipped due to missing env vars) — do not shadow it.
 
     for example, prov_name, credentials in all_code_examples:
         service_name = example["service_name"]
@@ -1188,7 +1236,8 @@ def run_local(
     for test in results:
         result = test["result"]
         if result.get("skipped", False):
-            status = "[yellow]⊘ Skipped[/yellow]"
+            reason = result.get("skip_reason")
+            status = f"[yellow]⊘ Skipped[/yellow] ({reason})" if reason else "[yellow]⊘ Skipped[/yellow]"
         elif result["success"]:
             status = "[green]✓ Pass[/green]"
         else:
