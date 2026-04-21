@@ -476,12 +476,16 @@ class TestRunTestsLocalExecution:
         assert "success" in result.stdout
 
         # Results were POSTed back — body carries per-interface shape
-        # and the rolled-up status.
+        # and the rolled-up status. Per-interface results are keyed by
+        # access_interface.id (so documents shared across services
+        # don't collide) with the display name carried inside the entry.
         body = json.loads(patch_route.calls.last.request.content.decode())
         assert body["status"] == "success"
         assert "tests" in body
-        assert "default" in body["tests"]
-        assert body["tests"]["default"]["status"] == "success"
+        assert len(body["tests"]) == 1
+        entry = next(iter(body["tests"].values()))
+        assert entry["status"] == "success"
+        assert entry["name"] == "default"
 
     @respx.mock
     def test_elevates_draft_service_and_restores_status(

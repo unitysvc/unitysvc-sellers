@@ -746,10 +746,11 @@ $ usvc_seller services list-tests [OPTIONS] [SERVICE_ID]
 
 Show the latest test result for a single document.
 
-Accepts either the positional ``DOCUMENT_ID`` or ``--document-id /
--d / --doc-id``. Partial UUIDs (prefix of length ≥ 8) are resolved
-by walking the seller&#x27;s services — mirrors ``list-tests`` so the
-IDs it prints can be pasted directly.
+Accepts a document id — full UUID or an 8+ character prefix — via
+either the positional argument or ``--document-id / -d / --doc-id``.
+Prefix resolution is handled server-side by
+``GET /seller/documents/{id}`` so the CLI makes exactly one API
+call regardless of how many services the seller owns.
 
 **Usage**:
 
