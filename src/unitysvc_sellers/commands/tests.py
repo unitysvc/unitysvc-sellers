@@ -173,17 +173,23 @@ def list_tests(
 # ---------------------------------------------------------------------------
 @services_app.command("show-test")
 def show_test(
-    document_id_arg: str | None = typer.Argument(
+    service_or_doc_id: str | None = typer.Argument(
         None,
-        metavar="[DOCUMENT_ID]",
-        help="Document ID (full or partial, ≥8 chars). Optional if --document-id/--doc-id is passed.",
+        metavar="[SERVICE_ID]",
+        help=(
+            "Service ID (full or partial, ≥8 chars). When combined with "
+            "--document-id the CLI scopes the document lookup to this "
+            "service's documents only — avoiding a walk of every service. "
+            "For backward compatibility, if --document-id is not given "
+            "this argument is treated as the document id."
+        ),
     ),
     document_id_opt: str | None = typer.Option(
         None,
         "--document-id",
         "-d",
         "--doc-id",
-        help="Document ID (alternative to positional). Matches the legacy `usvc services show-test --doc-id` form.",
+        help="Document ID (full or partial, ≥8 chars).",
     ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
     api_key: str | None = api_key_option(),
@@ -191,50 +197,77 @@ def show_test(
 ) -> None:
     """Show the latest test result for a single document.
 
-    Accepts either the positional ``DOCUMENT_ID`` or ``--document-id /
-    -d / --doc-id``. Partial UUIDs (prefix of length ≥ 8) are resolved
-    by walking the seller's services — mirrors ``list-tests`` so the
-    IDs it prints can be pasted directly.
+    Prefer ``show-test <SERVICE_ID> -d <DOCUMENT_ID>`` — it mirrors
+    ``run-tests`` and only hits the one service you asked about.
+
+    Full-UUID document ids (36 chars) are fetched directly via
+    ``GET /documents/{id}`` without any service lookup. Partial
+    document id prefixes require a service id for scoping, since
+    otherwise the CLI would have to walk every service the seller owns
+    to find the match.
+
+    For backward compatibility, ``show-test <DOCUMENT_ID>`` (positional
+    only) still works when the document id is a full UUID.
     """
-    raw_id = document_id_arg or document_id_opt
-    if not raw_id:
+    service_id: str | None
+    doc_id: str | None
+
+    # Resolve which positional meaning is in play.
+    if document_id_opt:
+        # Two-arg form: positional is the service id.
+        service_id = service_or_doc_id
+        doc_id = document_id_opt
+    else:
+        # Legacy one-arg form: positional is the document id.
+        service_id = None
+        doc_id = service_or_doc_id
+
+    if not doc_id:
         console.print("[red]✗[/red] No document id provided (positional or --document-id).")
         raise typer.Exit(code=1)
-    if len(raw_id) < 8:
+    if len(doc_id) < 8:
         console.print("[red]✗[/red] Document id prefix must be at least 8 characters.")
+        raise typer.Exit(code=1)
+    if service_id is not None and len(service_id) < 8:
+        console.print("[red]✗[/red] Service id prefix must be at least 8 characters.")
         raise typer.Exit(code=1)
 
     async def _impl() -> dict[str, Any]:
         async with async_client(api_key, base_url) as client:
-            # Fast path: full UUID → single GET.
-            if len(raw_id) == 36:
-                return model_to_dict(await client.documents.get(raw_id))
+            # Fast path: full-UUID doc id — single GET, no service walk.
+            if len(doc_id) == 36:
+                return model_to_dict(await client.documents.get(doc_id))
 
-            # Partial prefix → walk services the seller owns and match
-            # on every executable document id. This mirrors list-tests.
-            services = await _iter_all_services(client)
+            if service_id is None:
+                console.print(
+                    "[red]✗[/red] Partial document id needs a service id to "
+                    "scope the lookup. Pass it as the first positional "
+                    "argument: `show-test <SERVICE_ID> -d <DOCUMENT_ID>`."
+                )
+                raise typer.Exit(code=1)
+
+            # Partial doc id + service id: fetch THIS service only and
+            # match inside its documents. O(1) service calls instead of
+            # one per service the seller owns.
+            detail = model_to_dict(await client.services.get(service_id))
             matches: list[str] = []
-            for svc in services:
-                sid = str(svc.get("id") or "")
-                if not sid:
-                    continue
-                try:
-                    detail = model_to_dict(await client.services.get(sid))
-                except NotFoundError:
-                    continue
-                for doc in detail.get("documents") or []:
-                    doc_dict = doc if isinstance(doc, dict) else model_to_dict(doc)
-                    did = str(doc_dict.get("id") or "")
-                    if did.startswith(raw_id):
-                        matches.append(did)
+            for doc in detail.get("documents") or []:
+                doc_dict = doc if isinstance(doc, dict) else model_to_dict(doc)
+                did = str(doc_dict.get("id") or "")
+                if did.startswith(doc_id):
+                    matches.append(did)
 
             if not matches:
-                raise NotFoundError(f"No document with id prefix '{raw_id}'", status_code=404, detail=None)
+                raise NotFoundError(
+                    f"No document with id prefix '{doc_id}' on service '{service_id}'",
+                    status_code=404,
+                    detail=None,
+                )
             if len(matches) > 1:
                 # Ambiguous prefix — surface all candidates so the seller
                 # can rerun with a longer prefix.
                 joined = ", ".join(m[:12] + "…" for m in matches[:5])
-                raise ValueError(f"Prefix '{raw_id}' matches multiple documents: {joined}")
+                raise ValueError(f"Prefix '{doc_id}' matches multiple documents: {joined}")
 
             return model_to_dict(await client.documents.get(matches[0]))
 
