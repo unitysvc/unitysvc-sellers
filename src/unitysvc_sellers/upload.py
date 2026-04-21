@@ -503,14 +503,14 @@ def upload_directory(
                 if status_value == "completed":
                     result.services.success += 1
                     _emit("service", "ok", name, f"task_id={task_id}")
-                    # Write override file with service_id if the task
-                    # result carries one.
+                    # Write override file with service_id from the task result.
+                    # The ingest task returns {"service": {"id": "..."}, ...}.
                     task_result = status_dict.get("result") or {}
-                    service_id = (
-                        task_result.get("service_id") or task_result.get("id")
-                        if isinstance(task_result, dict)
-                        else None
-                    )
+                    service_id = None
+                    if isinstance(task_result, dict):
+                        service_data = task_result.get("service") or {}
+                        if isinstance(service_data, dict):
+                            service_id = service_data.get("id")
                     if service_id:
                         write_override_file(listing_file, {"service_id": str(service_id)})
                 else:
