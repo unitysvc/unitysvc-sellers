@@ -290,15 +290,18 @@ def show_test(
                 env_table.add_row(k, str(v))
             console.print(env_table)
 
-        # Per-interface results, if the backend returned multi-interface
-        # breakdown (older shape: meta.test.tests).
+        # Per-interface results. The map is keyed by access_interface
+        # id (stringified UUID) so results for documents shared across
+        # multiple services don't collide; the human-friendly interface
+        # name is carried inside each entry for display.
         tests = test.get("tests")
         if isinstance(tests, dict) and tests:
             console.print("\n[bold]Per-interface results[/bold]")
-            for iface_name, iface_data in tests.items():
+            for iface_key, iface_data in tests.items():
                 if not isinstance(iface_data, dict):
                     continue
-                console.print(f"  • [cyan]{iface_name}[/cyan]")
+                display = iface_data.get("name") or iface_key
+                console.print(f"  • [cyan]{display}[/cyan] [dim]({iface_key})[/dim]")
                 for k in ("status", "exit_code", "stdout", "stderr", "error"):
                     v = iface_data.get(k)
                     if v not in (None, ""):
@@ -324,15 +327,24 @@ def show_test(
 _ROUTABLE_STATUSES = frozenset({"pending", "review", "active"})
 
 
-def _resolve_interfaces(interfaces: list[dict[str, Any]]) -> list[tuple[str, str, dict[str, Any]]]:
-    """Extract ``(name, base_url, routing_key)`` tuples from the service's interfaces.
+def _resolve_interfaces(
+    interfaces: list[dict[str, Any]],
+) -> list[tuple[str, str, str, dict[str, Any]]]:
+    """Extract ``(id, name, base_url, routing_key)`` tuples from the service's interfaces.
 
     The seller API resolves ``${API_GATEWAY_BASE_URL}`` placeholders
     before returning the interface data (see ``seller/services.py``),
     so ``base_url`` is already the public URL the seller should hit
     directly from their machine. Inactive interfaces are dropped.
+
+    ``id`` (stringified access_interface UUID) is returned alongside
+    the display ``name`` because test results on ``document.meta.test.tests``
+    are keyed by interface id — a document may be shared across
+    multiple services (active + draft revision of the same listing),
+    so keying by id keeps each service's results addressable even when
+    two services happen to share an interface name.
     """
-    result: list[tuple[str, str, dict[str, Any]]] = []
+    result: list[tuple[str, str, str, dict[str, Any]]] = []
     for iface in interfaces:
         iface_dict = iface if isinstance(iface, dict) else model_to_dict(iface)
         if not iface_dict.get("is_active", True):
@@ -342,13 +354,14 @@ def _resolve_interfaces(interfaces: list[dict[str, Any]]) -> list[tuple[str, str
             routing_key = {}
         result.append(
             (
+                str(iface_dict.get("id") or ""),
                 str(iface_dict.get("name", "default")),
                 str(iface_dict.get("base_url") or ""),
                 routing_key,
             )
         )
     if not result:
-        result.append(("default", "", {}))
+        result.append(("", "default", "", {}))
     return result
 
 
@@ -496,8 +509,17 @@ def run_tests(
                         )
                         continue
 
-                    iface_results: dict[str, dict[str, Any]] = {}
-                    for iface_name, iface_url, iface_rk in interfaces_list:
+                    # Preserve any prior entries written by sibling
+                    # services that share this document — they're keyed
+                    # by *their* interface ids so we won't clobber them,
+                    # but we need to keep them in the payload since the
+                    # backend overwrites the whole `tests` map.
+                    prior = full_meta.get("test") if isinstance(full_meta, dict) else None
+                    iface_results: dict[str, dict[str, Any]] = dict(
+                        (prior or {}).get("tests") or {}
+                    )
+                    for iface_id, iface_name, iface_url, iface_rk in interfaces_list:
+                        key = iface_id or iface_name  # fallback if server didn't return an id
                         exec_env = _make_exec_env(iface_url, iface_rk, user_api_key)
                         exec_result = execute_script_content(
                             script=str(file_content),
@@ -507,6 +529,7 @@ def run_tests(
                             timeout=timeout,
                         )
                         entry: dict[str, Any] = {
+                            "name": iface_name,
                             "status": exec_result["status"],
                             "base_url": iface_url,
                         }
@@ -518,12 +541,19 @@ def run_tests(
                             entry["stdout"] = exec_result["stdout"][:10000]
                         if exec_result.get("stderr"):
                             entry["stderr"] = exec_result["stderr"][:10000]
-                        iface_results[iface_name] = entry
+                        iface_results[key] = entry
 
                     # Aggregate per-interface outcome into a single
-                    # document status — worst wins.
+                    # document status — worst wins, restricted to *this*
+                    # service's interfaces so a sibling revision's prior
+                    # failure doesn't make our fresh success look bad.
+                    this_service_keys = {
+                        (iid or name) for iid, name, _url, _rk in interfaces_list
+                    }
                     failed_entries = [
-                        e for e in iface_results.values() if e["status"] != "success"
+                        e
+                        for k, e in iface_results.items()
+                        if k in this_service_keys and e["status"] != "success"
                     ]
                     worst_status = failed_entries[0]["status"] if failed_entries else "success"
 
