@@ -335,8 +335,11 @@ def _resolve_interfaces(
                 routing_key,
             )
         )
-    if not result:
-        result.append(("", "default", "", {}))
+    # No silent fallback for an empty list. Appending a stub
+    # ("", "default", "", {}) used to force the test to execute with
+    # no SERVICE_BASE_URL set, recording a "SERVICE_BASE_URL is not
+    # set" failure keyed by the literal string "default" — confusing
+    # garbage. Callers skip the document cleanly instead.
     return result
 
 
@@ -479,6 +482,22 @@ def run_tests(
                                 "title": title,
                                 "status": "skipped",
                                 "reason": "no file content",
+                                "iface_results": {},
+                            }
+                        )
+                        continue
+
+                    if not interfaces_list:
+                        # No active interfaces to test against. Running
+                        # with an empty SERVICE_BASE_URL would fail with
+                        # a confusing "SERVICE_BASE_URL is not set"
+                        # message; skip cleanly instead.
+                        doc_results.append(
+                            {
+                                "doc_id": did,
+                                "title": title,
+                                "status": "skipped",
+                                "reason": "service has no active interfaces",
                                 "iface_results": {},
                             }
                         )
