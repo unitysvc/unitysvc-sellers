@@ -71,7 +71,7 @@ def list_services(
     status: str | None = typer.Option(
         None,
         "--status",
-        help="Filter by service status (draft, pending, testing, active, rejected, suspended).",
+        help="Filter by service status (draft, pending, review, active, rejected, suspended, deprecated).",
     ),
     name: str | None = typer.Option(
         None,
@@ -486,7 +486,7 @@ def delete_service(
     all_deletable: bool = typer.Option(
         False,
         "--all",
-        help="Delete all deletable services (draft, pending, testing, rejected, suspended, deprecated).",
+        help="Delete all deletable services (draft, pending, review, rejected, suspended, deprecated).",
     ),
     status: str | None = typer.Option(None, "--status", help="Restrict --all to a single deletable status."),
     provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
@@ -496,7 +496,7 @@ def delete_service(
     base_url: str = base_url_option(),
 ) -> None:
     """Permanently delete services."""
-    deletable_statuses = ["draft", "pending", "testing", "rejected", "suspended", "deprecated"]
+    deletable_statuses = ["draft", "pending", "review", "rejected", "suspended", "deprecated"]
     if status:
         if status not in deletable_statuses:
             valid = ", ".join(deletable_statuses)
