@@ -503,16 +503,22 @@ def upload_directory(
                 if status_value == "completed":
                     result.services.success += 1
                     _emit("service", "ok", name, f"task_id={task_id}")
-                    # Write override file with service_id from the task result.
-                    # The ingest task returns {"service": {"id": "..."}, ...}.
+                    # Write override file with service_id and name from the task result.
+                    # The ingest task returns {"service": {"id": "...", "name": "..."}, ...}.
+                    # name is a derived field (computed by the backend from listing/offering).
                     task_result = status_dict.get("result") or {}
                     service_id = None
+                    service_name = None
                     if isinstance(task_result, dict):
                         service_data = task_result.get("service") or {}
                         if isinstance(service_data, dict):
                             service_id = service_data.get("id")
+                            service_name = service_data.get("name")
                     if service_id:
-                        write_override_file(listing_file, {"service_id": str(service_id)})
+                        override = {"service_id": str(service_id)}
+                        if service_name:
+                            override["name"] = str(service_name)
+                        write_override_file(listing_file, override)
                 else:
                     result.services.failed += 1
                     error_msg = (
