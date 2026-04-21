@@ -492,6 +492,7 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
         "mime_type": None,
         "listing_file": None,
         "actual_filename": None,
+        "env_vars": {},
     }
 
     file_path = code_example.get("file_path")
@@ -557,6 +558,10 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
                 env_vars["UNITYSVC_API_KEY"] = str(value)
             else:
                 env_vars[field.upper()] = str(value)
+
+        # Expose the full env the subprocess actually sees so the caller
+        # can persist it for reproduction (see failure-dump code).
+        result["env_vars"] = env_vars
 
         # Execute script using shared utility
         output_contains = code_example.get("output_contains")
@@ -1044,8 +1049,13 @@ def run_local(
             base_url = f"https://{credentials['bucket']}.s3.{credentials['region']}.amazonaws.com"
         if base_url:
             credentials.setdefault("base_url", base_url)
-        # Accept credentials if we have base_url, host (SMTP), or access_key (S3)
-        if base_url or credentials.get("host") or credentials.get("access_key"):
+        # Accept credentials only when every referenced secret resolved
+        # AND we have at least one anchor field (base_url/host/access_key).
+        # A partially populated dict would previously slip through and
+        # surface as `KeyError: 'BUCKET'` deep inside the user's script;
+        # skip with a clear reason instead.
+        has_anchor = bool(base_url or credentials.get("host") or credentials.get("access_key"))
+        if has_anchor and not missing_secrets:
             credentials.setdefault("api_key", "")
             all_code_examples.append((example, prov_name, credentials))
         else:
@@ -1212,16 +1222,29 @@ def run_local(
                 except Exception as e:
                     console.print(f"  [yellow]⚠ Failed to save stderr: {e}[/yellow]")
 
-                # Write environment variables to .env file
+                # Write environment variables to .env file. Dump the
+                # exact env the subprocess saw (built in
+                # execute_code_example from upstream_access_config) so
+                # `source failed_*.env` reproduces the run. Fall back
+                # to the minimum pair when env_vars isn't populated
+                # (e.g. rendering failed before execution).
                 env_filename = f"{failed_filename}.env"
                 try:
+                    dumped = result.get("env_vars") or {
+                        "UNITYSVC_API_KEY": credentials.get("api_key", ""),
+                        "SERVICE_BASE_URL": credentials.get("base_url", ""),
+                    }
                     with open(env_filename, "w", encoding="utf-8") as f:
-                        f.write(f"UNITYSVC_API_KEY={credentials.get('api_key', '')}\n")
-                        f.write(f"SERVICE_BASE_URL={credentials.get('base_url', '')}\n")
-                        # Include service_options.enrollment_vars
+                        for k, v in dumped.items():
+                            f.write(f"{k}={v}\n")
+                        # Include enrollment_vars so reproductions of
+                        # BYOE tests also carry the customer-facing values.
                         listing_so = example.get("listing_data", {}).get("service_options", {}) or {}
                         for k, v in expand_template_strings(listing_so.get("enrollment_vars", {}) or {}).items():
-                            resolved = resolve_secret_ref(str(v), f"enrollment_vars.{k}")
+                            try:
+                                resolved = resolve_secret_ref(str(v), f"enrollment_vars.{k}")
+                            except MissingSecretEnvVar:
+                                resolved = ""
                             f.write(f"{k.upper()}={resolved}\n")
                     console.print(f"  [yellow]→ Environment variables saved to:[/yellow] {env_filename}")
                     console.print(f"  [dim]  (source this file to reproduce: source {env_filename})[/dim]")
