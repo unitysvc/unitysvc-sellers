@@ -321,7 +321,15 @@ def load_related_data(listing_file: Path) -> dict[str, Any]:
     return result
 
 
-_SECRETS_RE = re.compile(r"^\$\{\s*(?:secrets|customer_secrets)\.([A-Za-z_][A-Za-z0-9_]*)\s*\}$")
+_SECRETS_RE = re.compile(
+    # Two valid forms (matching backend/app/core/var_substitution.py):
+    #   ${ namespace.VAR }                   — required
+    #   ${ namespace.VAR ?? default }        — optional with fallback
+    # Default is free-form (hyphens, slashes, spaces, URLs, empty).
+    r"^\$\{\s*(?:secrets|customer_secrets)\.([A-Za-z_][A-Za-z0-9_]*)"
+    r"(?:\s*\?\?\s*(.*?))?\s*\}$",
+    re.DOTALL,
+)
 
 
 class MissingSecretEnvVar(typer.Exit):
@@ -348,23 +356,35 @@ def resolve_secret_ref(value: str, field_name: str) -> str:
     """Resolve a ``${ secrets.VAR }`` or ``${ customer_secrets.VAR }`` reference.
 
     If *value* is a literal string (not a secrets reference) it is returned
-    as-is.  If it matches the pattern the corresponding environment variable
+    as-is. If it matches the pattern the corresponding environment variable
     is looked up and returned.
 
+    Supports the ``??`` default-value operator:
+
+    * ``${ ns.VAR }`` — required. Missing env var raises
+      :class:`MissingSecretEnvVar`.
+    * ``${ ns.VAR ?? default }`` — optional. If the env var is unset the
+      literal ``default`` is returned. An explicitly-empty env var value
+      is preserved (``??`` coalesces on null, not on empty) — matches the
+      backend ``var_substitution`` parser exactly.
+
     Raises:
-        MissingSecretEnvVar: When the environment variable is not set.
-            Subclass of ``typer.Exit`` — callers that want to collect
-            missing secrets should catch this specifically; callers that
-            just want to skip-on-failure can continue catching
-            ``typer.Exit``.
+        MissingSecretEnvVar: When the environment variable is not set
+            *and* no ``?? default`` is provided. Subclass of
+            ``typer.Exit`` — callers that want to collect missing secrets
+            should catch this specifically; callers that just want to
+            skip-on-failure can continue catching ``typer.Exit``.
     """
     m = _SECRETS_RE.match(value)
     if not m:
         return value
 
     var_name = m.group(1)
+    default = m.group(2)  # None when no `??` in the reference.
     env_value = os.environ.get(var_name)
-    if not env_value:
+    if env_value is None:
+        if default is not None:
+            return default
         raise MissingSecretEnvVar(var_name, field_name)
     return env_value
 
@@ -472,6 +492,7 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
         "mime_type": None,
         "listing_file": None,
         "actual_filename": None,
+        "env_vars": {},
     }
 
     file_path = code_example.get("file_path")
@@ -537,6 +558,10 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
                 env_vars["UNITYSVC_API_KEY"] = str(value)
             else:
                 env_vars[field.upper()] = str(value)
+
+        # Expose the full env the subprocess actually sees so the caller
+        # can persist it for reproduction (see failure-dump code).
+        result["env_vars"] = env_vars
 
         # Execute script using shared utility
         output_contains = code_example.get("output_contains")
@@ -1024,8 +1049,13 @@ def run_local(
             base_url = f"https://{credentials['bucket']}.s3.{credentials['region']}.amazonaws.com"
         if base_url:
             credentials.setdefault("base_url", base_url)
-        # Accept credentials if we have base_url, host (SMTP), or access_key (S3)
-        if base_url or credentials.get("host") or credentials.get("access_key"):
+        # Accept credentials only when every referenced secret resolved
+        # AND we have at least one anchor field (base_url/host/access_key).
+        # A partially populated dict would previously slip through and
+        # surface as `KeyError: 'BUCKET'` deep inside the user's script;
+        # skip with a clear reason instead.
+        has_anchor = bool(base_url or credentials.get("host") or credentials.get("access_key"))
+        if has_anchor and not missing_secrets:
             credentials.setdefault("api_key", "")
             all_code_examples.append((example, prov_name, credentials))
         else:
@@ -1192,16 +1222,29 @@ def run_local(
                 except Exception as e:
                     console.print(f"  [yellow]⚠ Failed to save stderr: {e}[/yellow]")
 
-                # Write environment variables to .env file
+                # Write environment variables to .env file. Dump the
+                # exact env the subprocess saw (built in
+                # execute_code_example from upstream_access_config) so
+                # `source failed_*.env` reproduces the run. Fall back
+                # to the minimum pair when env_vars isn't populated
+                # (e.g. rendering failed before execution).
                 env_filename = f"{failed_filename}.env"
                 try:
+                    dumped = result.get("env_vars") or {
+                        "UNITYSVC_API_KEY": credentials.get("api_key", ""),
+                        "SERVICE_BASE_URL": credentials.get("base_url", ""),
+                    }
                     with open(env_filename, "w", encoding="utf-8") as f:
-                        f.write(f"UNITYSVC_API_KEY={credentials.get('api_key', '')}\n")
-                        f.write(f"SERVICE_BASE_URL={credentials.get('base_url', '')}\n")
-                        # Include service_options.enrollment_vars
+                        for k, v in dumped.items():
+                            f.write(f"{k}={v}\n")
+                        # Include enrollment_vars so reproductions of
+                        # BYOE tests also carry the customer-facing values.
                         listing_so = example.get("listing_data", {}).get("service_options", {}) or {}
                         for k, v in expand_template_strings(listing_so.get("enrollment_vars", {}) or {}).items():
-                            resolved = resolve_secret_ref(str(v), f"enrollment_vars.{k}")
+                            try:
+                                resolved = resolve_secret_ref(str(v), f"enrollment_vars.{k}")
+                            except MissingSecretEnvVar:
+                                resolved = ""
                             f.write(f"{k.upper()}={resolved}\n")
                     console.print(f"  [yellow]→ Environment variables saved to:[/yellow] {env_filename}")
                     console.print(f"  [dim]  (source this file to reproduce: source {env_filename})[/dim]")
