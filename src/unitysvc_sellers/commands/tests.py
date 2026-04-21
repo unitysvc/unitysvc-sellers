@@ -302,6 +302,23 @@ def show_test(
 _ROUTABLE_STATUSES = frozenset({"pending", "review", "active"})
 
 
+def _is_uuid_key(key: str) -> bool:
+    """True if ``key`` parses as a UUID.
+
+    Pre-PR test runs keyed ``meta.test.tests`` by interface *name* (e.g.
+    ``"HTTP Gateway"`` or the stub ``"default"``). New runs key by
+    access_interface.id (UUID string). When we preserve prior entries
+    we drop non-UUID keys so the old name-keyed garbage doesn't linger.
+    """
+    try:
+        import uuid as _uuid
+
+        _uuid.UUID(key)
+        return True
+    except (ValueError, TypeError, AttributeError):
+        return False
+
+
 def _resolve_interfaces(
     interfaces: list[dict[str, Any]],
 ) -> list[tuple[str, str, str, dict[str, Any]]]:
@@ -335,8 +352,12 @@ def _resolve_interfaces(
                 routing_key,
             )
         )
-    if not result:
-        result.append(("", "default", "", {}))
+    # No silent fallback when the list is empty. Appending a stub
+    # ("", "default", "", {}) used to force the test to execute with
+    # an empty SERVICE_BASE_URL, recording a confusing "SERVICE_BASE_URL
+    # is not set" failure keyed by the literal string "default" —
+    # stale garbage that then lingered in meta.test.tests forever.
+    # Callers handle empty-list by skipping the document instead.
     return result
 
 
@@ -484,15 +505,37 @@ def run_tests(
                         )
                         continue
 
+                    if not interfaces_list:
+                        # The service has no active interfaces to test
+                        # against. Running with an empty SERVICE_BASE_URL
+                        # would surface as a misleading "SERVICE_BASE_URL
+                        # is not set" failure and linger in the document's
+                        # meta.test.tests; skip cleanly instead.
+                        doc_results.append(
+                            {
+                                "doc_id": did,
+                                "title": title,
+                                "status": "skipped",
+                                "reason": "service has no active interfaces",
+                                "iface_results": {},
+                            }
+                        )
+                        continue
+
                     # Preserve any prior entries written by sibling
                     # services that share this document — they're keyed
                     # by *their* interface ids so we won't clobber them,
                     # but we need to keep them in the payload since the
                     # backend overwrites the whole `tests` map.
                     prior = full_meta.get("test") if isinstance(full_meta, dict) else None
-                    iface_results: dict[str, dict[str, Any]] = dict(
-                        (prior or {}).get("tests") or {}
-                    )
+                    prior_tests = (prior or {}).get("tests") or {}
+                    # Keep only UUID-keyed prior entries: those are
+                    # valid results from sibling services. Non-UUID
+                    # keys are stale leftovers from pre-PR code that
+                    # keyed by interface name — drop them.
+                    iface_results: dict[str, dict[str, Any]] = {
+                        k: v for k, v in prior_tests.items() if _is_uuid_key(k)
+                    }
                     for iface_id, iface_name, iface_url, iface_rk in interfaces_list:
                         key = iface_id or iface_name  # fallback if server didn't return an id
                         exec_env = _make_exec_env(iface_url, iface_rk, user_api_key)
