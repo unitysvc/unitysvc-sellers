@@ -1548,6 +1548,7 @@
             "required": true,
             "schema": {
               "type": "string",
+              "pattern": "^[A-Z_][A-Z0-9_]*$",
               "title": "Name"
             }
           },
@@ -1597,6 +1598,16 @@
         "responses": {
           "200": {
             "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretPublic"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Secret created",
             "content": {
               "application/json": {
                 "schema": {

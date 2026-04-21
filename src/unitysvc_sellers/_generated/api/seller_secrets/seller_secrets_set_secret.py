@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -48,6 +48,11 @@ def _parse_response(
         response_200 = SecretPublic.from_dict(response.json())
 
         return response_200
+
+    if response.status_code == 201:
+        response_201 = SecretPublic.from_dict(response.json())
+
+        return response_201
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
