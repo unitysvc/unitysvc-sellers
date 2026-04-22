@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -402,6 +404,7 @@ def run_tests(
             detail = model_to_dict(await client.services.get(service_id))
             full_service_id = str(detail.get("service_id") or detail.get("id") or service_id)
             original_status = str(detail.get("status") or "")
+            service_name = str(detail.get("service_name") or full_service_id[:8])
 
             docs_raw = detail.get("documents") or []
             docs = [d if isinstance(d, dict) else model_to_dict(d) for d in docs_raw]
@@ -526,6 +529,7 @@ def run_tests(
                             "name": iface_name,
                             "status": exec_result["status"],
                             "base_url": iface_url,
+                            "env_vars": exec_env,
                         }
                         if exec_result.get("exit_code") is not None:
                             entry["exit_code"] = exec_result["exit_code"]
@@ -567,6 +571,9 @@ def run_tests(
                                 "title": title,
                                 "status": worst_status,
                                 "iface_results": iface_results,
+                                "file_content": file_content,
+                                "mime_type": mime_type,
+                                "service_name": service_name,
                                 "update_warning": str(update_err),
                             }
                         )
@@ -578,6 +585,9 @@ def run_tests(
                             "title": title,
                             "status": worst_status,
                             "iface_results": iface_results,
+                            "file_content": file_content,
+                            "mime_type": mime_type,
+                            "service_name": service_name,
                         }
                     )
             finally:
@@ -635,8 +645,6 @@ def run_tests(
             console.print(f"  [green]✓[/green] {short} {title}: success")
             success += 1
         else:
-            # Pick the first failing interface to show in the summary
-            # line; ``show-test`` is still the full-detail view.
             iface_results = entry.get("iface_results") or {}
             first_failure: dict[str, Any] = next(
                 (r for r in iface_results.values() if r.get("status") != "success"),
@@ -645,6 +653,40 @@ def run_tests(
             err = first_failure.get("error") or status
             console.print(f"  [red]✗[/red] {short} {title}: {status} — {err}")
             failed += 1
+
+            # Write script / stdout / stderr / env files for each
+            # failing interface, mirroring usvc_seller data run-tests.
+            svc = re.sub(r"[^\w-]", "_", entry.get("service_name") or short)
+            doc_slug = re.sub(r"[^\w-]", "_", title)
+            mime = entry.get("mime_type") or ""
+            ext = ".py" if "python" in mime else ".sh"
+            script_content = entry.get("file_content") or ""
+            for iface_entry in iface_results.values():
+                if iface_entry.get("status") == "success":
+                    continue
+                iface_slug = re.sub(r"[^\w-]", "_", str(iface_entry.get("name") or "default"))
+                base = f"failed_{svc}_{doc_slug}_{iface_slug}"
+                for path, content in [
+                    (f"{base}{ext}", script_content),
+                    (f"{base}.out", iface_entry.get("stdout") or ""),
+                    (f"{base}.err", iface_entry.get("stderr") or ""),
+                ]:
+                    try:
+                        Path(path).write_text(content, encoding="utf-8")
+                        console.print(f"      [yellow]→ saved:[/yellow] {path}")
+                    except Exception as write_err:
+                        console.print(f"      [yellow]⚠ could not write {path}: {write_err}[/yellow]")
+                env_path = f"{base}.env"
+                env_vars: dict[str, str] = iface_entry.get("env_vars") or {}
+                try:
+                    Path(env_path).write_text(
+                        "".join(f"{k}={v}\n" for k, v in env_vars.items()),
+                        encoding="utf-8",
+                    )
+                    console.print(f"      [yellow]→ saved:[/yellow] {env_path}")
+                    console.print(f"      [dim]  (source to reproduce: source {env_path})[/dim]")
+                except Exception as write_err:
+                    console.print(f"      [yellow]⚠ could not write {env_path}: {write_err}[/yellow]")
 
         if entry.get("update_warning"):
             console.print(f"      [yellow](result upload failed: {entry['update_warning']})[/yellow]")

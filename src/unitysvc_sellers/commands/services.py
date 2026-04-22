@@ -11,6 +11,9 @@ Commands:
 - ``submit``    — draft → pending (sets status='pending')
 - ``withdraw``  — pending|rejected → draft
 - ``deprecate`` — mark services as deprecated
+- ``publish``   — set visibility to public
+- ``unlist``    — set visibility to unlisted
+- ``hide``      — set visibility to private
 - ``delete``    — permanently delete services
 - ``update``    — set/remove routing vars and list price
 
@@ -44,7 +47,7 @@ from ._helpers import (
 console = Console()
 
 app = typer.Typer(
-    help="Remote service operations (list, show, submit, withdraw, deprecate, set-visibility, delete, update).",
+    help="Remote service operations (list, show, submit, withdraw, deprecate, publish, unlist, hide, delete, update).",
 )
 
 
@@ -71,7 +74,7 @@ def list_services(
     status: str | None = typer.Option(
         None,
         "--status",
-        help="Filter by service status (draft, pending, testing, active, rejected, suspended).",
+        help="Filter by service status (draft, pending, review, active, rejected, suspended, deprecated).",
     ),
     name: str | None = typer.Option(
         None,
@@ -273,6 +276,53 @@ def _bulk_status_change(
             raise typer.Exit(code=1)
 
 
+def _bulk_visibility_change(
+    *,
+    api_key: str | None,
+    base_url: str,
+    service_ids: list[str],
+    visibility: str,
+    success_verb: str,
+    confirm_prompt: str,
+    yes: bool,
+) -> None:
+    """Apply visibility change across many services with consistent UX."""
+    count = len(service_ids)
+    if not yes:
+        if not typer.confirm(confirm_prompt):
+            console.print("[yellow]Cancelled[/yellow]")
+            raise typer.Exit(code=0)
+
+    async def _impl() -> list[tuple[str, Exception | None]]:
+        results: list[tuple[str, Exception | None]] = []
+        async with async_client(api_key, base_url) as client:
+            for sid in service_ids:
+                try:
+                    await client.services.update(sid, {"visibility": visibility})
+                    results.append((sid, None))
+                except Exception as exc:  # noqa: BLE001
+                    results.append((sid, exc))
+        return results
+
+    results = run_async(_impl(), error_prefix=f"{success_verb} failed")
+
+    success = 0
+    failed = 0
+    for sid, err in results:
+        if err is None:
+            console.print(f"  [green]✓[/green] {sid}: {success_verb}")
+            success += 1
+        else:
+            console.print(f"  [red]✗[/red] {sid}: {err}")
+            failed += 1
+
+    if count > 1:
+        console.print(f"\n[green]✓ Success:[/green] {success}/{count}")
+        if failed:
+            console.print(f"[red]✗ Failed:[/red] {failed}/{count}")
+            raise typer.Exit(code=1)
+
+
 def _resolve_or_fetch_ids(
     *,
     api_key: str | None,
@@ -410,27 +460,18 @@ def deprecate_service(
 
 
 # ---------------------------------------------------------------------------
-# set-visibility
+# publish / unlist / hide
 # ---------------------------------------------------------------------------
-@app.command("set-visibility")
-def set_visibility_service(
-    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to update (>=8 chars)."),
-    visibility: str = typer.Option(..., "--visibility", "-v", help="Visibility: public, unlisted, or private."),
-    all_active: bool = typer.Option(False, "--all", help="Apply to all active services."),
+@app.command("publish")
+def publish_service(
+    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to publish (≥8 chars)."),
+    all_active: bool = typer.Option(False, "--all", help="Publish all active services."),
     provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Set catalog visibility on services (public / unlisted / private).
-
-    Only active services can be set to public.
-    """
-    valid = {"public", "unlisted", "private"}
-    if visibility not in valid:
-        console.print(f"[red]Invalid visibility '{visibility}'. Must be one of: {', '.join(sorted(valid))}[/red]")
-        raise typer.Exit(code=1)
-
+    """Set visibility to public (visible in the catalog to all users)."""
     ids = _resolve_or_fetch_ids(
         api_key=api_key,
         base_url=base_url,
@@ -440,41 +481,75 @@ def set_visibility_service(
         provider=provider,
         flag_name="all",
     )
+    _bulk_visibility_change(
+        api_key=api_key,
+        base_url=base_url,
+        service_ids=ids,
+        visibility="public",
+        success_verb="Published",
+        confirm_prompt=f"Set {len(ids)} service(s) to public?",
+        yes=yes,
+    )
 
-    count = len(ids)
-    if not yes:
-        if not typer.confirm(f"Set {count} service(s) to visibility={visibility}?"):
-            console.print("[yellow]Cancelled[/yellow]")
-            raise typer.Exit(code=0)
 
-    async def _impl() -> list[tuple[str, Exception | None]]:
-        results: list[tuple[str, Exception | None]] = []
-        async with async_client(api_key, base_url) as client:
-            for sid in ids:
-                try:
-                    await client.services.update(sid, {"visibility": visibility})
-                    results.append((sid, None))
-                except Exception as exc:  # noqa: BLE001
-                    results.append((sid, exc))
-        return results
+@app.command("unlist")
+def unlist_service(
+    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to unlist (≥8 chars)."),
+    all_active: bool = typer.Option(False, "--all", help="Unlist all active services."),
+    provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Set visibility to unlisted (accessible by direct link, not shown in catalog)."""
+    ids = _resolve_or_fetch_ids(
+        api_key=api_key,
+        base_url=base_url,
+        service_ids=service_ids,
+        use_all=all_active,
+        statuses_when_all=["active"],
+        provider=provider,
+        flag_name="all",
+    )
+    _bulk_visibility_change(
+        api_key=api_key,
+        base_url=base_url,
+        service_ids=ids,
+        visibility="unlisted",
+        success_verb="Unlisted",
+        confirm_prompt=f"Set {len(ids)} service(s) to unlisted?",
+        yes=yes,
+    )
 
-    results = run_async(_impl(), error_prefix="Set visibility failed")
 
-    success = 0
-    failed = 0
-    for sid, err in results:
-        if err is None:
-            console.print(f"  [green]\u2713[/green] {sid}: visibility={visibility}")
-            success += 1
-        else:
-            console.print(f"  [red]\u2717[/red] {sid}: {err}")
-            failed += 1
-
-    if count > 1:
-        console.print(f"\n[green]\u2713 Success:[/green] {success}/{count}")
-        if failed:
-            console.print(f"[red]\u2717 Failed:[/red] {failed}/{count}")
-            raise typer.Exit(code=1)
+@app.command("hide")
+def hide_service(
+    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to hide (≥8 chars)."),
+    all_active: bool = typer.Option(False, "--all", help="Hide all active services."),
+    provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Set visibility to private (hidden from all catalog views)."""
+    ids = _resolve_or_fetch_ids(
+        api_key=api_key,
+        base_url=base_url,
+        service_ids=service_ids,
+        use_all=all_active,
+        statuses_when_all=["active"],
+        provider=provider,
+        flag_name="all",
+    )
+    _bulk_visibility_change(
+        api_key=api_key,
+        base_url=base_url,
+        service_ids=ids,
+        visibility="private",
+        success_verb="Hidden",
+        confirm_prompt=f"Hide {len(ids)} service(s) (set to private)?",
+        yes=yes,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -486,7 +561,7 @@ def delete_service(
     all_deletable: bool = typer.Option(
         False,
         "--all",
-        help="Delete all deletable services (draft, pending, testing, rejected, suspended, deprecated).",
+        help="Delete all deletable services (draft, pending, review, rejected, suspended, deprecated).",
     ),
     status: str | None = typer.Option(None, "--status", help="Restrict --all to a single deletable status."),
     provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
@@ -496,7 +571,7 @@ def delete_service(
     base_url: str = base_url_option(),
 ) -> None:
     """Permanently delete services."""
-    deletable_statuses = ["draft", "pending", "testing", "rejected", "suspended", "deprecated"]
+    deletable_statuses = ["draft", "pending", "review", "rejected", "suspended", "deprecated"]
     if status:
         if status not in deletable_statuses:
             valid = ", ".join(deletable_statuses)

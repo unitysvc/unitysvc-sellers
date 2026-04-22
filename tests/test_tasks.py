@@ -305,7 +305,7 @@ class TestUploadDirectoryPolling:
                 "state": "SUCCESS",
                 "status": "completed",
                 "message": "ok",
-                "result": {"service_id": "svc-111", "name": "svc1"},
+                "result": {"service": {"id": "svc-111", "name": "svc1"}},
             },
         })
 
