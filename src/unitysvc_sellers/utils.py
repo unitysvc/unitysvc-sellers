@@ -58,27 +58,68 @@ from unitysvc_data import doc_preset, file_preset
 #     { "$file_preset": "s3_connectivity_v1" }
 #         -> file_preset("s3_connectivity_v1")  -> raw UTF-8 file content
 #
-#     { "$doc_preset": { "$preset": "s3_connectivity",
-#                        "$with": { "description": "ours" } } }
-#         -> doc_preset({"$preset": ..., "$with": {...}})
+#     { "$doc_preset": { "name": "s3_connectivity",
+#                        "description": "ours" } }
+#         -> doc_preset("s3_connectivity", description="ours")
 #             -> doc record with the override applied
 #
-# The functions accept either a bare name or the nested ``{"$preset": ...,
-# "$with": {...}}`` form already defined by ``unitysvc-data``, so the
-# walker itself is format-agnostic — it just forwards whatever value it
-# finds under the ``$<fn>`` key.
+# The flat ``{"name": ..., <override>: ...}`` shape is the seller-facing
+# vocabulary: ``name`` is the preset identifier, every other key is a
+# per-field override. Using ``unitysvc-data``'s internal
+# ``{"$preset": ..., "$with": {...}}`` form also works (the functions
+# accept it), but sellers shouldn't need to know that vocabulary —
+# hence the thin wrappers below that translate the flat form.
 #
 # This walker is a candidate for promotion to ``unitysvc-core.utils`` if
 # non-seller code ends up needing it; keeping it here for now since only
 # the sellers SDK uses it.
 # -----------------------------------------------------------------------------
 
+
+def _unwrap_flat_form(source: Any) -> tuple[Any, dict[str, Any]]:
+    """Split a flat sentinel value into (preset_name, overrides).
+
+    When ``source`` is a dict carrying a string ``name`` key, the other
+    keys are treated as kwargs destined for the preset function — this
+    is the seller-facing shape::
+
+        {"name": "s3_code_example", "description": "ours"}
+        -> ("s3_code_example", {"description": "ours"})
+
+    Any other value (bare string, ``unitysvc-data``'s internal
+    ``{"$preset": ..., "$with": {...}}`` sentinel, etc.) passes through
+    untouched in the first slot with an empty override dict. The
+    preset function itself handles those shapes.
+    """
+    if isinstance(source, dict) and isinstance(source.get("name"), str):
+        name = source["name"]
+        return name, {k: v for k, v in source.items() if k != "name"}
+    return source, {}
+
+
+def _doc_preset_sentinel(source: Any) -> dict[str, Any]:
+    arg, overrides = _unwrap_flat_form(source)
+    return doc_preset(arg, **overrides)
+
+
+def _file_preset_sentinel(source: Any) -> str:
+    arg, overrides = _unwrap_flat_form(source)
+    if overrides:
+        raise ValueError(
+            "$file_preset does not accept per-field overrides — the file "
+            "content is immutable. Unexpected keys alongside 'name': "
+            f"{sorted(overrides)!r}."
+        )
+    return file_preset(arg)
+
+
 #: Preset function names recognised in sentinel dicts. Sourced from
-#: ``unitysvc-data``; add new entries here as the upstream package grows
-#: new primitives.
+#: ``unitysvc-data`` and wrapped to accept the seller-facing flat form
+#: (``{"name": "...", <override>: ...}``). Add new entries here as the
+#: upstream package grows new primitives.
 SELLER_PRESET_FNS: Mapping[str, Callable[[Any], Any]] = {
-    "doc_preset": doc_preset,
-    "file_preset": file_preset,
+    "doc_preset": _doc_preset_sentinel,
+    "file_preset": _file_preset_sentinel,
 }
 
 
@@ -137,9 +178,8 @@ def expand_presets(
                     raise ValueError(
                         f"Preset sentinel key {key!r} must appear alone in its "
                         f"dict — found alongside {sorted(k for k in data if k != key)!r}. "
-                        "If you meant per-field overrides, pass them through the "
-                        "preset function's own '$with' form, e.g. "
-                        f"{{{key!r}: {{'$preset': '<name>', '$with': {{...}}}}}}."
+                        "If you meant per-field overrides, nest them inside the "
+                        f"sentinel value: {{{key!r}: {{'name': '<preset>', <override>: ...}}}}."
                     )
 
         return {key: expand_presets(value, preset_fns) for key, value in data.items()}

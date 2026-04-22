@@ -42,20 +42,65 @@ def test_doc_preset_alias_matches_versioned():
     assert alias == versioned
 
 
-def test_doc_preset_sentinel_with_with_block_forwards_overrides():
-    # The sentinel's VALUE is forwarded to doc_preset verbatim. doc_preset
-    # already understands the nested {"$preset": ..., "$with": {...}} form,
-    # so overrides travel through cleanly.
+def test_doc_preset_flat_form_with_overrides():
+    # Seller-facing shape: {"name": "<preset>", <override>: ...}. "name"
+    # is the identifier; all other keys are per-field overrides passed
+    # as kwargs to doc_preset.
     node = {
         "$doc_preset": {
-            "$preset": "s3_code_example",
-            "$with": {"description": "Uploads to customer bucket", "is_public": False},
+            "name": "s3_code_example",
+            "description": "Uploads to customer bucket",
+            "is_public": False,
         }
     }
     record = expand_presets(node)
     assert record["description"] == "Uploads to customer bucket"
     assert record["is_public"] is False
     assert record["category"] == "usage_example"
+
+
+def test_doc_preset_flat_form_name_only_equals_bare_string():
+    flat = expand_presets({"$doc_preset": {"name": "s3_connectivity"}})
+    bare = expand_presets({"$doc_preset": "s3_connectivity"})
+    assert flat == bare
+
+
+def test_doc_preset_nested_preset_with_form_still_works():
+    # unitysvc-data's internal {"$preset": ..., "$with": {...}} shape is
+    # not the seller-facing API but the walker forwards it through
+    # doc_preset, which accepts it. Verified so we don't silently break
+    # it if someone on the team already adopted it.
+    node = {
+        "$doc_preset": {
+            "$preset": "s3_code_example",
+            "$with": {"description": "via nested form"},
+        }
+    }
+    record = expand_presets(node)
+    assert record["description"] == "via nested form"
+    assert record["category"] == "usage_example"
+
+
+def test_doc_preset_flat_form_rejects_forbidden_override():
+    # Overrides still go through doc_preset's whitelist. "category" is
+    # tied to the file content and not overridable.
+    node = {"$doc_preset": {"name": "s3_connectivity", "category": "other"}}
+    with pytest.raises(ValueError, match="Cannot override"):
+        expand_presets(node)
+
+
+def test_file_preset_flat_form_rejects_overrides():
+    # File content is immutable — overrides make no sense for $file_preset.
+    node = {"$file_preset": {"name": "s3_connectivity_v1", "description": "x"}}
+    with pytest.raises(ValueError, match="does not accept per-field overrides"):
+        expand_presets(node)
+
+
+def test_file_preset_flat_form_name_only_works():
+    # A dict with just {"name": ...} is equivalent to the bare-string form.
+    flat = expand_presets({"$file_preset": {"name": "s3_connectivity_v1"}})
+    bare = expand_presets({"$file_preset": "s3_connectivity_v1"})
+    assert flat == bare
 
 
 def test_file_preset_sentinel_returns_raw_content():
@@ -186,9 +231,10 @@ def test_load_data_file_expands_presets_in_toml(tmp_path: Path):
 
 
 def test_load_data_file_expands_presets_after_override_merge(tmp_path: Path):
-    # Sentinel lives in the base file; override customises is_active.
-    # Expansion happens *after* the merge, so the final doc is the
-    # preset's record with the override applied.
+    # Sentinel lives in the base file; override customises a top-level
+    # field. Expansion happens *after* the merge, so the final
+    # documents[...] is the preset's record with any flat-form
+    # overrides applied.
     base = tmp_path / "listing.json"
     base.write_text(
         json.dumps(
@@ -197,8 +243,8 @@ def test_load_data_file_expands_presets_after_override_merge(tmp_path: Path):
                 "documents": {
                     "Connectivity test": {
                         "$doc_preset": {
-                            "$preset": "s3_connectivity_v1",
-                            "$with": {"is_active": True},
+                            "name": "s3_connectivity_v1",
+                            "is_active": True,
                         }
                     }
                 },
@@ -235,8 +281,14 @@ def test_load_data_file_with_preset_fns_none_skips_expansion(tmp_path: Path):
 
 def test_seller_preset_fns_registers_doc_and_file():
     assert set(SELLER_PRESET_FNS) == {"doc_preset", "file_preset"}
-    # Factory identity: the registered callable is the imported function.
-    assert SELLER_PRESET_FNS["doc_preset"] is doc_preset
+    # The registered callables are thin wrappers that translate the
+    # seller-facing flat form (``{"name": ..., <override>: ...}``)
+    # before delegating to unitysvc-data's doc_preset / file_preset.
+    # Passing the wrapper a bare-name string should produce the same
+    # record the underlying function would.
+    bare = SELLER_PRESET_FNS["doc_preset"]("s3_connectivity")
+    direct = doc_preset("s3_connectivity")
+    assert bare == direct
 
 
 # ---------------------------------------------------------------------------
