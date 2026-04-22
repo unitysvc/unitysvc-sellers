@@ -495,7 +495,7 @@ $ usvc_seller data list listings [OPTIONS] [DATA_DIR]
 
 ## `usvc_seller services`
 
-Remote service operations (list, show, submit, withdraw, deprecate, set-visibility, delete, update).
+Remote service operations (list, show, submit, withdraw, deprecate, publish, unlist, hide, delete, update).
 
 **Usage**:
 
@@ -514,7 +514,9 @@ $ usvc_seller services [OPTIONS] COMMAND [ARGS]...
 * `submit`: Submit services for review (draft|rejected...
 * `withdraw`: Withdraw services back to draft...
 * `deprecate`: Mark services as deprecated.
-* `set-visibility`: Set catalog visibility on services (public...
+* `publish`: Set visibility to public (visible in the...
+* `unlist`: Set visibility to unlisted (accessible by...
+* `hide`: Set visibility to private (hidden from all...
 * `delete`: Permanently delete services.
 * `update`: Update visibility, routing vars, and/or...
 * `list-tests`: List testable documents for one service or...
@@ -541,7 +543,7 @@ $ usvc_seller services list [OPTIONS]
 * `--limit INTEGER`: Max records per page (cursor pagination; repeat with --cursor for more).  [default: 50]
 * `--cursor TEXT`: Continuation token from a previous page&#x27;s next_cursor.
 * `--all`: Follow cursors and print every page as one combined result.
-* `--status TEXT`: Filter by service status (draft, pending, testing, active, rejected, suspended).
+* `--status TEXT`: Filter by service status (draft, pending, review, active, rejected, suspended, deprecated).
 * `-n, --name TEXT`: Search by name, display_name, or provider name (case-insensitive partial match).
 * `--provider TEXT`: Filter by provider name (case-insensitive partial match, applied client-side).
 * `--fields TEXT`: Comma-separated list of columns to display.  [default: id,name,provider_name,service_type,status]
@@ -640,26 +642,69 @@ $ usvc_seller services deprecate [OPTIONS] [SERVICE_IDS]...
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services set-visibility`
+### `usvc_seller services publish`
 
-Set catalog visibility on services (public / unlisted / private).
-
-Only active services can be set to public.
+Set visibility to public (visible in the catalog to all users).
 
 **Usage**:
 
 ```console
-$ usvc_seller services set-visibility [OPTIONS] [SERVICE_IDS]...
+$ usvc_seller services publish [OPTIONS] [SERVICE_IDS]...
 ```
 
 **Arguments**:
 
-* `[SERVICE_IDS]...`: Service ID(s) to update (&gt;=8 chars).
+* `[SERVICE_IDS]...`: Service ID(s) to publish (≥8 chars).
 
 **Options**:
 
-* `-v, --visibility TEXT`: Visibility: public, unlisted, or private.  [required]
-* `--all`: Apply to all active services.
+* `--all`: Publish all active services.
+* `--provider TEXT`: Filter by provider when --all is set.
+* `-y, --yes`: Skip confirmation prompt.
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller services unlist`
+
+Set visibility to unlisted (accessible by direct link, not shown in catalog).
+
+**Usage**:
+
+```console
+$ usvc_seller services unlist [OPTIONS] [SERVICE_IDS]...
+```
+
+**Arguments**:
+
+* `[SERVICE_IDS]...`: Service ID(s) to unlist (≥8 chars).
+
+**Options**:
+
+* `--all`: Unlist all active services.
+* `--provider TEXT`: Filter by provider when --all is set.
+* `-y, --yes`: Skip confirmation prompt.
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller services hide`
+
+Set visibility to private (hidden from all catalog views).
+
+**Usage**:
+
+```console
+$ usvc_seller services hide [OPTIONS] [SERVICE_IDS]...
+```
+
+**Arguments**:
+
+* `[SERVICE_IDS]...`: Service ID(s) to hide (≥8 chars).
+
+**Options**:
+
+* `--all`: Hide all active services.
 * `--provider TEXT`: Filter by provider when --all is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -682,7 +727,7 @@ $ usvc_seller services delete [OPTIONS] [SERVICE_IDS]...
 
 **Options**:
 
-* `--all`: Delete all deletable services (draft, pending, testing, rejected, suspended, deprecated).
+* `--all`: Delete all deletable services (draft, pending, review, rejected, suspended, deprecated).
 * `--status TEXT`: Restrict --all to a single deletable status.
 * `--provider TEXT`: Filter by provider when --all is set.
 * `--dryrun`: Show what would be deleted without doing it.
