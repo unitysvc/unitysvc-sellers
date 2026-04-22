@@ -8,7 +8,6 @@ invariants (each service dir has exactly one offering file), and the
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
 
@@ -16,11 +15,6 @@ import typer
 from rich.console import Console
 from unitysvc_core.validator import DataValidationError
 from unitysvc_core.validator import DataValidator as CoreDataValidator
-
-# S3 bucket name rules per https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
-# - 3-63 characters, lowercase letters/digits/hyphens only, start and end with letter or digit
-_S3_BUCKET_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$")
-_S3_GATEWAY_PREFIX = "${S3_GATEWAY_BASE_URL}/"
 
 
 class DataValidator(CoreDataValidator):
@@ -71,67 +65,6 @@ class DataValidator(CoreDataValidator):
                 warnings.append(f"Error checking provider status in {provider_file}: {e}")
 
         return True, warnings
-
-    def validate_s3_base_urls(self, data: dict[str, Any], schema_name: str) -> list[str]:
-        """Validate S3 gateway aliases in listing_v1 user_access_interfaces.
-
-        For any interface whose base_url starts with ${S3_GATEWAY_BASE_URL}/,
-        the suffix must be a valid S3 bucket name.  Jinja2 template aliases
-        (containing {{ }}) are skipped — they are validated at render time.
-        """
-        if schema_name != "listing_v1":
-            return []
-
-        errors: list[str] = []
-        interfaces = data.get("user_access_interfaces") or {}
-        if not isinstance(interfaces, dict):
-            return errors
-
-        for iface_name, iface in interfaces.items():
-            if not isinstance(iface, dict):
-                continue
-            base_url = iface.get("base_url", "")
-            if not isinstance(base_url, str) or not base_url.startswith(_S3_GATEWAY_PREFIX):
-                continue
-
-            alias = base_url[len(_S3_GATEWAY_PREFIX):]
-
-            # Jinja2 template — cannot validate statically
-            if "{{" in alias or "{%" in alias:
-                continue
-
-            field = f"user_access_interfaces.{iface_name}.base_url"
-
-            if not alias:
-                errors.append(f"{field}: S3 gateway alias is empty (must be a valid S3 bucket name)")
-                continue
-
-            if not _S3_BUCKET_RE.match(alias):
-                errors.append(
-                    f"{field}: S3 gateway alias '{alias}' is not a valid S3 bucket name — "
-                    f"must be 3-63 characters, lowercase letters/digits/hyphens only, "
-                    f"and must start and end with a letter or digit "
-                    f"(see https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html)"
-                )
-                continue
-
-            if alias.startswith("xn--"):
-                errors.append(f"{field}: S3 gateway alias '{alias}' cannot start with 'xn--' (reserved prefix)")
-            elif alias.endswith("-s3alias") or alias.endswith("--ol-s3"):
-                errors.append(f"{field}: S3 gateway alias '{alias}' uses a reserved suffix")
-
-        return errors
-
-    def validate_data_file(self, file_path: Path) -> tuple[bool, list[str]]:
-        """Validate a data file, adding S3 base_url checks for listing_v1."""
-        is_valid, errors = super().validate_data_file(file_path)
-        data, load_errors = self.load_data_file(file_path)
-        if data and not load_errors:
-            s3_errors = self.validate_s3_base_urls(data, data.get("schema", ""))
-            if s3_errors:
-                errors.extend(s3_errors)
-                is_valid = False
-        return is_valid, errors
 
     def validate_all(self) -> dict[str, tuple[bool, list[str]]]:
         """Validate all files in the data directory, including provider status."""
