@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -35,12 +36,142 @@ from unitysvc_core.utils import (  # noqa: F401
     generate_content_based_key,
     get_basename,
     get_file_extension,
-    load_data_file,
     mime_type_to_extension,
     read_override_file,
     write_data_file,
     write_override_file,
 )
+from unitysvc_core.utils import load_data_file as _core_load_data_file
+from unitysvc_data import doc_preset, file_preset
+
+# -----------------------------------------------------------------------------
+# Preset sentinel expansion
+#
+# Seller data files may contain sentinels that call into preset functions
+# exposed by ``unitysvc-data``. The sentinel is a dict with exactly one
+# ``$<fn>`` key whose value is forwarded to the matching preset function;
+# the whole node is replaced by the function's return value.
+#
+#     { "$doc_preset": "s3_connectivity" }
+#         -> doc_preset("s3_connectivity")  -> full document record dict
+#
+#     { "$file_preset": "s3_connectivity_v1" }
+#         -> file_preset("s3_connectivity_v1")  -> raw UTF-8 file content
+#
+#     { "$doc_preset": { "$preset": "s3_connectivity",
+#                        "$with": { "description": "ours" } } }
+#         -> doc_preset({"$preset": ..., "$with": {...}})
+#             -> doc record with the override applied
+#
+# The functions accept either a bare name or the nested ``{"$preset": ...,
+# "$with": {...}}`` form already defined by ``unitysvc-data``, so the
+# walker itself is format-agnostic — it just forwards whatever value it
+# finds under the ``$<fn>`` key.
+#
+# This walker is a candidate for promotion to ``unitysvc-core.utils`` if
+# non-seller code ends up needing it; keeping it here for now since only
+# the sellers SDK uses it.
+# -----------------------------------------------------------------------------
+
+#: Preset function names recognised in sentinel dicts. Sourced from
+#: ``unitysvc-data``; add new entries here as the upstream package grows
+#: new primitives.
+SELLER_PRESET_FNS: Mapping[str, Callable[[Any], Any]] = {
+    "doc_preset": doc_preset,
+    "file_preset": file_preset,
+}
+
+
+def expand_presets(
+    data: Any,
+    preset_fns: Mapping[str, Callable[[Any], Any]] = SELLER_PRESET_FNS,
+) -> Any:
+    """Recursively replace preset sentinel nodes with their expanded values.
+
+    A **preset sentinel** is a dict containing exactly one key of the
+    form ``$<fn_name>`` where ``<fn_name>`` matches a key in
+    ``preset_fns``. The value under that key is passed as the single
+    positional argument to the function; the function's return value
+    replaces the whole sentinel node in the result.
+
+    Non-sentinel dicts and lists are walked recursively. Scalars pass
+    through unchanged. The input is never mutated — a new structure is
+    returned.
+
+    Args:
+        data: Parsed data (dict / list / scalar) from a loaded data file.
+        preset_fns: Mapping of function name to callable. Defaults to
+            :data:`SELLER_PRESET_FNS` (``doc_preset`` and ``file_preset``
+            from the bundled ``unitysvc-data`` package).
+
+    Returns:
+        A new structure with every recognised sentinel replaced.
+
+    Raises:
+        KeyError, ValueError: Propagated from the underlying preset
+            function if the sentinel's value is invalid (unknown preset
+            name, forbidden override, etc.).
+    """
+    if isinstance(data, dict):
+        # Detect sentinel: exactly one key, starting with '$', matching
+        # a registered preset function.
+        if len(data) == 1:
+            (only_key,) = data.keys()
+            if isinstance(only_key, str) and only_key.startswith("$"):
+                fn_name = only_key[1:]
+                fn = preset_fns.get(fn_name)
+                if fn is not None:
+                    # Recurse into the value first so nested sentinels
+                    # (e.g. a $file_preset buried inside a $doc_preset's
+                    # $with block) expand from the inside out before
+                    # the outer call.
+                    return fn(expand_presets(data[only_key], preset_fns))
+
+        # Reject ambiguous partial sentinels: a '$<fn>' key present
+        # alongside other keys would silently ignore the preset call,
+        # which is a footgun. Flag it explicitly.
+        for key in data:
+            if isinstance(key, str) and key.startswith("$"):
+                fn_name = key[1:]
+                if fn_name in preset_fns:
+                    raise ValueError(
+                        f"Preset sentinel key {key!r} must appear alone in its "
+                        f"dict — found alongside {sorted(k for k in data if k != key)!r}. "
+                        "If you meant per-field overrides, pass them through the "
+                        "preset function's own '$with' form, e.g. "
+                        f"{{{key!r}: {{'$preset': '<name>', '$with': {{...}}}}}}."
+                    )
+
+        return {key: expand_presets(value, preset_fns) for key, value in data.items()}
+
+    if isinstance(data, list):
+        return [expand_presets(item, preset_fns) for item in data]
+
+    return data
+
+
+def load_data_file(
+    file_path: Path,
+    *,
+    skip_override: bool = False,
+    preset_fns: Mapping[str, Callable[[Any], Any]] | None = SELLER_PRESET_FNS,
+) -> tuple[dict[str, Any], str]:
+    """Load a seller data file and expand any preset sentinels it contains.
+
+    Thin wrapper around :func:`unitysvc_core.utils.load_data_file` that
+    runs :func:`expand_presets` on the merged payload before returning.
+    Call sites in seller code should use this wrapper so that ``$preset``
+    sentinels are transparently replaced with their expanded values —
+    ``.toml`` / ``.json`` / ``*.override.*`` are all handled the same
+    way because expansion runs after the override merge.
+
+    Pass ``preset_fns=None`` to skip expansion entirely (behaves
+    identically to the core helper).
+    """
+    data, file_format = _core_load_data_file(file_path, skip_override=skip_override)
+    if preset_fns:
+        data = expand_presets(data, preset_fns)
+    return data, file_format
 
 
 def resolve_provider_name(file_path: Path) -> str | None:

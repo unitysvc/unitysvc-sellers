@@ -219,9 +219,25 @@ def _resolve_file_references(
 
             result["file_content"] = content
 
-            # Strip .j2 suffix so the stored filename matches the
-            # rendered output (e.g. ``test.py.j2`` -> ``test.py``).
-            if full_path.name.endswith(".j2"):
+            # Pick the stored ``file_path`` shape:
+            #
+            # - Absolute input (typically injected by a ``$doc_preset``
+            #   expansion pointing at a bundled example inside the
+            #   installed ``unitysvc-data`` package) -> basename only.
+            #   The seller's local filesystem layout must not leak
+            #   into the backend payload.
+            # - Relative input (the historical seller-authored form,
+            #   e.g. ``../../docs/connectivity.sh.j2``) -> keep the
+            #   relative shape, just strip the ``.j2`` suffix so the
+            #   stored name matches the rendered output. Preserves
+            #   backwards compatibility with existing seller catalogs.
+            #
+            # ``render_template_file`` returns ``actual_filename`` with
+            # the ``.j2`` already stripped for templates, which we use
+            # for the absolute-path branch.
+            if Path(value).is_absolute():
+                result[key] = actual_filename
+            elif full_path.name.endswith(".j2"):
                 result[key] = value[:-3]
             else:
                 result[key] = value
@@ -237,7 +253,7 @@ def _build_service_payload(listing_file: Path) -> tuple[dict[str, Any], dict[str
     Returns ``(provider_data, offering_data, listing_data)`` as plain
     dicts ready to drop into ``ServiceDataInput``.
     """
-    from unitysvc_core.utils import load_data_file
+    from .utils import load_data_file
 
     listing_data, _ = load_data_file(listing_file)
 
