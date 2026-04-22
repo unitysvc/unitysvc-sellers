@@ -56,7 +56,7 @@ def test_doc_preset_flat_form_with_overrides():
     record = expand_presets(node)
     assert record["description"] == "Uploads to customer bucket"
     assert record["is_public"] is False
-    assert record["category"] == "usage_example"
+    assert record["category"] == "code_example"
 
 
 def test_doc_preset_flat_form_name_only_equals_bare_string():
@@ -78,7 +78,7 @@ def test_doc_preset_nested_preset_with_form_still_works():
     }
     record = expand_presets(node)
     assert record["description"] == "via nested form"
-    assert record["category"] == "usage_example"
+    assert record["category"] == "code_example"
 
 
 def test_doc_preset_flat_form_rejects_forbidden_override():
