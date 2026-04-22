@@ -546,7 +546,7 @@ $ usvc_seller services list [OPTIONS]
 * `--status TEXT`: Filter by service status (draft, pending, review, active, rejected, suspended, deprecated).
 * `-n, --name TEXT`: Search by name, display_name, or provider name (case-insensitive partial match).
 * `--provider TEXT`: Filter by provider name (case-insensitive partial match, applied client-side).
-* `--fields TEXT`: Comma-separated list of columns to display.  [default: id,name,provider_name,service_type,status]
+* `--fields TEXT`: Comma-separated list of columns to display.  [default: id,name,provider_name,service_type,status,visibility]
 * `-f, --format TEXT`: Output format: table | json.  [default: table]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
