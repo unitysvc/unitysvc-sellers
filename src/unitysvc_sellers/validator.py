@@ -22,25 +22,10 @@ class DataValidator(CoreDataValidator):
 
     Extends the core per-file validator with checks that understand the
     seller catalog directory layout (``<provider>/services/<service>/``).
+    ``$preset`` expansion is handled upstream in
+    :func:`unitysvc_core.utils.load_data_file`, so validation runs
+    against the same fully-expanded records the upload flow sends.
     """
-
-    def load_data_file(self, file_path: Path) -> tuple[dict[str, Any] | None, list[str]]:
-        """Load a seller data file and expand any ``$preset`` sentinels.
-
-        Overrides :meth:`CoreDataValidator.load_data_file` so that
-        ``usvc_seller data validate`` sees the same expanded data the
-        upload flow sends to the backend — preset-referenced documents
-        are validated against their final shape, not the sentinel stub.
-        """
-        errors: list[str] = []
-        try:
-            from .utils import load_data_file as seller_load_data_file
-
-            data, _ = seller_load_data_file(file_path)
-            return data, errors
-        except Exception as exc:
-            format_name = {".json": "JSON", ".toml": "TOML"}.get(file_path.suffix, "data")
-            return None, [f"Failed to parse {format_name}: {exc}"]
 
     def validate_provider_status(self) -> tuple[bool, list[str]]:
         """
