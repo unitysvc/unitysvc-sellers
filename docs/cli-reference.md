@@ -46,6 +46,7 @@ $ usvc_seller data [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `show`: Show expanded data for a service.
 * `validate`: Validate data consistency in service and...
 * `format`: Format data files (JSON, TOML, MD) to...
 * `populate`: Populate services by executing...
@@ -53,8 +54,40 @@ $ usvc_seller data [OPTIONS] COMMAND [ARGS]...
 * `list-tests`: List available code examples without...
 * `run-tests`: Run code examples locally with upstream...
 * `show-test`: Show test results for a service&#x27;s code...
-* `show`: Show details of local data objects
 * `list`: List local data files
+
+### `usvc_seller data show`
+
+Show expanded data for a service.
+
+By default prints provider + offering + listing as a single JSON
+object keyed by section. Pass one or more of ``--provider``,
+``--offering``, ``--listing`` to restrict the output — with exactly
+one flag set, the selected section is emitted unwrapped for easy
+piping into ``jq``.
+
+Data is loaded through the seller&#x27;s preset-aware loader, so any
+``$doc_preset`` / ``$file_preset`` sentinels have already been
+replaced with the expanded records from ``unitysvc-data``.
+
+**Usage**:
+
+```console
+$ usvc_seller data show [OPTIONS] SERVICE_NAME
+```
+
+**Arguments**:
+
+* `SERVICE_NAME`: Service name (first column of &#x27;usvc_seller data list&#x27; output).  [required]
+
+**Options**:
+
+* `--provider`: Show only provider data.
+* `--offering`: Show only offering data.
+* `--listing`: Show only listing data.
+* `-d, --data-dir PATH`: Directory containing data files (default: current directory).
+* `-f, --format TEXT`: Output format: json (syntax-highlighted) or text (plain).  [default: json]
+* `--help`: Show this message and exit.
 
 ### `usvc_seller data validate`
 
@@ -277,107 +310,6 @@ $ usvc_seller data show-test [OPTIONS] SERVICE
 
 * `-t, --title TEXT`: Only show results for specific test title
 * `-d, --data-dir PATH`: Directory containing provider data files (default: current directory)
-* `--help`: Show this message and exit.
-
-### `usvc_seller data show`
-
-Show details of local data objects
-
-**Usage**:
-
-```console
-$ usvc_seller data show [OPTIONS] COMMAND [ARGS]...
-```
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-**Commands**:
-
-* `provider`: Show details of a provider by name.
-* `offering`: Show details of an offering by name.
-* `listing`: Show details of a listing by name.
-* `service`: Show details of a service by name...
-
-#### `usvc_seller data show provider`
-
-Show details of a provider by name.
-
-**Usage**:
-
-```console
-$ usvc_seller data show provider [OPTIONS] NAME
-```
-
-**Arguments**:
-
-* `NAME`: Provider name to show  [required]
-
-**Options**:
-
-* `-d, --data-dir PATH`: Directory containing data files (default: current directory)
-* `-f, --format TEXT`: Output format: json, table, tsv, csv  [default: json]
-* `--help`: Show this message and exit.
-
-#### `usvc_seller data show offering`
-
-Show details of an offering by name.
-
-**Usage**:
-
-```console
-$ usvc_seller data show offering [OPTIONS] NAME
-```
-
-**Arguments**:
-
-* `NAME`: Offering name to show  [required]
-
-**Options**:
-
-* `-d, --data-dir PATH`: Directory containing data files (default: current directory)
-* `-f, --format TEXT`: Output format: json, table, tsv, csv  [default: json]
-* `--help`: Show this message and exit.
-
-#### `usvc_seller data show listing`
-
-Show details of a listing by name.
-
-**Usage**:
-
-```console
-$ usvc_seller data show listing [OPTIONS] NAME
-```
-
-**Arguments**:
-
-* `NAME`: Listing name to show  [required]
-
-**Options**:
-
-* `-d, --data-dir PATH`: Directory containing data files (default: current directory)
-* `-f, --format TEXT`: Output format: json, table, tsv, csv  [default: json]
-* `--help`: Show this message and exit.
-
-#### `usvc_seller data show service`
-
-Show details of a service by name (combines listing and offering data).
-
-**Usage**:
-
-```console
-$ usvc_seller data show service [OPTIONS] NAME
-```
-
-**Arguments**:
-
-* `NAME`: Service name to show (listing name or offering name)  [required]
-
-**Options**:
-
-* `-d, --data-dir PATH`: Directory containing data files (default: current directory)
-* `-f, --format TEXT`: Output format: json, table, tsv, csv  [default: json]
 * `--help`: Show this message and exit.
 
 ### `usvc_seller data list`
