@@ -118,7 +118,6 @@ def upload(
     console.print()
     table = Table(title="Upload Summary", show_header=True, header_style="bold cyan", border_style="cyan")
     table.add_column("Type", style="cyan", no_wrap=True)
-    table.add_column("Found", justify="right")
     table.add_column("Success", justify="right", style="green")
     table.add_column("Failed", justify="right", style="red")
 
@@ -129,7 +128,6 @@ def upload(
     ):
         table.add_row(
             kind,
-            str(counts.total),
             str(counts.success),
             str(counts.failed) if counts.failed else "",
         )
