@@ -193,6 +193,32 @@ class Client:
         return self._secrets
 
     # ------------------------------------------------------------------
+    # File storage
+    # ------------------------------------------------------------------
+    def upload_file(
+        self,
+        filename: str | Path,
+        *,
+        is_public: bool = True,
+    ) -> str:
+        """Upload a file to content-addressed S3 storage.
+
+        For Markdown (``.md``) files, local image and link references are
+        uploaded first and the links are rewritten to
+        ``${UNITYSVC_S3_BASE_URL}/{object_key}`` before the Markdown itself
+        is uploaded.  All other file types are uploaded as-is.
+
+        Returns the ``object_key`` (SHA-256 hash + extension).
+
+        See :func:`unitysvc_sellers.storage.upload_file` for full docs.
+        """
+        from pathlib import Path as _Path
+
+        from .storage import upload_file as _upload_file
+
+        return _upload_file(self._client, _Path(str(filename)), is_public=is_public)
+
+    # ------------------------------------------------------------------
     # High-level catalog upload
     # ------------------------------------------------------------------
     def upload(
