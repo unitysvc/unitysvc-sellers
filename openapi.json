@@ -2500,7 +2500,7 @@
           "seller"
         ],
         "summary": "Upload File",
-        "description": "Upload a file to content-addressed storage.\n\nAccepts multipart/form-data and stores the file in S3 under a SHA-256-based\nobject_key. Returns the object_key for use in service listing documents,\nmarkdown image references, or any other resource that references stored files.\n\nDeduplicates automatically: if the same content was already uploaded, the S3\nwrite is skipped and ``uploaded`` will be False.\n\nArgs:\n    file: The file to upload.\n    is_public: Whether the object should be publicly readable (default: True).\n\nAuthentication: Requires API key with seller context.",
+        "description": "Upload a file to content-addressed storage.\n\nAccepts multipart/form-data and stores the file in S3 under a SHA-256-based\nobject_key. Returns the object_key for use in service listing documents,\nmarkdown image references, or any other resource that references stored files.\n\nFiles are always stored as publicly readable \u2014 access control is enforced\nat the document/service level, not the storage object level.\n\nDeduplicates automatically: if the same content was already uploaded, the S3\nwrite is skipped and ``uploaded`` will be False.\n\nArgs:\n    file: The file to upload.\n\nAuthentication: Requires API key with seller context.",
         "operationId": "seller-upload_file",
         "parameters": [
           {
@@ -2843,11 +2843,6 @@
             "type": "string",
             "format": "binary",
             "title": "File"
-          },
-          "is_public": {
-            "type": "boolean",
-            "title": "Is Public",
-            "default": true
           }
         },
         "type": "object",

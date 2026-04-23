@@ -195,12 +195,7 @@ class Client:
     # ------------------------------------------------------------------
     # File storage
     # ------------------------------------------------------------------
-    def upload_file(
-        self,
-        filename: str | Path,
-        *,
-        is_public: bool = True,
-    ) -> str:
+    def upload_file(self, filename: str | Path) -> str:
         """Upload a file to content-addressed S3 storage.
 
         For Markdown (``.md``) files, local image and link references are
@@ -216,7 +211,7 @@ class Client:
 
         from .storage import upload_file as _upload_file
 
-        return _upload_file(self._client, _Path(str(filename)), is_public=is_public)
+        return _upload_file(self._client, _Path(str(filename)))
 
     # ------------------------------------------------------------------
     # High-level catalog upload

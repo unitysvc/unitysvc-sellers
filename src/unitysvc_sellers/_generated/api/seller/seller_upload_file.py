@@ -80,12 +80,14 @@ def sync_detailed(
     object_key. Returns the object_key for use in service listing documents,
     markdown image references, or any other resource that references stored files.
 
+    Files are always stored as publicly readable — access control is enforced
+    at the document/service level, not the storage object level.
+
     Deduplicates automatically: if the same content was already uploaded, the S3
     write is skipped and ``uploaded`` will be False.
 
     Args:
         file: The file to upload.
-        is_public: Whether the object should be publicly readable (default: True).
 
     Authentication: Requires API key with seller context.
 
@@ -130,12 +132,14 @@ def sync(
     object_key. Returns the object_key for use in service listing documents,
     markdown image references, or any other resource that references stored files.
 
+    Files are always stored as publicly readable — access control is enforced
+    at the document/service level, not the storage object level.
+
     Deduplicates automatically: if the same content was already uploaded, the S3
     write is skipped and ``uploaded`` will be False.
 
     Args:
         file: The file to upload.
-        is_public: Whether the object should be publicly readable (default: True).
 
     Authentication: Requires API key with seller context.
 
@@ -175,12 +179,14 @@ async def asyncio_detailed(
     object_key. Returns the object_key for use in service listing documents,
     markdown image references, or any other resource that references stored files.
 
+    Files are always stored as publicly readable — access control is enforced
+    at the document/service level, not the storage object level.
+
     Deduplicates automatically: if the same content was already uploaded, the S3
     write is skipped and ``uploaded`` will be False.
 
     Args:
         file: The file to upload.
-        is_public: Whether the object should be publicly readable (default: True).
 
     Authentication: Requires API key with seller context.
 
@@ -223,12 +229,14 @@ async def asyncio(
     object_key. Returns the object_key for use in service listing documents,
     markdown image references, or any other resource that references stored files.
 
+    Files are always stored as publicly readable — access control is enforced
+    at the document/service level, not the storage object level.
+
     Deduplicates automatically: if the same content was already uploaded, the S3
     write is skipped and ``uploaded`` will be False.
 
     Args:
         file: The file to upload.
-        is_public: Whether the object should be publicly readable (default: True).
 
     Authentication: Requires API key with seller context.
 

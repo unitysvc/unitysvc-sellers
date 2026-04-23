@@ -8,7 +8,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from .. import types
-from ..types import UNSET, File, Unset
+from ..types import File
 
 T = TypeVar("T", bound="BodySellerUploadFile")
 
@@ -16,13 +16,10 @@ T = TypeVar("T", bound="BodySellerUploadFile")
 @_attrs_define
 class BodySellerUploadFile:
     file: File
-    is_public: bool | Unset = True
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         file = self.file.to_tuple()
-
-        is_public = self.is_public
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -31,8 +28,6 @@ class BodySellerUploadFile:
                 "file": file,
             }
         )
-        if is_public is not UNSET:
-            field_dict["is_public"] = is_public
 
         return field_dict
 
@@ -40,9 +35,6 @@ class BodySellerUploadFile:
         files: types.RequestFiles = []
 
         files.append(("file", self.file.to_tuple()))
-
-        if not isinstance(self.is_public, Unset):
-            files.append(("is_public", (None, str(self.is_public).encode(), "text/plain")))
 
         for prop_name, prop in self.additional_properties.items():
             files.append((prop_name, (None, str(prop).encode(), "text/plain")))
@@ -54,11 +46,8 @@ class BodySellerUploadFile:
         d = dict(src_dict)
         file = File(payload=BytesIO(d.pop("file")))
 
-        is_public = d.pop("is_public", UNSET)
-
         body_seller_upload_file = cls(
             file=file,
-            is_public=is_public,
         )
 
         body_seller_upload_file.additional_properties = d

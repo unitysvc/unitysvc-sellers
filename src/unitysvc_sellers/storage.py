@@ -36,19 +36,18 @@ def _is_local_path(ref: str) -> bool:
     return not ref.startswith(("#", "mailto:", "data:"))
 
 
-def _upload_one(client: AuthenticatedClient, path: Path, *, is_public: bool) -> str:
+def _upload_one(client: AuthenticatedClient, path: Path) -> str:
     """Upload a single file; return its object_key."""
+    from io import BytesIO
+
     from ._generated.api.seller.seller_upload_file import sync_detailed
     from ._generated.models.body_seller_upload_file import BodySellerUploadFile
     from ._generated.types import File
 
     mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    from io import BytesIO
-
     content = path.read_bytes()
     body = BodySellerUploadFile(
         file=File(payload=BytesIO(content), file_name=path.name, mime_type=mime),
-        is_public=is_public,
     )
     response = sync_detailed(client=client, body=body)
     if response.parsed is None or not hasattr(response.parsed, "object_key"):
@@ -58,12 +57,7 @@ def _upload_one(client: AuthenticatedClient, path: Path, *, is_public: bool) -> 
     return response.parsed.object_key  # type: ignore[union-attr]
 
 
-def _process_markdown(
-    client: AuthenticatedClient,
-    md_path: Path,
-    *,
-    is_public: bool,
-) -> bytes:
+def _process_markdown(client: AuthenticatedClient, md_path: Path) -> bytes:
     """Upload all local assets referenced by a Markdown file and rewrite links.
 
     Scans for ``![alt](local/path)`` and ``[text](local/path)`` patterns.
@@ -84,7 +78,7 @@ def _process_markdown(
         asset = (base / ref).resolve()
         if not asset.exists():
             return m.group(0)
-        key = _upload_one(client, asset, is_public=is_public)
+        key = _upload_one(client, asset)
         return f"{bracket}({_S3_PLACEHOLDER}/{key})"
 
     rewritten = _MD_LOCAL_REF.sub(_rewrite, text)
@@ -94,8 +88,6 @@ def _process_markdown(
 def upload_file(
     client: AuthenticatedClient,
     filename: str | Path,
-    *,
-    is_public: bool = True,
 ) -> str:
     """Upload a file to content-addressed S3 storage.
 
@@ -110,12 +102,12 @@ def upload_file(
     by the platform's blog editor, so embedded images are always
     resolvable after upload without any extra steps.
 
+    All files are stored as publicly readable — access control is enforced
+    at the document/service level, not the storage object level.
+
     Args:
         client: Authenticated low-level client (``Client._client``).
         filename: Path to the file to upload.
-        is_public: Whether the S3 object should be publicly readable.
-            Defaults to ``True``.  Set to ``False`` for private documents
-            such as connectivity tests.
 
     Returns:
         The content-addressed ``object_key`` (SHA-256 hash + extension).
@@ -130,17 +122,15 @@ def upload_file(
         raise FileNotFoundError(f"File not found: {path}")
 
     if path.suffix.lower() == ".md":
-        content = _process_markdown(client, path, is_public=is_public)
-        # Upload the rewritten Markdown as bytes under the original filename.
+        content = _process_markdown(client, path)
+        from io import BytesIO
+
         from ._generated.api.seller.seller_upload_file import sync_detailed
         from ._generated.models.body_seller_upload_file import BodySellerUploadFile
         from ._generated.types import File
 
-        from io import BytesIO
-
         body = BodySellerUploadFile(
             file=File(payload=BytesIO(content), file_name=path.name, mime_type="text/markdown"),
-            is_public=is_public,
         )
         response = sync_detailed(client=client, body=body)
         if response.parsed is None or not hasattr(response.parsed, "object_key"):
@@ -149,4 +139,4 @@ def upload_file(
             )
         return response.parsed.object_key  # type: ignore[union-attr]
 
-    return _upload_one(client, path, is_public=is_public)
+    return _upload_one(client, path)
