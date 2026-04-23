@@ -1898,16 +1898,6 @@
         "operationId": "services_upload",
         "parameters": [
           {
-            "name": "dryrun",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Dryrun"
-            }
-          },
-          {
             "name": "Idempotency-Key",
             "in": "header",
             "required": false,
@@ -5530,18 +5520,6 @@
             ],
             "title": "Task Id"
           },
-          "dryrun_result": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dryrun Result"
-          },
           "status": {
             "type": "string",
             "title": "Status"
@@ -5557,7 +5535,7 @@
           "message"
         ],
         "title": "ServiceUploadResponse",
-        "description": "POST /seller/services \u2014 unified response for dryrun and real uploads.\n\nWhen ``dryrun=True`` the upload runs synchronously inside the request:\n``dryrun_result`` carries the validation report (provider / offering /\nlisting / service sub-results) and ``task_id`` is None.\n\nWhen ``dryrun=False`` the upload is queued via Celery and ``task_id``\nis the task id (== Idempotency-Key when one was supplied);\n``dryrun_result`` is None."
+        "description": "POST /seller/services \u2014 response for service uploads.\n\nThe upload is queued via Celery and ``task_id`` is the task id\n(== Idempotency-Key when one was supplied)."
       },
       "ServiceVisibilityEnum": {
         "type": "string",

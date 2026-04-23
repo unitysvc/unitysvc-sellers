@@ -230,7 +230,6 @@ class TestResolveFileReferencesIntegration:
                     "task_id": "task-svc1",
                     "status": "queued",
                     "message": "queued",
-                    "dryrun_result": None,
                 },
             )
         )

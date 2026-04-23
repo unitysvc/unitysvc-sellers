@@ -93,8 +93,6 @@ class Services:
     def upload(
         self,
         body: ServiceDataInput | dict[str, Any],
-        *,
-        dryrun: bool = False,
     ) -> TaskQueuedResponse:
         """Submit a provider/offering/listing bundle for ingestion."""
         from ._generated.api.seller_services import services_upload
@@ -107,7 +105,6 @@ class Services:
             services_upload.sync_detailed(
                 client=self._client,
                 body=body,
-                dryrun=dryrun,
             )
         )
 

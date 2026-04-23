@@ -295,7 +295,6 @@ class TestUploadDirectoryPolling:
                     "task_id": "task-svc1",
                     "status": "queued",
                     "message": "queued",
-                    "dryrun_result": None,
                 },
             )
         )
@@ -346,7 +345,6 @@ class TestUploadDirectoryPolling:
                     "task_id": "task-svc1",
                     "status": "queued",
                     "message": "queued",
-                    "dryrun_result": None,
                 },
             )
         )
@@ -400,7 +398,6 @@ class TestUploadDirectoryPolling:
                     "task_id": "task-svc1",
                     "status": "queued",
                     "message": "queued",
-                    "dryrun_result": None,
                 },
             )
         )
@@ -433,7 +430,6 @@ class TestUploadDirectoryPolling:
                     "task_id": "task-svc1",
                     "status": "queued",
                     "message": "queued",
-                    "dryrun_result": None,
                 },
             )
         )
@@ -455,33 +451,3 @@ class TestUploadDirectoryPolling:
         assert "composite layout" in error_msg
         assert "DEPLOYMENT_TYPE=seller" in error_msg
 
-    @respx.mock
-    def test_dryrun_skips_polling(self, tmp_path: Path) -> None:
-        catalog = _write_catalog(tmp_path)
-
-        respx.post(f"{BASE_URL}/services").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "task_id": None,
-                    "status": "dryrun",
-                    "message": "dryrun",
-                    "dryrun_result": {
-                        "provider": {"status": "create"},
-                        "offering": {"status": "create"},
-                        "listing": {"status": "create"},
-                        "service": {"status": "create"},
-                    },
-                },
-            )
-        )
-        tasks_route = respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
-            return_value=httpx.Response(500, json={"detail": "should not be called"})
-        )
-
-        with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
-            result = upload_directory(client, catalog, dryrun=True)
-
-        assert result.services.success == 1
-        assert result.services.failed == 0
-        assert tasks_route.called is False
