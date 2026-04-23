@@ -2,9 +2,9 @@
 
 :func:`upload_file` uploads a single file to content-addressed S3 storage
 and returns the ``object_key``.  For Markdown files it also scans for local
-image and link references, uploads those assets first, and rewrites the
-references to ``${UNITYSVC_S3_BASE_URL}/{object_key}`` before uploading the
-final Markdown.
+image and link references (both Markdown syntax and raw HTML ``<img>`` tags),
+uploads those assets first, and rewrites the references to
+``${UNITYSVC_S3_BASE_URL}/{object_key}`` before uploading the final Markdown.
 
 The ``${UNITYSVC_S3_BASE_URL}`` placeholder is resolved by the platform at
 read-time so the stored document stays deployment-agnostic.
@@ -15,29 +15,67 @@ from __future__ import annotations
 import mimetypes
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+import mistune
+from mistune.renderers.markdown import MarkdownRenderer
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
 
-
-# Matches Markdown image and link syntax that point at local paths:
-#   ![alt](path)  or  [text](path)
-# Excludes anything that already starts with a URL scheme or placeholder.
-_MD_LOCAL_REF = re.compile(
-    r"(!?\[[^\]]*\])\((?!https?://|ftp://|\$\{)([^)]+)\)"
-)
-
 _S3_PLACEHOLDER = "${UNITYSVC_S3_BASE_URL}"
 
+# Matches <img src="local/path"> or <img src='local/path'>
+_HTML_IMG_SRC = re.compile(r'<img\s[^>]*\bsrc=["\']([^"\']+)["\']', re.IGNORECASE)
 
-def _is_local_path(ref: str) -> bool:
-    """Return True if ref looks like a relative local file path."""
-    return not ref.startswith(("#", "mailto:", "data:"))
+
+class _LocalRefExtractor(MarkdownRenderer):
+    """mistune renderer that collects local image and link paths."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.paths: list[str] = []
+
+    def image(self, token: dict[str, Any], state: Any) -> str:
+        src = token.get("attrs", {}).get("url", "")
+        if src and not src.startswith(("http://", "https://", _S3_PLACEHOLDER)):
+            self.paths.append(src)
+        return super().image(token, state)
+
+    def link(self, token: dict[str, Any], state: Any) -> str:
+        href = token.get("attrs", {}).get("url", "")
+        if href and not href.startswith(("http://", "https://", "#", "mailto:", _S3_PLACEHOLDER)):
+            if "." in Path(href).name or "/" in href:
+                self.paths.append(href)
+        return super().link(token, state)
+
+
+def _collect_local_refs(text: str, base: Path) -> dict[str, Path]:
+    """Return a mapping of {original_ref: resolved_absolute_path} for all
+    local references found in *text* (Markdown syntax + HTML img tags)
+    that resolve to existing files."""
+    extractor = _LocalRefExtractor()
+    mistune.create_markdown(renderer=extractor)(text)
+
+    # HTML <img src="..."> tags (mistune passes these through as raw HTML)
+    for m in _HTML_IMG_SRC.finditer(text):
+        src = m.group(1)
+        if not src.startswith(("http://", "https://", _S3_PLACEHOLDER)):
+            extractor.paths.append(src)
+
+    result: dict[str, Path] = {}
+    for ref in extractor.paths:
+        if ref in result:
+            continue
+        p = Path(ref)
+        resolved = p if p.is_absolute() else (base / ref).resolve()
+        if resolved.exists():
+            result[ref] = resolved
+    return result
 
 
 def _upload_one(client: AuthenticatedClient, path: Path) -> str:
-    """Upload a single file; return its object_key."""
+    """Upload a single file and return its object_key."""
     from io import BytesIO
 
     from ._generated.api.seller.seller_upload_file import sync_detailed
@@ -45,9 +83,8 @@ def _upload_one(client: AuthenticatedClient, path: Path) -> str:
     from ._generated.types import File
 
     mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    content = path.read_bytes()
     body = BodySellerUploadFile(
-        file=File(payload=BytesIO(content), file_name=path.name, mime_type=mime),
+        file=File(payload=BytesIO(path.read_bytes()), file_name=path.name, mime_type=mime),
     )
     response = sync_detailed(client=client, body=body)
     if response.parsed is None or not hasattr(response.parsed, "object_key"):
@@ -58,31 +95,35 @@ def _upload_one(client: AuthenticatedClient, path: Path) -> str:
 
 
 def _process_markdown(client: AuthenticatedClient, md_path: Path) -> bytes:
-    """Upload all local assets referenced by a Markdown file and rewrite links.
+    """Upload all local assets referenced in a Markdown file and rewrite links.
 
-    Scans for ``![alt](local/path)`` and ``[text](local/path)`` patterns.
-    For each local reference that resolves to an existing file:
+    Handles both Markdown syntax (``![alt](path)``, ``[text](path)``) and
+    raw HTML ``<img src="path">`` tags.  For each local reference that
+    resolves to an existing file:
 
     1. Upload the asset via ``POST /upload``.
-    2. Replace the reference with ``${UNITYSVC_S3_BASE_URL}/{object_key}``.
+    2. Replace every occurrence of that path with
+       ``${UNITYSVC_S3_BASE_URL}/{object_key}``.
 
-    Returns the rewritten Markdown content as bytes, ready to upload.
+    Returns the rewritten Markdown as bytes.
     """
     text = md_path.read_text(encoding="utf-8")
-    base = md_path.parent
+    local_refs = _collect_local_refs(text, md_path.parent)
 
-    def _rewrite(m: re.Match[str]) -> str:
-        bracket, ref = m.group(1), m.group(2).strip()
-        if not _is_local_path(ref):
-            return m.group(0)
-        asset = (base / ref).resolve()
-        if not asset.exists():
-            return m.group(0)
-        key = _upload_one(client, asset)
-        return f"{bracket}({_S3_PLACEHOLDER}/{key})"
+    # Upload each unique asset and build path → new_url mapping
+    ref_to_url: dict[str, str] = {}
+    for ref, resolved in local_refs.items():
+        key = _upload_one(client, resolved)
+        ref_to_url[ref] = f"{_S3_PLACEHOLDER}/{key}"
 
-    rewritten = _MD_LOCAL_REF.sub(_rewrite, text)
-    return rewritten.encode("utf-8")
+    # Rewrite Markdown syntax: ![...](path) and [...](path)
+    for ref, new_url in ref_to_url.items():
+        escaped = re.escape(ref)
+        text = re.sub(rf"(!?\[[^\]]*\]\()({escaped})(\))", rf"\g<1>{new_url}\g<3>", text)
+        # Rewrite HTML src attributes: src="path" or src='path'
+        text = re.sub(rf'(\bsrc=["\'])({escaped})(["\'])', rf"\g<1>{new_url}\g<3>", text)
+
+    return text.encode("utf-8")
 
 
 def upload_file(
@@ -95,12 +136,10 @@ def upload_file(
     as-is and the ``object_key`` is returned.
 
     For Markdown (``.md``) files the function automatically scans the
-    content for local image and link references, uploads each referenced
-    asset first, rewrites those references to
-    ``${UNITYSVC_S3_BASE_URL}/{object_key}``, and then uploads the
-    rewritten Markdown.  This mirrors the attachment-upload pattern used
-    by the platform's blog editor, so embedded images are always
-    resolvable after upload without any extra steps.
+    content for local image and link references (both Markdown syntax and
+    raw HTML ``<img>`` tags), uploads each referenced asset first, rewrites
+    those references to ``${UNITYSVC_S3_BASE_URL}/{object_key}``, and then
+    uploads the rewritten Markdown.
 
     All files are stored as publicly readable — access control is enforced
     at the document/service level, not the storage object level.
