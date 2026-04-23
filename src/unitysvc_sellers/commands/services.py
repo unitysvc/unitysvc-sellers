@@ -88,7 +88,7 @@ def list_services(
         help="Filter by provider name (case-insensitive partial match, applied client-side).",
     ),
     fields: str = typer.Option(
-        "id,name,provider_name,service_type,status",
+        "id,name,provider_name,service_type,status,visibility",
         "--fields",
         help="Comma-separated list of columns to display.",
     ),
