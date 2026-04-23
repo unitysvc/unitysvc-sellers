@@ -219,9 +219,32 @@ def _resolve_file_references(
 
             result["file_content"] = content
 
-            # Strip .j2 suffix so the stored filename matches the
-            # rendered output (e.g. ``test.py.j2`` -> ``test.py``).
-            if full_path.name.endswith(".j2"):
+            # Normalise the ``file_path`` value that stays alongside
+            # ``file_content`` for local display / dry-run output /
+            # logs. The backend ingests ``file_content``; the
+            # ``file_path`` here is essentially seller-side metadata,
+            # but it's still worth keeping tidy:
+            #
+            # - Absolute input (typically injected by a ``$doc_preset``
+            #   expansion, which resolves to the bundled example's
+            #   absolute path inside the installed ``unitysvc-data``
+            #   package) -> just the basename. Dry-run output and any
+            #   log lines that echo ``file_path`` then show
+            #   ``connectivity-v1.py`` instead of a developer's venv
+            #   path, and two sellers on different machines produce
+            #   the same in-memory payload for the same preset.
+            # - Relative input (the historical seller-authored form,
+            #   e.g. ``../../docs/connectivity.sh.j2``) -> keep the
+            #   relative shape and strip only the ``.j2`` suffix so
+            #   the stored name matches the rendered output. Keeps
+            #   existing catalogs byte-identical to the pre-preset
+            #   pipeline.
+            #
+            # ``render_template_file`` returns ``actual_filename`` with
+            # the ``.j2`` already stripped for templates.
+            if Path(value).is_absolute():
+                result[key] = actual_filename
+            elif full_path.name.endswith(".j2"):
                 result[key] = value[:-3]
             else:
                 result[key] = value
@@ -237,7 +260,7 @@ def _build_service_payload(listing_file: Path) -> tuple[dict[str, Any], dict[str
     Returns ``(provider_data, offering_data, listing_data)`` as plain
     dicts ready to drop into ``ServiceDataInput``.
     """
-    from unitysvc_core.utils import load_data_file
+    from .utils import load_data_file
 
     listing_data, _ = load_data_file(listing_file)
 

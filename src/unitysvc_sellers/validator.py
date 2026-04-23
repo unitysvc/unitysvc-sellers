@@ -22,6 +22,9 @@ class DataValidator(CoreDataValidator):
 
     Extends the core per-file validator with checks that understand the
     seller catalog directory layout (``<provider>/services/<service>/``).
+    ``$preset`` expansion is handled upstream in
+    :func:`unitysvc_core.utils.load_data_file`, so validation runs
+    against the same fully-expanded records the upload flow sends.
     """
 
     def validate_provider_status(self) -> tuple[bool, list[str]]:

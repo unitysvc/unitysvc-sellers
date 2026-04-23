@@ -25,7 +25,10 @@ from typing import Any
 from jinja2 import Environment as JinjaEnvironment
 
 # Re-exports from unitysvc_core so seller modules can import everything
-# from a single place.
+# from a single place. ``load_data_file`` and the file-discovery helpers
+# that flow through it now handle ``$doc_preset`` / ``$file_preset``
+# sentinel expansion transparently — see unitysvc_core.utils and the
+# ``@preset`` decorator in unitysvc_data for the full story.
 from unitysvc_core.utils import (  # noqa: F401
     compute_file_hash,
     deep_merge_dicts,
