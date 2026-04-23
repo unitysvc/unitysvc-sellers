@@ -380,6 +380,101 @@ data/fireworks/
 
 See [Template Variables Reference](#template-variables-reference) for complete list.
 
+## Using Preset Code Examples
+
+Instead of writing a code example from scratch, you can reference a **preset** bundled with the [`unitysvc-data`](https://pypi.org/project/unitysvc-data/) package. Presets are curated, version-pinned documents (code examples, connectivity tests, request templates, descriptions) maintained centrally so every seller gets the same tested starting point — and picks up fixes just by upgrading the package.
+
+### Install / upgrade the SDK
+
+Presets travel with `unitysvc-sellers`, so keep it on the latest release to get new presets and fixes:
+
+```bash
+pip install unitysvc-sellers -U
+```
+
+The `usvc_data` CLI (shipped by `unitysvc-data`, pulled in as a dependency) and the `$doc_preset` / `$file_preset` sentinel support in `usvc_seller data validate` / `usvc_seller data upload` both rely on the installed version — an old install means stale preset content.
+
+### Browse available presets with `usvc_data`
+
+Use the `usvc_data` CLI to explore what's bundled:
+
+```bash
+# List every preset (versioned names + aliases)
+usvc_data list
+
+# Read the prose description for a preset (family README)
+usvc_data info s3_connectivity_v1
+
+# Print the fully-expanded document record as JSON
+usvc_data doc-preset s3_connectivity_v1
+
+# Print the raw source of the bundled example file (Jinja2 templates
+# are printed verbatim — the SDK renders them at upload time)
+usvc_data file-preset s3_code_example_v1
+```
+
+Example output from `usvc_data list`:
+
+```
+Versioned presets (7):
+  api_connectivity_v1                       connectivity_test     bash
+  llm_request_template_v1                   request_template      json
+  s3_code_example_v1                        code_example          python
+  s3_connectivity_v1                        connectivity_test     python
+  s3_description_v1                         getting_started       markdown
+  smtp_connectivity_v1                      connectivity_test     bash
+  smtp_connectivity_v2                      connectivity_test     bash
+
+Aliases (6):
+  api_connectivity                          -> api_connectivity_v1
+  ...
+  smtp_connectivity                         -> smtp_connectivity_v2
+```
+
+Aliases (`smtp_connectivity`) always resolve to the latest version; versioned names (`smtp_connectivity_v2`) pin to a specific release. Prefer versioned names in production catalogs so upgrades to `unitysvc-data` don't silently swap your code example.
+
+### Reference a preset from `listing.json`
+
+Replace a hand-written `documents` entry with a `$doc_preset` sentinel. On `usvc_seller data validate` / `upload`, the SDK expands the sentinel into a full document record — inlining the bundled file content, rendering any Jinja2 constructs with your listing / offering / provider context, and passing the result through the same upload pipeline as hand-written examples:
+
+```json
+{
+    "schema": "listing_v1",
+    "name": "listing-default",
+    "documents": {
+        "Python code example": { "$doc_preset": "s3_code_example_v1" },
+        "Connectivity test":   { "$doc_preset": "s3_connectivity_v1" }
+    }
+}
+```
+
+Per-field overrides go inside `$with` — you may override `description`, `is_active`, `is_public`, and `meta`, but not `category`, `mime_type`, or `file_path` (those are tied to the bundled file):
+
+```json
+{
+    "Python code example": {
+        "$doc_preset": "s3_code_example_v1",
+        "$with": {
+            "description": "List objects in the acme-public bucket",
+            "meta": { "requirements": ["boto3>=1.34"] }
+        }
+    }
+}
+```
+
+Use `$file_preset` when you want just the raw file content (e.g. to inline a description into a different field) rather than a full document record.
+
+### Example catalogs: `unitysvc-services-template`
+
+The [`unitysvc-services-template`](https://github.com/unitysvc/unitysvc-services-template) repository is the canonical worked-example catalog. It shows:
+
+- How a seller catalog directory is laid out (`<provider>/services/<service>/listing.json`)
+- How real service listings are specified for different service types (S3, SMTP, LLM, generic HTTP APIs)
+- How to wire up preset code examples via `$doc_preset` — including when to use an alias vs. a versioned name, and how to override `meta` fields
+- How to mix preset-based documents with hand-written `.j2` templates in the same listing
+
+Clone it and run `usvc_seller data validate` / `usvc_seller test list` against the sample catalog to see the full pipeline end-to-end before adapting it to your own services.
+
 ## Test Command
 
 The `test` command helps validate code examples against upstream APIs before publishing.
