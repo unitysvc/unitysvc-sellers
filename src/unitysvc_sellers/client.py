@@ -220,7 +220,6 @@ class Client:
         self,
         data_dir: str | Path,
         *,
-        dryrun: bool = False,
         upload_services: bool = True,
         upload_promotions: bool = True,
         upload_groups: bool = True,
@@ -239,7 +238,6 @@ class Client:
         return upload_directory(
             self,
             _Path(str(data_dir)),
-            dryrun=dryrun,
             upload_services=upload_services,
             upload_promotions=upload_promotions,
             upload_groups=upload_groups,

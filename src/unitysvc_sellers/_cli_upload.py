@@ -41,11 +41,6 @@ def upload(
         envvar="UNITYSVC_SELLER_API_URL",
         help="Backend base URL.",
     ),
-    dryrun: bool = typer.Option(
-        False,
-        "--dryrun",
-        help="Validate the payloads against the backend without persisting.",
-    ),
     upload_type: str | None = typer.Option(
         None,
         "--type",
@@ -81,8 +76,6 @@ def upload(
 
     console.print(f"[bold blue]Uploading from:[/bold blue] {data_dir}")
     console.print(f"[bold blue]Backend:[/bold blue] {base_url}")
-    if dryrun:
-        console.print("[yellow](dry run — no changes will be persisted)[/yellow]")
     console.print()
 
     def _on_progress(kind: str, status: str, name: str, detail: str = "") -> None:
@@ -102,8 +95,6 @@ def upload(
         elif status == "ok":
             verb = "ingested" if kind == "service" else "upserted"
             console.print(f"  [green]✓[/green] [green]{verb}[/green] {kind}: [cyan]{name}[/cyan]")
-        elif status == "dryrun":
-            console.print(f"  [yellow]?[/yellow] [yellow]would upload[/yellow] {kind}: [cyan]{name}[/cyan]")
         else:  # error / anything else
             console.print(f"  [red]✗[/red] [red]failed[/red] {kind}: [cyan]{name}[/cyan] — {detail}")
 
@@ -111,7 +102,6 @@ def upload(
         with Client(api_key=api_key, base_url=base_url) as client:
             result = client.upload(
                 data_dir,
-                dryrun=dryrun,
                 upload_services=upload_services,
                 upload_promotions=upload_promotions,
                 upload_groups=upload_groups,
@@ -160,7 +150,4 @@ def upload(
         )
         raise typer.Exit(code=1)
 
-    if dryrun:
-        console.print("\n[green]✓[/green] Dry run completed successfully", style="bold green")
-    else:
-        console.print("\n[green]✓[/green] All uploads completed successfully", style="bold green")
+    console.print("\n[green]✓[/green] All uploads completed successfully", style="bold green")

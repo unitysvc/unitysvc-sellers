@@ -80,8 +80,6 @@ class AsyncServices:
     async def upload(
         self,
         body: ServiceDataInput | dict[str, Any],
-        *,
-        dryrun: bool = False,
     ) -> TaskQueuedResponse:
         from ._generated.api.seller_services import services_upload
         from ._generated.models.service_data_input import ServiceDataInput
@@ -93,7 +91,6 @@ class AsyncServices:
             await services_upload.asyncio_detailed(
                 client=self._client,
                 body=body,
-                dryrun=dryrun,
             )
         )
 

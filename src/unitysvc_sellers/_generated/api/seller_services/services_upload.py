@@ -15,7 +15,6 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     *,
     body: ServiceDataInput,
-    dryrun: bool | Unset = False,
     idempotency_key: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -30,16 +29,9 @@ def _get_kwargs(
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
-    params: dict[str, Any] = {}
-
-    params["dryrun"] = dryrun
-
-    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/services",
-        "params": params,
     }
 
     _kwargs["json"] = body.to_dict()
@@ -94,7 +86,6 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: ServiceDataInput,
-    dryrun: bool | Unset = False,
     idempotency_key: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -126,7 +117,6 @@ def sync_detailed(
     set; the task can be polled via the Celery result backend.
 
     Args:
-        dryrun (bool | Unset):  Default: False.
         idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
             set, the server guarantees the underlying work runs at most once for this key within a 24h
             window — replaying the same key returns the same task id without queueing the work twice.
@@ -149,7 +139,6 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         body=body,
-        dryrun=dryrun,
         idempotency_key=idempotency_key,
         authorization=authorization,
         x_role_id=x_role_id,
@@ -166,7 +155,6 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: ServiceDataInput,
-    dryrun: bool | Unset = False,
     idempotency_key: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -198,7 +186,6 @@ def sync(
     set; the task can be polled via the Celery result backend.
 
     Args:
-        dryrun (bool | Unset):  Default: False.
         idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
             set, the server guarantees the underlying work runs at most once for this key within a 24h
             window — replaying the same key returns the same task id without queueing the work twice.
@@ -222,7 +209,6 @@ def sync(
     return sync_detailed(
         client=client,
         body=body,
-        dryrun=dryrun,
         idempotency_key=idempotency_key,
         authorization=authorization,
         x_role_id=x_role_id,
@@ -233,7 +219,6 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: ServiceDataInput,
-    dryrun: bool | Unset = False,
     idempotency_key: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -265,7 +250,6 @@ async def asyncio_detailed(
     set; the task can be polled via the Celery result backend.
 
     Args:
-        dryrun (bool | Unset):  Default: False.
         idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
             set, the server guarantees the underlying work runs at most once for this key within a 24h
             window — replaying the same key returns the same task id without queueing the work twice.
@@ -288,7 +272,6 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         body=body,
-        dryrun=dryrun,
         idempotency_key=idempotency_key,
         authorization=authorization,
         x_role_id=x_role_id,
@@ -303,7 +286,6 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: ServiceDataInput,
-    dryrun: bool | Unset = False,
     idempotency_key: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -335,7 +317,6 @@ async def asyncio(
     set; the task can be polled via the Celery result backend.
 
     Args:
-        dryrun (bool | Unset):  Default: False.
         idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
             set, the server guarantees the underlying work runs at most once for this key within a 24h
             window — replaying the same key returns the same task id without queueing the work twice.
@@ -360,7 +341,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             body=body,
-            dryrun=dryrun,
             idempotency_key=idempotency_key,
             authorization=authorization,
             x_role_id=x_role_id,

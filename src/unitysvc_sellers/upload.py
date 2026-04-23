@@ -345,7 +345,6 @@ def upload_directory(
     client: Client,
     data_dir: Path,
     *,
-    dryrun: bool = False,
     upload_services: bool = True,
     upload_promotions: bool = True,
     upload_groups: bool = True,
@@ -367,9 +366,6 @@ def upload_directory(
     Args:
         client: A configured :class:`unitysvc_sellers.Client`.
         data_dir: Root of the seller catalog tree.
-        dryrun: If True, calls each operation with ``dryrun=True``
-            (where supported) and skips the task-polling step entirely,
-            since dryrun runs synchronously on the backend.
         upload_services: Walk and upload service bundles.
         upload_promotions: Walk and upsert promotion files.
         upload_groups: Walk and upsert service-group files.
@@ -377,7 +373,7 @@ def upload_directory(
             ``on_progress(kind, status, name, detail)``. ``kind`` is
             one of ``"service"``, ``"promotion"``, ``"group"``;
             ``status`` transitions through ``"queued"``, ``"ok"``,
-            ``"error"``, ``"dryrun"`` as the upload progresses.
+            ``"error"`` as the upload progresses.
             Services emit ``"queued"`` right after the 202 and then
             either ``"ok"`` or ``"error"`` once the Celery task
             finishes. Promotions and groups emit ``"ok"`` / ``"error"``
@@ -423,7 +419,7 @@ def upload_directory(
             }
 
             try:
-                response = client.services.upload(payload, dryrun=dryrun)
+                response = client.services.upload(payload)
             except APIError as exc:
                 result.services.failed += 1
                 result.services.errors.append({"file": str(listing_file), "error": f"{exc.status_code}: {exc}"})
@@ -432,12 +428,6 @@ def upload_directory(
 
             name = listing_data.get("name", listing_file.name)
             task_id = getattr(response, "task_id", None)
-
-            if dryrun:
-                # Dryrun runs synchronously on the backend. Nothing to poll.
-                result.services.success += 1
-                _emit("service", "dryrun", name)
-                continue
 
             if not task_id:
                 # Defensive: if the backend somehow returned 200 with a
@@ -557,10 +547,6 @@ def upload_directory(
             try:
                 payload = _strip_schema(promo_data)
                 name = str(payload.get("name", "?"))
-                if dryrun:
-                    _emit("promotion", "dryrun", name)
-                    result.promotions.success += 1
-                    continue
                 client.promotions.upsert(payload)
                 result.promotions.success += 1
                 _emit("promotion", "ok", name)
@@ -582,10 +568,6 @@ def upload_directory(
             try:
                 payload = _strip_schema(group_data)
                 name = str(payload.get("name", "?"))
-                if dryrun:
-                    _emit("group", "dryrun", name)
-                    result.groups.success += 1
-                    continue
                 client.groups.upsert(payload)
                 result.groups.success += 1
                 _emit("group", "ok", name)
