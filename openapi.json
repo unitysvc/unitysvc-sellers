@@ -2493,6 +2493,82 @@
           }
         }
       }
+    },
+    "/upload": {
+      "post": {
+        "tags": [
+          "seller"
+        ],
+        "summary": "Upload File",
+        "description": "Upload a file to content-addressed storage.\n\nAccepts multipart/form-data and stores the file in S3 under a SHA-256-based\nobject_key. Returns the object_key for use in service listing documents,\nmarkdown image references, or any other resource that references stored files.\n\nFiles are always stored as publicly readable \u2014 access control is enforced\nat the document/service level, not the storage object level.\n\nDeduplicates automatically: if the same content was already uploaded, the S3\nwrite is skipped and ``uploaded`` will be False.\n\nArgs:\n    file: The file to upload.\n\nAuthentication: Requires API key with seller context.",
+        "operationId": "seller-upload_file",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_seller-upload_file"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileUploadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2760,6 +2836,20 @@
           "basic_auth"
         ],
         "title": "AuthMethodEnum"
+      },
+      "Body_seller-upload_file": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_seller-upload_file"
       },
       "ContentFilterEnum": {
         "type": "string",
@@ -3166,6 +3256,40 @@
         ],
         "title": "ErrorResponse",
         "description": "Standard 4xx error body produced by FastAPI HTTPException."
+      },
+      "FileUploadResponse": {
+        "properties": {
+          "object_key": {
+            "type": "string",
+            "title": "Object Key"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "uploaded": {
+            "type": "boolean",
+            "title": "Uploaded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "object_key",
+          "filename",
+          "mime_type",
+          "size",
+          "uploaded"
+        ],
+        "title": "FileUploadResponse",
+        "description": "Response for content-addressed file upload."
       },
       "GroupOwnerTypeEnum": {
         "type": "string",
@@ -4335,7 +4459,7 @@
           "interfaces"
         ],
         "title": "ServiceDetailResponse",
-        "description": "GET /seller/services/{id} \u2014 live service record.\n\nThe provider / offering / listing fields carry the same typed shapes\nthe seller used to upload the service (``ProviderData`` /\n``ServiceOfferingData`` / ``ServiceListingData`` from\n``unitysvc_core.models``), so SDK consumers get autocomplete and\ntyped access to the nested data without re-defining the schema.\n\nThe shape reflects the **live** state of the service, not a snapshot\nof the original upload \u2014 in particular ``interfaces`` includes\nlisting-native interfaces *and* any interfaces injected by service\ngroups the service belongs to. Enrollment-scoped interfaces (per\nindividual customer) are filtered out \u2014 sellers must not see them.\n\nThe embedded ``documents`` carry metadata only; fetch file content\nseparately via ``GET /seller/documents/{id}``."
+        "description": "GET /seller/services/{id} \u2014 live service record.\n\nThe provider / offering / listing fields carry the same typed shapes\nthe seller used to upload the service (``ProviderData`` /\n``ServiceOfferingData`` / ``ServiceListingData`` from\n``unitysvc_core.models``), so SDK consumers get autocomplete and\ntyped access to the nested data without re-defining the schema.\n\nThe shape reflects the **live** state of the service, not a snapshot\nof the original upload \u2014 in particular ``interfaces`` includes all\ninterfaces available to the caller: listing-native, service-group-derived,\nand enrollment-scoped interfaces owned by the caller (ops enrollment for\nsellers). Per-customer enrollment interfaces are hidden from sellers.\n\nThe embedded ``documents`` carry metadata only; fetch file content\nseparately via ``GET /seller/documents/{id}``."
       },
       "ServiceDocumentItem": {
         "properties": {

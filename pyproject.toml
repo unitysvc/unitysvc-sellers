@@ -24,6 +24,8 @@ dependencies = [
   "jinja2",
   "json5",
   "tomli-w",
+  # Markdown processing
+  "mistune>=3.0",
   # Seller HTTP SDK
   "httpx>=0.24",
   "attrs>=23.0",

@@ -38,6 +38,7 @@ from .exceptions import (
     ServerError,
     ValidationError,
 )
+from .storage import upload_file
 
 __author__ = """Bo Peng"""
 __email__ = "bo.peng@unitysvc.com"
@@ -46,6 +47,8 @@ __all__ = [
     # Client
     "Client",
     "AsyncClient",
+    # Storage
+    "upload_file",
     "DEFAULT_SELLER_API_URL",
     "ENV_SELLER_API_KEY",
     "ENV_SELLER_API_URL",

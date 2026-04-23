@@ -31,10 +31,10 @@ class ServiceDetailResponse:
     typed access to the nested data without re-defining the schema.
 
     The shape reflects the **live** state of the service, not a snapshot
-    of the original upload — in particular ``interfaces`` includes
-    listing-native interfaces *and* any interfaces injected by service
-    groups the service belongs to. Enrollment-scoped interfaces (per
-    individual customer) are filtered out — sellers must not see them.
+    of the original upload — in particular ``interfaces`` includes all
+    interfaces available to the caller: listing-native, service-group-derived,
+    and enrollment-scoped interfaces owned by the caller (ops enrollment for
+    sellers). Per-customer enrollment interfaces are hidden from sellers.
 
     The embedded ``documents`` carry metadata only; fetch file content
     separately via ``GET /seller/documents/{id}``.

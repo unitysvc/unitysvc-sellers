@@ -128,40 +128,33 @@ def _resolve_file_references(
     data: dict[str, Any],
     base_path: Path,
     *,
+    client: Any | None = None,
     listing: dict[str, Any] | None = None,
     offering: dict[str, Any] | None = None,
     provider: dict[str, Any] | None = None,
     interface: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Walk ``data`` and inline the content of every ``file_path`` reference.
+    """Walk ``data`` and resolve every ``file_path`` reference.
 
     Seller catalog files use ``file_path`` to point at on-disk assets —
     code examples, connectivity scripts, README chunks, Jinja2
     templates. The backend's ingest worker expects either
-    ``file_content`` (inline bytes) or ``external_url`` (a pre-uploaded
-    URL) on each document; it does **not** open arbitrary paths from
-    its own filesystem, because the seller's catalog repo isn't
-    mounted in the backend container.
+    ``file_content`` (inline text) or ``external_url`` (a pre-uploaded
+    S3 URL) on each document.
 
-    This resolver recursively walks the payload. For every dict entry
-    keyed ``file_path``, it:
+    Behaviour per file type:
 
-    1. Resolves the path relative to ``base_path``.
-    2. Reads the file (rendering Jinja2 templates with the listing /
-       offering / provider / interface context when the name ends in
-       ``.j2``).
-    3. Sets a sibling ``file_content`` field with the loaded content.
-    4. Strips the ``.j2`` suffix from ``file_path`` so the stored
-       filename matches what a customer would see.
-
-    This is a port of ``resolve_file_references`` from the legacy
-    ``unitysvc-services`` SDK, minus the markdown-attachment extraction
-    (which depended on a separate ``/seller/documents/upload-attachment``
-    backend endpoint that was removed in the seller-api-codegen-hygiene
-    cleanup). Catalogs that embed images or linked files in markdown
-    documents via the legacy attachment flow are not supported yet —
-    add ``external_url`` on those documents to point at pre-hosted
-    assets as a workaround.
+    - **Jinja2 templates** (``.j2`` suffix): rendered with the surrounding
+      catalog context and inlined as ``file_content``. The rendered output
+      is pure text so there is no benefit to uploading it separately.
+    - **All other files** (when ``client`` is provided): uploaded to S3 via
+      ``POST /seller/upload`` and referenced as
+      ``external_url: "${UNITYSVC_S3_BASE_URL}/{object_key}"``.  This
+      keeps large or binary files out of the ingest payload. For Markdown
+      files the uploader also rewrites embedded local image / link
+      references before uploading.
+    - **All other files** (when ``client`` is ``None``): read from disk and
+      inlined as ``file_content`` (legacy / dryrun fallback).
     """
     # Detect AccessInterface-shaped dicts so nested documents pick up
     # the right interface context for template rendering.
@@ -176,6 +169,7 @@ def _resolve_file_references(
             result[key] = _resolve_file_references(
                 value,
                 base_path,
+                client=client,
                 listing=listing,
                 offering=offering,
                 provider=provider,
@@ -189,6 +183,7 @@ def _resolve_file_references(
                         _resolve_file_references(
                             item,
                             base_path,
+                            client=client,
                             listing=listing,
                             offering=offering,
                             provider=provider,
@@ -199,62 +194,54 @@ def _resolve_file_references(
                     processed.append(item)
             result[key] = processed
         elif key == "file_path" and isinstance(value, str):
-            # Resolve the path relative to the source file's directory.
-            from .utils import render_template_file
-
             full_path = base_path / value if not Path(value).is_absolute() else Path(value)
             if not full_path.exists():
                 raise ValueError(f"File not found: {value}")
 
-            try:
-                content, actual_filename = render_template_file(
-                    full_path,
-                    listing=listing,
-                    offering=offering,
-                    provider=provider,
-                    interface=current_interface,
-                )
-            except Exception as exc:
-                raise ValueError(f"Failed to load/render file content from '{value}': {exc}") from exc
+            is_template = full_path.name.endswith(".j2")
 
-            result["file_content"] = content
+            if is_template or client is None:
+                # Jinja2 template (or no client): render and inline as file_content.
+                from .utils import render_template_file
 
-            # Normalise the ``file_path`` value that stays alongside
-            # ``file_content`` for local display / dry-run output /
-            # logs. The backend ingests ``file_content``; the
-            # ``file_path`` here is essentially seller-side metadata,
-            # but it's still worth keeping tidy:
-            #
-            # - Absolute input (typically injected by a ``$doc_preset``
-            #   expansion, which resolves to the bundled example's
-            #   absolute path inside the installed ``unitysvc-data``
-            #   package) -> just the basename. Dry-run output and any
-            #   log lines that echo ``file_path`` then show
-            #   ``connectivity-v1.py`` instead of a developer's venv
-            #   path, and two sellers on different machines produce
-            #   the same in-memory payload for the same preset.
-            # - Relative input (the historical seller-authored form,
-            #   e.g. ``../../docs/connectivity.sh.j2``) -> keep the
-            #   relative shape and strip only the ``.j2`` suffix so
-            #   the stored name matches the rendered output. Keeps
-            #   existing catalogs byte-identical to the pre-preset
-            #   pipeline.
-            #
-            # ``render_template_file`` returns ``actual_filename`` with
-            # the ``.j2`` already stripped for templates.
-            if Path(value).is_absolute():
-                result[key] = actual_filename
-            elif full_path.name.endswith(".j2"):
-                result[key] = value[:-3]
+                try:
+                    content, actual_filename = render_template_file(
+                        full_path,
+                        listing=listing,
+                        offering=offering,
+                        provider=provider,
+                        interface=current_interface,
+                    )
+                except Exception as exc:
+                    raise ValueError(f"Failed to load/render file content from '{value}': {exc}") from exc
+
+                result["file_content"] = content
+                if Path(value).is_absolute():
+                    result[key] = actual_filename
+                elif is_template:
+                    result[key] = value[:-3]
+                else:
+                    result[key] = value
             else:
-                result[key] = value
+                # Non-template file with an active client: upload to S3.
+                from .storage import upload_file as _upload_file
+
+                try:
+                    object_key = _upload_file(client._client, full_path)
+                except Exception as exc:
+                    raise ValueError(f"Failed to upload '{value}' to S3: {exc}") from exc
+
+                result["external_url"] = f"${{UNITYSVC_S3_BASE_URL}}/{object_key}"
+                result[key] = full_path.name if Path(value).is_absolute() else value
         else:
             result[key] = value
 
     return result
 
 
-def _build_service_payload(listing_file: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+def _build_service_payload(
+    listing_file: Path, *, client: Any | None = None
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Locate the offering and provider files for a listing and load all three.
 
     Returns ``(provider_data, offering_data, listing_data)`` as plain
@@ -323,25 +310,26 @@ def _build_service_payload(listing_file: Path) -> tuple[dict[str, Any], dict[str
         terms_field="terms_of_service",
     )
 
-    # Resolve file_path references — read each referenced file, render
-    # Jinja2 templates with the surrounding catalog as context, and
-    # inline the content into the payload as ``file_content`` so the
-    # backend's ingest worker can store it without touching the
-    # seller's filesystem.
+    # Resolve file_path references: Jinja2 templates are rendered and
+    # inlined as file_content; plain files are uploaded to S3 (when
+    # client is provided) and referenced via external_url.
     provider_data = _resolve_file_references(
         provider_data,
         provider_path.parent,
+        client=client,
         provider=provider_data,
     )
     offering_data = _resolve_file_references(
         offering_data,
         offering_path.parent,
+        client=client,
         offering=offering_data,
         provider=provider_data,
     )
     listing_data = _resolve_file_references(
         listing_data,
         listing_file.parent,
+        client=client,
         listing=listing_data,
         offering=offering_data,
         provider=provider_data,
@@ -421,7 +409,7 @@ def upload_directory(
 
         for listing_file in listing_files:
             try:
-                provider_data, offering_data, listing_data = _build_service_payload(listing_file)
+                provider_data, offering_data, listing_data = _build_service_payload(listing_file, client=client)
             except Exception as exc:
                 result.services.failed += 1
                 result.services.errors.append({"file": str(listing_file), "error": str(exc)})

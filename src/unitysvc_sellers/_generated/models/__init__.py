@@ -15,6 +15,7 @@ from .access_interface_public_response_rules_type_0_additional_property_type_0 i
 from .access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
 from .access_method_enum import AccessMethodEnum
 from .auth_method_enum import AuthMethodEnum
+from .body_seller_upload_file import BodySellerUploadFile
 from .content_filter_enum import ContentFilterEnum
 from .currency_enum import CurrencyEnum
 from .cursor_page_price_rule_public import CursorPagePriceRulePublic
@@ -29,6 +30,7 @@ from .document_test_status_response_test_type_0 import DocumentTestStatusRespons
 from .document_test_update import DocumentTestUpdate
 from .document_test_update_tests_type_0 import DocumentTestUpdateTestsType0
 from .error_response import ErrorResponse
+from .file_upload_response import FileUploadResponse
 from .group_owner_type_enum import GroupOwnerTypeEnum
 from .group_type_enum import GroupTypeEnum
 from .http_validation_error import HTTPValidationError
@@ -132,6 +134,7 @@ __all__ = (
     "AccessInterfacePublicRoutingKeyType0",
     "AccessMethodEnum",
     "AuthMethodEnum",
+    "BodySellerUploadFile",
     "ContentFilterEnum",
     "CurrencyEnum",
     "CursorPagePriceRulePublic",
@@ -146,6 +149,7 @@ __all__ = (
     "DocumentTestUpdate",
     "DocumentTestUpdateTestsType0",
     "ErrorResponse",
+    "FileUploadResponse",
     "GroupOwnerTypeEnum",
     "GroupTypeEnum",
     "HTTPValidationError",
