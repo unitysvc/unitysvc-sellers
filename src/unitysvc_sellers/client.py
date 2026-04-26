@@ -149,7 +149,7 @@ class Client:
         if self._services is None:
             from .services import Services
 
-            self._services = Services(self._client)
+            self._services = Services(self._client, parent=self)
         return self._services
 
     @property
@@ -157,7 +157,7 @@ class Client:
         if self._promotions is None:
             from .promotions import Promotions
 
-            self._promotions = Promotions(self._client)
+            self._promotions = Promotions(self._client, parent=self)
         return self._promotions
 
     @property
@@ -165,7 +165,7 @@ class Client:
         if self._groups is None:
             from .groups import Groups
 
-            self._groups = Groups(self._client)
+            self._groups = Groups(self._client, parent=self)
         return self._groups
 
     @property

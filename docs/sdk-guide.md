@@ -44,9 +44,13 @@ exit:
 from unitysvc_sellers import Client
 
 with Client() as client:
-    for svc in client.services.list().data:
+    for svc in client.services.list():
         print(svc.name)
 ```
+
+The list response is iterable directly; you can still inspect
+`.next_cursor` / `.has_more` for manual pagination, or call
+`client.services.iter_all()` to walk every page.
 
 ## Sync vs async: when to use which
 
@@ -66,8 +70,8 @@ counterpart with the same name and signature, just `await`able.
 from unitysvc_sellers import Client
 
 with Client() as client:
-    page = client.services.list(limit=50)
-    for svc in page.data:
+    services = client.services.list(limit=50)
+    for svc in services:
         print(svc.id, svc.name, svc.status)
 ```
 
@@ -79,8 +83,8 @@ from unitysvc_sellers import AsyncClient
 
 async def main():
     async with AsyncClient() as client:
-        page = await client.services.list(limit=50)
-        for svc in page.data:
+        services = await client.services.list(limit=50)
+        for svc in services:
             print(svc.id, svc.name, svc.status)
 
 asyncio.run(main())
@@ -88,7 +92,7 @@ asyncio.run(main())
 
 ## Resource namespaces
 
-Both clients expose the same five resource namespaces as lazy
+Both clients expose the same six resource namespaces as lazy
 properties:
 
 | Namespace            | Underlying endpoints                                          | Purpose                                                                 |
@@ -101,44 +105,101 @@ properties:
 | `client.tasks`       | `/seller/tasks/*`                                             | Poll Celery task state for async operations (notably service upload)   |
 
 The async client exposes the same namespaces with `Async` prefixes
-on the resource classes (`AsyncServicesResource`, etc.), but the
-attribute names on the client are identical — so you can rename
-`Client` to `AsyncClient` in a code snippet and the rest just needs
-`await`s.
+on the resource classes (`AsyncServices`, `AsyncGroups`,
+`AsyncPromotions`, …), but the attribute names on the client are
+identical — so you can rename `Client` to `AsyncClient` in a code
+snippet and the rest just needs `await`s.
+
+### Active-record style
+
+The `services`, `groups`, and `promotions` namespaces all return
+**active-record wrappers** rather than raw generated dataclasses:
+
+-   `client.services.get(id)` returns a `Service` object;
+    `client.services.list(...)` returns a `ServiceList` whose items
+    are `Service`s.
+-   `client.groups.get(id)` / `.upsert(...)` / `.update(...)` return
+    `Group` objects; `.list(...)` returns a `GroupList`.
+-   `client.promotions.get(id)` / `.upsert(...)` / `.update(...)`
+    return `Promotion` objects; `.list(...)` returns a `PromotionList`.
+
+Each wrapper:
+
+1.  **Forwards field access** to the underlying generated record via
+    `__getattr__`, so `svc.id`, `grp.display_name`, `promo.code` all
+    work transparently.
+2.  **Carries methods bound to its id**, so you can write
+    `svc.update({"status": "pending"})` instead of
+    `client.services.update(svc.id, {"status": "pending"})`.
+3.  **Is iterable** (the list wrappers), so
+    `for svc in client.services.list(): ...` walks the current page
+    of `Service` objects directly. `.next_cursor` / `.has_more` /
+    `.next_page()` remain available for manual pagination, and
+    `client.services.iter_all(...)` walks every page automatically.
+
+Manager-style calls (`client.services.update(service_id, body)`)
+are still supported for the case where you only have an id from a
+webhook or external system — the wrappers are sugar, not a
+replacement.
+
+The `documents`, `secrets`, and `tasks` namespaces stay as plain
+function-style managers — they have a single short verb each (or no
+mutating verbs at all) and don't benefit from the active-record
+ceremony.
 
 ## `client.services`
 
 The services resource covers the full seller-catalog lifecycle.
 
+Manager methods on `client.services`:
+
 | Method                           | Description                                                                     |
 | -------------------------------- | ------------------------------------------------------------------------------- |
-| `list(cursor=, limit=, …)`       | Cursor-paged list with optional `status` / `service_type` / `name` filters.     |
-| `get(service_id)`                | Full service detail including interfaces, documents, upstream config.           |
-| `get_test_env(service_id)`       | Environment variables for local connectivity testing (`SERVICE_BASE_URL`, …).   |
-| `upload(body, dryrun=False)`     | POST provider + offering + listing bundle. Backend responds with a task id.     |
-| `set_status(service_id, body)`   | Change lifecycle status (`draft` → `pending` for review, etc.).                 |
-| `set_routing_vars(…)`            | Update the routing variables used by the gateway plugin.                        |
-| `set_list_price(…)`              | Update the customer-facing price on an active service.                          |
-| `delete(service_id)`             | Remove a service. (Most flows should use `set_status` → `deprecated` instead.)  |
+| `list(cursor=, limit=, …)`       | Cursor-paged list returning a :class:`ServiceList` (iterable, has `next_page`). |
+| `iter_all(...)`                  | Generator that walks every page automatically.                                  |
+| `get(service_id)`                | Full service detail wrapped as a :class:`Service`.                              |
+| `get_test_env(service_id)`       | Environment variables for local connectivity testing.                           |
+| `upload(body)`                   | POST provider + offering + listing bundle. Backend responds with a task id.     |
+| `update(service_id, body)`       | Patch fields — `status`, `visibility`, `routing_vars`, `list_price`.            |
+| `delete(service_id, dryrun=)`    | Remove a service. (Most flows should use `update({"status": "deprecated"})`.)   |
+
+`Service` wrappers expose the same operations pre-bound to the
+service id: `svc.refresh()`, `svc.update(body)`, `svc.delete()`,
+`svc.test_env()`, plus the `svc.submit()` shortcut for transitioning
+status to `"pending"`.
 
 ### Listing services
 
+`client.services.list(...)` returns a `ServiceList` — iterable
+directly over the current page of `Service` wrappers, with
+`next_cursor` / `has_more` available for manual pagination:
+
 ```python
 with Client() as client:
-    page = client.services.list(limit=100, status="active")
-    while True:
-        for svc in page.data:
-            print(svc.id, svc.name, svc.service_type)
-        if not page.has_more:
-            break
-        page = client.services.list(cursor=page.next_cursor, limit=100)
+    # One page at a time:
+    services = client.services.list(limit=100, status="active")
+    for svc in services:
+        print(svc.id, svc.name, svc.service_type)
+    # Then services.next_page() for the next page, or:
+    while services.has_more:
+        services = services.next_page()
+        for svc in services:
+            ...
+
+    # Or have the SDK walk every page for you:
+    for svc in client.services.iter_all(status="active"):
+        print(svc.id, svc.name)
 ```
 
 ### Fetching one service
 
+`client.services.get(...)` returns a `Service` active-record
+wrapper. Field access is forwarded to the underlying record, and
+the wrapper carries methods bound to that service id:
+
 ```python
 svc = client.services.get("be098e7d-59e1-498a-bc4f-e389eb61c70b")
-print(svc.service_name, svc.status)
+print(svc.name, svc.status)
 for iface in svc.interfaces:
     print(" iface:", iface.name, iface.base_url)
 for doc in svc.documents or []:
@@ -147,27 +208,54 @@ for doc in svc.documents or []:
 
 ### Mutating status
 
+`Service` exposes the same mutations as the manager — pre-bound to
+its service id:
+
 ```python
-# Submit a draft service for review. Omit run_tests to skip the
-# backend's auto-queue of the full connectivity test suite (useful
-# when the CLI has already run those tests locally).
-client.services.set_status(
-    "be098e7d-59e1-498a-bc4f-e389eb61c70b",
-    {"status": "pending", "run_tests": True},
-)
+svc = client.services.get("be098e7d-59e1-498a-bc4f-e389eb61c70b")
+
+svc.submit()                                 # shortcut: status -> "pending"
+svc.update({"visibility": "public"})         # arbitrary patch
+svc.update({"list_price": {"type": "constant", "price": "1.00"}})
+
+svc = svc.refresh()                          # re-fetch to observe transitions
+print(svc.status)
+
+svc.delete()                                  # remove (most flows prefer status="deprecated")
 ```
+
+If you only have a service id from a webhook, the manager-style
+calls still work: `client.services.update(service_id, {"status":
+"pending"})`, `client.services.delete(service_id)`.
 
 ## `client.promotions`
 
 Seller-funded promotion codes — discounts the seller pays for, to
 bootstrap demand or reward specific customers.
 
+Manager methods on `client.promotions`:
+
+| Method                            | Description                                                                       |
+| --------------------------------- | --------------------------------------------------------------------------------- |
+| `list(cursor=, limit=, status=)`  | Cursor-paged list returning a `PromotionList` (iterable, has `next_page`).        |
+| `iter_all(...)`                   | Generator that walks every page automatically.                                    |
+| `get(promotion_id)`               | Fetch one by id, returned as a `Promotion`.                                       |
+| `upsert(body)`                    | Create-or-update by name (idempotent), returned as a `Promotion`.                 |
+| `update(promotion_id, body)`      | Partial patch by id, returned as a `Promotion`.                                   |
+| `delete(promotion_id)`            | Permanent delete. Returns `None`.                                                 |
+
+`Promotion` wrappers expose the same operations pre-bound to the
+promotion id: `promo.refresh()`, `promo.update(body)`,
+`promo.delete()`.
+
+### Creating, listing, and mutating promotions
+
 ```python
 from unitysvc_sellers import Client
 
 with Client() as client:
-    # Create or update by name.
-    client.promotions.upsert({
+    # Create or update by name. Returns a Promotion bound to its id.
+    promo = client.promotions.upsert({
         "name": "summer2026",
         "code": "SUMMER2026",
         "pricing": {"type": "percentage_off", "percentage": "25.00"},
@@ -176,23 +264,57 @@ with Client() as client:
         "priority": 10,
         "status": "active",
     })
+    print(promo.id, promo.code, promo.status)
 
-    # List active promotions.
-    for promo in client.promotions.list(limit=100).data:
-        print(promo.code, promo.status)
+    # Iterate active promotions on the current page.
+    for p in client.promotions.list(limit=100, status="active"):
+        print(p.code, p.status)
 
-    # Deactivate.
-    client.promotions.update("summer2026", {"status": "paused"})
+    # Or have the SDK walk every page for you.
+    for p in client.promotions.iter_all(status="active"):
+        print(p.code, p.status)
+
+    # Pause via the active-record handle (no need to thread the id through).
+    promo.update({"status": "paused"})
+
+    # Re-fetch after the mutation to observe the new state.
+    promo = promo.refresh()
+    assert promo.status == "paused"
+
+    # Delete (permanent).
+    promo.delete()
 ```
+
+If you only have a promotion id (e.g. from a webhook), the
+manager-style calls still work:
+`client.promotions.update(promotion_id, {"status": "paused"})`,
+`client.promotions.delete(promotion_id)`.
 
 ## `client.groups`
 
 Service groups bundle related services together for routing,
 discovery, or group-wide pricing.
 
+Manager methods on `client.groups`:
+
+| Method                            | Description                                                              |
+| --------------------------------- | ------------------------------------------------------------------------ |
+| `list(cursor=, limit=, status=)`  | Cursor-paged list returning a `GroupList` (iterable, has `next_page`).   |
+| `iter_all(...)`                   | Generator that walks every page automatically.                           |
+| `get(group_id)`                   | Fetch one by id, returned as a `Group`.                                  |
+| `upsert(body)`                    | Create-or-update by name (idempotent), returned as a `Group`.            |
+| `update(group_id, body)`          | Partial patch by id, returned as a `Group`.                              |
+| `delete(group_id)`                | Permanent delete. Returns `None`.                                        |
+
+`Group` wrappers expose the same operations pre-bound to the group
+id: `grp.refresh()`, `grp.update(body)`, `grp.delete()`.
+
+### Creating, listing, and mutating groups
+
 ```python
 with Client() as client:
-    client.groups.upsert({
+    # Upsert returns a Group with .id already set.
+    grp = client.groups.upsert({
         "name": "premium-llms",
         "display_name": "Premium LLMs",
         "owner_type": "seller",
@@ -200,10 +322,30 @@ with Client() as client:
             "include_tags": ["premium", "llm"],
         },
     })
+    print(grp.id, grp.name, grp.display_name)
 
-    for grp in client.groups.list().data:
-        print(grp.name, grp.display_name)
+    # Iterate one page of the catalog.
+    for g in client.groups.list(limit=50):
+        print(g.name, g.display_name, g.status)
+
+    # Or walk every page in one loop.
+    for g in client.groups.iter_all():
+        print(g.name)
+
+    # Mutate via the active-record handle.
+    grp.update({"display_name": "Premium LLMs (curated)"})
+
+    # Re-fetch after the mutation.
+    grp = grp.refresh()
+    assert grp.display_name == "Premium LLMs (curated)"
+
+    # Delete the group entirely.
+    grp.delete()
 ```
+
+Manager-style calls (`client.groups.update(group_id, body)`,
+`client.groups.delete(group_id)`) remain available for the case
+where you only have an id.
 
 ## `client.documents`
 
@@ -243,13 +385,16 @@ below for the recommended pattern.
 Manage encrypted seller secrets (API keys, tokens, credentials).
 Values are **write-only** — only metadata is ever returned by the API.
 
-| Method                       | Parameters              | Returns         | Description                          |
-| ---------------------------- | ----------------------- | --------------- | ------------------------------------ |
+The shape mirrors GitHub's secrets API: there is no separate
+`create` or `rotate` — `set(name, value)` does both in one
+idempotent call.
+
+| Method                       | Parameters                | Returns         | Description                          |
+| ---------------------------- | ------------------------- | --------------- | ------------------------------------ |
 | `list(skip=0, limit=100)`    | `skip: int`, `limit: int` | `SecretsPublic` | List secrets (metadata only)         |
-| `get(name)`                  | `name: str`             | `SecretPublic`  | Get one secret's metadata by name    |
-| `create(name, value)`        | `name: str`, `value: str` | `SecretPublic`  | Create a new secret                  |
-| `rotate(name, value)`        | `name: str`, `value: str` | `SecretPublic`  | Rotate (update) an existing secret   |
-| `delete(name)`               | `name: str`             | `None`          | Permanently delete a secret          |
+| `get(name)`                  | `name: str`               | `SecretPublic`  | Get one secret's metadata by name    |
+| `set(name, value)`           | `name: str`, `value: str` | `SecretPublic`  | Idempotent create-or-replace         |
+| `delete(name)`               | `name: str`               | `None`          | Permanently delete a secret          |
 
 Secret names must be uppercase with underscores (e.g.
 `OPENAI_API_KEY`, `STRIPE_SECRET`). Names starting with `__` are
@@ -259,21 +404,21 @@ reserved for platform use.
 from unitysvc_sellers import Client
 
 with Client() as client:
-    # Create a secret (value is write-only, cannot be retrieved)
-    client.secrets.create("OPENAI_API_KEY", "sk-proj-abc123...")
+    # Create or rotate — `set` is idempotent.
+    client.secrets.set("OPENAI_API_KEY", "sk-proj-abc123...")
 
-    # List all secrets (metadata only)
+    # List all secrets (metadata only).
     for s in client.secrets.list().data:
         print(s.name, s.created_at, s.last_used_at)
 
-    # Get one secret's metadata
+    # Get one secret's metadata.
     meta = client.secrets.get("OPENAI_API_KEY")
     print(meta.name, meta.updated_at)
 
-    # Rotate the value (e.g. after a key leak)
-    client.secrets.rotate("OPENAI_API_KEY", "sk-proj-new456...")
+    # Rotate by calling set again with a new value.
+    client.secrets.set("OPENAI_API_KEY", "sk-proj-new456...")
 
-    # Delete (immediate effect — services referencing it will break)
+    # Delete (immediate effect — services referencing it will break).
     client.secrets.delete("OPENAI_API_KEY")
 ```
 
@@ -285,19 +430,18 @@ with Client() as client:
 
 Several seller endpoints are fire-and-forget: they accept your
 request, queue a Celery task, and return a `task_id`. The tasks
-resource lets you poll for the real outcome.
+resource lets you poll for the real outcome. Both methods are
+**variadic** — pass one or many ids in a single call.
 
-| Method                                | Description                                                              |
-| ------------------------------------- | ------------------------------------------------------------------------ |
-| `get(task_id)`                        | One-shot status for a single task.                                       |
-| `batch_status(task_ids)`              | One request, many tasks. Preferred for uploads that yield N tasks.       |
-| `wait(task_id, timeout=, poll=)`      | Block until the task reaches a terminal state or times out.              |
-| `wait_batch(ids, timeout=, poll=)`    | Wait for every id in a batch; returns a dict of final states.            |
+| Method                                                      | Description                                                                  |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `get(*task_ids)`                                            | One request, returns `{task_id → status_dict}` for each id (up to 100/call). |
+| `wait(*task_ids, timeout=, poll_interval=, on_update=)`     | Poll until every id reaches a terminal state, or time out.                   |
 
 Terminal Celery states the SDK recognises are `completed` and
-`failed`. `wait_batch` polls with exponential-friendly delays and
-returns a dict keyed by `task_id`, where each entry has `state`,
-`status`, `result`, and (for failures) `error` fields.
+`failed`. Both methods return a dict keyed by `task_id`; each
+status entry typically contains `task_id`, `status`, `result`, and
+(for failures) `error` / `message` fields.
 
 ```python
 with Client() as client:
@@ -305,10 +449,11 @@ with Client() as client:
     task_id = result.task_id
 
     final = client.tasks.wait(task_id, timeout=300, poll_interval=2)
-    if final["status"] == "completed":
-        print("service_id =", final["result"]["service_id"])
+    status = final[task_id]
+    if status["status"] == "completed":
+        print("service_id =", status["result"]["service_id"])
     else:
-        print("failed:", final.get("error") or final.get("message"))
+        print("failed:", status.get("error") or status.get("message"))
 ```
 
 ## `upload_directory` — full catalog upload helper
@@ -403,9 +548,7 @@ async def run_tests(service_id: str) -> int:
         elevated = original_status in ("draft", "rejected")
         try:
             if elevated:
-                await client.services.set_status(
-                    service_id, {"status": "pending", "run_tests": False}
-                )
+                await svc.update({"status": "pending", "run_tests": False})
             docs = [d for d in (svc.documents or []) if d.category in EXECUTABLE]
 
             for doc in docs:
@@ -446,9 +589,7 @@ async def run_tests(service_id: str) -> int:
                 )
         finally:
             if elevated:
-                await client.services.set_status(
-                    service_id, {"status": original_status, "run_tests": False}
-                )
+                await svc.update({"status": original_status, "run_tests": False})
     return failed
 ```
 

@@ -319,7 +319,7 @@ Edit the `.j2` files to replace model-specific values with Jinja2 placeholders:
   },
 {%- endif %}
   "user_access_interfaces": {
-    "Provider API": {
+    "provider_api": {
       "access_method": "http",
       "base_url": "${API_GATEWAY_BASE_URL}/p/{{ gateway_path }}"
     }

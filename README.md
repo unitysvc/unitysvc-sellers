@@ -33,29 +33,32 @@ from unitysvc_sellers import Client
 
 client = Client(api_key="svcpass_...")  # or Client.from_env()
 
-# List services
-services = client.services.list(limit=50, status="active")
-for s in services.data:
-    print(s.name, s.id)
+# List services — iterate the page directly (the result is a ServiceList).
+for svc in client.services.list(limit=50, status="active"):
+    print(svc.id, svc.name, svc.status)
 
-# Fetch full record
-detail = client.services.get(service_id)
+# Fetch one — `svc` is a Service active-record bound to its id.
+svc = client.services.get(service_id)
+print(svc.name, svc.status)
 
-# Update service status
-client.services.set_status(service_id, {"status": "ready"})
+# Mutate via the bound handle (no need to re-pass the id).
+svc.update({"status": "pending"})
+svc.submit()  # shortcut for {"status": "pending"}
 
-# Promotions (idempotent upsert by name)
-client.promotions.upsert({
+# Promotions — upsert returns a Promotion bound to its id.
+promo = client.promotions.upsert({
     "name": "summer-2026",
     "scope": {"customers": "*"},
     "pricing": {"type": "multiply", "factor": "0.80"},
     "status": "active",
 })
+promo.update({"status": "paused"})
 
-# Service groups
-group = client.groups.upsert({"name": "premium", "service_ids": [...]})
+# Service groups — same pattern.
+grp = client.groups.upsert({"name": "premium", "service_ids": [...]})
+grp.update({"display_name": "Premium tier"})
 
-# Push an entire catalog directory
+# Push an entire catalog directory.
 result = client.upload("./my-catalog", dryrun=False)
 print(f"services: {result.services.success}/{result.services.total}")
 ```
@@ -97,7 +100,9 @@ Client(base_url="http://localhost:8000/v1/seller")
 ### Secrets
 
 Manage encrypted seller secrets (API keys, tokens, credentials).
-Values are **write-only** — only metadata is ever returned.
+Values are **write-only** — only metadata is ever returned. The API
+mirrors GitHub's secrets API: `set(name, value)` is idempotent and
+covers both create and rotate.
 
 ```python
 # List all secrets (metadata only)
@@ -108,11 +113,8 @@ for s in secrets.data:
 # Get one secret's metadata by name
 meta = client.secrets.get("OPENAI_API_KEY")
 
-# Create a new secret
-client.secrets.create("OPENAI_API_KEY", "sk-...")
-
-# Rotate (update) the value
-client.secrets.rotate("OPENAI_API_KEY", "sk-new-...")
+# Create or rotate (idempotent)
+client.secrets.set("OPENAI_API_KEY", "sk-...")
 
 # Delete a secret (immediate effect on running services)
 client.secrets.delete("OPENAI_API_KEY")
@@ -124,8 +126,7 @@ client.secrets.delete("OPENAI_API_KEY")
 |--------|-----------|---------|-------------|
 | `secrets.list(skip=0, limit=100)` | `skip`, `limit` | `SecretsPublic` | List secrets (metadata only) |
 | `secrets.get(name)` | `name: str` | `SecretPublic` | Get one secret's metadata |
-| `secrets.create(name, value)` | `name: str`, `value: str` | `SecretPublic` | Create a secret (upsert) |
-| `secrets.rotate(name, value)` | `name: str`, `value: str` | `SecretPublic` | Rotate an existing secret's value |
+| `secrets.set(name, value)` | `name: str`, `value: str` | `SecretPublic` | Idempotent create-or-replace |
 | `secrets.delete(name)` | `name: str` | `None` | Permanently delete a secret |
 
 Secret names must be uppercase with underscores (e.g. `OPENAI_API_KEY`,
@@ -134,24 +135,25 @@ Secret names must be uppercase with underscores (e.g. `OPENAI_API_KEY`,
 ### Pagination
 
 `services.list`, `promotions.list`, and `groups.list` use
-**cursor-based pagination**. Each call returns a `CursorPage*`
-response with `data`, `next_cursor`, and `has_more`:
+**cursor-based pagination**. Each call returns an iterable list
+wrapper (`ServiceList`, `PromotionList`, `GroupList`) that exposes
+`data`, `next_cursor`, `has_more`, and `next_page()`:
 
 ```python
-# Single page
+# Single page — iterate the wrapper directly
 page = client.services.list(limit=50)
-for s in page.data:
-    print(s.name)
+for svc in page:
+    print(svc.name)
 
-# Full iteration
-cursor = None
-while True:
-    page = client.services.list(cursor=cursor, limit=100)
-    for s in page.data:
-        yield s
-    if not page.has_more or not page.next_cursor:
-        break
-    cursor = page.next_cursor
+# Manual pagination via next_page()
+while page.has_more:
+    page = page.next_page()
+    for svc in page:
+        ...
+
+# Or let the SDK walk every page for you
+for svc in client.services.iter_all(status="active"):
+    print(svc.name)
 ```
 
 The CLI list commands accept `--cursor` and `--all` (to auto-follow
@@ -161,7 +163,8 @@ cursors and render the combined result).
 
 The same API surface is exposed as `AsyncClient` for use in asyncio
 contexts (FastAPI, Starlette, Trio-via-anyio, scripts using
-`asyncio.run`):
+`asyncio.run`). Sync iteration walks the current page; for full
+iteration use `iter_all()`:
 
 ```python
 import asyncio
@@ -169,11 +172,18 @@ from unitysvc_sellers import AsyncClient
 
 async def main():
     async with AsyncClient(api_key="svcpass_...") as client:
+        # One page at a time.
         services = await client.services.list(limit=50)
-        for s in services.data:
-            print(s.name)
+        for svc in services:
+            print(svc.id, svc.name)
 
-        await client.promotions.update(promo_id, {"status": "active"})
+        # Or every page, automatically:
+        async for svc in client.services.iter_all(status="active"):
+            print(svc.id, svc.name)
+
+        # Active-record mutations work the same way.
+        promo = await client.promotions.get(promo_id)
+        await promo.update({"status": "active"})
 
 asyncio.run(main())
 ```
