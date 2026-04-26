@@ -122,7 +122,7 @@ class AsyncClient:
         if self._promotions is None:
             from .apromotions import AsyncPromotions
 
-            self._promotions = AsyncPromotions(self._client)
+            self._promotions = AsyncPromotions(self._client, parent=self)
         return self._promotions
 
     @property
@@ -130,7 +130,7 @@ class AsyncClient:
         if self._groups is None:
             from .agroups import AsyncGroups
 
-            self._groups = AsyncGroups(self._client)
+            self._groups = AsyncGroups(self._client, parent=self)
         return self._groups
 
     @property

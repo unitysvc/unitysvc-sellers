@@ -14,9 +14,8 @@ Quick start::
     from unitysvc_sellers import Client
 
     client = Client(api_key="svcpass_...")
-    services = client.services.list()
-    for s in services.data:
-        print(s.name)
+    for svc in client.services.list():
+        print(svc.id, svc.name, svc.status)
 
 The seller context is encoded entirely in the API key, so no separate
 ``seller_id`` is required. The default base URL points at production
