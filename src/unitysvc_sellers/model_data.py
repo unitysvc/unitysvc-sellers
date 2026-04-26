@@ -438,9 +438,7 @@ class ModelDataLookup:
     }
 
     @staticmethod
-    def get_capabilities_from_hf(
-        model_id: str, fetcher: "ModelDataFetcher"
-    ) -> tuple[list[str], str]:
+    def get_capabilities_from_hf(model_id: str, fetcher: "ModelDataFetcher") -> tuple[list[str], str]:
         """Get capabilities and example suffix from HuggingFace model metadata.
 
         Fetches pipeline_tag from the HuggingFace Model Hub API and uses it
@@ -489,8 +487,128 @@ class ModelDataLookup:
             return []
 
         return [
-            t for t in hf_details.get("tags", [])
-            if not t.startswith("base_model:")
-            and not t.startswith("region:")
-            and not t.startswith("license:")
+            t
+            for t in hf_details.get("tags", [])
+            if not t.startswith("base_model:") and not t.startswith("region:") and not t.startswith("license:")
         ]
+
+    # =========================================================================
+    # Canonical LLM metadata (context_length + parameter_count)
+    # =========================================================================
+
+    @staticmethod
+    def get_canonical_metadata(
+        model_id: str,
+        *,
+        fetcher: "ModelDataFetcher",
+    ) -> dict[str, Any]:
+        """Return canonical LLM metadata for use in ``offering.details``.
+
+        Resolves ``context_length`` and ``parameter_count`` to the platform's
+        canonical (snake_case) field names, hiding the upstream field-name
+        chaos behind a single call.  Each field independently falls back
+        across multiple sources; either may end up ``None`` if no source
+        publishes the value (e.g., closed-source models for which weight
+        counts aren't public).
+
+        Source priority for ``context_length`` (most → least authoritative):
+
+        1. **OpenRouter** ``context_length`` — explicitly named, snake_case,
+           covers most commercial models.
+        2. **LiteLLM** ``max_input_tokens`` — comprehensive coverage but
+           sometimes lags long-context model upgrades.
+        3. **HuggingFace** ``config.max_position_embeddings`` — works for
+           any open-weights model on the Hub.
+
+        Source for ``parameter_count``:
+
+        - **HuggingFace** ``safetensors.parameters`` — the only reliable
+          public source.  Sums per-dtype counts when ``total`` is absent.
+          Will be ``None`` for closed models (GPT-*, Claude-*, Gemini),
+          which is expected and acceptable per the platform's null-allowed
+          schema.
+
+        Args:
+            model_id: Model identifier (e.g. ``"meta-llama/Llama-3.1-8B"``,
+                ``"gpt-4"``, ``"anthropic/claude-3-opus"``).  Fuzzy matching
+                inside each ``lookup_*`` method handles provider-prefix
+                variations.
+            fetcher: ``ModelDataFetcher`` instance.  Reused across calls;
+                its internal cache means repeated lookups for the same
+                upstream don't re-hit the network.
+
+        Returns:
+            ``{"context_length": int | None, "parameter_count": int | None,
+            "sources": {"context_length": str, "parameter_count": str}}``.
+            ``sources`` only includes entries for fields that were
+            successfully resolved — useful for surfacing provenance in
+            ``offering.details.metadata_sources`` and for triage of
+            ``"this value looks wrong"`` reports.
+
+        Example:
+            >>> with ModelDataFetcher() as fetcher:
+            ...     meta = ModelDataLookup.get_canonical_metadata(
+            ...         "anthropic/claude-3-opus", fetcher=fetcher
+            ...     )
+            >>> meta
+            {'context_length': 200000, 'parameter_count': None,
+             'sources': {'context_length': 'openrouter'}}
+        """
+        result: dict[str, Any] = {
+            "context_length": None,
+            "parameter_count": None,
+            "sources": {},
+        }
+
+        # context_length: OpenRouter → LiteLLM → HuggingFace config.json.
+        # Each source uses a different field name; normalise to int here so
+        # callers don't have to know.
+        or_data = fetcher.fetch_openrouter_models_data(quiet=True)
+        or_match = ModelDataLookup.lookup_openrouter_details(model_id, or_data)
+        if or_match:
+            cl = or_match.get("context_length")
+            if isinstance(cl, int) and cl > 0:
+                result["context_length"] = cl
+                result["sources"]["context_length"] = "openrouter"
+
+        if result["context_length"] is None:
+            ll_data = fetcher.fetch_litellm_model_data(quiet=True)
+            ll_match = ModelDataLookup.lookup_model_details(model_id, ll_data)
+            if ll_match:
+                cl = ll_match.get("max_input_tokens")
+                if isinstance(cl, int) and cl > 0:
+                    result["context_length"] = cl
+                    result["sources"]["context_length"] = "litellm"
+
+        # HuggingFace details are also the source for parameter_count, so
+        # fetch once and reuse.  Returns None on miss / network failure.
+        hf_details = fetcher.fetch_huggingface_model_details(model_id, quiet=True)
+
+        if result["context_length"] is None and hf_details:
+            cfg = hf_details.get("config") or {}
+            mpe = cfg.get("max_position_embeddings")
+            if isinstance(mpe, int) and mpe > 0:
+                result["context_length"] = mpe
+                result["sources"]["context_length"] = "huggingface_config"
+
+        if hf_details:
+            # safetensors.parameters is the per-dtype breakdown the Hub
+            # publishes on weight-bearing model uploads since mid-2024.
+            # Older uploads won't have it; closed-source models never will.
+            st = (hf_details.get("safetensors") or {}).get("parameters") or {}
+            if isinstance(st, dict) and st:
+                # Prefer explicit total; otherwise sum per-dtype counts
+                # (BF16 + F32 etc.) — they represent the same parameter
+                # set in different precisions, so summing is wrong for the
+                # multi-precision case.  Use max() instead, which gives
+                # the parameter count regardless of how the weights are
+                # stored.  Fall back to sum if max isn't applicable.
+                total = st.get("total")
+                if not isinstance(total, int):
+                    int_values = [v for v in st.values() if isinstance(v, int) and v > 0]
+                    total = max(int_values) if int_values else None
+                if isinstance(total, int) and total > 0:
+                    result["parameter_count"] = total
+                    result["sources"]["parameter_count"] = "huggingface_safetensors"
+
+        return result

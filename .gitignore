@@ -40,3 +40,4 @@ uv.lock
 .tool-venv/
 site/
 .claude/
+failed_*
