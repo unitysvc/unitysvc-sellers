@@ -596,7 +596,7 @@ BYOK services require the customer to provide their own API key for the upstream
     "display_name": "Groq LLaMA 3.3 70B (BYOK)",
     "status": "ready",
     "user_access_interfaces": {
-        "Provider API": {
+        "provider_api": {
             "access_method": "http",
             "base_url": "${API_GATEWAY_BASE_URL}/p/groq",
             "api_key": "${ secrets.GROQ_API_KEY }",
@@ -619,7 +619,7 @@ A BYOK service can also have user parameters (e.g., model selection). In this ca
 ```json
 {
     "user_access_interfaces": {
-        "Provider API": {
+        "provider_api": {
             "base_url": "${API_GATEWAY_BASE_URL}/p/openai",
             "api_key": "${ secrets.OPENAI_API_KEY }",
             "routing_key": { "model": "gpt-4" }
