@@ -114,7 +114,7 @@ class AsyncClient:
         if self._services is None:
             from .aservices import AsyncServices
 
-            self._services = AsyncServices(self._client)
+            self._services = AsyncServices(self._client, parent=self)
         return self._services
 
     @property

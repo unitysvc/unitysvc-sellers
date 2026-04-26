@@ -44,9 +44,13 @@ exit:
 from unitysvc_sellers import Client
 
 with Client() as client:
-    for svc in client.services.list().data:
+    for svc in client.services.list():
         print(svc.name)
 ```
+
+The list response is iterable directly; you can still inspect
+`.next_cursor` / `.has_more` for manual pagination, or call
+`client.services.iter_all()` to walk every page.
 
 ## Sync vs async: when to use which
 
@@ -66,8 +70,8 @@ counterpart with the same name and signature, just `await`able.
 from unitysvc_sellers import Client
 
 with Client() as client:
-    page = client.services.list(limit=50)
-    for svc in page.data:
+    services = client.services.list(limit=50)
+    for svc in services:
         print(svc.id, svc.name, svc.status)
 ```
 
@@ -79,8 +83,8 @@ from unitysvc_sellers import AsyncClient
 
 async def main():
     async with AsyncClient() as client:
-        page = await client.services.list(limit=50)
-        for svc in page.data:
+        services = await client.services.list(limit=50)
+        for svc in services:
             print(svc.id, svc.name, svc.status)
 
 asyncio.run(main())
@@ -110,35 +114,55 @@ attribute names on the client are identical — so you can rename
 
 The services resource covers the full seller-catalog lifecycle.
 
+Manager methods on `client.services`:
+
 | Method                           | Description                                                                     |
 | -------------------------------- | ------------------------------------------------------------------------------- |
-| `list(cursor=, limit=, …)`       | Cursor-paged list with optional `status` / `service_type` / `name` filters.     |
-| `get(service_id)`                | Full service detail including interfaces, documents, upstream config.           |
-| `get_test_env(service_id)`       | Environment variables for local connectivity testing (`SERVICE_BASE_URL`, …).   |
-| `upload(body, dryrun=False)`     | POST provider + offering + listing bundle. Backend responds with a task id.     |
-| `set_status(service_id, body)`   | Change lifecycle status (`draft` → `pending` for review, etc.).                 |
-| `set_routing_vars(…)`            | Update the routing variables used by the gateway plugin.                        |
-| `set_list_price(…)`              | Update the customer-facing price on an active service.                          |
-| `delete(service_id)`             | Remove a service. (Most flows should use `set_status` → `deprecated` instead.)  |
+| `list(cursor=, limit=, …)`       | Cursor-paged list returning a :class:`ServiceList` (iterable, has `next_page`). |
+| `iter_all(...)`                  | Generator that walks every page automatically.                                  |
+| `get(service_id)`                | Full service detail wrapped as a :class:`Service`.                              |
+| `get_test_env(service_id)`       | Environment variables for local connectivity testing.                           |
+| `upload(body)`                   | POST provider + offering + listing bundle. Backend responds with a task id.     |
+| `update(service_id, body)`       | Patch fields — `status`, `visibility`, `routing_vars`, `list_price`.            |
+| `delete(service_id, dryrun=)`    | Remove a service. (Most flows should use `update({"status": "deprecated"})`.)   |
+
+`Service` wrappers expose the same operations pre-bound to the
+service id: `svc.refresh()`, `svc.update(body)`, `svc.delete()`,
+`svc.test_env()`, plus the `svc.submit()` shortcut for transitioning
+status to `"pending"`.
 
 ### Listing services
 
+`client.services.list(...)` returns a `ServiceList` — iterable
+directly over the current page of `Service` wrappers, with
+`next_cursor` / `has_more` available for manual pagination:
+
 ```python
 with Client() as client:
-    page = client.services.list(limit=100, status="active")
-    while True:
-        for svc in page.data:
-            print(svc.id, svc.name, svc.service_type)
-        if not page.has_more:
-            break
-        page = client.services.list(cursor=page.next_cursor, limit=100)
+    # One page at a time:
+    services = client.services.list(limit=100, status="active")
+    for svc in services:
+        print(svc.id, svc.name, svc.service_type)
+    # Then services.next_page() for the next page, or:
+    while services.has_more:
+        services = services.next_page()
+        for svc in services:
+            ...
+
+    # Or have the SDK walk every page for you:
+    for svc in client.services.iter_all(status="active"):
+        print(svc.id, svc.name)
 ```
 
 ### Fetching one service
 
+`client.services.get(...)` returns a `Service` active-record
+wrapper. Field access is forwarded to the underlying record, and
+the wrapper carries methods bound to that service id:
+
 ```python
 svc = client.services.get("be098e7d-59e1-498a-bc4f-e389eb61c70b")
-print(svc.service_name, svc.status)
+print(svc.name, svc.status)
 for iface in svc.interfaces:
     print(" iface:", iface.name, iface.base_url)
 for doc in svc.documents or []:
@@ -147,15 +171,25 @@ for doc in svc.documents or []:
 
 ### Mutating status
 
+`Service` exposes the same mutations as the manager — pre-bound to
+its service id:
+
 ```python
-# Submit a draft service for review. Omit run_tests to skip the
-# backend's auto-queue of the full connectivity test suite (useful
-# when the CLI has already run those tests locally).
-client.services.set_status(
-    "be098e7d-59e1-498a-bc4f-e389eb61c70b",
-    {"status": "pending", "run_tests": True},
-)
+svc = client.services.get("be098e7d-59e1-498a-bc4f-e389eb61c70b")
+
+svc.submit()                                 # shortcut: status -> "pending"
+svc.update({"visibility": "public"})         # arbitrary patch
+svc.update({"list_price": {"type": "constant", "price": "1.00"}})
+
+svc = svc.refresh()                          # re-fetch to observe transitions
+print(svc.status)
+
+svc.delete()                                  # remove (most flows prefer status="deprecated")
 ```
+
+If you only have a service id from a webhook, the manager-style
+calls still work: `client.services.update(service_id, {"status":
+"pending"})`, `client.services.delete(service_id)`.
 
 ## `client.promotions`
 
@@ -403,9 +437,7 @@ async def run_tests(service_id: str) -> int:
         elevated = original_status in ("draft", "rejected")
         try:
             if elevated:
-                await client.services.set_status(
-                    service_id, {"status": "pending", "run_tests": False}
-                )
+                await svc.update({"status": "pending", "run_tests": False})
             docs = [d for d in (svc.documents or []) if d.category in EXECUTABLE]
 
             for doc in docs:
@@ -446,9 +478,7 @@ async def run_tests(service_id: str) -> int:
                 )
         finally:
             if elevated:
-                await client.services.set_status(
-                    service_id, {"status": original_status, "run_tests": False}
-                )
+                await svc.update({"status": original_status, "run_tests": False})
     return failed
 ```
 

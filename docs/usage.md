@@ -59,8 +59,8 @@ usvc_seller services list
 from unitysvc_sellers import Client
 
 with Client() as client:
-    page = client.services.list(limit=50)
-    for svc in page.data:
+    services = client.services.list(limit=50)
+    for svc in services:
         print(svc.id, svc.name, svc.status)
 ```
 
@@ -72,8 +72,8 @@ from unitysvc_sellers import AsyncClient
 
 async def main():
     async with AsyncClient() as client:
-        page = await client.services.list(limit=50)
-        for svc in page.data:
+        services = await client.services.list(limit=50)
+        for svc in services:
             print(svc.id, svc.name, svc.status)
 
 asyncio.run(main())

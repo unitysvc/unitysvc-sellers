@@ -149,7 +149,7 @@ class Client:
         if self._services is None:
             from .services import Services
 
-            self._services = Services(self._client)
+            self._services = Services(self._client, parent=self)
         return self._services
 
     @property
