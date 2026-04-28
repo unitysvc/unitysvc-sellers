@@ -155,6 +155,28 @@ def extract_code_examples_from_listing(listing_data: dict[str, Any], listing_fil
     return code_examples
 
 
+def build_upstream_template_context(interface: dict[str, Any]) -> dict[str, Any]:
+    """Flatten an upstream_access_config interface into Jinja2 render kwargs.
+
+    unitysvc-data v0.1.7+ templates expect upstream fields at the top level of
+    the render namespace (``{{ service_base_url }}``, ``{{ routing_key.model }}``,
+    ``{{ host }}``, ``{{ region }}``, …) so that ``run-tests`` rendering matches
+    gateway-side rendering exactly.  ``base_url`` is renamed to
+    ``service_base_url`` to match the data-package naming convention, and
+    ``api_key`` is intentionally dropped — keys are never inlined into rendered
+    output; templates read ``UNITYSVC_API_KEY`` from the environment instead.
+    """
+    context: dict[str, Any] = {}
+    for field, value in interface.items():
+        if field == "api_key":
+            continue
+        if field == "base_url":
+            context["service_base_url"] = value
+        else:
+            context[field] = value
+    return context
+
+
 def extract_upstream_interfaces_from_offering(
     listing_file: Path,
 ) -> dict[str, dict[str, Any]]:
@@ -519,6 +541,8 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
         upstream_config = offering_data.get("upstream_access_config", {})
         first_upstream: dict = next(iter(upstream_config.values()), {}) if upstream_config else {}
 
+        upstream_context = build_upstream_template_context(first_upstream)
+
         try:
             file_content, actual_filename = render_template_file(
                 original_path,
@@ -528,6 +552,7 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
                 seller=related_data.get("seller", {}),
                 interface=first_upstream or code_example.get("interface", {}),
                 local_testing=True,
+                **upstream_context,
             )
         except Exception as e:
             result["error"] = f"Template rendering failed: {str(e)}"
@@ -542,22 +567,14 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
         result["listing_file"] = listing_file
         result["actual_filename"] = actual_filename
 
-        # Prepare environment variables from upstream_access_config
-        # (see docs/upstream-test-context-algorithm.py for the full algorithm)
+        # The only environment variable the rendered script reads is the
+        # platform API key — every other upstream field is inlined at template
+        # render time (see ``upstream_context`` above).  Keys are deliberately
+        # never written into rendered output, so they have to come through env.
         env_vars: dict[str, str] = {}
-        for field, value in credentials.items():
-            if field == "routing_key" and isinstance(value, dict):
-                # Flatten routing_key dict: {"username": "foo"} -> USERNAME=foo
-                for sub_key, sub_val in value.items():
-                    env_vars[sub_key.upper()] = str(sub_val)
-            elif not isinstance(value, (str, int, float, bool)):
-                continue
-            elif field == "base_url":
-                env_vars["SERVICE_BASE_URL"] = str(value)
-            elif field == "api_key":
-                env_vars["UNITYSVC_API_KEY"] = str(value)
-            else:
-                env_vars[field.upper()] = str(value)
+        api_key = credentials.get("api_key")
+        if isinstance(api_key, (str, int, float, bool)):
+            env_vars["UNITYSVC_API_KEY"] = str(api_key)
 
         # Expose the full env the subprocess actually sees so the caller
         # can persist it for reproduction (see failure-dump code).

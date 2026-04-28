@@ -18,7 +18,7 @@ classifiers = [
 ]
 dependencies = [
   "unitysvc-core>=0.1.7",
-  "unitysvc-data>=0.1.6",
+  "unitysvc-data>=0.1.7",
   "typer",
   "rich",
   "jinja2",
