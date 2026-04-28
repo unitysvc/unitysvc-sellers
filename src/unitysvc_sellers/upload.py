@@ -144,9 +144,19 @@ def _resolve_file_references(
 
     Behaviour per file type:
 
-    - **Jinja2 templates** (``.j2`` suffix): rendered with the surrounding
-      catalog context and inlined as ``file_content``. The rendered output
-      is pure text so there is no benefit to uploading it separately.
+    - **Code-example / connectivity-test templates** (``.j2`` suffix and
+      ``category`` is ``code_example`` or ``connectivity_test``): the raw
+      template source is inlined as ``file_content`` and the ``.j2``
+      suffix is preserved on ``file_path``. The backend renders these
+      at consumption time so it can produce different views per render
+      context (gateway vs. local probe, customer-inline vs. env-var
+      portable, etc.). See unitysvc/unitysvc#877 / #878 for the
+      backend-side render plan.
+    - **Other Jinja2 templates** (``.j2`` suffix on documents that are
+      not code-example / connectivity-test, e.g. README snippets):
+      rendered with the surrounding catalog context and inlined as
+      ``file_content``. These are static documents with no
+      consumption-time render contexts, so client-side expansion stays.
     - **All other files** (when ``client`` is provided): uploaded to S3 via
       ``POST /seller/upload`` and referenced as
       ``external_url: "${UNITYSVC_S3_BASE_URL}/{object_key}"``.  This
@@ -199,8 +209,27 @@ def _resolve_file_references(
                 raise ValueError(f"File not found: {value}")
 
             is_template = full_path.name.endswith(".j2")
+            # Code-example and connectivity-test documents are templates
+            # that the backend renders at consumption time so that a single
+            # source can produce gateway-mode and local-mode views (see
+            # unitysvc/unitysvc#877 / #878). Send the raw template instead
+            # of expanding it client-side.
+            is_backend_rendered = data.get("category") in (
+                "code_example",
+                "connectivity_test",
+            )
 
-            if is_template or client is None:
+            if is_backend_rendered and is_template:
+                try:
+                    content = full_path.read_text(encoding="utf-8")
+                except Exception as exc:
+                    raise ValueError(f"Failed to read template '{value}': {exc}") from exc
+
+                result["file_content"] = content
+                # Preserve the ``.j2`` suffix so the backend can recognise
+                # the document as a renderable template.
+                result[key] = full_path.name if Path(value).is_absolute() else value
+            elif is_template or client is None:
                 # Jinja2 template (or no client): render and inline as file_content.
                 from .utils import render_template_file
 

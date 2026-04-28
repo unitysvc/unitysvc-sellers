@@ -46,6 +46,54 @@ class TestResolveFileReferencesUnit:
         assert doc["file_content"] == "print('hello')\n"
         assert doc["mime_type"] == "python"
 
+    def test_code_example_template_kept_raw_for_backend_render(self, tmp_path: Path) -> None:
+        """Code-example / connectivity-test templates ship raw to the backend.
+
+        The backend renders them per consumption context (gateway vs. local
+        probe, customer-inline vs. env-var portable). The ``.j2`` suffix is
+        preserved as the marker that the file is still a template, and any
+        ``{{ ... }}`` placeholders are sent verbatim — no client-side
+        substitution. See unitysvc/unitysvc#877 / #878.
+        """
+        (tmp_path / "code.py.j2").write_text(
+            "import os\nbase_url = '{{ interface.base_url }}'\n"
+        )
+        data = {
+            "file_path": "code.py.j2",
+            "mime_type": "python",
+            "category": "code_example",
+        }
+
+        resolved = _resolve_file_references(
+            data,
+            tmp_path,
+            interface={"base_url": "https://api.acme.example"},
+        )
+
+        # .j2 preserved on the stored file_path.
+        assert resolved["file_path"] == "code.py.j2"
+        # Raw template content — the placeholder is *not* substituted.
+        assert resolved["file_content"] == (
+            "import os\nbase_url = '{{ interface.base_url }}'\n"
+        )
+
+    def test_connectivity_test_template_kept_raw_for_backend_render(self, tmp_path: Path) -> None:
+        (tmp_path / "probe.sh.j2").write_text("curl '{{ interface.base_url }}/health'\n")
+        data = {
+            "file_path": "probe.sh.j2",
+            "mime_type": "bash",
+            "category": "connectivity_test",
+        }
+
+        resolved = _resolve_file_references(
+            data,
+            tmp_path,
+            interface={"base_url": "https://api.acme.example"},
+        )
+
+        assert resolved["file_path"] == "probe.sh.j2"
+        assert resolved["file_content"] == "curl '{{ interface.base_url }}/health'\n"
+
     def test_jinja_template_renders_and_strips_j2(self, tmp_path: Path) -> None:
         (tmp_path / "code.js.j2").write_text(
             "const key = '{{ provider.name }}';\n"
@@ -263,8 +311,8 @@ class TestResolveFileReferencesIntegration:
         sent_body = json.loads(upload_route.calls.last.request.content.decode())
         doc = sent_body["listing_data"]["documents"]["JS Example"]
 
-        # .j2 suffix stripped in the stored file_path.
-        assert doc["file_path"] == "../../docs/code_example.js"
-        # The rendered template is inlined as file_content, with
-        # {{ offering.name }} substituted from the local offering.
-        assert "const svc = 'svc1';" in doc["file_content"]
+        # Code-example documents ship as raw templates (the backend renders
+        # them per consumption context). The ``.j2`` suffix and the
+        # ``{{ offering.name }}`` placeholder are preserved verbatim.
+        assert doc["file_path"] == "../../docs/code_example.js.j2"
+        assert doc["file_content"] == "const svc = '{{ offering.name }}';\n"

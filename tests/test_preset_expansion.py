@@ -60,9 +60,13 @@ def test_preset_expanded_doc_survives_resolve_file_references(tmp_path: Path):
 
     # file_content is inlined — the backend never needs to open the file.
     assert "boto3" in record_after["file_content"]
-    # file_path is reduced to basename (no absolute path leaked to backend),
-    # and .j2 is stripped so the stored name matches the rendered output.
-    assert record_after["file_path"] == "connectivity-v1.py"
+    # Connectivity-test documents ship as raw templates so the backend can
+    # render them per consumption context (gateway vs. local probe). The
+    # ``.j2`` suffix and any ``{{ ... }}`` placeholders are preserved.
+    assert record_after["file_path"] == "connectivity-v1.py.j2"
+    # Raw Jinja2 syntax survives — this template uses ``{% if local_testing %}``
+    # branches that the backend will resolve per render context.
+    assert "{% if local_testing %}" in record_after["file_content"]
     # Metadata carried through unchanged.
     assert record_after["category"] == "connectivity_test"
     assert record_after["mime_type"] == "python"
