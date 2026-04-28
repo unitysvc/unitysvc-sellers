@@ -1,5 +1,6 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
@@ -8,7 +9,7 @@ from ...client import AuthenticatedClient, Client
 from ...models.cursor_page_service_group_public import CursorPageServiceGroupPublic
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
-from ...models.service_group_status_enum import ServiceGroupStatusEnum
+from ...models.service_group_status_enum import ServiceGroupStatusEnum, check_service_group_status_enum
 from ...types import UNSET, Response, Unset
 
 

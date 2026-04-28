@@ -346,6 +346,7 @@ def _service_detail_with_docs(
     doc_ids: list[str],
     status: str = "active",
     base_url: str = "http://127.0.0.1:65535/p/svc",
+    interface_id: str | None = None,
 ) -> dict:
     """Build a ServiceDetailResponse-shaped payload.
 
@@ -356,7 +357,12 @@ def _service_detail_with_docs(
     127.0.0.1:65535 so the bash script the CLI executes fails fast
     with an exit code we can assert on. Override if a test wants to
     hit a real mocked endpoint.
+
+    ``interface_id`` lets the caller pin the access-interface UUID so
+    the matching ``GET /documents/{id}/render?interface=<uuid>`` mock can
+    be set up with the same id; defaults to a fresh random UUID.
     """
+    iface_id = interface_id or str(uuid.uuid4())
     return {
         "service_id": service_id,
         "service_name": "svc1",
@@ -373,7 +379,7 @@ def _service_detail_with_docs(
         ],
         "interfaces": [
             {
-                "id": str(uuid.uuid4()),
+                "id": iface_id,
                 "service_id": service_id,
                 "access_method": "http",
                 "name": "default",
@@ -385,6 +391,32 @@ def _service_detail_with_docs(
                 "created_at": "2026-01-01T00:00:00Z",
             }
         ],
+    }
+
+
+def _document_render(
+    document_id: str,
+    *,
+    content: str,
+    mime_type: str = "bash",
+    filename: str = "test.sh",
+) -> dict:
+    """Minimal ``DocumentRenderResponse``-shaped payload.
+
+    ``GET /seller/documents/{id}/render?interface=<uuid>`` returns the
+    Jinja2-expanded script body for a code-example / connectivity-test
+    against a specific user access interface.  ``run-tests`` reads
+    ``content`` and ``mime_type`` and runs the rest as the seller's
+    subprocess — env-var injection beyond ``UNITYSVC_API_KEY`` is no
+    longer needed because every interface-specific value (gateway URL,
+    routing_key, …) is already inlined in ``content``.
+    """
+    return {
+        "document_id": document_id,
+        "filename": filename,
+        "content": content,
+        "mime_type": mime_type,
+        "local_testing": False,
     }
 
 
@@ -440,23 +472,38 @@ class TestRunTestsLocalExecution:
         """A trivial success script runs, exits 0, and the CLI PATCHes it back."""
         service_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
         doc_id = "11111111-1111-1111-1111-111111111111"
+        iface_id = "ffffffff-ffff-ffff-ffff-ffffffffff01"
 
         monkeypatch.setenv("UNITYSVC_API_KEY", "svcpass_local_test")
 
         respx.get(f"{BASE_URL}/services/{service_id}").mock(
             return_value=httpx.Response(
                 200,
-                json=_service_detail_with_docs(service_id, [doc_id], status="active"),
+                json=_service_detail_with_docs(service_id, [doc_id], status="active", interface_id=iface_id),
             )
         )
 
-        # Script that always succeeds and echoes SERVICE_BASE_URL so we
-        # can verify the env is wired through — no network call.
-        success_script = 'echo "hit=$SERVICE_BASE_URL"\nexit 0\n'
+        # Doc-detail GET still happens once per doc (used for skip-state
+        # logic and meta).  Body is otherwise unused now that the rendered
+        # script comes from the render endpoint.
         respx.get(f"{BASE_URL}/documents/{doc_id}").mock(
             return_value=httpx.Response(
                 200,
-                json=_document_detail(doc_id, file_content=success_script),
+                json=_document_detail(doc_id, file_content="ignored"),
+            )
+        )
+
+        # Script with the gateway URL already inlined — that's what the
+        # backend's /render endpoint produces (no env-var read; only
+        # ``UNITYSVC_API_KEY`` is consulted at execution time).
+        success_script = 'echo "hit=https://gw.example.com/p/svc"\nexit 0\n'
+        respx.get(
+            f"{BASE_URL}/documents/{doc_id}/render",
+            params={"interface": iface_id},
+        ).mock(
+            return_value=httpx.Response(
+                200,
+                json=_document_render(doc_id, content=success_script),
             )
         )
 
@@ -505,19 +552,29 @@ class TestRunTestsLocalExecution:
         """
         service_id = "cccccccc-cccc-cccc-cccc-cccccccccccc"
         doc_id = "22222222-2222-2222-2222-222222222222"
+        iface_id = "ffffffff-ffff-ffff-ffff-ffffffffff02"
 
         monkeypatch.setenv("UNITYSVC_API_KEY", "svcpass_local_test")
 
         respx.get(f"{BASE_URL}/services/{service_id}").mock(
             return_value=httpx.Response(
                 200,
-                json=_service_detail_with_docs(service_id, [doc_id], status="draft"),
+                json=_service_detail_with_docs(service_id, [doc_id], status="draft", interface_id=iface_id),
             )
         )
         respx.get(f"{BASE_URL}/documents/{doc_id}").mock(
             return_value=httpx.Response(
                 200,
-                json=_document_detail(doc_id, file_content="exit 0\n"),
+                json=_document_detail(doc_id, file_content="ignored"),
+            )
+        )
+        respx.get(
+            f"{BASE_URL}/documents/{doc_id}/render",
+            params={"interface": iface_id},
+        ).mock(
+            return_value=httpx.Response(
+                200,
+                json=_document_render(doc_id, content="exit 0\n"),
             )
         )
         respx.patch(f"{BASE_URL}/documents/{doc_id}").mock(
@@ -557,25 +614,33 @@ class TestRunTestsLocalExecution:
         """A script that exits non-zero is reported as script_failed."""
         service_id = "dddddddd-dddd-dddd-dddd-dddddddddddd"
         doc_id = "33333333-3333-3333-3333-333333333333"
+        iface_id = "ffffffff-ffff-ffff-ffff-ffffffffff03"
 
         monkeypatch.setenv("UNITYSVC_API_KEY", "svcpass_local_test")
 
         respx.get(f"{BASE_URL}/services/{service_id}").mock(
             return_value=httpx.Response(
                 200,
-                json=_service_detail_with_docs(service_id, [doc_id], status="active"),
+                json=_service_detail_with_docs(service_id, [doc_id], status="active", interface_id=iface_id),
+            )
+        )
+        respx.get(f"{BASE_URL}/documents/{doc_id}").mock(
+            return_value=httpx.Response(
+                200,
+                json=_document_detail(doc_id, file_content="ignored"),
             )
         )
         # Script always fails with exit 7 — mirrors the curl
         # "connection refused" class of failures the seller hits
-        # when the gateway URL is wrong.
-        respx.get(f"{BASE_URL}/documents/{doc_id}").mock(
+        # when the gateway URL is wrong.  Coming from the render
+        # endpoint, not from the doc detail.
+        respx.get(
+            f"{BASE_URL}/documents/{doc_id}/render",
+            params={"interface": iface_id},
+        ).mock(
             return_value=httpx.Response(
                 200,
-                json=_document_detail(
-                    doc_id,
-                    file_content='echo "boom" >&2\nexit 7\n',
-                ),
+                json=_document_render(doc_id, content='echo "boom" >&2\nexit 7\n'),
             )
         )
         respx.patch(f"{BASE_URL}/documents/{doc_id}").mock(
