@@ -486,3 +486,30 @@ def test_render_template_file_non_template(tmp_path: Path) -> None:
 
     assert content == "print('{{ not a template }}')"
     assert filename == "script.py"
+
+
+def test_render_template_file_extra_context(tmp_path: Path) -> None:
+    """Extra kwargs are spread into the top-level Jinja2 namespace.
+
+    ``run-tests`` uses this to mirror the gateway's render context — the
+    upstream interface fields (``service_base_url``, ``routing_key``, ``host``,
+    ``region``, …) appear as bare top-level variables, not under
+    ``interface.*``, so unitysvc-data v0.1.7+ templates render the same way
+    locally as they will on the backend.
+    """
+    template_file = tmp_path / "call.py.j2"
+    template_file.write_text(
+        'requests.post("{{ service_base_url }}/v1/chat", '
+        'json={"model": "{{ routing_key.model }}"})'
+    )
+
+    content, _filename = render_template_file(
+        template_file,
+        service_base_url="https://api.example.com",
+        routing_key={"model": "gpt-4o"},
+    )
+
+    assert content == (
+        'requests.post("https://api.example.com/v1/chat", '
+        'json={"model": "gpt-4o"})'
+    )

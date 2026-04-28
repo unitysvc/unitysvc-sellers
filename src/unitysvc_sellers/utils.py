@@ -221,6 +221,7 @@ def render_template_file(
     seller: dict[str, Any] | None = None,
     interface: dict[str, Any] | None = None,
     local_testing: bool = False,
+    **extra_context: Any,
 ) -> tuple[str, str]:
     """Render a Jinja2 template file and return content and new filename.
 
@@ -240,6 +241,10 @@ def render_template_file(
             upstream (no gateway / set_body transformer).  When False (default), templates
             render the clean, user-facing version where the gateway injects parameters from
             the enrollment automatically.
+        **extra_context: Additional top-level Jinja2 variables.  ``run-tests`` uses this to
+            spread the upstream interface fields (``service_base_url``, ``routing_key``,
+            ``host``, ``region``, …) directly into the render namespace so unitysvc-data
+            v0.1.7+ templates resolve identically to gateway-side rendering.
 
     Returns:
         Tuple of (rendered_content, new_filename_without_j2)
@@ -268,6 +273,7 @@ def render_template_file(
             seller=seller or {},
             interface=interface or {},
             local_testing=local_testing,
+            **extra_context,
         )
 
         # Strip .j2 from filename
