@@ -513,3 +513,30 @@ def test_render_template_file_extra_context(tmp_path: Path) -> None:
         'requests.post("https://api.example.com/v1/chat", '
         'json={"model": "gpt-4o"})'
     )
+
+
+def test_render_template_file_listing_level_namespaces(tmp_path: Path) -> None:
+    """``enrollment_vars``, ``params``, ``routing_vars`` resolve as namespaces.
+
+    Seller-authored connectivity tests reference listing-level vars (e.g.
+    ``URL="https://echo.svcmarket.com/{{ enrollment_vars.code }}"``).  These
+    must resolve at render time so the rendered script never carries literal
+    ``{{ ... }}`` placeholders into bash / python execution.
+    """
+    template_file = tmp_path / "probe.sh.j2"
+    template_file.write_text(
+        'URL="https://echo.svcmarket.com/{{ enrollment_vars.code }}"\n'
+        'BACKEND="{{ routing_vars.backend_host }}"\n'
+        'SECRET_NAME="{{ params.base_url_secret }}"\n'
+    )
+
+    content, _filename = render_template_file(
+        template_file,
+        enrollment_vars={"code": "abc123"},
+        routing_vars={"backend_host": "https://backend.internal"},
+        params={"base_url_secret": "ECHO_BYOE_BASE_URL"},
+    )
+
+    assert 'URL="https://echo.svcmarket.com/abc123"' in content
+    assert 'BACKEND="https://backend.internal"' in content
+    assert 'SECRET_NAME="ECHO_BYOE_BASE_URL"' in content

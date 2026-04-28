@@ -494,12 +494,30 @@ def load_upstream_access_interface(listing_file: Path) -> dict[str, str] | None:
     return None
 
 
-def execute_code_example(code_example: dict[str, Any], credentials: dict[str, Any]) -> dict[str, Any]:
+def execute_code_example(
+    code_example: dict[str, Any],
+    credentials: dict[str, Any],
+    *,
+    enrollment_vars: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
+    routing_vars: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Execute a code example script with upstream credentials.
 
     Args:
         code_example: Code example metadata with file_path and listing_data
-        credentials: Upstream access config fields (api_key, base_url, host, routing_key, etc.)
+        credentials: Upstream access config fields with secret refs already resolved
+            (api_key, base_url, host, routing_key, etc.).  These are spread into the
+            Jinja2 namespace as top-level variables (``base_url`` →
+            ``service_base_url``; ``api_key`` is dropped — keys never inline into
+            rendered output).
+        enrollment_vars: Listing-level enrollment vars with template strings already
+            expanded and secret refs resolved.  Exposed both as ``enrollment_vars`` and
+            spread at the top level, mirroring the gateway render context.
+        params: Listing-level ``ops_testing_parameters``.  Exposed both as ``params``
+            and spread at the top level.
+        routing_vars: Listing-level routing vars.  Exposed only as ``routing_vars``
+            (not spread; entries can collide with field names).
 
     Returns:
         Result dictionary with success, exit_code, stdout, stderr, rendered_content, file_suffix
@@ -536,12 +554,33 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
         # Render template if applicable (handles both .j2 and non-.j2 files).
         # local_testing=True so templates can include request parameters that
         # would otherwise come from the gateway set_body transformer.
-        # Get upstream interface for template context (S3 services need bucket, region, etc.)
         offering_data = related_data.get("offering", {})
-        upstream_config = offering_data.get("upstream_access_config", {})
-        first_upstream: dict = next(iter(upstream_config.values()), {}) if upstream_config else {}
 
-        upstream_context = build_upstream_template_context(first_upstream)
+        # The Jinja2 render namespace mirrors the gateway's at consumption time:
+        #
+        # - upstream interface fields (``service_base_url``, ``routing_key``,
+        #   ``host``, ``region``, …) come from ``credentials`` — already resolved
+        #   from ``${ secrets.X }`` / ``${ customer_secrets.X }`` references by
+        #   the caller.  Reading the raw offering here would leak literal
+        #   ``${ ... }`` placeholders into the rendered script.
+        # - ``enrollment_vars``, ``params`` (= ``ops_testing_parameters``), and
+        #   ``routing_vars`` are exposed both namespaced and (where safe) spread
+        #   at the top level, so templates may write either ``{{ enrollment_vars.code }}``
+        #   or ``{{ code }}``.  ``routing_vars`` stays namespaced to avoid
+        #   colliding with upstream-field names.
+        upstream_context = build_upstream_template_context(credentials)
+        enrollment_vars_ctx = enrollment_vars or {}
+        params_ctx = params or {}
+        routing_vars_ctx = routing_vars or {}
+
+        extra_context: dict[str, Any] = {
+            "enrollment_vars": enrollment_vars_ctx,
+            "params": params_ctx,
+            "routing_vars": routing_vars_ctx,
+            **enrollment_vars_ctx,
+            **params_ctx,
+            **upstream_context,
+        }
 
         try:
             file_content, actual_filename = render_template_file(
@@ -550,9 +589,9 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
                 offering=offering_data,
                 provider=related_data.get("provider", {}),
                 seller=related_data.get("seller", {}),
-                interface=first_upstream or code_example.get("interface", {}),
+                interface=credentials or code_example.get("interface", {}),
                 local_testing=True,
-                **upstream_context,
+                **extra_context,
             )
         except Exception as e:
             result["error"] = f"Template rendering failed: {str(e)}"
@@ -1023,8 +1062,13 @@ def run_local(
     # credential-resolution pass append skipped entries directly.
     results: list[dict[str, Any]] = []
 
-    # Resolve credentials from upstream_interface in each discovered example
-    all_code_examples: list[tuple[dict[str, Any], str, dict[str, str]]] = []
+    # Resolve credentials from upstream_interface in each discovered example.
+    # Each tuple carries (example, provider_name, credentials, template_extras),
+    # where template_extras packages the rendered listing-level vars
+    # (enrollment_vars / params / routing_vars) that the Jinja2 render of the
+    # code-example template needs.  The gateway exposes these to its own
+    # render context, so we mirror them here for parity.
+    all_code_examples: list[tuple[dict[str, Any], str, dict[str, Any], dict[str, Any]]] = []
     warned_listings: set[str] = set()
 
     for example, prov_name in discovered:
@@ -1074,7 +1118,12 @@ def run_local(
         has_anchor = bool(base_url or credentials.get("host") or credentials.get("access_key"))
         if has_anchor and not missing_secrets:
             credentials.setdefault("api_key", "")
-            all_code_examples.append((example, prov_name, credentials))
+            template_extras = {
+                "enrollment_vars": rendered_vars,
+                "params": ops_params,
+                "routing_vars": routing_vars,
+            }
+            all_code_examples.append((example, prov_name, credentials, template_extras))
         else:
             # Record the test as explicitly skipped with the specific
             # missing env vars so the summary table gets a row with a
@@ -1120,7 +1169,7 @@ def run_local(
     # `results` may already contain entries from the credential-resolution
     # pass above (tests skipped due to missing env vars) — do not shadow it.
 
-    for example, prov_name, credentials in all_code_examples:
+    for example, prov_name, credentials, template_extras in all_code_examples:
         service_name = example["service_name"]
         example_title = example["title"]
         iface_name = example.get("upstream_interface_name", "default")
@@ -1155,7 +1204,13 @@ def run_local(
 
         console.print(f"[bold]Testing:[/bold] {label}")
 
-        result = execute_code_example(example, credentials)
+        result = execute_code_example(
+            example,
+            credentials,
+            enrollment_vars=template_extras.get("enrollment_vars"),
+            params=template_extras.get("params"),
+            routing_vars=template_extras.get("routing_vars"),
+        )
         result["skipped"] = False
 
         results.append(
