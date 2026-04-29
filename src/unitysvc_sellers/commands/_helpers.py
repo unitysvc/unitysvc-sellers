@@ -185,8 +185,18 @@ async def fetch_service_ids_by_status(
     statuses: list[str],
     *,
     provider: str | None = None,
+    visibilities: list[str] | None = None,
 ) -> list[str]:
-    """List all service ids matching any of ``statuses``, optionally filtered by provider.
+    """List all service ids matching any of ``statuses``, optionally filtered.
+
+    Args:
+        statuses: status values to fetch; queried separately and unioned.
+        provider: case-insensitive substring match against ``provider_name``,
+            applied client-side.
+        visibilities: when set, restrict to services whose ``visibility`` is
+            in this list — used by ``publish/unlist/hide --all`` to skip
+            services that already have the target visibility. ``None`` means
+            no visibility filter (all visibilities).
 
     Follows cursor pagination to completion so sellers with more than
     one page of services in a given status aren't silently truncated.
@@ -199,36 +209,47 @@ async def fetch_service_ids_by_status(
     # `except SellerSDKError: continue` and silently returned no ids.
     PAGE_SIZE = 200
 
+    # Backend takes a single ``visibility`` value per request. To union
+    # across multiple, we issue one query per (status, visibility).
+    visibility_values: list[str | None] = (
+        [v for v in visibilities] if visibilities else [None]
+    )
+
     for status in statuses:
-        cursor: str | None = None
-        while True:
-            try:
-                response = await client.services.list(
-                    status=status,
-                    limit=PAGE_SIZE,
-                    cursor=cursor,
-                )
-            except SellerSDKError as exc:
-                # Surface the error instead of silently skipping — previously
-                # this branch masked a limit-validation failure and produced
-                # empty results with no indication of the cause.
-                console.print(f"[yellow]Warning:[/yellow] failed to list services with status={status}: {exc}")
-                break
+        for visibility in visibility_values:
+            cursor: str | None = None
+            while True:
+                try:
+                    response = await client.services.list(
+                        status=status,
+                        visibility=visibility,
+                        limit=PAGE_SIZE,
+                        cursor=cursor,
+                    )
+                except SellerSDKError as exc:
+                    # Surface the error instead of silently skipping — previously
+                    # this branch masked a limit-validation failure and produced
+                    # empty results with no indication of the cause.
+                    label = f"status={status}"
+                    if visibility:
+                        label += f", visibility={visibility}"
+                    console.print(f"[yellow]Warning:[/yellow] failed to list services with {label}: {exc}")
+                    break
 
-            for svc in model_list(response):
-                if not svc.get("id"):
-                    continue
-                if provider_lower:
-                    svc_provider = svc.get("provider_name", "") or ""
-                    if provider_lower not in svc_provider.lower():
+                for svc in model_list(response):
+                    if not svc.get("id"):
                         continue
-                all_ids.append(str(svc["id"]))
+                    if provider_lower:
+                        svc_provider = svc.get("provider_name", "") or ""
+                        if provider_lower not in svc_provider.lower():
+                            continue
+                    all_ids.append(str(svc["id"]))
 
-            next_cursor = getattr(response, "next_cursor", None)
-            has_more = getattr(response, "has_more", False)
-            if not has_more or not next_cursor:
-                break
-            cursor = str(next_cursor)
+                next_cursor = getattr(response, "next_cursor", None)
+                has_more = getattr(response, "has_more", False)
+                if not has_more or not next_cursor:
+                    break
+                cursor = str(next_cursor)
 
     return all_ids
 

@@ -17,6 +17,7 @@ def _get_kwargs(
     cursor: None | str | Unset = UNSET,
     limit: int | Unset = 50,
     status: None | str | Unset = UNSET,
+    visibility: None | str | Unset = UNSET,
     service_type: None | str | Unset = UNSET,
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
@@ -47,6 +48,13 @@ def _get_kwargs(
     else:
         json_status = status
     params["status"] = json_status
+
+    json_visibility: None | str | Unset
+    if isinstance(visibility, Unset):
+        json_visibility = UNSET
+    else:
+        json_visibility = visibility
+    params["visibility"] = json_visibility
 
     json_service_type: None | str | Unset
     if isinstance(service_type, Unset):
@@ -127,6 +135,7 @@ def sync_detailed(
     cursor: None | str | Unset = UNSET,
     limit: int | Unset = 50,
     status: None | str | Unset = UNSET,
+    visibility: None | str | Unset = UNSET,
     service_type: None | str | Unset = UNSET,
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
@@ -146,6 +155,7 @@ def sync_detailed(
       ``next_cursor``. Omit to start from the first page.
     - limit: Page size (default: 50, max: 200)
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
+    - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
     - listing_type: Filter by listing type (regular, byok, self_hosted)
     - name: Search by name, display name, or provider name (case-insensitive partial match)
@@ -155,6 +165,7 @@ def sync_detailed(
             `next_cursor`. Omit to start from the first page.
         limit (int | Unset): Page size (default 50, max 200). Default: 50.
         status (None | str | Unset):
+        visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
         listing_type (None | str | Unset): Filter by listing type
         name (None | str | Unset): Search by name, display name, or provider name (case-
@@ -174,6 +185,7 @@ def sync_detailed(
         cursor=cursor,
         limit=limit,
         status=status,
+        visibility=visibility,
         service_type=service_type,
         listing_type=listing_type,
         name=name,
@@ -194,6 +206,7 @@ def sync(
     cursor: None | str | Unset = UNSET,
     limit: int | Unset = 50,
     status: None | str | Unset = UNSET,
+    visibility: None | str | Unset = UNSET,
     service_type: None | str | Unset = UNSET,
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
@@ -213,6 +226,7 @@ def sync(
       ``next_cursor``. Omit to start from the first page.
     - limit: Page size (default: 50, max: 200)
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
+    - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
     - listing_type: Filter by listing type (regular, byok, self_hosted)
     - name: Search by name, display name, or provider name (case-insensitive partial match)
@@ -222,6 +236,7 @@ def sync(
             `next_cursor`. Omit to start from the first page.
         limit (int | Unset): Page size (default 50, max 200). Default: 50.
         status (None | str | Unset):
+        visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
         listing_type (None | str | Unset): Filter by listing type
         name (None | str | Unset): Search by name, display name, or provider name (case-
@@ -242,6 +257,7 @@ def sync(
         cursor=cursor,
         limit=limit,
         status=status,
+        visibility=visibility,
         service_type=service_type,
         listing_type=listing_type,
         name=name,
@@ -256,6 +272,7 @@ async def asyncio_detailed(
     cursor: None | str | Unset = UNSET,
     limit: int | Unset = 50,
     status: None | str | Unset = UNSET,
+    visibility: None | str | Unset = UNSET,
     service_type: None | str | Unset = UNSET,
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
@@ -275,6 +292,7 @@ async def asyncio_detailed(
       ``next_cursor``. Omit to start from the first page.
     - limit: Page size (default: 50, max: 200)
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
+    - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
     - listing_type: Filter by listing type (regular, byok, self_hosted)
     - name: Search by name, display name, or provider name (case-insensitive partial match)
@@ -284,6 +302,7 @@ async def asyncio_detailed(
             `next_cursor`. Omit to start from the first page.
         limit (int | Unset): Page size (default 50, max 200). Default: 50.
         status (None | str | Unset):
+        visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
         listing_type (None | str | Unset): Filter by listing type
         name (None | str | Unset): Search by name, display name, or provider name (case-
@@ -303,6 +322,7 @@ async def asyncio_detailed(
         cursor=cursor,
         limit=limit,
         status=status,
+        visibility=visibility,
         service_type=service_type,
         listing_type=listing_type,
         name=name,
@@ -321,6 +341,7 @@ async def asyncio(
     cursor: None | str | Unset = UNSET,
     limit: int | Unset = 50,
     status: None | str | Unset = UNSET,
+    visibility: None | str | Unset = UNSET,
     service_type: None | str | Unset = UNSET,
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
@@ -340,6 +361,7 @@ async def asyncio(
       ``next_cursor``. Omit to start from the first page.
     - limit: Page size (default: 50, max: 200)
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
+    - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
     - listing_type: Filter by listing type (regular, byok, self_hosted)
     - name: Search by name, display name, or provider name (case-insensitive partial match)
@@ -349,6 +371,7 @@ async def asyncio(
             `next_cursor`. Omit to start from the first page.
         limit (int | Unset): Page size (default 50, max 200). Default: 50.
         status (None | str | Unset):
+        visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
         listing_type (None | str | Unset): Filter by listing type
         name (None | str | Unset): Search by name, display name, or provider name (case-
@@ -370,6 +393,7 @@ async def asyncio(
             cursor=cursor,
             limit=limit,
             status=status,
+            visibility=visibility,
             service_type=service_type,
             listing_type=listing_type,
             name=name,

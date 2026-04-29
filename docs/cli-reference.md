@@ -475,6 +475,7 @@ $ usvc_seller services list [OPTIONS]
 * `--cursor TEXT`: Continuation token from a previous page&#x27;s next_cursor.
 * `--all`: Follow cursors and print every page as one combined result.
 * `--status TEXT`: Filter by service status (draft, pending, review, active, rejected, suspended, deprecated).
+* `--visibility TEXT`: Filter by catalog visibility (public, unlisted, private).
 * `-n, --name TEXT`: Search by name, display_name, or provider name (case-insensitive partial match).
 * `--provider TEXT`: Filter by provider name (case-insensitive partial match, applied client-side).
 * `--fields TEXT`: Comma-separated list of columns to display.  [default: id,name,provider_name,service_type,status,visibility]
@@ -589,7 +590,7 @@ $ usvc_seller services publish [OPTIONS] [SERVICE_IDS]...
 
 **Options**:
 
-* `--all`: Publish all active services.
+* `--all`: Publish all active services that aren&#x27;t already public.
 * `--provider TEXT`: Filter by provider when --all is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -612,7 +613,7 @@ $ usvc_seller services unlist [OPTIONS] [SERVICE_IDS]...
 
 **Options**:
 
-* `--all`: Unlist all active services.
+* `--all`: Unlist all active services that aren&#x27;t already unlisted.
 * `--provider TEXT`: Filter by provider when --all is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -635,7 +636,7 @@ $ usvc_seller services hide [OPTIONS] [SERVICE_IDS]...
 
 **Options**:
 
-* `--all`: Hide all active services.
+* `--all`: Hide all active services that aren&#x27;t already private.
 * `--provider TEXT`: Filter by provider when --all is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]

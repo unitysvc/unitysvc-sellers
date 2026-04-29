@@ -16,13 +16,9 @@ def _get_kwargs(
     document_id: str,
     *,
     interface: None | Unset | UUID = UNSET,
-    authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-    if not isinstance(authorization, Unset):
-        headers["authorization"] = authorization
-
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
@@ -99,44 +95,55 @@ def _build_response(
 def sync_detailed(
     document_id: str,
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     interface: None | Unset | UUID = UNSET,
-    authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[DocumentRenderResponse | ErrorResponse]:
     r"""Render Document
 
      Render a code-example or connectivity-test document on demand.
 
-    Returns the document's ``file_content`` after Jinja2 expansion against a
-    render context derived from the document's service.  The mode is selected
-    by the ``interface`` query param:
+    Two modes via the ``interface`` query param:
 
-    - ``interface=<uuid>`` → **gateway / e2e mode** (``local_testing=False``).
+    - ``interface=<uuid>`` → **gateway mode** (``local_testing=False``).
       Render context: the named :class:`AccessInterface`'s gateway URL +
       routing_key, plus the listing's ``enrollment_vars`` /
-      ``ops_testing_parameters`` (``params``) / ``routing_vars``.  This is
-      what ``usvc_seller services run-tests`` consumes per-interface, and
-      what the frontend calls to display \"the code I'd run\".
+      ``ops_testing_parameters`` (``params``) / ``routing_vars``.  This
+      is what ``usvc_seller services run-tests`` consumes per-interface,
+      what the seller's \"preview as customer\" view calls, and what the
+      anonymous marketplace ``/market/{id}`` page calls (for public
+      documents).
     - ``interface`` omitted → **upstream mode** (``local_testing=True``).
       Render context: the offering's ``upstream_access_config`` (first
-      interface).  Used for upstream connectivity testing (#878); output
-      matches ``usvc_seller data run-tests`` byte-for-byte.
+      interface).  Used for upstream connectivity testing (#878).
+      Renders against the seller's upstream URL with ``${ secrets.X }``
+      references resolved against the seller's secret store — the
+      rendered output may inline credentials, so this mode is
+      restricted to ops_customer (the platform test runner) and the
+      seller-owner.
 
-    The document must:
-    - Have category ``code_example`` or ``connectivity_test``
-    - Belong to a service owned by the current seller
-    - When ``interface`` is given: the interface must belong to the same
-      service.
+    Auth shape:
 
-    The rendered ``filename`` has the ``.j2`` suffix stripped when the input
-    was a template.  ``UNITYSVC_API_KEY`` is intentionally never inlined — it
-    is read from the environment at execution time, on every code path.
+    - **Anonymous** is accepted for ``interface=<uuid>`` rendering of
+      documents where ``is_public=True`` *and* the underlying service
+      is ``active`` + ``visibility=public``.  This is the marketplace
+      path: customers can render the same code they'd copy off the
+      service-detail page.
+    - **Seller-owner** can render any document on a service they own,
+      in either mode.
+    - **ops_customer** can render any document in any mode — the
+      platform test runner needs upstream-mode access to verify
+      seller-side connectivity.
+    - All other authentications are rejected with 403.
+
+    The rendered ``filename`` has the ``.j2`` suffix stripped when the
+    input was a template.  ``UNITYSVC_API_KEY`` is intentionally never
+    inlined — it is read from the environment at execution time, on
+    every code path.
 
     Args:
         document_id (str):
         interface (None | Unset | UUID):
-        authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
     Raises:
@@ -150,7 +157,6 @@ def sync_detailed(
     kwargs = _get_kwargs(
         document_id=document_id,
         interface=interface,
-        authorization=authorization,
         x_role_id=x_role_id,
     )
 
@@ -164,44 +170,55 @@ def sync_detailed(
 def sync(
     document_id: str,
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     interface: None | Unset | UUID = UNSET,
-    authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> DocumentRenderResponse | ErrorResponse | None:
     r"""Render Document
 
      Render a code-example or connectivity-test document on demand.
 
-    Returns the document's ``file_content`` after Jinja2 expansion against a
-    render context derived from the document's service.  The mode is selected
-    by the ``interface`` query param:
+    Two modes via the ``interface`` query param:
 
-    - ``interface=<uuid>`` → **gateway / e2e mode** (``local_testing=False``).
+    - ``interface=<uuid>`` → **gateway mode** (``local_testing=False``).
       Render context: the named :class:`AccessInterface`'s gateway URL +
       routing_key, plus the listing's ``enrollment_vars`` /
-      ``ops_testing_parameters`` (``params``) / ``routing_vars``.  This is
-      what ``usvc_seller services run-tests`` consumes per-interface, and
-      what the frontend calls to display \"the code I'd run\".
+      ``ops_testing_parameters`` (``params``) / ``routing_vars``.  This
+      is what ``usvc_seller services run-tests`` consumes per-interface,
+      what the seller's \"preview as customer\" view calls, and what the
+      anonymous marketplace ``/market/{id}`` page calls (for public
+      documents).
     - ``interface`` omitted → **upstream mode** (``local_testing=True``).
       Render context: the offering's ``upstream_access_config`` (first
-      interface).  Used for upstream connectivity testing (#878); output
-      matches ``usvc_seller data run-tests`` byte-for-byte.
+      interface).  Used for upstream connectivity testing (#878).
+      Renders against the seller's upstream URL with ``${ secrets.X }``
+      references resolved against the seller's secret store — the
+      rendered output may inline credentials, so this mode is
+      restricted to ops_customer (the platform test runner) and the
+      seller-owner.
 
-    The document must:
-    - Have category ``code_example`` or ``connectivity_test``
-    - Belong to a service owned by the current seller
-    - When ``interface`` is given: the interface must belong to the same
-      service.
+    Auth shape:
 
-    The rendered ``filename`` has the ``.j2`` suffix stripped when the input
-    was a template.  ``UNITYSVC_API_KEY`` is intentionally never inlined — it
-    is read from the environment at execution time, on every code path.
+    - **Anonymous** is accepted for ``interface=<uuid>`` rendering of
+      documents where ``is_public=True`` *and* the underlying service
+      is ``active`` + ``visibility=public``.  This is the marketplace
+      path: customers can render the same code they'd copy off the
+      service-detail page.
+    - **Seller-owner** can render any document on a service they own,
+      in either mode.
+    - **ops_customer** can render any document in any mode — the
+      platform test runner needs upstream-mode access to verify
+      seller-side connectivity.
+    - All other authentications are rejected with 403.
+
+    The rendered ``filename`` has the ``.j2`` suffix stripped when the
+    input was a template.  ``UNITYSVC_API_KEY`` is intentionally never
+    inlined — it is read from the environment at execution time, on
+    every code path.
 
     Args:
         document_id (str):
         interface (None | Unset | UUID):
-        authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
     Raises:
@@ -216,7 +233,6 @@ def sync(
         document_id=document_id,
         client=client,
         interface=interface,
-        authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
 
@@ -224,44 +240,55 @@ def sync(
 async def asyncio_detailed(
     document_id: str,
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     interface: None | Unset | UUID = UNSET,
-    authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[DocumentRenderResponse | ErrorResponse]:
     r"""Render Document
 
      Render a code-example or connectivity-test document on demand.
 
-    Returns the document's ``file_content`` after Jinja2 expansion against a
-    render context derived from the document's service.  The mode is selected
-    by the ``interface`` query param:
+    Two modes via the ``interface`` query param:
 
-    - ``interface=<uuid>`` → **gateway / e2e mode** (``local_testing=False``).
+    - ``interface=<uuid>`` → **gateway mode** (``local_testing=False``).
       Render context: the named :class:`AccessInterface`'s gateway URL +
       routing_key, plus the listing's ``enrollment_vars`` /
-      ``ops_testing_parameters`` (``params``) / ``routing_vars``.  This is
-      what ``usvc_seller services run-tests`` consumes per-interface, and
-      what the frontend calls to display \"the code I'd run\".
+      ``ops_testing_parameters`` (``params``) / ``routing_vars``.  This
+      is what ``usvc_seller services run-tests`` consumes per-interface,
+      what the seller's \"preview as customer\" view calls, and what the
+      anonymous marketplace ``/market/{id}`` page calls (for public
+      documents).
     - ``interface`` omitted → **upstream mode** (``local_testing=True``).
       Render context: the offering's ``upstream_access_config`` (first
-      interface).  Used for upstream connectivity testing (#878); output
-      matches ``usvc_seller data run-tests`` byte-for-byte.
+      interface).  Used for upstream connectivity testing (#878).
+      Renders against the seller's upstream URL with ``${ secrets.X }``
+      references resolved against the seller's secret store — the
+      rendered output may inline credentials, so this mode is
+      restricted to ops_customer (the platform test runner) and the
+      seller-owner.
 
-    The document must:
-    - Have category ``code_example`` or ``connectivity_test``
-    - Belong to a service owned by the current seller
-    - When ``interface`` is given: the interface must belong to the same
-      service.
+    Auth shape:
 
-    The rendered ``filename`` has the ``.j2`` suffix stripped when the input
-    was a template.  ``UNITYSVC_API_KEY`` is intentionally never inlined — it
-    is read from the environment at execution time, on every code path.
+    - **Anonymous** is accepted for ``interface=<uuid>`` rendering of
+      documents where ``is_public=True`` *and* the underlying service
+      is ``active`` + ``visibility=public``.  This is the marketplace
+      path: customers can render the same code they'd copy off the
+      service-detail page.
+    - **Seller-owner** can render any document on a service they own,
+      in either mode.
+    - **ops_customer** can render any document in any mode — the
+      platform test runner needs upstream-mode access to verify
+      seller-side connectivity.
+    - All other authentications are rejected with 403.
+
+    The rendered ``filename`` has the ``.j2`` suffix stripped when the
+    input was a template.  ``UNITYSVC_API_KEY`` is intentionally never
+    inlined — it is read from the environment at execution time, on
+    every code path.
 
     Args:
         document_id (str):
         interface (None | Unset | UUID):
-        authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
     Raises:
@@ -275,7 +302,6 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         document_id=document_id,
         interface=interface,
-        authorization=authorization,
         x_role_id=x_role_id,
     )
 
@@ -287,44 +313,55 @@ async def asyncio_detailed(
 async def asyncio(
     document_id: str,
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     interface: None | Unset | UUID = UNSET,
-    authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> DocumentRenderResponse | ErrorResponse | None:
     r"""Render Document
 
      Render a code-example or connectivity-test document on demand.
 
-    Returns the document's ``file_content`` after Jinja2 expansion against a
-    render context derived from the document's service.  The mode is selected
-    by the ``interface`` query param:
+    Two modes via the ``interface`` query param:
 
-    - ``interface=<uuid>`` → **gateway / e2e mode** (``local_testing=False``).
+    - ``interface=<uuid>`` → **gateway mode** (``local_testing=False``).
       Render context: the named :class:`AccessInterface`'s gateway URL +
       routing_key, plus the listing's ``enrollment_vars`` /
-      ``ops_testing_parameters`` (``params``) / ``routing_vars``.  This is
-      what ``usvc_seller services run-tests`` consumes per-interface, and
-      what the frontend calls to display \"the code I'd run\".
+      ``ops_testing_parameters`` (``params``) / ``routing_vars``.  This
+      is what ``usvc_seller services run-tests`` consumes per-interface,
+      what the seller's \"preview as customer\" view calls, and what the
+      anonymous marketplace ``/market/{id}`` page calls (for public
+      documents).
     - ``interface`` omitted → **upstream mode** (``local_testing=True``).
       Render context: the offering's ``upstream_access_config`` (first
-      interface).  Used for upstream connectivity testing (#878); output
-      matches ``usvc_seller data run-tests`` byte-for-byte.
+      interface).  Used for upstream connectivity testing (#878).
+      Renders against the seller's upstream URL with ``${ secrets.X }``
+      references resolved against the seller's secret store — the
+      rendered output may inline credentials, so this mode is
+      restricted to ops_customer (the platform test runner) and the
+      seller-owner.
 
-    The document must:
-    - Have category ``code_example`` or ``connectivity_test``
-    - Belong to a service owned by the current seller
-    - When ``interface`` is given: the interface must belong to the same
-      service.
+    Auth shape:
 
-    The rendered ``filename`` has the ``.j2`` suffix stripped when the input
-    was a template.  ``UNITYSVC_API_KEY`` is intentionally never inlined — it
-    is read from the environment at execution time, on every code path.
+    - **Anonymous** is accepted for ``interface=<uuid>`` rendering of
+      documents where ``is_public=True`` *and* the underlying service
+      is ``active`` + ``visibility=public``.  This is the marketplace
+      path: customers can render the same code they'd copy off the
+      service-detail page.
+    - **Seller-owner** can render any document on a service they own,
+      in either mode.
+    - **ops_customer** can render any document in any mode — the
+      platform test runner needs upstream-mode access to verify
+      seller-side connectivity.
+    - All other authentications are rejected with 403.
+
+    The rendered ``filename`` has the ``.j2`` suffix stripped when the
+    input was a template.  ``UNITYSVC_API_KEY`` is intentionally never
+    inlined — it is read from the environment at execution time, on
+    every code path.
 
     Args:
         document_id (str):
         interface (None | Unset | UUID):
-        authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
     Raises:
@@ -340,7 +377,6 @@ async def asyncio(
             document_id=document_id,
             client=client,
             interface=interface,
-            authorization=authorization,
             x_role_id=x_role_id,
         )
     ).parsed
