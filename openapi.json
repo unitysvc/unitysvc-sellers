@@ -224,6 +224,128 @@
         }
       }
     },
+    "/documents/{document_id}/render": {
+      "get": {
+        "tags": [
+          "seller-documents"
+        ],
+        "summary": "Render Document",
+        "description": "Render a code-example or connectivity-test document on demand.\n\nReturns the document's ``file_content`` after Jinja2 expansion against a\nrender context derived from the document's service.  The mode is selected\nby the ``interface`` query param:\n\n- ``interface=<uuid>`` \u2192 **gateway / e2e mode** (``local_testing=False``).\n  Render context: the named :class:`AccessInterface`'s gateway URL +\n  routing_key, plus the listing's ``enrollment_vars`` /\n  ``ops_testing_parameters`` (``params``) / ``routing_vars``.  This is\n  what ``usvc_seller services run-tests`` consumes per-interface, and\n  what the frontend calls to display \"the code I'd run\".\n- ``interface`` omitted \u2192 **upstream mode** (``local_testing=True``).\n  Render context: the offering's ``upstream_access_config`` (first\n  interface).  Used for upstream connectivity testing (#878); output\n  matches ``usvc_seller data run-tests`` byte-for-byte.\n\nThe document must:\n- Have category ``code_example`` or ``connectivity_test``\n- Belong to a service owned by the current seller\n- When ``interface`` is given: the interface must belong to the same\n  service.\n\nThe rendered ``filename`` has the ``.j2`` suffix stripped when the input\nwas a template.  ``UNITYSVC_API_KEY`` is intentionally never inlined \u2014 it\nis read from the environment at execution time, on every code path.",
+        "operationId": "documents_render",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          },
+          {
+            "name": "interface",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Interface"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRenderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
     "/documents/{document_id}/execute": {
       "post": {
         "tags": [
@@ -1894,7 +2016,7 @@
           "seller-services"
         ],
         "summary": "Upload My Service",
-        "description": "Upload a complete service (provider, offering, and listing) together.\n\nAccepts all three entity types in a single request and ingests them in\nthe correct order: provider -> offering -> listing.\n\nThe seller is identified by X-Role-Id header (JWT) or API key's role_id.\n\nQuery Parameters:\n- dryrun: If True, the upload runs **synchronously** inside the request\n  and returns the validation result directly (status 200 with\n  ``dryrun_result`` populated). No Celery task is queued and no DB\n  writes are made. Use this to validate a payload before committing.\n\nHeaders:\n- Idempotency-Key: Optional client-supplied key for safe retries on\n  real (non-dryrun) uploads. When set, the server uses it as the\n  Celery task id and dedupes by it for 24 hours via a Redis SETNX\n  gate, so replaying the same key returns the same task id without\n  queueing the work twice. Ignored when ``dryrun=true`` because\n  dryrun has no side effects to dedupe.\n\nFor non-dryrun uploads the response is ``status=202`` with ``task_id``\nset; the task can be polled via the Celery result backend.",
+        "description": "Upload a complete service (provider, offering, and listing) together.\n\nAccepts all three entity types in a single request and ingests them in\nthe correct order: provider -> offering -> listing.\n\nThe seller is identified by X-Role-Id header (JWT) or API key's role_id.\n\nHeaders:\n- Idempotency-Key: Optional client-supplied key for safe retries.\n  When set, the server uses it as the Celery task id and dedupes by it\n  for 24 hours via a Redis SETNX gate, so replaying the same key\n  returns the same task id without queueing the work twice.\n\nThe response is ``status=202`` with ``task_id`` set; the task can be\npolled via the Celery result backend.",
         "operationId": "services_upload",
         "parameters": [
           {
@@ -3156,6 +3278,58 @@
         ],
         "title": "DocumentExecuteResponse",
         "description": "POST /seller/documents/{id}/execute \u2014 queues a Celery test run.\n\nThis is the seller's pre-submission dry-run tool. It does NOT touch\nservice status or trigger admin review \u2014 contrast with the formal\nsubmission flow via PATCH /seller/services/{id} (set_status=pending)."
+      },
+      "DocumentRenderResponse": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "local_testing": {
+            "type": "boolean",
+            "title": "Local Testing"
+          },
+          "test": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "filename",
+          "content",
+          "local_testing"
+        ],
+        "title": "DocumentRenderResponse",
+        "description": "GET /seller/documents/{id}/render \u2014 rendered code-example / connectivity-test.\n\nReturns the document's ``file_content`` after Jinja2 expansion against a\nrender context derived from the document's service.  Two modes selected\nby the ``interface`` query param:\n\n- ``interface=<uuid>`` \u2192 gateway / e2e mode (``local_testing=False``).\n  Context is built from the named :class:`AccessInterface` (gateway URL,\n  routing_key) plus the listing's ``enrollment_vars`` / ``params`` /\n  ``routing_vars``.  This is what ``usvc_seller services run-tests``\n  consumes per-interface.\n- ``interface`` omitted \u2192 upstream mode (``local_testing=True``).\n  Context is built from the offering's ``upstream_access_config`` (first\n  interface).  Output matches ``usvc_seller data run-tests`` byte-for-byte.\n\n``filename`` has the ``.j2`` suffix stripped when the document was a\ntemplate (e.g. ``connectivity-v1.sh.j2`` \u2192 ``connectivity-v1.sh``)."
       },
       "DocumentTestStatusResponse": {
         "properties": {
@@ -4482,6 +4656,45 @@
               }
             ],
             "title": "Description"
+          },
+          "context_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Type"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "is_public": {
+            "type": "boolean",
+            "title": "Is Public",
+            "default": false
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
           }
         },
         "type": "object",
@@ -4490,7 +4703,7 @@
           "title"
         ],
         "title": "ServiceDocumentItem",
-        "description": "Slim document pointer embedded in ``ServiceDetailResponse``.\n\nCarries just enough for the SDK to navigate to the full document\nrecord (``GET /seller/documents/{id}``); file content, MIME type,\nfile size, ``meta`` (test status etc.) all live on\n``DocumentDetailResponse``. Keeping this list slim avoids re-sending\ndocument details on every service read when the seller is just\npolling status."
+        "description": "Document pointer embedded in ``ServiceDetailResponse``.\n\nIncludes the fields the seller UI needs to render the documents tab\n(split by ``context_type``, show MIME type / visibility, and display\ntest status via ``meta``). File content still requires\n``GET /seller/documents/{id}``."
       },
       "ServiceGroupCreate": {
         "properties": {
@@ -5535,7 +5748,7 @@
           "message"
         ],
         "title": "ServiceUploadResponse",
-        "description": "POST /seller/services \u2014 response for service uploads.\n\nThe upload is queued via Celery and ``task_id`` is the task id\n(== Idempotency-Key when one was supplied)."
+        "description": "POST /seller/services \u2014 response for async upload.\n\nThe upload is queued via Celery: ``task_id`` is the Celery task id\n(== Idempotency-Key when one was supplied).  Poll the task backend\nfor the final result."
       },
       "ServiceVisibilityEnum": {
         "type": "string",

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -13,10 +13,11 @@ T = TypeVar("T", bound="ServiceUploadResponse")
 
 @_attrs_define
 class ServiceUploadResponse:
-    """POST /seller/services — response for service uploads.
+    """POST /seller/services — response for async upload.
 
-    The upload is queued via Celery and ``task_id`` is the task id
-    (== Idempotency-Key when one was supplied).
+    The upload is queued via Celery: ``task_id`` is the Celery task id
+    (== Idempotency-Key when one was supplied).  Poll the task backend
+    for the final result.
 
     """
 

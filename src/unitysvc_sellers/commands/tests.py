@@ -66,6 +66,7 @@ async def _iter_all_services(client: Any) -> list[dict[str, Any]]:
             break
     return collected
 
+
 console = Console()
 
 
@@ -345,21 +346,17 @@ def _resolve_interfaces(
     return result
 
 
-def _make_exec_env(base_url: str, routing_key: dict[str, Any], user_api_key: str) -> dict[str, str]:
-    """Build the minimal env the legacy test runner exposes to scripts.
+def _make_exec_env(user_api_key: str) -> dict[str, str]:
+    """Build the env the test runner exposes to rendered scripts.
 
-    Only ``SERVICE_BASE_URL``, ``UNITYSVC_API_KEY``, and flattened
-    routing_key entries (uppercased) are injected — matching the
-    backend's gateway-testing convention in ``async_run_service_tests``.
+    Only ``UNITYSVC_API_KEY`` is injected — every other field
+    (``service_base_url``, ``routing_key.*``, ``host``, ``region``, …) is
+    rendered into the script body at template-render time by the backend
+    ``GET /seller/documents/{id}/render`` endpoint.  Keys are deliberately
+    never inlined into rendered output, so the API key is the one value that
+    has to come through env on every code path.
     """
-    env: dict[str, str] = {}
-    if base_url:
-        env["SERVICE_BASE_URL"] = base_url
-    if user_api_key:
-        env["UNITYSVC_API_KEY"] = user_api_key
-    for rk_key, rk_val in routing_key.items():
-        env[rk_key.upper()] = str(rk_val)
-    return env
+    return {"UNITYSVC_API_KEY": user_api_key} if user_api_key else {}
 
 
 @services_app.command("run-tests")
@@ -473,28 +470,15 @@ def run_tests(
                             continue
 
                     full_doc = model_to_dict(await client.documents.get(did))
-                    file_content = full_doc.get("file_content")
-                    mime_type = str(full_doc.get("mime_type") or "")
                     full_meta = full_doc.get("meta") or {}
                     output_contains = full_meta.get("output_contains") if isinstance(full_meta, dict) else None
-
-                    if not file_content:
-                        doc_results.append(
-                            {
-                                "doc_id": did,
-                                "title": title,
-                                "status": "skipped",
-                                "reason": "no file content",
-                                "iface_results": {},
-                            }
-                        )
-                        continue
+                    fallback_mime = str(full_doc.get("mime_type") or "")
 
                     if not interfaces_list:
-                        # No active interfaces to test against. Running
-                        # with an empty SERVICE_BASE_URL would fail with
-                        # a confusing "SERVICE_BASE_URL is not set"
-                        # message; skip cleanly instead.
+                        # No active interfaces to test against. The render
+                        # endpoint requires an interface UUID for gateway
+                        # mode, and rendering with no upstream config makes
+                        # no sense for the seller — skip cleanly.
                         doc_results.append(
                             {
                                 "doc_id": did,
@@ -512,15 +496,62 @@ def run_tests(
                     # but we need to keep them in the payload since the
                     # backend overwrites the whole `tests` map.
                     prior = full_meta.get("test") if isinstance(full_meta, dict) else None
-                    iface_results: dict[str, dict[str, Any]] = dict(
-                        (prior or {}).get("tests") or {}
-                    )
-                    for iface_id, iface_name, iface_url, iface_rk in interfaces_list:
+                    iface_results: dict[str, dict[str, Any]] = dict((prior or {}).get("tests") or {})
+                    exec_env = _make_exec_env(user_api_key)
+                    # ``iface_rk`` (routing_key) is unused now — the backend
+                    # render endpoint inlines it into the script body, so
+                    # there's no env-var to flatten it into anymore.
+                    for iface_id, iface_name, iface_url, _iface_rk in interfaces_list:
                         key = iface_id or iface_name  # fallback if server didn't return an id
-                        exec_env = _make_exec_env(iface_url, iface_rk, user_api_key)
+
+                        # Pull the interface-specific rendered script from the
+                        # backend (``GET /seller/documents/{id}/render?interface=<uuid>``).
+                        # The body has ``service_base_url`` / ``routing_key.*`` /
+                        # any listing-level vars (``enrollment_vars`` / ``params`` /
+                        # ``routing_vars``) inlined, so the rendered output is
+                        # ready to execute as-is — no env-var injection beyond
+                        # ``UNITYSVC_API_KEY``.
+                        if not iface_id:
+                            iface_results[key] = {
+                                "name": iface_name,
+                                "status": "task_failed",
+                                "base_url": iface_url,
+                                "env_vars": exec_env,
+                                "error": (
+                                    "Interface has no id — backend did not return one "
+                                    "(cannot call /documents/{id}/render?interface=<uuid>)"
+                                ),
+                            }
+                            continue
+
+                        try:
+                            rendered = await client.documents.render(did, interface=iface_id)
+                        except Exception as render_err:  # noqa: BLE001
+                            iface_results[key] = {
+                                "name": iface_name,
+                                "status": "task_failed",
+                                "base_url": iface_url,
+                                "env_vars": exec_env,
+                                "error": f"Failed to render document for interface: {render_err}",
+                            }
+                            continue
+
+                        rendered_dict = model_to_dict(rendered)
+                        rendered_content = str(rendered_dict.get("content") or "")
+                        rendered_mime = str(rendered_dict.get("mime_type") or fallback_mime)
+                        if not rendered_content:
+                            iface_results[key] = {
+                                "name": iface_name,
+                                "status": "task_failed",
+                                "base_url": iface_url,
+                                "env_vars": exec_env,
+                                "error": "Render returned empty content",
+                            }
+                            continue
+
                         exec_result = execute_script_content(
-                            script=str(file_content),
-                            mime_type=mime_type,
+                            script=rendered_content,
+                            mime_type=rendered_mime,
                             env_vars=exec_env,
                             output_contains=str(output_contains) if output_contains else None,
                             timeout=timeout,
@@ -530,6 +561,12 @@ def run_tests(
                             "status": exec_result["status"],
                             "base_url": iface_url,
                             "env_vars": exec_env,
+                            # Rendered script + mime captured here so the
+                            # local failure-dump (below) can write the *exact*
+                            # interface-specific script that ran, not a
+                            # nominal pre-render template.
+                            "rendered_content": rendered_content,
+                            "rendered_mime_type": rendered_mime,
                         }
                         if exec_result.get("exit_code") is not None:
                             entry["exit_code"] = exec_result["exit_code"]
@@ -545,13 +582,9 @@ def run_tests(
                     # document status — worst wins, restricted to *this*
                     # service's interfaces so a sibling revision's prior
                     # failure doesn't make our fresh success look bad.
-                    this_service_keys = {
-                        (iid or name) for iid, name, _url, _rk in interfaces_list
-                    }
+                    this_service_keys = {(iid or name) for iid, name, _url, _rk in interfaces_list}
                     failed_entries = [
-                        e
-                        for k, e in iface_results.items()
-                        if k in this_service_keys and e["status"] != "success"
+                        e for k, e in iface_results.items() if k in this_service_keys and e["status"] != "success"
                     ]
                     worst_status = failed_entries[0]["status"] if failed_entries else "success"
 
@@ -571,8 +604,6 @@ def run_tests(
                                 "title": title,
                                 "status": worst_status,
                                 "iface_results": iface_results,
-                                "file_content": file_content,
-                                "mime_type": mime_type,
                                 "service_name": service_name,
                                 "update_warning": str(update_err),
                             }
@@ -585,8 +616,6 @@ def run_tests(
                             "title": title,
                             "status": worst_status,
                             "iface_results": iface_results,
-                            "file_content": file_content,
-                            "mime_type": mime_type,
                             "service_name": service_name,
                         }
                     )
@@ -656,18 +685,25 @@ def run_tests(
 
             # Write script / stdout / stderr / env files for each
             # failing interface, mirroring usvc_seller data run-tests.
+            #
+            # Each interface ran its OWN rendered script (the backend renders
+            # per-interface so ``service_base_url`` etc. match that
+            # interface's gateway URL), so the failure dump pulls the
+            # interface's ``rendered_content`` rather than a doc-level
+            # script — the file the seller ``source``s + reruns is the
+            # exact one that just failed.
             svc = re.sub(r"[^\w-]", "_", entry.get("service_name") or short)
             doc_slug = re.sub(r"[^\w-]", "_", title)
-            mime = entry.get("mime_type") or ""
-            ext = ".py" if "python" in mime else ".sh"
-            script_content = entry.get("file_content") or ""
             for iface_entry in iface_results.values():
                 if iface_entry.get("status") == "success":
                     continue
                 iface_slug = re.sub(r"[^\w-]", "_", str(iface_entry.get("name") or "default"))
                 base = f"failed_{svc}_{doc_slug}_{iface_slug}"
+                iface_mime = iface_entry.get("rendered_mime_type") or ""
+                ext = ".py" if "python" in iface_mime else ".sh"
+                iface_script = iface_entry.get("rendered_content") or ""
                 for path, content in [
-                    (f"{base}{ext}", script_content),
+                    (f"{base}{ext}", iface_script),
                     (f"{base}.out", iface_entry.get("stdout") or ""),
                     (f"{base}.err", iface_entry.get("stderr") or ""),
                 ]:

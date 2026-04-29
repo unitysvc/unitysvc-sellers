@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -54,8 +54,10 @@ class ServiceDetailResponse:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.access_interface_public import AccessInterfacePublic
         from ..models.provider_data import ProviderData
         from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
+        from ..models.service_document_item import ServiceDocumentItem
         from ..models.service_listing_data import ServiceListingData
         from ..models.service_offering_data import ServiceOfferingData
 

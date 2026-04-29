@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.provider_data import ProviderData
@@ -87,6 +89,10 @@ class ServiceDataInput:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.provider_data import ProviderData
+        from ..models.service_listing_data import ServiceListingData
+        from ..models.service_offering_data import ServiceOfferingData
+
         provider_data = self.provider_data.to_dict()
 
         offering_data = self.offering_data.to_dict()

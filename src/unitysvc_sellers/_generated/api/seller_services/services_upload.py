@@ -1,5 +1,6 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
@@ -99,22 +100,14 @@ def sync_detailed(
 
     The seller is identified by X-Role-Id header (JWT) or API key's role_id.
 
-    Query Parameters:
-    - dryrun: If True, the upload runs **synchronously** inside the request
-      and returns the validation result directly (status 200 with
-      ``dryrun_result`` populated). No Celery task is queued and no DB
-      writes are made. Use this to validate a payload before committing.
-
     Headers:
-    - Idempotency-Key: Optional client-supplied key for safe retries on
-      real (non-dryrun) uploads. When set, the server uses it as the
-      Celery task id and dedupes by it for 24 hours via a Redis SETNX
-      gate, so replaying the same key returns the same task id without
-      queueing the work twice. Ignored when ``dryrun=true`` because
-      dryrun has no side effects to dedupe.
+    - Idempotency-Key: Optional client-supplied key for safe retries.
+      When set, the server uses it as the Celery task id and dedupes by it
+      for 24 hours via a Redis SETNX gate, so replaying the same key
+      returns the same task id without queueing the work twice.
 
-    For non-dryrun uploads the response is ``status=202`` with ``task_id``
-    set; the task can be polled via the Celery result backend.
+    The response is ``status=202`` with ``task_id`` set; the task can be
+    polled via the Celery result backend.
 
     Args:
         idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
@@ -168,22 +161,14 @@ def sync(
 
     The seller is identified by X-Role-Id header (JWT) or API key's role_id.
 
-    Query Parameters:
-    - dryrun: If True, the upload runs **synchronously** inside the request
-      and returns the validation result directly (status 200 with
-      ``dryrun_result`` populated). No Celery task is queued and no DB
-      writes are made. Use this to validate a payload before committing.
-
     Headers:
-    - Idempotency-Key: Optional client-supplied key for safe retries on
-      real (non-dryrun) uploads. When set, the server uses it as the
-      Celery task id and dedupes by it for 24 hours via a Redis SETNX
-      gate, so replaying the same key returns the same task id without
-      queueing the work twice. Ignored when ``dryrun=true`` because
-      dryrun has no side effects to dedupe.
+    - Idempotency-Key: Optional client-supplied key for safe retries.
+      When set, the server uses it as the Celery task id and dedupes by it
+      for 24 hours via a Redis SETNX gate, so replaying the same key
+      returns the same task id without queueing the work twice.
 
-    For non-dryrun uploads the response is ``status=202`` with ``task_id``
-    set; the task can be polled via the Celery result backend.
+    The response is ``status=202`` with ``task_id`` set; the task can be
+    polled via the Celery result backend.
 
     Args:
         idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
@@ -232,22 +217,14 @@ async def asyncio_detailed(
 
     The seller is identified by X-Role-Id header (JWT) or API key's role_id.
 
-    Query Parameters:
-    - dryrun: If True, the upload runs **synchronously** inside the request
-      and returns the validation result directly (status 200 with
-      ``dryrun_result`` populated). No Celery task is queued and no DB
-      writes are made. Use this to validate a payload before committing.
-
     Headers:
-    - Idempotency-Key: Optional client-supplied key for safe retries on
-      real (non-dryrun) uploads. When set, the server uses it as the
-      Celery task id and dedupes by it for 24 hours via a Redis SETNX
-      gate, so replaying the same key returns the same task id without
-      queueing the work twice. Ignored when ``dryrun=true`` because
-      dryrun has no side effects to dedupe.
+    - Idempotency-Key: Optional client-supplied key for safe retries.
+      When set, the server uses it as the Celery task id and dedupes by it
+      for 24 hours via a Redis SETNX gate, so replaying the same key
+      returns the same task id without queueing the work twice.
 
-    For non-dryrun uploads the response is ``status=202`` with ``task_id``
-    set; the task can be polled via the Celery result backend.
+    The response is ``status=202`` with ``task_id`` set; the task can be
+    polled via the Celery result backend.
 
     Args:
         idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
@@ -299,22 +276,14 @@ async def asyncio(
 
     The seller is identified by X-Role-Id header (JWT) or API key's role_id.
 
-    Query Parameters:
-    - dryrun: If True, the upload runs **synchronously** inside the request
-      and returns the validation result directly (status 200 with
-      ``dryrun_result`` populated). No Celery task is queued and no DB
-      writes are made. Use this to validate a payload before committing.
-
     Headers:
-    - Idempotency-Key: Optional client-supplied key for safe retries on
-      real (non-dryrun) uploads. When set, the server uses it as the
-      Celery task id and dedupes by it for 24 hours via a Redis SETNX
-      gate, so replaying the same key returns the same task id without
-      queueing the work twice. Ignored when ``dryrun=true`` because
-      dryrun has no side effects to dedupe.
+    - Idempotency-Key: Optional client-supplied key for safe retries.
+      When set, the server uses it as the Celery task id and dedupes by it
+      for 24 hours via a Redis SETNX gate, so replaying the same key
+      returns the same task id without queueing the work twice.
 
-    For non-dryrun uploads the response is ``status=202`` with ``task_id``
-    set; the task can be polled via the Celery result backend.
+    The response is ``status=202`` with ``task_id`` set; the task can be
+    polled via the Celery result backend.
 
     Args:
         idempotency_key (None | str | Unset): Optional client-supplied key for safe retries. When
