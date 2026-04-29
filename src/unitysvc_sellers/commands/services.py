@@ -76,6 +76,11 @@ def list_services(
         "--status",
         help="Filter by service status (draft, pending, review, active, rejected, suspended, deprecated).",
     ),
+    visibility: str | None = typer.Option(
+        None,
+        "--visibility",
+        help="Filter by catalog visibility (public, unlisted, private).",
+    ),
     name: str | None = typer.Option(
         None,
         "--name",
@@ -111,6 +116,7 @@ def list_services(
                     cursor=current_cursor,
                     limit=limit,
                     status=status,
+                    visibility=visibility,
                     name=name,
                 )
                 collected.extend(model_list(response))
@@ -332,8 +338,15 @@ def _resolve_or_fetch_ids(
     statuses_when_all: list[str],
     provider: str | None,
     flag_name: str,
+    visibilities_when_all: list[str] | None = None,
 ) -> list[str]:
-    """Validate args and either return the explicit ids or fetch by status."""
+    """Validate args and either return the explicit ids or fetch by status.
+
+    ``visibilities_when_all`` further restricts the ``--all`` fetch to
+    services whose current visibility is in the given list. Used by
+    ``publish/unlist/hide --all`` to skip services that already have
+    the target visibility.
+    """
     if provider and not use_all:
         console.print(f"[red]Error:[/red] --provider can only be used with --{flag_name} flag")
         raise typer.Exit(code=1)
@@ -343,6 +356,8 @@ def _resolve_or_fetch_ids(
             console.print(f"[red]Error:[/red] Cannot specify both service IDs and --{flag_name}")
             raise typer.Exit(code=1)
         msg = f"[cyan]Fetching services with status: {', '.join(statuses_when_all)}"
+        if visibilities_when_all:
+            msg += f", visibility: {', '.join(visibilities_when_all)}"
         if provider:
             msg += f" for provider '{provider}'"
         msg += "...[/cyan]"
@@ -350,7 +365,12 @@ def _resolve_or_fetch_ids(
 
         async def _fetch() -> list[str]:
             async with async_client(api_key, base_url) as client:
-                return await fetch_service_ids_by_status(client, statuses_when_all, provider=provider)
+                return await fetch_service_ids_by_status(
+                    client,
+                    statuses_when_all,
+                    provider=provider,
+                    visibilities=visibilities_when_all,
+                )
 
         ids = run_async(_fetch(), error_prefix="Failed to fetch services")
         if not ids:
@@ -465,7 +485,11 @@ def deprecate_service(
 @app.command("publish")
 def publish_service(
     service_ids: list[str] = typer.Argument(None, help="Service ID(s) to publish (≥8 chars)."),
-    all_active: bool = typer.Option(False, "--all", help="Publish all active services."),
+    all_active: bool = typer.Option(
+        False,
+        "--all",
+        help="Publish all active services that aren't already public.",
+    ),
     provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -478,6 +502,7 @@ def publish_service(
         service_ids=service_ids,
         use_all=all_active,
         statuses_when_all=["active"],
+        visibilities_when_all=["unlisted", "private"],
         provider=provider,
         flag_name="all",
     )
@@ -495,7 +520,11 @@ def publish_service(
 @app.command("unlist")
 def unlist_service(
     service_ids: list[str] = typer.Argument(None, help="Service ID(s) to unlist (≥8 chars)."),
-    all_active: bool = typer.Option(False, "--all", help="Unlist all active services."),
+    all_active: bool = typer.Option(
+        False,
+        "--all",
+        help="Unlist all active services that aren't already unlisted.",
+    ),
     provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -508,6 +537,7 @@ def unlist_service(
         service_ids=service_ids,
         use_all=all_active,
         statuses_when_all=["active"],
+        visibilities_when_all=["public", "private"],
         provider=provider,
         flag_name="all",
     )
@@ -525,7 +555,11 @@ def unlist_service(
 @app.command("hide")
 def hide_service(
     service_ids: list[str] = typer.Argument(None, help="Service ID(s) to hide (≥8 chars)."),
-    all_active: bool = typer.Option(False, "--all", help="Hide all active services."),
+    all_active: bool = typer.Option(
+        False,
+        "--all",
+        help="Hide all active services that aren't already private.",
+    ),
     provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -538,6 +572,7 @@ def hide_service(
         service_ids=service_ids,
         use_all=all_active,
         statuses_when_all=["active"],
+        visibilities_when_all=["public", "unlisted"],
         provider=provider,
         flag_name="all",
     )
