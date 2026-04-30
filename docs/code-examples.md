@@ -466,7 +466,7 @@ Use `$file_preset` when you want just the raw file content (e.g. to inline a des
 
 ### Example catalogs: `unitysvc-services-template`
 
-The [`unitysvc-services-template`](https://github.com/unitysvc/unitysvc-services-template) repository is the canonical worked-example catalog. It shows:
+The [`unitysvc-services-template`](https://github.com/unitysvc-labs/unitysvc-services-template) repository is the canonical worked-example catalog. It shows:
 
 - How a seller catalog directory is laid out (`<provider>/services/<service>/listing.json`)
 - How real service listings are specified for different service types (S3, SMTP, LLM, generic HTTP APIs)
