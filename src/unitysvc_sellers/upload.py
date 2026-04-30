@@ -532,10 +532,11 @@ def upload_directory(
 
                 if status_value == "completed":
                     result.services.success += 1
-                    _emit("service", "ok", name, f"task_id={task_id}")
-                    # Write override file with service_id and name from the task result.
-                    # The ingest task returns {"service": {"id": "...", "name": "..."}, ...}.
-                    # name is a derived field (computed by the backend from listing/offering).
+                    # Pull service_id (and the backend-derived service name) out
+                    # of the task result up front so the success line surfaces
+                    # the id sellers actually act on, and the override file
+                    # below pins the same value.  The ingest task returns
+                    # {"service": {"id": "...", "name": "..."}, ...}.
                     task_result = status_dict.get("result") or {}
                     service_id = None
                     service_name = None
@@ -544,6 +545,12 @@ def upload_directory(
                         if isinstance(service_data, dict):
                             service_id = service_data.get("id")
                             service_name = service_data.get("name")
+                    detail = (
+                        f"service_id={service_id}"
+                        if service_id
+                        else f"task_id={task_id}"
+                    )
+                    _emit("service", "ok", name, detail)
                     if service_id:
                         override = {"service_id": str(service_id)}
                         if service_name:
