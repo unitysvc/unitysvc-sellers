@@ -94,7 +94,11 @@ def upload(
             )
         elif status == "ok":
             verb = "ingested" if kind == "service" else "upserted"
-            console.print(f"  [green]✓[/green] [green]{verb}[/green] {kind}: [cyan]{name}[/cyan]")
+            console.print(
+                f"  [green]✓[/green] [green]{verb}[/green] {kind}: [cyan]{name}[/cyan] [dim]({detail})[/dim]"
+                if detail
+                else f"  [green]✓[/green] [green]{verb}[/green] {kind}: [cyan]{name}[/cyan]"
+            )
         else:  # error / anything else
             console.print(f"  [red]✗[/red] [red]failed[/red] {kind}: [cyan]{name}[/cyan] — {detail}")
 
