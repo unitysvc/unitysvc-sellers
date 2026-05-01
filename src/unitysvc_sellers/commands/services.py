@@ -26,6 +26,7 @@ instead.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -42,6 +43,16 @@ from ._helpers import (
     model_to_dict,
     resolve_service_id,
     run_async,
+)
+
+_FROM_DATA_OPTION = typer.Option(
+    False, "--from-data",
+    help="Act on services whose IDs are found in listing_v1 files under --data-dir.",
+)
+_DATA_DIR_OPTION = typer.Option(
+    Path("."), "--data-dir",
+    help="Data directory for --from-data (default: current directory).",
+    exists=True, file_okay=False, dir_okay=True,
 )
 
 console = Console()
@@ -327,6 +338,18 @@ def _bulk_visibility_change(
             raise typer.Exit(code=1)
 
 
+def _read_ids_from_data_dir(data_dir: Path) -> list[str]:
+    """Collect service_ids from all listing_v1 files (with overrides merged) under data_dir."""
+    from unitysvc_core.utils import find_files_by_schema
+
+    ids: list[str] = []
+    for _path, _fmt, data in find_files_by_schema(data_dir, "listing_v1"):
+        sid = data.get("service_id")
+        if sid:
+            ids.append(str(sid))
+    return ids
+
+
 def _resolve_or_fetch_ids(
     *,
     api_key: str | None,
@@ -336,23 +359,52 @@ def _resolve_or_fetch_ids(
     statuses_when_all: list[str],
     provider: str | None,
     flag_name: str,
+    use_from_data: bool = False,
+    data_dir: Path = Path("."),
     visibilities_when_all: list[str] | None = None,
 ) -> list[str]:
-    """Validate args and either return the explicit ids or fetch by status.
+    """Resolve the target service IDs from exactly one of three mutually exclusive sources.
+
+    Sources (only one may be active):
+    - explicit positional ``service_ids``
+    - ``--all``: fetch from the API filtered by status/visibility/provider.
+    - ``--from-data``: read IDs from listing_v1 files under ``data_dir``;
+      ``--provider`` filters by the ``provider_name`` field in each listing.
 
     ``visibilities_when_all`` further restricts the ``--all`` fetch to
-    services whose current visibility is in the given list. Used by
-    ``publish/unlist/hide --all`` to skip services that already have
-    the target visibility.
+    services whose current visibility is in the given list.
     """
-    if provider and not use_all:
-        console.print(f"[red]Error:[/red] --provider can only be used with --{flag_name} flag")
+    # --- strict mutual exclusivity ---
+    modes = sum([bool(service_ids), use_all, use_from_data])
+    if modes > 1:
+        console.print(
+            "[red]Error:[/red] --all, --from-data, and explicit service IDs are mutually exclusive. "
+            "Provide exactly one."
+        )
         raise typer.Exit(code=1)
 
+    # --- --from-data: local listing_v1 files ---
+    if use_from_data:
+        ids = _read_ids_from_data_dir(data_dir)
+        if provider:
+            from unitysvc_core.utils import find_files_by_schema
+
+            provider_lower = provider.lower()
+            allowed = {
+                str(data["service_id"])
+                for _, _, data in find_files_by_schema(data_dir, "listing_v1")
+                if provider_lower in (data.get("provider_name") or "").lower()
+                and data.get("service_id")
+            }
+            ids = [i for i in ids if i in allowed]
+        if not ids:
+            console.print("[yellow]No service IDs found in listing_v1 files under the given directory.[/yellow]")
+            raise typer.Exit(code=0)
+        console.print(f"[cyan]Found {len(ids)} service ID(s) from {data_dir}[/cyan]\n")
+        return ids
+
+    # --- --all: remote API ---
     if use_all:
-        if service_ids:
-            console.print(f"[red]Error:[/red] Cannot specify both service IDs and --{flag_name}")
-            raise typer.Exit(code=1)
         msg = f"[cyan]Fetching services with status: {', '.join(statuses_when_all)}"
         if visibilities_when_all:
             msg += f", visibility: {', '.join(visibilities_when_all)}"
@@ -377,21 +429,32 @@ def _resolve_or_fetch_ids(
         console.print(f"[green]Found {len(ids)} service(s)[/green]\n")
         return ids
 
-    if not service_ids:
-        console.print(f"[red]Error:[/red] Either provide service IDs or use --{flag_name} flag")
+    # --- explicit IDs ---
+    if provider:
+        console.print("[red]Error:[/red] --provider requires --all or --from-data")
         raise typer.Exit(code=1)
-
+    if not service_ids:
+        console.print(
+            f"[red]Error:[/red] Provide service IDs, --{flag_name}, or --from-data"
+        )
+        raise typer.Exit(code=1)
     return list(service_ids)
 
 
 # ---------------------------------------------------------------------------
 # submit / withdraw / deprecate
 # ---------------------------------------------------------------------------
+
+
 @app.command("submit")
 def submit_service(
     service_ids: list[str] = typer.Argument(None, help="Service ID(s) to submit (≥8 chars)."),
     all_drafts: bool = typer.Option(False, "--all", help="Submit all draft and rejected services."),
-    provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
+    from_data: bool = _FROM_DATA_OPTION,
+    data_dir: Path = _DATA_DIR_OPTION,
+    provider: str | None = typer.Option(
+        None, "--provider", help="Filter by provider when --all or --from-data is set."
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -405,6 +468,8 @@ def submit_service(
         statuses_when_all=["draft", "rejected"],
         provider=provider,
         flag_name="all",
+        use_from_data=from_data,
+        data_dir=data_dir,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -421,7 +486,11 @@ def submit_service(
 def withdraw_service(
     service_ids: list[str] = typer.Argument(None, help="Service ID(s) to withdraw (≥8 chars)."),
     all_pending: bool = typer.Option(False, "--all", help="Withdraw all pending and rejected services."),
-    provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
+    from_data: bool = _FROM_DATA_OPTION,
+    data_dir: Path = _DATA_DIR_OPTION,
+    provider: str | None = typer.Option(
+        None, "--provider", help="Filter by provider when --all or --from-data is set."
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -435,6 +504,8 @@ def withdraw_service(
         statuses_when_all=["pending", "rejected"],
         provider=provider,
         flag_name="all",
+        use_from_data=from_data,
+        data_dir=data_dir,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -451,7 +522,11 @@ def withdraw_service(
 def deprecate_service(
     service_ids: list[str] = typer.Argument(None, help="Service ID(s) to deprecate (≥8 chars)."),
     all_active: bool = typer.Option(False, "--all", help="Deprecate all active services."),
-    provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
+    from_data: bool = _FROM_DATA_OPTION,
+    data_dir: Path = _DATA_DIR_OPTION,
+    provider: str | None = typer.Option(
+        None, "--provider", help="Filter by provider when --all or --from-data is set."
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -465,6 +540,8 @@ def deprecate_service(
         statuses_when_all=["active"],
         provider=provider,
         flag_name="all",
+        use_from_data=from_data,
+        data_dir=data_dir,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -488,7 +565,11 @@ def publish_service(
         "--all",
         help="Publish all active services that aren't already public.",
     ),
-    provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
+    from_data: bool = _FROM_DATA_OPTION,
+    data_dir: Path = _DATA_DIR_OPTION,
+    provider: str | None = typer.Option(
+        None, "--provider", help="Filter by provider when --all or --from-data is set."
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -503,6 +584,8 @@ def publish_service(
         visibilities_when_all=["unlisted", "private"],
         provider=provider,
         flag_name="all",
+        use_from_data=from_data,
+        data_dir=data_dir,
     )
     _bulk_visibility_change(
         api_key=api_key,
@@ -523,7 +606,11 @@ def unlist_service(
         "--all",
         help="Unlist all active services that aren't already unlisted.",
     ),
-    provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
+    from_data: bool = _FROM_DATA_OPTION,
+    data_dir: Path = _DATA_DIR_OPTION,
+    provider: str | None = typer.Option(
+        None, "--provider", help="Filter by provider when --all or --from-data is set."
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -538,6 +625,8 @@ def unlist_service(
         visibilities_when_all=["public", "private"],
         provider=provider,
         flag_name="all",
+        use_from_data=from_data,
+        data_dir=data_dir,
     )
     _bulk_visibility_change(
         api_key=api_key,
@@ -558,7 +647,11 @@ def hide_service(
         "--all",
         help="Hide all active services that aren't already private.",
     ),
-    provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
+    from_data: bool = _FROM_DATA_OPTION,
+    data_dir: Path = _DATA_DIR_OPTION,
+    provider: str | None = typer.Option(
+        None, "--provider", help="Filter by provider when --all or --from-data is set."
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -573,6 +666,8 @@ def hide_service(
         visibilities_when_all=["public", "unlisted"],
         provider=provider,
         flag_name="all",
+        use_from_data=from_data,
+        data_dir=data_dir,
     )
     _bulk_visibility_change(
         api_key=api_key,
@@ -596,8 +691,12 @@ def delete_service(
         "--all",
         help="Delete all deletable services (draft, pending, review, rejected, suspended, deprecated).",
     ),
+    from_data: bool = _FROM_DATA_OPTION,
+    data_dir: Path = _DATA_DIR_OPTION,
     status: str | None = typer.Option(None, "--status", help="Restrict --all to a single deletable status."),
-    provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
+    provider: str | None = typer.Option(
+        None, "--provider", help="Filter by provider when --all or --from-data is set."
+    ),
     dryrun: bool = typer.Option(False, "--dryrun", help="Show what would be deleted without doing it."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -622,6 +721,8 @@ def delete_service(
         statuses_when_all=statuses,
         provider=provider,
         flag_name="all",
+        use_from_data=from_data,
+        data_dir=data_dir,
     )
 
     count = len(ids)

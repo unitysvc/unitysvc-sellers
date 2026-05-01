@@ -773,6 +773,69 @@ flowchart LR
 
 The CLI handles this order automatically. Incorrect order will result in foreign key errors.
 
+## Bulk Operations with --from-data
+
+After running `usvc_seller data upload`, each listing file gets a `listing.override.json`
+(or `.override.toml`) written alongside it containing the backend-assigned `service_id`.
+The `--from-data` flag on all bulk service commands reads those IDs automatically, so you
+don't have to copy-paste UUIDs from the upload output.
+
+```bash
+# Submit all services whose override files live under the current directory
+usvc_seller services submit --from-data . --yes
+
+# Withdraw services for a specific provider only
+usvc_seller services withdraw --from-data . --provider acme --yes
+
+# Publish all active services in a data subdirectory
+usvc_seller services publish --data-dir ./data --from-data --yes
+```
+
+### How it works
+
+1. `--from-data` tells the command to scan for `listing_v1` files under `--data-dir`
+   (default: current directory).
+2. For each listing file found, the corresponding `*.override.*` file is merged in
+   automatically. The `service_id` field from the merged result is collected.
+3. Listings that have no `service_id` yet (i.e. not yet uploaded) are silently skipped.
+4. `--provider NAME` filters the collected IDs to those whose listing contains a
+   `provider_name` matching `NAME` (case-insensitive substring match).
+
+### Typical CI/CD upload-and-submit pattern
+
+```yaml
+- name: Upload data
+  env:
+    UNITYSVC_SELLER_API_KEY: ${{ secrets.UNITYSVC_SELLER_API_KEY }}
+    UNITYSVC_SELLER_API_URL: ${{ secrets.UNITYSVC_SELLER_API_URL }}
+  run: usvc_seller data upload
+
+- name: Commit back override files
+  run: |
+    git config user.name "GitHub Actions"
+    git config user.email "actions@github.com"
+    git add -A '*.override.*'
+    git diff --staged --quiet || git commit -m "chore: update service override files [skip ci]"
+    git push
+
+- name: Submit for review
+  env:
+    UNITYSVC_SELLER_API_KEY: ${{ secrets.UNITYSVC_SELLER_API_KEY }}
+    UNITYSVC_SELLER_API_URL: ${{ secrets.UNITYSVC_SELLER_API_URL }}
+  run: usvc_seller services submit --from-data . --yes
+```
+
+### Mutual exclusivity
+
+`--from-data`, `--all`, and explicit service ID arguments are mutually exclusive.
+Only one source may be active per invocation.
+
+| Source | When to use |
+|--------|-------------|
+| Explicit IDs | You know the exact UUIDs |
+| `--all` | Operate on all services in the seller account matching a status/visibility |
+| `--from-data` | Operate on services whose listings live in the local data directory |
+
 ## Deleting Services
 
 Use `usvc_seller services delete` to remove services from the backend:

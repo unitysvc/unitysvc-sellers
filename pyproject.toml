@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "unitysvc-sellers"
-version = "0.1.7"
+version = "0.1.8"
 description = "Seller-facing tools for UnitySVC: HTTP SDK + usvc_seller CLI"
 readme = "README.md"
 authors = [{ name = "Bo Peng", email = "bo.peng@unitysvc.com" }]
@@ -17,8 +17,8 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "unitysvc-core>=0.1.7",
-  "unitysvc-data>=0.1.7",
+  "unitysvc-core>=0.1.8",
+  "unitysvc-data>=0.1.10",
   "typer",
   "rich",
   "jinja2",
