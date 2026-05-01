@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.provider_data_documents_type_0_additional_property import ProviderDataDocumentsType0AdditionalProperty
@@ -22,10 +20,6 @@ class ProviderDataDocumentsType0:
     )
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.provider_data_documents_type_0_additional_property import (
-            ProviderDataDocumentsType0AdditionalProperty,
-        )
-
         field_dict: dict[str, Any] = {}
         for prop_name, prop in self.additional_properties.items():
             field_dict[prop_name] = prop.to_dict()

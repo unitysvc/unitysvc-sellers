@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
-from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.price_rule_apply_at_enum import PriceRuleApplyAtEnum, check_price_rule_apply_at_enum
@@ -60,7 +59,6 @@ class PriceRulePublic:
     """ Seller ID for seller-funded promotions (None = platform rule) """
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.price_rule_pricing_spec import PriceRulePricingSpec
         from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
 
         name = self.name

@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any
 
 import httpx
 
@@ -21,6 +20,7 @@ def _get_kwargs(
     service_type: None | str | Unset = UNSET,
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
+    provider: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -76,6 +76,13 @@ def _get_kwargs(
     else:
         json_name = name
     params["name"] = json_name
+
+    json_provider: None | str | Unset
+    if isinstance(provider, Unset):
+        json_provider = UNSET
+    else:
+        json_provider = provider
+    params["provider"] = json_provider
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -139,6 +146,7 @@ def sync_detailed(
     service_type: None | str | Unset = UNSET,
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
+    provider: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
@@ -157,8 +165,10 @@ def sync_detailed(
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
     - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
-    - listing_type: Filter by listing type (regular, byok, self_hosted)
+    - listing_type: Filter by listing type (managed, byok, byoe)
     - name: Search by name, display name, or provider name (case-insensitive partial match)
+    - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
+      which also matches service name / display name.
 
     Args:
         cursor (None | str | Unset): Opaque pagination cursor from a previous response's
@@ -170,6 +180,8 @@ def sync_detailed(
         listing_type (None | str | Unset): Filter by listing type
         name (None | str | Unset): Search by name, display name, or provider name (case-
             insensitive partial match)
+        provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
+            match). Use this when ``name`` is too broad.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -189,6 +201,7 @@ def sync_detailed(
         service_type=service_type,
         listing_type=listing_type,
         name=name,
+        provider=provider,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -210,6 +223,7 @@ def sync(
     service_type: None | str | Unset = UNSET,
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
+    provider: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
@@ -228,8 +242,10 @@ def sync(
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
     - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
-    - listing_type: Filter by listing type (regular, byok, self_hosted)
+    - listing_type: Filter by listing type (managed, byok, byoe)
     - name: Search by name, display name, or provider name (case-insensitive partial match)
+    - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
+      which also matches service name / display name.
 
     Args:
         cursor (None | str | Unset): Opaque pagination cursor from a previous response's
@@ -241,6 +257,8 @@ def sync(
         listing_type (None | str | Unset): Filter by listing type
         name (None | str | Unset): Search by name, display name, or provider name (case-
             insensitive partial match)
+        provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
+            match). Use this when ``name`` is too broad.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -261,6 +279,7 @@ def sync(
         service_type=service_type,
         listing_type=listing_type,
         name=name,
+        provider=provider,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
@@ -276,6 +295,7 @@ async def asyncio_detailed(
     service_type: None | str | Unset = UNSET,
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
+    provider: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
@@ -294,8 +314,10 @@ async def asyncio_detailed(
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
     - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
-    - listing_type: Filter by listing type (regular, byok, self_hosted)
+    - listing_type: Filter by listing type (managed, byok, byoe)
     - name: Search by name, display name, or provider name (case-insensitive partial match)
+    - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
+      which also matches service name / display name.
 
     Args:
         cursor (None | str | Unset): Opaque pagination cursor from a previous response's
@@ -307,6 +329,8 @@ async def asyncio_detailed(
         listing_type (None | str | Unset): Filter by listing type
         name (None | str | Unset): Search by name, display name, or provider name (case-
             insensitive partial match)
+        provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
+            match). Use this when ``name`` is too broad.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -326,6 +350,7 @@ async def asyncio_detailed(
         service_type=service_type,
         listing_type=listing_type,
         name=name,
+        provider=provider,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -345,6 +370,7 @@ async def asyncio(
     service_type: None | str | Unset = UNSET,
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
+    provider: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
@@ -363,8 +389,10 @@ async def asyncio(
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
     - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
-    - listing_type: Filter by listing type (regular, byok, self_hosted)
+    - listing_type: Filter by listing type (managed, byok, byoe)
     - name: Search by name, display name, or provider name (case-insensitive partial match)
+    - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
+      which also matches service name / display name.
 
     Args:
         cursor (None | str | Unset): Opaque pagination cursor from a previous response's
@@ -376,6 +404,8 @@ async def asyncio(
         listing_type (None | str | Unset): Filter by listing type
         name (None | str | Unset): Search by name, display name, or provider name (case-
             insensitive partial match)
+        provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
+            match). Use this when ``name`` is too broad.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -397,6 +427,7 @@ async def asyncio(
             service_type=service_type,
             listing_type=listing_type,
             name=name,
+            provider=provider,
             authorization=authorization,
             x_role_id=x_role_id,
         )
