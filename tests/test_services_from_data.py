@@ -17,7 +17,6 @@ import typer
 
 from unitysvc_sellers.commands.services import _read_ids_from_data_dir, _resolve_or_fetch_ids
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
