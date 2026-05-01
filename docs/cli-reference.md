@@ -522,8 +522,9 @@ $ usvc_seller services submit [OPTIONS] [SERVICE_IDS]...
 **Options**:
 
 * `--all`: Submit all draft and rejected services.
-* `--from-data DIRECTORY`: Act on services whose IDs are found in listing_v1 files under DATA_DIR.
-* `--provider TEXT`: Filter by provider when --all is set.
+* `--from-data`: Act on services whose IDs are found in listing_v1 files under --data-dir.
+* `--data-dir DIRECTORY`: Data directory for --from-data (default: current directory).  [default: .]
+* `--provider TEXT`: Filter by provider when --all or --from-data is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -546,8 +547,9 @@ $ usvc_seller services withdraw [OPTIONS] [SERVICE_IDS]...
 **Options**:
 
 * `--all`: Withdraw all pending and rejected services.
-* `--from-data DIRECTORY`: Act on services whose IDs are found in listing_v1 files under DATA_DIR.
-* `--provider TEXT`: Filter by provider when --all is set.
+* `--from-data`: Act on services whose IDs are found in listing_v1 files under --data-dir.
+* `--data-dir DIRECTORY`: Data directory for --from-data (default: current directory).  [default: .]
+* `--provider TEXT`: Filter by provider when --all or --from-data is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -570,8 +572,9 @@ $ usvc_seller services deprecate [OPTIONS] [SERVICE_IDS]...
 **Options**:
 
 * `--all`: Deprecate all active services.
-* `--from-data DIRECTORY`: Act on services whose IDs are found in listing_v1 files under DATA_DIR.
-* `--provider TEXT`: Filter by provider when --all is set.
+* `--from-data`: Act on services whose IDs are found in listing_v1 files under --data-dir.
+* `--data-dir DIRECTORY`: Data directory for --from-data (default: current directory).  [default: .]
+* `--provider TEXT`: Filter by provider when --all or --from-data is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -594,8 +597,9 @@ $ usvc_seller services publish [OPTIONS] [SERVICE_IDS]...
 **Options**:
 
 * `--all`: Publish all active services that aren&#x27;t already public.
-* `--from-data DIRECTORY`: Act on services whose IDs are found in listing_v1 files under DATA_DIR.
-* `--provider TEXT`: Filter by provider when --all is set.
+* `--from-data`: Act on services whose IDs are found in listing_v1 files under --data-dir.
+* `--data-dir DIRECTORY`: Data directory for --from-data (default: current directory).  [default: .]
+* `--provider TEXT`: Filter by provider when --all or --from-data is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -618,8 +622,9 @@ $ usvc_seller services unlist [OPTIONS] [SERVICE_IDS]...
 **Options**:
 
 * `--all`: Unlist all active services that aren&#x27;t already unlisted.
-* `--from-data DIRECTORY`: Act on services whose IDs are found in listing_v1 files under DATA_DIR.
-* `--provider TEXT`: Filter by provider when --all is set.
+* `--from-data`: Act on services whose IDs are found in listing_v1 files under --data-dir.
+* `--data-dir DIRECTORY`: Data directory for --from-data (default: current directory).  [default: .]
+* `--provider TEXT`: Filter by provider when --all or --from-data is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -642,8 +647,9 @@ $ usvc_seller services hide [OPTIONS] [SERVICE_IDS]...
 **Options**:
 
 * `--all`: Hide all active services that aren&#x27;t already private.
-* `--from-data DIRECTORY`: Act on services whose IDs are found in listing_v1 files under DATA_DIR.
-* `--provider TEXT`: Filter by provider when --all is set.
+* `--from-data`: Act on services whose IDs are found in listing_v1 files under --data-dir.
+* `--data-dir DIRECTORY`: Data directory for --from-data (default: current directory).  [default: .]
+* `--provider TEXT`: Filter by provider when --all or --from-data is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -666,9 +672,10 @@ $ usvc_seller services delete [OPTIONS] [SERVICE_IDS]...
 **Options**:
 
 * `--all`: Delete all deletable services (draft, pending, review, rejected, suspended, deprecated).
-* `--from-data DIRECTORY`: Act on services whose IDs are found in listing_v1 files under DATA_DIR.
+* `--from-data`: Act on services whose IDs are found in listing_v1 files under --data-dir.
+* `--data-dir DIRECTORY`: Data directory for --from-data (default: current directory).  [default: .]
 * `--status TEXT`: Restrict --all to a single deletable status.
-* `--provider TEXT`: Filter by provider when --all is set.
+* `--provider TEXT`: Filter by provider when --all or --from-data is set.
 * `--dryrun`: Show what would be deleted without doing it.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
