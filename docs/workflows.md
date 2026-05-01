@@ -782,13 +782,16 @@ don't have to copy-paste UUIDs from the upload output.
 
 ```bash
 # Submit all services whose override files live under the current directory
-usvc_seller services submit --from-data . --yes
+usvc_seller services submit --from-data --yes
 
 # Withdraw services for a specific provider only
-usvc_seller services withdraw --from-data . --provider acme --yes
+usvc_seller services withdraw --from-data --provider acme --yes
+
+# Submit services whose listing files are in a data/ subdirectory
+usvc_seller services submit --from-data --data-dir data --yes
 
 # Publish all active services in a data subdirectory
-usvc_seller services publish --data-dir ./data --from-data --yes
+usvc_seller services publish --from-data --data-dir ./data --yes
 ```
 
 ### How it works
@@ -822,7 +825,7 @@ usvc_seller services publish --data-dir ./data --from-data --yes
   env:
     UNITYSVC_SELLER_API_KEY: ${{ secrets.UNITYSVC_SELLER_API_KEY }}
     UNITYSVC_SELLER_API_URL: ${{ secrets.UNITYSVC_SELLER_API_URL }}
-  run: usvc_seller services submit --from-data . --yes
+  run: usvc_seller services submit --from-data --data-dir data --yes
 ```
 
 ### Mutual exclusivity
