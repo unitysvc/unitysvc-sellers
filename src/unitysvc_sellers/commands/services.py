@@ -26,6 +26,8 @@ instead.
 from __future__ import annotations
 
 import json
+import tomllib
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -389,25 +391,61 @@ def _resolve_or_fetch_ids(
 # ---------------------------------------------------------------------------
 # submit / withdraw / deprecate
 # ---------------------------------------------------------------------------
+
+def _read_ids_from_data_dir(data_dir: Path) -> list[str]:
+    """Collect service_ids from listing.override.* files under data_dir."""
+    ids: list[str] = []
+    for path in sorted(data_dir.rglob("listing.override.json")):
+        try:
+            sid = json.loads(path.read_text()).get("service_id")
+            if sid:
+                ids.append(str(sid))
+        except Exception:
+            pass
+    for path in sorted(data_dir.rglob("listing.override.toml")):
+        try:
+            sid = tomllib.loads(path.read_text()).get("service_id")
+            if sid:
+                ids.append(str(sid))
+        except Exception:
+            pass
+    return ids
+
+
 @app.command("submit")
 def submit_service(
     service_ids: list[str] = typer.Argument(None, help="Service ID(s) to submit (≥8 chars)."),
     all_drafts: bool = typer.Option(False, "--all", help="Submit all draft and rejected services."),
+    from_data: Path | None = typer.Option(
+        None,
+        "--from-data",
+        help="Submit services whose IDs are recorded in listing.override.* files under DATA_DIR.",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+    ),
     provider: str | None = typer.Option(None, "--provider", help="Filter by provider when --all is set."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
     """Submit services for review (draft|rejected → pending)."""
-    ids = _resolve_or_fetch_ids(
-        api_key=api_key,
-        base_url=base_url,
-        service_ids=service_ids,
-        use_all=all_drafts,
-        statuses_when_all=["draft", "rejected"],
-        provider=provider,
-        flag_name="all",
-    )
+    if from_data is not None:
+        ids = _read_ids_from_data_dir(from_data)
+        if not ids:
+            console.print("[yellow]No service IDs found in override files under the given directory.[/yellow]")
+            raise typer.Exit(code=0)
+        console.print(f"[cyan]Found {len(ids)} service ID(s) from override files in {from_data}[/cyan]\n")
+    else:
+        ids = _resolve_or_fetch_ids(
+            api_key=api_key,
+            base_url=base_url,
+            service_ids=service_ids,
+            use_all=all_drafts,
+            statuses_when_all=["draft", "rejected"],
+            provider=provider,
+            flag_name="all",
+        )
     _bulk_status_change(
         api_key=api_key,
         base_url=base_url,
