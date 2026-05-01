@@ -410,7 +410,7 @@ def submit_service(
     from_data: Path | None = typer.Option(
         None,
         "--from-data",
-        help="Submit services whose IDs are recorded in listing.override.* files under DATA_DIR.",
+        help="Submit services whose IDs are found in listing_v1 files under DATA_DIR.",
         exists=True,
         file_okay=False,
         dir_okay=True,

@@ -522,6 +522,7 @@ $ usvc_seller services submit [OPTIONS] [SERVICE_IDS]...
 **Options**:
 
 * `--all`: Submit all draft and rejected services.
+* `--from-data DIRECTORY`: Submit services whose IDs are found in listing_v1 files under DATA_DIR.
 * `--provider TEXT`: Filter by provider when --all is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
