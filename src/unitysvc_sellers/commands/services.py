@@ -25,8 +25,6 @@ instead.
 
 from __future__ import annotations
 
-import json
-import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -393,22 +391,14 @@ def _resolve_or_fetch_ids(
 # ---------------------------------------------------------------------------
 
 def _read_ids_from_data_dir(data_dir: Path) -> list[str]:
-    """Collect service_ids from listing.override.* files under data_dir."""
+    """Collect service_ids from all listing_v1 files (with overrides merged) under data_dir."""
+    from unitysvc_core.utils import find_files_by_schema
+
     ids: list[str] = []
-    for path in sorted(data_dir.rglob("listing.override.json")):
-        try:
-            sid = json.loads(path.read_text()).get("service_id")
-            if sid:
-                ids.append(str(sid))
-        except Exception:
-            pass
-    for path in sorted(data_dir.rglob("listing.override.toml")):
-        try:
-            sid = tomllib.loads(path.read_text()).get("service_id")
-            if sid:
-                ids.append(str(sid))
-        except Exception:
-            pass
+    for _path, _fmt, data in find_files_by_schema(data_dir, "listing_v1"):
+        sid = data.get("service_id")
+        if sid:
+            ids.append(str(sid))
     return ids
 
 
