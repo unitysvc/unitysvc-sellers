@@ -363,34 +363,48 @@ def _resolve_or_fetch_ids(
     from_data: Path | None = None,
     visibilities_when_all: list[str] | None = None,
 ) -> list[str]:
-    """Validate args and either return the explicit ids or fetch by status.
+    """Resolve the target service IDs from exactly one of three mutually exclusive sources.
 
-    Three mutually exclusive sources (first match wins):
-    - ``from_data``: read service_ids from listing_v1 files under that directory.
-    - ``use_all``: fetch from the API filtered by status/visibility.
-    - explicit ``service_ids`` positional arguments.
+    Sources (in precedence order — only one may be active):
+    - explicit positional ``service_ids``
+    - ``--all``: fetch from the API filtered by status/visibility/provider.
+    - ``--from-data DIR``: read IDs from listing_v1 files; ``--provider``
+      filters by the ``provider_name`` field in each listing.
 
     ``visibilities_when_all`` further restricts the ``--all`` fetch to
-    services whose current visibility is in the given list. Used by
-    ``publish/unlist/hide --all`` to skip services that already have
-    the target visibility.
+    services whose current visibility is in the given list.
     """
+    # --- strict mutual exclusivity ---
+    modes = sum([bool(service_ids), use_all, from_data is not None])
+    if modes > 1:
+        console.print(
+            "[red]Error:[/red] --all, --from-data, and explicit service IDs are mutually exclusive. "
+            "Provide exactly one."
+        )
+        raise typer.Exit(code=1)
+
+    # --- --from-data: local listing_v1 files ---
     if from_data is not None:
         ids = _read_ids_from_data_dir(from_data)
+        if provider:
+            from unitysvc_core.utils import find_files_by_schema
+
+            provider_lower = provider.lower()
+            allowed = {
+                str(data["service_id"])
+                for _, _, data in find_files_by_schema(from_data, "listing_v1")
+                if provider_lower in (data.get("provider_name") or "").lower()
+                and data.get("service_id")
+            }
+            ids = [i for i in ids if i in allowed]
         if not ids:
             console.print("[yellow]No service IDs found in listing_v1 files under the given directory.[/yellow]")
             raise typer.Exit(code=0)
         console.print(f"[cyan]Found {len(ids)} service ID(s) from {from_data}[/cyan]\n")
         return ids
 
-    if provider and not use_all:
-        console.print(f"[red]Error:[/red] --provider can only be used with --{flag_name} flag")
-        raise typer.Exit(code=1)
-
+    # --- --all: remote API ---
     if use_all:
-        if service_ids:
-            console.print(f"[red]Error:[/red] Cannot specify both service IDs and --{flag_name}")
-            raise typer.Exit(code=1)
         msg = f"[cyan]Fetching services with status: {', '.join(statuses_when_all)}"
         if visibilities_when_all:
             msg += f", visibility: {', '.join(visibilities_when_all)}"
@@ -415,10 +429,15 @@ def _resolve_or_fetch_ids(
         console.print(f"[green]Found {len(ids)} service(s)[/green]\n")
         return ids
 
-    if not service_ids:
-        console.print(f"[red]Error:[/red] Either provide service IDs or use --{flag_name} flag")
+    # --- explicit IDs ---
+    if provider:
+        console.print("[red]Error:[/red] --provider requires --all or --from-data")
         raise typer.Exit(code=1)
-
+    if not service_ids:
+        console.print(
+            f"[red]Error:[/red] Provide service IDs, --{flag_name}, or --from-data"
+        )
+        raise typer.Exit(code=1)
     return list(service_ids)
 
 
