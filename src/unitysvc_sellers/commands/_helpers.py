@@ -192,7 +192,7 @@ async def fetch_service_ids_by_status(
     Args:
         statuses: status values to fetch; queried separately and unioned.
         provider: case-insensitive substring match against ``provider_name``,
-            applied client-side.
+            passed to the backend as a query parameter.
         visibilities: when set, restrict to services whose ``visibility`` is
             in this list — used by ``publish/unlist/hide --all`` to skip
             services that already have the target visibility. ``None`` means
@@ -201,7 +201,6 @@ async def fetch_service_ids_by_status(
     Follows cursor pagination to completion so sellers with more than
     one page of services in a given status aren't silently truncated.
     """
-    provider_lower = provider.lower() if provider else None
     all_ids: list[str] = []
 
     # Backend caps page size at 200 (see seller/_pagination.LimitParam);
@@ -223,6 +222,7 @@ async def fetch_service_ids_by_status(
                     response = await client.services.list(
                         status=status,
                         visibility=visibility,
+                        provider=provider,
                         limit=PAGE_SIZE,
                         cursor=cursor,
                     )
@@ -239,10 +239,6 @@ async def fetch_service_ids_by_status(
                 for svc in model_list(response):
                     if not svc.get("id"):
                         continue
-                    if provider_lower:
-                        svc_provider = svc.get("provider_name", "") or ""
-                        if provider_lower not in svc_provider.lower():
-                            continue
                     all_ids.append(str(svc["id"]))
 
                 next_cursor = getattr(response, "next_cursor", None)

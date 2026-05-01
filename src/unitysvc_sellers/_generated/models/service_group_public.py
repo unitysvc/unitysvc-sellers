@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define

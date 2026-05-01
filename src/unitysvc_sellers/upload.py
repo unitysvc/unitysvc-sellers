@@ -540,22 +540,28 @@ def upload_directory(
                     task_result = status_dict.get("result") or {}
                     service_id = None
                     service_name = None
+                    revision_of = None
                     if isinstance(task_result, dict):
                         service_data = task_result.get("service") or {}
                         if isinstance(service_data, dict):
                             service_id = service_data.get("id")
                             service_name = service_data.get("name")
-                    detail = (
-                        f"service_id={service_id}"
-                        if service_id
-                        else f"task_id={task_id}"
-                    )
-                    _emit("service", "ok", name, detail)
-                    if service_id:
-                        override = {"service_id": str(service_id)}
-                        if service_name:
-                            override["name"] = str(service_name)
-                        write_override_file(listing_file, override)
+                            revision_of = service_data.get("revision_of")
+                    if revision_of:
+                        # A revision of an active service was created (service_id
+                        # is the new revision; revision_of is the canonical id).
+                        # The override file already holds the canonical id — don't
+                        # overwrite it with the revision's id.
+                        detail = f"revision_created, service_id={revision_of} (revision={service_id})"
+                        _emit("service", "ok", name, detail)
+                    else:
+                        detail = f"service_id={service_id}" if service_id else f"task_id={task_id}"
+                        _emit("service", "ok", name, detail)
+                        if service_id:
+                            override = {"service_id": str(service_id)}
+                            if service_name:
+                                override["name"] = str(service_name)
+                            write_override_file(listing_file, override)
                 else:
                     result.services.failed += 1
                     error_msg = (

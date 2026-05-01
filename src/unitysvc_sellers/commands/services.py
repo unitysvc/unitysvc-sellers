@@ -90,7 +90,7 @@ def list_services(
     provider: str | None = typer.Option(
         None,
         "--provider",
-        help="Filter by provider name (case-insensitive partial match, applied client-side).",
+        help="Filter by provider name (case-insensitive partial match).",
     ),
     fields: str = typer.Option(
         "id,name,provider_name,service_type,status,visibility",
@@ -118,6 +118,7 @@ def list_services(
                     status=status,
                     visibility=visibility,
                     name=name,
+                    provider=provider,
                 )
                 collected.extend(model_list(response))
                 if not all_pages:
@@ -128,9 +129,6 @@ def list_services(
                     break
                 current_cursor = str(next_cursor)
 
-        if provider:
-            provider_lower = provider.lower()
-            collected = [s for s in collected if provider_lower in (s.get("provider_name") or "").lower()]
         return collected
 
     services = run_async(_impl(), error_prefix="Failed to list services")

@@ -230,13 +230,8 @@
           "seller-documents"
         ],
         "summary": "Render Document",
-        "description": "Render a code-example or connectivity-test document on demand.\n\nTwo modes via the ``interface`` query param:\n\n- ``interface=<uuid>`` \u2192 **gateway mode** (``local_testing=False``).\n  Render context: the named :class:`AccessInterface`'s gateway URL +\n  routing_key, plus the listing's ``enrollment_vars`` /\n  ``ops_testing_parameters`` (``params``) / ``routing_vars``.  This\n  is what ``usvc_seller services run-tests`` consumes per-interface,\n  what the seller's \"preview as customer\" view calls, and what the\n  anonymous marketplace ``/market/{id}`` page calls (for public\n  documents).\n- ``interface`` omitted \u2192 **upstream mode** (``local_testing=True``).\n  Render context: the offering's ``upstream_access_config`` (first\n  interface).  Used for upstream connectivity testing (#878).\n  Renders against the seller's upstream URL with ``${ secrets.X }``\n  references resolved against the seller's secret store \u2014 the\n  rendered output may inline credentials, so this mode is\n  restricted to ops_customer (the platform test runner) and the\n  seller-owner.\n\nAuth shape:\n\n- **Anonymous** is accepted for ``interface=<uuid>`` rendering of\n  documents where ``is_public=True`` *and* the underlying service\n  is ``active`` + ``visibility=public``.  This is the marketplace\n  path: customers can render the same code they'd copy off the\n  service-detail page.\n- **Seller-owner** can render any document on a service they own,\n  in either mode.\n- **ops_customer** can render any document in any mode \u2014 the\n  platform test runner needs upstream-mode access to verify\n  seller-side connectivity.\n- All other authentications are rejected with 403.\n\nThe rendered ``filename`` has the ``.j2`` suffix stripped when the\ninput was a template.  ``UNITYSVC_API_KEY`` is intentionally never\ninlined \u2014 it is read from the environment at execution time, on\nevery code path.",
+        "description": "Render a code-example or connectivity-test document for a specific interface.\n\n**Public, unauthenticated, gateway mode only.**  Render context is the\nnamed :class:`AccessInterface`'s gateway URL + ``routing_key``, plus\nthe listing's ``enrollment_vars`` / ``ops_testing_parameters``\n(``params``) / ``routing_vars``.  No upstream credentials are ever\ninlined \u2014 ``UNITYSVC_API_KEY`` is read from the runtime environment \u2014\nso the rendered output is by construction the same script a customer\nwould copy off the marketplace service-detail page. Anonymous access\nis therefore safe and intentional: ``usvc_seller services run-tests``\n(seller-owned drafts), the marketplace preview, and any third-party\nintegration that wants the canonical client snippet all hit the same\nURL with no auth.\n\nUpstream-mode rendering (which would expand ``${ secrets.X }`` against\nthe seller's secret store and inline the resolved values into the\nrendered script) is intentionally not exposed over HTTP.  Internal\ncallers \u2014 the upstream-connectivity Celery sweep and worker-side\ndocument execution \u2014 invoke :func:`render_document_upstream` directly.\n\nThe rendered ``filename`` has the ``.j2`` suffix stripped when the\ninput was a template.",
         "operationId": "documents_render",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "document_id",
@@ -250,34 +245,11 @@
           {
             "name": "interface",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
+              "format": "uuid",
               "title": "Interface"
-            }
-          },
-          {
-            "name": "x-role-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role-Id"
             }
           }
         ],
@@ -1819,7 +1791,7 @@
           "seller-services"
         ],
         "summary": "List My Services",
-        "description": "List all services for the current seller.\n\nServices are the identity layer connecting sellers to content versions\n(Provider, ServiceOffering, ServiceListing). Results are paginated using\ncursor-based (keyset) pagination, ordered newest-first by `created_at`.\n\nQuery Parameters:\n- cursor: Opaque pagination cursor from a previous response's\n  ``next_cursor``. Omit to start from the first page.\n- limit: Page size (default: 50, max: 200)\n- status: Filter by service status (draft, pending, review, active, rejected, suspended)\n- visibility: Filter by catalog visibility (public, unlisted, private)\n- service_type: Filter by service type (e.g., llm, vectordb, embedding)\n- listing_type: Filter by listing type (regular, byok, self_hosted)\n- name: Search by name, display name, or provider name (case-insensitive partial match)",
+        "description": "List all services for the current seller.\n\nServices are the identity layer connecting sellers to content versions\n(Provider, ServiceOffering, ServiceListing). Results are paginated using\ncursor-based (keyset) pagination, ordered newest-first by `created_at`.\n\nQuery Parameters:\n- cursor: Opaque pagination cursor from a previous response's\n  ``next_cursor``. Omit to start from the first page.\n- limit: Page size (default: 50, max: 200)\n- status: Filter by service status (draft, pending, review, active, rejected, suspended)\n- visibility: Filter by catalog visibility (public, unlisted, private)\n- service_type: Filter by service type (e.g., llm, vectordb, embedding)\n- listing_type: Filter by listing type (managed, byok, byoe)\n- name: Search by name, display name, or provider name (case-insensitive partial match)\n- provider: Strict provider-name filter (case-insensitive partial match) \u2014 narrower than ``name``,\n  which also matches service name / display name.",
         "operationId": "services_list",
         "parameters": [
           {
@@ -1941,6 +1913,24 @@
               "title": "Name"
             },
             "description": "Search by name, display name, or provider name (case-insensitive partial match)"
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter strictly by provider name (case-insensitive partial match). Use this when ``name`` is too broad.",
+              "title": "Provider"
+            },
+            "description": "Filter strictly by provider name (case-insensitive partial match). Use this when ``name`` is too broad."
           },
           {
             "name": "authorization",
@@ -5827,12 +5817,6 @@
           "type"
         ],
         "title": "ValidationError"
-      }
-    },
-    "securitySchemes": {
-      "HTTPBearer": {
-        "type": "http",
-        "scheme": "bearer"
       }
     }
   },
