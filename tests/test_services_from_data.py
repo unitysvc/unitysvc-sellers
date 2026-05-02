@@ -147,9 +147,13 @@ class TestResolveFromData:
 
     _BASE = "https://api.example.test"
 
-    def _setup_state(self, **id_to_status: str) -> None:
+    def _setup_state(self, **id_to_state: str | tuple[str, str]) -> None:
         """Mock ``GET /services/{id}`` responses with the given statuses."""
-        for sid, status in id_to_status.items():
+        for sid, state in id_to_state.items():
+            if isinstance(state, tuple):
+                status, visibility = state
+            else:
+                status, visibility = state, "public"
             _respx.get(f"{self._BASE}/services/{sid}").mock(
                 return_value=_httpx.Response(
                     200,
@@ -157,7 +161,7 @@ class TestResolveFromData:
                         "service_id": sid,
                         "service_name": "svc",
                         "status": status,
-                        "visibility": "public",
+                        "visibility": visibility,
                         "documents": [],
                         "interfaces": [],
                     },
@@ -170,6 +174,8 @@ class TestResolveFromData:
         provider: str | None = None,
         *,
         statuses_when_all: list[str] | None = None,
+        visibilities_when_all: list[str] | None = None,
+        visibilities_when_from_data: list[str] | None = None,
     ) -> list[str]:
         return _resolve_or_fetch_ids(
             api_key="svcpass_test",
@@ -181,6 +187,8 @@ class TestResolveFromData:
             flag_name="all",
             use_from_data=True,
             data_dir=data_dir,
+            visibilities_when_all=visibilities_when_all,
+            visibilities_when_from_data=visibilities_when_from_data,
         )
 
     @_respx.mock
@@ -261,6 +269,30 @@ class TestResolveFromData:
         # ``submit`` allows draft → pending only.
         result = self._call(tmp_path, statuses_when_all=["draft", "rejected"])
         assert result == ["drft-001"]
+
+    @_respx.mock
+    def test_from_data_can_use_narrower_visibility_filter(self, tmp_path: Path) -> None:
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc1" / "listing.json",
+            {"service_id": "unlisted-001"},
+        )
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc2" / "listing.json",
+            {"service_id": "private-002"},
+        )
+        self._setup_state(
+            **{
+                "unlisted-001": ("active", "unlisted"),
+                "private-002": ("active", "private"),
+            }
+        )
+        result = self._call(
+            tmp_path,
+            statuses_when_all=["active"],
+            visibilities_when_all=["unlisted", "private"],
+            visibilities_when_from_data=["unlisted"],
+        )
+        assert result == ["unlisted-001"]
 
     @_respx.mock
     def test_all_ids_filtered_out_exits_zero(self, tmp_path: Path) -> None:

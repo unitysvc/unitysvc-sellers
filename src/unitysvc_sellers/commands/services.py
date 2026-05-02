@@ -468,6 +468,7 @@ def _resolve_or_fetch_ids(
     use_from_data: bool = False,
     data_dir: Path = Path("."),
     visibilities_when_all: list[str] | None = None,
+    visibilities_when_from_data: list[str] | None = None,
 ) -> list[str]:
     """Resolve the target service IDs from exactly one of three mutually exclusive sources.
 
@@ -482,7 +483,9 @@ def _resolve_or_fetch_ids(
       ran on a subset.
 
     ``visibilities_when_all`` further restricts the fetch to
-    services whose current visibility is in the given list.
+    services whose current visibility is in the given list. Use
+    ``visibilities_when_from_data`` when the local-id path needs a narrower
+    visibility filter than ``--all``.
     """
     # --- strict mutual exclusivity ---
     modes = sum([bool(service_ids), use_all, use_from_data])
@@ -525,7 +528,7 @@ def _resolve_or_fetch_ids(
                     client,
                     ids,
                     statuses=statuses_when_all,
-                    visibilities=visibilities_when_all,
+                    visibilities=visibilities_when_from_data or visibilities_when_all,
                 )
 
         eligible, skipped = run_async(
@@ -723,6 +726,7 @@ def publish_service(
         flag_name="all",
         use_from_data=from_data,
         data_dir=data_dir,
+        visibilities_when_from_data=["unlisted"],
     )
     _bulk_visibility_change(
         api_key=api_key,
