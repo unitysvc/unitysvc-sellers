@@ -196,3 +196,228 @@ class TestResolveFromData:
         _write_override(listing, {"service_id": "from-override"})
         result = self._call(tmp_path)
         assert result == ["from-override"]
+
+
+# ---------------------------------------------------------------------------
+# CLI: ``services list --from-data``
+# ---------------------------------------------------------------------------
+import json as _json  # noqa: E402
+
+import httpx as _httpx  # noqa: E402
+import respx as _respx  # noqa: E402
+from typer.testing import CliRunner  # noqa: E402
+
+from unitysvc_sellers.cli import app as _cli_app  # noqa: E402
+
+_BASE_URL = "https://seller.test.unitysvc"
+
+
+def _detail_payload(service_id: str, **overrides) -> dict:
+    """Build a ServiceDetailResponse-shaped payload for ``services.get`` mocks."""
+    payload = {
+        "service_id": service_id,
+        "service_name": overrides.pop("name", "svc"),
+        "status": overrides.pop("status", "active"),
+        "visibility": overrides.pop("visibility", "public"),
+        "provider_name": overrides.pop("provider_name", "acme"),
+        "documents": [],
+        "interfaces": [],
+    }
+    payload.update(overrides)
+    return payload
+
+
+@pytest.fixture
+def _runner() -> CliRunner:
+    return CliRunner()
+
+
+@pytest.fixture
+def _env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("UNITYSVC_SELLER_API_KEY", "svcpass_test")
+    monkeypatch.setenv("UNITYSVC_SELLER_API_URL", _BASE_URL)
+
+
+class TestListFromData:
+    """``services list --from-data`` reads ids from the local data dir
+    and fetches each via ``services.get`` rather than paging the seller's
+    full catalog."""
+
+    @_respx.mock
+    def test_fetches_services_listed_in_data_dir(
+        self, tmp_path: Path, _runner: CliRunner, _env: None
+    ) -> None:
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc1" / "listing.json",
+            {"service_id": "11111111-1111-1111-1111-111111111111"},
+        )
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc2" / "listing.json",
+            {"service_id": "22222222-2222-2222-2222-222222222222"},
+        )
+
+        _respx.get(
+            f"{_BASE_URL}/services/11111111-1111-1111-1111-111111111111"
+        ).mock(
+            return_value=_httpx.Response(
+                200,
+                json=_detail_payload(
+                    "11111111-1111-1111-1111-111111111111", name="alpha"
+                ),
+            )
+        )
+        _respx.get(
+            f"{_BASE_URL}/services/22222222-2222-2222-2222-222222222222"
+        ).mock(
+            return_value=_httpx.Response(
+                200,
+                json=_detail_payload(
+                    "22222222-2222-2222-2222-222222222222", name="beta"
+                ),
+            )
+        )
+
+        # ``--format json`` so assertions compare structured data instead
+        # of Rich's table output, which gets auto-truncated to the
+        # CliRunner's narrow default terminal width.
+        result = _runner.invoke(
+            _cli_app,
+            [
+                "services", "list",
+                "--from-data", "--data-dir", str(tmp_path),
+                "--format", "json",
+            ],
+        )
+
+        assert result.exit_code == 0, result.stdout
+        rendered = _json.loads(result.stdout)
+        assert {svc["service_name"] for svc in rendered} == {"alpha", "beta"}
+        # The default seller catalog endpoint must NOT be hit — we're
+        # explicitly scoping by the data dir, so a wildcard list call
+        # would defeat the whole point of the flag.
+        assert all(
+            "/services?" not in str(call.request.url) and not str(call.request.url).endswith("/services")
+            for call in _respx.calls
+        )
+
+    @_respx.mock
+    def test_empty_data_dir_prints_warning_and_exits_zero(
+        self, tmp_path: Path, _runner: CliRunner, _env: None
+    ) -> None:
+        result = _runner.invoke(
+            _cli_app,
+            ["services", "list", "--from-data", "--data-dir", str(tmp_path)],
+        )
+
+        assert result.exit_code == 0
+        assert "No service IDs" in result.stdout
+
+    @_respx.mock
+    def test_status_filter_applied_client_side(
+        self, tmp_path: Path, _runner: CliRunner, _env: None
+    ) -> None:
+        """``--status`` post-filters fetched records when used with ``--from-data``.
+
+        The backend ``services_list`` filter doesn't run in this mode (we
+        fetch by id), so the CLI must apply it locally — otherwise
+        ``--status active --from-data`` would silently ignore the filter.
+        """
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc1" / "listing.json",
+            {"service_id": "11111111-1111-1111-1111-111111111111"},
+        )
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc2" / "listing.json",
+            {"service_id": "22222222-2222-2222-2222-222222222222"},
+        )
+
+        _respx.get(
+            f"{_BASE_URL}/services/11111111-1111-1111-1111-111111111111"
+        ).mock(
+            return_value=_httpx.Response(
+                200,
+                json=_detail_payload(
+                    "11111111-1111-1111-1111-111111111111",
+                    name="alpha",
+                    status="active",
+                ),
+            )
+        )
+        _respx.get(
+            f"{_BASE_URL}/services/22222222-2222-2222-2222-222222222222"
+        ).mock(
+            return_value=_httpx.Response(
+                200,
+                json=_detail_payload(
+                    "22222222-2222-2222-2222-222222222222",
+                    name="beta",
+                    status="draft",
+                ),
+            )
+        )
+
+        result = _runner.invoke(
+            _cli_app,
+            [
+                "services", "list",
+                "--from-data", "--data-dir", str(tmp_path),
+                "--status", "active",
+                "--format", "json",
+            ],
+        )
+
+        assert result.exit_code == 0, result.stdout
+        rendered = _json.loads(result.stdout)
+        assert {svc["service_name"] for svc in rendered} == {"alpha"}
+
+    @_respx.mock
+    def test_missing_service_is_skipped_with_warning(
+        self, tmp_path: Path, _runner: CliRunner, _env: None
+    ) -> None:
+        """A service id in the override file that no longer exists on the
+        backend must not abort the whole listing — print a warning and
+        carry on with the rest. This matters because override files
+        outlive the services they reference (e.g. when a draft is
+        deleted server-side but the local repo isn't pruned)."""
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc1" / "listing.json",
+            {"service_id": "11111111-1111-1111-1111-111111111111"},
+        )
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc2" / "listing.json",
+            {"service_id": "22222222-2222-2222-2222-222222222222"},
+        )
+
+        _respx.get(
+            f"{_BASE_URL}/services/11111111-1111-1111-1111-111111111111"
+        ).mock(
+            return_value=_httpx.Response(
+                200,
+                json=_detail_payload(
+                    "11111111-1111-1111-1111-111111111111", name="alpha"
+                ),
+            )
+        )
+        _respx.get(
+            f"{_BASE_URL}/services/22222222-2222-2222-2222-222222222222"
+        ).mock(return_value=_httpx.Response(404, json={"detail": "Not found"}))
+
+        result = _runner.invoke(
+            _cli_app,
+            [
+                "services", "list",
+                "--from-data", "--data-dir", str(tmp_path),
+                "--format", "json",
+            ],
+        )
+
+        assert result.exit_code == 0, result.stdout
+        # The skip-warning is emitted on the Rich console (stdout under
+        # the CliRunner) before the JSON payload — assert both:
+        # the warning appears and the surviving service makes it into
+        # the parsed JSON output.
+        assert "could not fetch service" in result.stdout
+        # JSON output is whatever follows the warning line.
+        json_start = result.stdout.find("[")
+        rendered = _json.loads(result.stdout[json_start:])
+        assert {svc["service_name"] for svc in rendered} == {"alpha"}

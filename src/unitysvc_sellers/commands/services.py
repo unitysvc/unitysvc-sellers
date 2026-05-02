@@ -109,18 +109,82 @@ def list_services(
         help="Comma-separated list of columns to display.",
     ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
+    from_data: bool = _FROM_DATA_OPTION,
+    data_dir: Path = _DATA_DIR_OPTION,
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
     """List services owned by the authenticated seller.
 
-    Uses cursor-based pagination. Pass ``--cursor`` to fetch a specific
-    page, or ``--all`` to follow cursors to completion.
+    Default mode uses cursor-based pagination over the seller's full
+    catalog: pass ``--cursor`` for a specific page or ``--all`` to follow
+    cursors to completion.
+
+    With ``--from-data``, only the services whose IDs are recorded in
+    ``listing.{json,toml}`` (or the merged ``listing.override.{json,toml}``)
+    files under ``--data-dir`` are fetched and shown — handy for
+    inspecting just the services managed by the current data repo
+    without a wildcard query against a shared seller account. The
+    ``--status`` / ``--visibility`` / ``--name`` / ``--provider`` filters
+    are then applied client-side; ``--cursor`` / ``--all`` / ``--limit``
+    are ignored because the set is fixed.
     """
 
     async def _impl() -> list[dict[str, Any]]:
         collected: list[dict[str, Any]] = []
         async with async_client(api_key, base_url) as client:
+            if from_data:
+                ids = _read_ids_from_data_dir(data_dir)
+                if not ids:
+                    console.print(
+                        "[yellow]No service IDs found in listing_v1 files under the given directory.[/yellow]"
+                    )
+                    return []
+                # Fetch each id concurrently. ``services.get`` returns a
+                # ServiceDetailResponse whose to_dict() shape is a strict
+                # superset of ServicePublic for the columns we render —
+                # callers who pass --fields targeting only Public-shape
+                # columns get the same output either way.
+                import asyncio
+
+                async def _fetch_one(sid: str) -> dict[str, Any] | None:
+                    try:
+                        return model_to_dict(await client.services.get(sid))
+                    except SellerSDKError as exc:
+                        console.print(
+                            f"[yellow]⚠[/yellow] could not fetch service "
+                            f"[cyan]{sid}[/cyan] (skipping): {exc}"
+                        )
+                        return None
+
+                results = await asyncio.gather(*(_fetch_one(sid) for sid in ids))
+                collected = [r for r in results if r is not None]
+
+                # Apply remote-list filters client-side now that we have
+                # the records. This makes ``--from-data --status active``
+                # do exactly what the operator expects ("show me the
+                # services in this repo that are currently active") even
+                # though the backend list filters never ran.
+                if status:
+                    collected = [s for s in collected if s.get("status") == status]
+                if visibility:
+                    collected = [s for s in collected if s.get("visibility") == visibility]
+                if name:
+                    needle = name.lower()
+                    collected = [
+                        s
+                        for s in collected
+                        if needle in str(s.get("name") or "").lower()
+                        or needle in str(s.get("display_name") or "").lower()
+                        or needle in str(s.get("provider_name") or "").lower()
+                    ]
+                if provider:
+                    p = provider.lower()
+                    collected = [
+                        s for s in collected if p in str(s.get("provider_name") or "").lower()
+                    ]
+                return collected
+
             current_cursor = cursor
             while True:
                 response = await client.services.list(
