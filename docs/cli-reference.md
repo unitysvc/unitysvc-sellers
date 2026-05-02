@@ -470,8 +470,8 @@ files under ``--data-dir`` are fetched and shown — handy for
 inspecting just the services managed by the current data repo
 without a wildcard query against a shared seller account. The
 ``--status`` / ``--visibility`` / ``--name`` / ``--provider`` filters
-are then applied client-side; ``--cursor`` / ``--all`` / ``--limit``
-are ignored because the set is fixed.
+are applied server-side via the ``ids`` query parameter added in the
+backend ``GET /services?ids=&lt;uuid&gt;`` endpoint.
 
 **Usage**:
 

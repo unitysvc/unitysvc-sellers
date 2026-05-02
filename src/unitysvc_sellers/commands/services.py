@@ -27,14 +27,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
-from ..aclient import AsyncClient
 from ..exceptions import SellerSDKError
+
+if TYPE_CHECKING:
+    from ..aclient import AsyncClient
 from ._helpers import (
     api_key_option,
     async_client,
@@ -127,63 +129,46 @@ def list_services(
     inspecting just the services managed by the current data repo
     without a wildcard query against a shared seller account. The
     ``--status`` / ``--visibility`` / ``--name`` / ``--provider`` filters
-    are then applied client-side; ``--cursor`` / ``--all`` / ``--limit``
-    are ignored because the set is fixed.
+    are applied server-side via the ``ids`` query parameter added in the
+    backend ``GET /services?ids=<uuid>`` endpoint.
     """
 
     async def _impl() -> list[dict[str, Any]]:
+        from uuid import UUID
+
         collected: list[dict[str, Any]] = []
         async with async_client(api_key, base_url) as client:
             if from_data:
-                ids = _read_ids_from_data_dir(data_dir)
-                if not ids:
+                raw_ids = _read_ids_from_data_dir(data_dir)
+                if not raw_ids:
                     console.print(
                         "[yellow]No service IDs found in listing_v1 files under the given directory.[/yellow]"
                     )
                     return []
-                # Fetch each id concurrently. ``services.get`` returns a
-                # ServiceDetailResponse whose to_dict() shape is a strict
-                # superset of ServicePublic for the columns we render —
-                # callers who pass --fields targeting only Public-shape
-                # columns get the same output either way.
-                import asyncio
-
-                async def _fetch_one(sid: str) -> dict[str, Any] | None:
-                    try:
-                        return model_to_dict(await client.services.get(sid))
-                    except SellerSDKError as exc:
-                        console.print(
-                            f"[yellow]⚠[/yellow] could not fetch service "
-                            f"[cyan]{sid}[/cyan] (skipping): {exc}"
-                        )
-                        return None
-
-                results = await asyncio.gather(*(_fetch_one(sid) for sid in ids))
-                collected = [r for r in results if r is not None]
-
-                # Apply remote-list filters client-side now that we have
-                # the records. This makes ``--from-data --status active``
-                # do exactly what the operator expects ("show me the
-                # services in this repo that are currently active") even
-                # though the backend list filters never ran.
-                if status:
-                    collected = [s for s in collected if s.get("status") == status]
-                if visibility:
-                    collected = [s for s in collected if s.get("visibility") == visibility]
-                if name:
-                    needle = name.lower()
-                    collected = [
-                        s
-                        for s in collected
-                        if needle in str(s.get("name") or "").lower()
-                        or needle in str(s.get("display_name") or "").lower()
-                        or needle in str(s.get("provider_name") or "").lower()
-                    ]
-                if provider:
-                    p = provider.lower()
-                    collected = [
-                        s for s in collected if p in str(s.get("provider_name") or "").lower()
-                    ]
+                uuid_ids = [UUID(sid) for sid in raw_ids]
+                # Use the list endpoint with ids filter — single round-trip for the
+                # typical case (<= 200 services), follows cursors automatically for
+                # larger data dirs. All filters (status, visibility, name, provider)
+                # are applied server-side, so the returned records are ServicePublic
+                # with the correct field names for the table renderer.
+                page_limit = min(len(uuid_ids), 200)
+                current_cursor: str | None = None
+                while True:
+                    response = await client.services.list(
+                        ids=uuid_ids,
+                        limit=page_limit,
+                        status=status,
+                        visibility=visibility,
+                        name=name,
+                        provider=provider,
+                        cursor=current_cursor,
+                    )
+                    collected.extend(model_list(response))
+                    next_cursor = getattr(response, "next_cursor", None)
+                    has_more = getattr(response, "has_more", False)
+                    if not has_more or not next_cursor:
+                        break
+                    current_cursor = str(next_cursor)
                 return collected
 
             current_cursor = cursor
@@ -430,16 +415,13 @@ async def _filter_ids_by_state(
     set, so we mirror that filtering on the client by fetching each
     service and inspecting its current state.
 
-    Returns
-    -------
-    eligible
-        Ids whose ``status`` is in ``statuses`` and (if provided)
-        ``visibility`` is in ``visibilities``.
-    skipped
-        ``(id, reason)`` pairs for everything that was filtered out
-        (wrong state) or unreachable (404 / network error). The
-        caller is expected to surface these so the operator knows
-        why the action ran on a subset.
+    Returns:
+        A ``(eligible, skipped)`` tuple where ``eligible`` is the list of
+        ids whose ``status`` is in ``statuses`` and (if provided)
+        ``visibility`` is in ``visibilities``, and ``skipped`` is a list
+        of ``(id, reason)`` pairs for everything filtered out (wrong state)
+        or unreachable (404 / network error). The caller is expected to
+        surface these so the operator knows why the action ran on a subset.
     """
     import asyncio
 

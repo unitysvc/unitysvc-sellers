@@ -10,13 +10,16 @@ Covers:
 from __future__ import annotations
 
 import json
+import json as _json
 from pathlib import Path
 
 import httpx as _httpx
 import pytest
 import respx as _respx
 import typer
+from typer.testing import CliRunner
 
+from unitysvc_sellers.cli import app as _cli_app
 from unitysvc_sellers.commands.services import _read_ids_from_data_dir, _resolve_or_fetch_ids
 
 # ---------------------------------------------------------------------------
@@ -274,28 +277,31 @@ class TestResolveFromData:
 # ---------------------------------------------------------------------------
 # CLI: ``services list --from-data``
 # ---------------------------------------------------------------------------
-import json as _json  # noqa: E402
-
-from typer.testing import CliRunner  # noqa: E402
-
-from unitysvc_sellers.cli import app as _cli_app  # noqa: E402
 
 _BASE_URL = "https://seller.test.unitysvc"
 
 
-def _detail_payload(service_id: str, **overrides) -> dict:
-    """Build a ServiceDetailResponse-shaped payload for ``services.get`` mocks."""
-    payload = {
-        "service_id": service_id,
-        "service_name": overrides.pop("name", "svc"),
+def _list_page(items: list[dict], *, has_more: bool = False, next_cursor: str | None = None) -> dict:
+    """Build a CursorPageServicePublic-shaped list response payload."""
+    return {"data": items, "has_more": has_more, "next_cursor": next_cursor}
+
+
+def _public_payload(service_id: str, **overrides) -> dict:
+    """Build a ServicePublic-shaped payload for list endpoint mocks."""
+    return {
+        "id": service_id,
+        "name": overrides.pop("name", "svc"),
         "status": overrides.pop("status", "active"),
         "visibility": overrides.pop("visibility", "public"),
         "provider_name": overrides.pop("provider_name", "acme"),
-        "documents": [],
-        "interfaces": [],
+        "service_type": overrides.pop("service_type", "llm"),
+        "display_name": None,
+        "created_at": "2024-01-01T00:00:00Z",
+        "seller_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "offering_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "listing_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        **overrides,
     }
-    payload.update(overrides)
-    return payload
 
 
 @pytest.fixture
@@ -310,9 +316,8 @@ def _env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class TestListFromData:
-    """``services list --from-data`` reads ids from the local data dir
-    and fetches each via ``services.get`` rather than paging the seller's
-    full catalog."""
+    """``services list --from-data`` reads ids from the local data dir and
+    calls ``GET /services?ids=...`` rather than paging the full catalog."""
 
     @_respx.mock
     def test_fetches_services_listed_in_data_dir(
@@ -327,24 +332,13 @@ class TestListFromData:
             {"service_id": "22222222-2222-2222-2222-222222222222"},
         )
 
-        _respx.get(
-            f"{_BASE_URL}/services/11111111-1111-1111-1111-111111111111"
-        ).mock(
+        _respx.get(f"{_BASE_URL}/services").mock(
             return_value=_httpx.Response(
                 200,
-                json=_detail_payload(
-                    "11111111-1111-1111-1111-111111111111", name="alpha"
-                ),
-            )
-        )
-        _respx.get(
-            f"{_BASE_URL}/services/22222222-2222-2222-2222-222222222222"
-        ).mock(
-            return_value=_httpx.Response(
-                200,
-                json=_detail_payload(
-                    "22222222-2222-2222-2222-222222222222", name="beta"
-                ),
+                json=_list_page([
+                    _public_payload("11111111-1111-1111-1111-111111111111", name="alpha"),
+                    _public_payload("22222222-2222-2222-2222-222222222222", name="beta"),
+                ]),
             )
         )
 
@@ -362,14 +356,9 @@ class TestListFromData:
 
         assert result.exit_code == 0, result.stdout
         rendered = _json.loads(result.stdout)
-        assert {svc["service_name"] for svc in rendered} == {"alpha", "beta"}
-        # The default seller catalog endpoint must NOT be hit — we're
-        # explicitly scoping by the data dir, so a wildcard list call
-        # would defeat the whole point of the flag.
-        assert all(
-            "/services?" not in str(call.request.url) and not str(call.request.url).endswith("/services")
-            for call in _respx.calls
-        )
+        assert {svc["name"] for svc in rendered} == {"alpha", "beta"}
+        # The request must scope by ids (not a wildcard list call).
+        assert any("ids=" in str(call.request.url) for call in _respx.calls)
 
     @_respx.mock
     def test_empty_data_dir_prints_warning_and_exits_zero(
@@ -384,15 +373,11 @@ class TestListFromData:
         assert "No service IDs" in result.stdout
 
     @_respx.mock
-    def test_status_filter_applied_client_side(
+    def test_status_filter_sent_to_backend(
         self, tmp_path: Path, _runner: CliRunner, _env: None
     ) -> None:
-        """``--status`` post-filters fetched records when used with ``--from-data``.
-
-        The backend ``services_list`` filter doesn't run in this mode (we
-        fetch by id), so the CLI must apply it locally — otherwise
-        ``--status active --from-data`` would silently ignore the filter.
-        """
+        """``--status`` is forwarded to the backend as a query param; the list
+        endpoint returns only the matching services."""
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
             {"service_id": "11111111-1111-1111-1111-111111111111"},
@@ -402,28 +387,17 @@ class TestListFromData:
             {"service_id": "22222222-2222-2222-2222-222222222222"},
         )
 
-        _respx.get(
-            f"{_BASE_URL}/services/11111111-1111-1111-1111-111111111111"
-        ).mock(
+        # Backend returns only the active service (as it would for ?status=active).
+        _respx.get(f"{_BASE_URL}/services").mock(
             return_value=_httpx.Response(
                 200,
-                json=_detail_payload(
-                    "11111111-1111-1111-1111-111111111111",
-                    name="alpha",
-                    status="active",
-                ),
-            )
-        )
-        _respx.get(
-            f"{_BASE_URL}/services/22222222-2222-2222-2222-222222222222"
-        ).mock(
-            return_value=_httpx.Response(
-                200,
-                json=_detail_payload(
-                    "22222222-2222-2222-2222-222222222222",
-                    name="beta",
-                    status="draft",
-                ),
+                json=_list_page([
+                    _public_payload(
+                        "11111111-1111-1111-1111-111111111111",
+                        name="alpha",
+                        status="active",
+                    ),
+                ]),
             )
         )
 
@@ -439,17 +413,16 @@ class TestListFromData:
 
         assert result.exit_code == 0, result.stdout
         rendered = _json.loads(result.stdout)
-        assert {svc["service_name"] for svc in rendered} == {"alpha"}
+        assert {svc["name"] for svc in rendered} == {"alpha"}
+        assert any("status=active" in str(call.request.url) for call in _respx.calls)
 
     @_respx.mock
-    def test_missing_service_is_skipped_with_warning(
+    def test_nonexistent_service_is_omitted_silently(
         self, tmp_path: Path, _runner: CliRunner, _env: None
     ) -> None:
-        """A service id in the override file that no longer exists on the
-        backend must not abort the whole listing — print a warning and
-        carry on with the rest. This matters because override files
-        outlive the services they reference (e.g. when a draft is
-        deleted server-side but the local repo isn't pruned)."""
+        """A service id in the data dir that no longer exists on the backend
+        is simply absent from the list response — no error or warning needed
+        because the backend silently omits IDs it doesn't know about."""
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
             {"service_id": "11111111-1111-1111-1111-111111111111"},
@@ -459,19 +432,15 @@ class TestListFromData:
             {"service_id": "22222222-2222-2222-2222-222222222222"},
         )
 
-        _respx.get(
-            f"{_BASE_URL}/services/11111111-1111-1111-1111-111111111111"
-        ).mock(
+        # Backend silently omits the second id (deleted / not found).
+        _respx.get(f"{_BASE_URL}/services").mock(
             return_value=_httpx.Response(
                 200,
-                json=_detail_payload(
-                    "11111111-1111-1111-1111-111111111111", name="alpha"
-                ),
+                json=_list_page([
+                    _public_payload("11111111-1111-1111-1111-111111111111", name="alpha"),
+                ]),
             )
         )
-        _respx.get(
-            f"{_BASE_URL}/services/22222222-2222-2222-2222-222222222222"
-        ).mock(return_value=_httpx.Response(404, json={"detail": "Not found"}))
 
         result = _runner.invoke(
             _cli_app,
@@ -483,12 +452,5 @@ class TestListFromData:
         )
 
         assert result.exit_code == 0, result.stdout
-        # The skip-warning is emitted on the Rich console (stdout under
-        # the CliRunner) before the JSON payload — assert both:
-        # the warning appears and the surviving service makes it into
-        # the parsed JSON output.
-        assert "could not fetch service" in result.stdout
-        # JSON output is whatever follows the warning line.
-        json_start = result.stdout.find("[")
-        rendered = _json.loads(result.stdout[json_start:])
-        assert {svc["service_name"] for svc in rendered} == {"alpha"}
+        rendered = _json.loads(result.stdout)
+        assert {svc["name"] for svc in rendered} == {"alpha"}

@@ -1,5 +1,6 @@
 from http import HTTPStatus
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -21,6 +22,7 @@ def _get_kwargs(
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
+    ids: list[UUID] | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -83,6 +85,19 @@ def _get_kwargs(
     else:
         json_provider = provider
     params["provider"] = json_provider
+
+    json_ids: list[str] | None | Unset
+    if isinstance(ids, Unset):
+        json_ids = UNSET
+    elif isinstance(ids, list):
+        json_ids = []
+        for ids_type_0_item_data in ids:
+            ids_type_0_item = str(ids_type_0_item_data)
+            json_ids.append(ids_type_0_item)
+
+    else:
+        json_ids = ids
+    params["ids"] = json_ids
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -147,6 +162,7 @@ def sync_detailed(
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
+    ids: list[UUID] | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
@@ -169,6 +185,9 @@ def sync_detailed(
     - name: Search by name, display name, or provider name (case-insensitive partial match)
     - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
       which also matches service name / display name.
+    - ids: Restrict to specific service ids (repeatable query param). Combined with
+      the other filters via ``AND`` — passing ``?ids=<uuid>&status=active`` returns
+      only the listed ids whose current status is ``active``.
 
     Args:
         cursor (None | str | Unset): Opaque pagination cursor from a previous response's
@@ -182,6 +201,10 @@ def sync_detailed(
             insensitive partial match)
         provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
             match). Use this when ``name`` is too broad.
+        ids (list[UUID] | None | Unset): Restrict to a specific set of service ids. Repeat the
+            parameter (``?ids=<uuid>&ids=<uuid>``) to pass multiple. Used by SDK callers that already
+            know the id set (e.g. ``--from-data`` flows in usvc_seller) and want a single round-trip
+            with the lean list payload instead of N detail fetches.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -202,6 +225,7 @@ def sync_detailed(
         listing_type=listing_type,
         name=name,
         provider=provider,
+        ids=ids,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -224,6 +248,7 @@ def sync(
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
+    ids: list[UUID] | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
@@ -246,6 +271,9 @@ def sync(
     - name: Search by name, display name, or provider name (case-insensitive partial match)
     - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
       which also matches service name / display name.
+    - ids: Restrict to specific service ids (repeatable query param). Combined with
+      the other filters via ``AND`` — passing ``?ids=<uuid>&status=active`` returns
+      only the listed ids whose current status is ``active``.
 
     Args:
         cursor (None | str | Unset): Opaque pagination cursor from a previous response's
@@ -259,6 +287,10 @@ def sync(
             insensitive partial match)
         provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
             match). Use this when ``name`` is too broad.
+        ids (list[UUID] | None | Unset): Restrict to a specific set of service ids. Repeat the
+            parameter (``?ids=<uuid>&ids=<uuid>``) to pass multiple. Used by SDK callers that already
+            know the id set (e.g. ``--from-data`` flows in usvc_seller) and want a single round-trip
+            with the lean list payload instead of N detail fetches.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -280,6 +312,7 @@ def sync(
         listing_type=listing_type,
         name=name,
         provider=provider,
+        ids=ids,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
@@ -296,6 +329,7 @@ async def asyncio_detailed(
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
+    ids: list[UUID] | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
@@ -318,6 +352,9 @@ async def asyncio_detailed(
     - name: Search by name, display name, or provider name (case-insensitive partial match)
     - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
       which also matches service name / display name.
+    - ids: Restrict to specific service ids (repeatable query param). Combined with
+      the other filters via ``AND`` — passing ``?ids=<uuid>&status=active`` returns
+      only the listed ids whose current status is ``active``.
 
     Args:
         cursor (None | str | Unset): Opaque pagination cursor from a previous response's
@@ -331,6 +368,10 @@ async def asyncio_detailed(
             insensitive partial match)
         provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
             match). Use this when ``name`` is too broad.
+        ids (list[UUID] | None | Unset): Restrict to a specific set of service ids. Repeat the
+            parameter (``?ids=<uuid>&ids=<uuid>``) to pass multiple. Used by SDK callers that already
+            know the id set (e.g. ``--from-data`` flows in usvc_seller) and want a single round-trip
+            with the lean list payload instead of N detail fetches.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -351,6 +392,7 @@ async def asyncio_detailed(
         listing_type=listing_type,
         name=name,
         provider=provider,
+        ids=ids,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -371,6 +413,7 @@ async def asyncio(
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
+    ids: list[UUID] | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
@@ -393,6 +436,9 @@ async def asyncio(
     - name: Search by name, display name, or provider name (case-insensitive partial match)
     - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
       which also matches service name / display name.
+    - ids: Restrict to specific service ids (repeatable query param). Combined with
+      the other filters via ``AND`` — passing ``?ids=<uuid>&status=active`` returns
+      only the listed ids whose current status is ``active``.
 
     Args:
         cursor (None | str | Unset): Opaque pagination cursor from a previous response's
@@ -406,6 +452,10 @@ async def asyncio(
             insensitive partial match)
         provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
             match). Use this when ``name`` is too broad.
+        ids (list[UUID] | None | Unset): Restrict to a specific set of service ids. Repeat the
+            parameter (``?ids=<uuid>&ids=<uuid>``) to pass multiple. Used by SDK callers that already
+            know the id set (e.g. ``--from-data`` flows in usvc_seller) and want a single round-trip
+            with the lean list payload instead of N detail fetches.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -428,6 +478,7 @@ async def asyncio(
             listing_type=listing_type,
             name=name,
             provider=provider,
+            ids=ids,
             authorization=authorization,
             x_role_id=x_role_id,
         )
