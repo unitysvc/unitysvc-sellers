@@ -48,13 +48,13 @@ from ._helpers import (
     run_async,
 )
 
-_FROM_DATA_OPTION = typer.Option(
-    False, "--from-data",
-    help="Act on services whose IDs are found in listing_v1 files under --data-dir.",
+_LOCAL_IDS_OPTION = typer.Option(
+    False, "--local-ids", "-l",
+    help="Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.",
 )
 _DATA_DIR_OPTION = typer.Option(
     Path("."), "--data-dir",
-    help="Data directory for --from-data (default: current directory).",
+    help="Data directory for --local-ids (default: current directory).",
     exists=True, file_okay=False, dir_okay=True,
 )
 
@@ -112,7 +112,7 @@ def list_services(
         help="Comma-separated list of columns to display.",
     ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
-    from_data: bool = _FROM_DATA_OPTION,
+    local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -123,7 +123,7 @@ def list_services(
     catalog: pass ``--cursor`` for a specific page or ``--all`` to follow
     cursors to completion.
 
-    With ``--from-data``, only the services whose IDs are recorded in
+    With ``--local-ids``, only the services whose IDs are recorded in
     ``listing.{json,toml}`` (or the merged ``listing.override.{json,toml}``)
     files under ``--data-dir`` are fetched and shown — handy for
     inspecting just the services managed by the current data repo
@@ -138,7 +138,7 @@ def list_services(
 
         collected: list[dict[str, Any]] = []
         async with async_client(api_key, base_url) as client:
-            if from_data:
+            if local_ids:
                 raw_ids = _read_ids_from_data_dir(data_dir)
                 if not raw_ids:
                     console.print(
@@ -407,52 +407,61 @@ async def _filter_ids_by_state(
     statuses: list[str],
     visibilities: list[str] | None,
 ) -> tuple[list[str], list[tuple[str, str]]]:
-    """Fetch each id and partition into (eligible, skipped).
+    """Resolve eligible service ids for a state-restricted action.
 
-    ``--all`` filters by status/visibility *server-side* via the list
-    endpoint, so the action only ever runs on services the operation
-    is actually valid for. ``--from-data`` starts from a fixed local
-    set, so we mirror that filtering on the client by fetching each
-    service and inspecting its current state.
+    Uses the seller list endpoint with the ``ids`` filter (one round-trip,
+    follows cursors for large data dirs).  Crucially, the backend expands
+    ``ids`` to also include any service whose ``revision_of`` matches one
+    of the requested ids (see backend PR #915), so submitting against a
+    data dir of active services correctly picks up their pending draft
+    revisions.  Status / visibility filtering is applied client-side
+    against the returned set so callers can pass multiple acceptable
+    statuses in one call.
 
     Returns:
-        A ``(eligible, skipped)`` tuple where ``eligible`` is the list of
-        ids whose ``status`` is in ``statuses`` and (if provided)
-        ``visibility`` is in ``visibilities``, and ``skipped`` is a list
-        of ``(id, reason)`` pairs for everything filtered out (wrong state)
-        or unreachable (404 / network error). The caller is expected to
-        surface these so the operator knows why the action ran on a subset.
+        A ``(eligible, skipped)`` tuple. ``skipped`` only contains
+        ``(id, reason)`` pairs for the rare list-endpoint failures
+        (network / auth) — those are real problems the caller should
+        surface. State / visibility mismatches are silently dropped;
+        the summary ``Eligible: X of Y`` count makes the partition
+        obvious without per-id noise.
     """
-    import asyncio
+    from uuid import UUID
 
-    async def _check(sid: str) -> tuple[str, str | None, str | None, str | None]:
-        try:
-            svc = model_to_dict(await client.services.get(sid))
-            return (
-                sid,
-                str(svc.get("status") or "") or None,
-                str(svc.get("visibility") or "") or None,
-                None,
-            )
-        except SellerSDKError as exc:
-            return (sid, None, None, f"could not fetch: {exc}")
+    uuid_ids = [UUID(sid) for sid in ids]
+    # Page size is capped at 200 server-side; if the data dir + their
+    # revisions exceed that we'll follow cursors below.
+    page_limit = min(max(len(uuid_ids) * 2, 50), 200)
 
-    results = await asyncio.gather(*(_check(sid) for sid in ids))
     eligible: list[str] = []
     skipped: list[tuple[str, str]] = []
-    for sid, status, vis, fetch_err in results:
-        if fetch_err:
-            skipped.append((sid, fetch_err))
-            continue
-        if status not in statuses:
-            skipped.append((sid, f"status={status!r}, expected one of {statuses}"))
-            continue
-        if visibilities and vis not in visibilities:
-            skipped.append(
-                (sid, f"visibility={vis!r}, expected one of {visibilities}")
+    current_cursor: str | None = None
+    try:
+        while True:
+            response = await client.services.list(
+                ids=uuid_ids,
+                limit=page_limit,
+                cursor=current_cursor,
             )
-            continue
-        eligible.append(sid)
+            for svc in model_list(response):
+                row = svc if isinstance(svc, dict) else model_to_dict(svc)
+                status = (str(row.get("status") or "")) or None
+                vis = (str(row.get("visibility") or "")) or None
+                if status not in statuses:
+                    continue
+                if visibilities and vis not in visibilities:
+                    continue
+                sid = row.get("id")
+                if sid:
+                    eligible.append(str(sid))
+            next_cursor = getattr(response, "next_cursor", None)
+            has_more = getattr(response, "has_more", False)
+            if not has_more or not next_cursor:
+                break
+            current_cursor = str(next_cursor)
+    except SellerSDKError as exc:
+        skipped.append(("?", f"could not list services: {exc}"))
+
     return eligible, skipped
 
 
@@ -465,7 +474,7 @@ def _resolve_or_fetch_ids(
     statuses_when_all: list[str],
     provider: str | None,
     flag_name: str,
-    use_from_data: bool = False,
+    use_local_ids: bool = False,
     data_dir: Path = Path("."),
     visibilities_when_all: list[str] | None = None,
 ) -> list[str]:
@@ -475,26 +484,27 @@ def _resolve_or_fetch_ids(
     - explicit positional ``service_ids`` — used as-is, no state check.
     - ``--all``: fetch from the API filtered server-side by
       status/visibility/provider, so only eligible services are returned.
-    - ``--from-data``: read IDs from listing_v1 files under ``data_dir``,
-      then fetch each and apply the *same* status/visibility filter
-      ``--all`` would have applied server-side. Skipped services are
-      reported with a reason so the operator can see why the action
-      ran on a subset.
+    - ``--local-ids``: read IDs from listing_v1 files under ``data_dir``
+      and resolve them via the seller list endpoint with the ``ids``
+      filter (which the backend expands to also include any pending
+      revisions of the requested ids — see backend PR #915). The same
+      status/visibility filter ``--all`` would have applied server-side
+      is then applied client-side against the returned set.
 
     ``visibilities_when_all`` further restricts the fetch to
     services whose current visibility is in the given list.
     """
     # --- strict mutual exclusivity ---
-    modes = sum([bool(service_ids), use_all, use_from_data])
+    modes = sum([bool(service_ids), use_all, use_local_ids])
     if modes > 1:
         console.print(
-            "[red]Error:[/red] --all, --from-data, and explicit service IDs are mutually exclusive. "
+            "[red]Error:[/red] --all, --local-ids, and explicit service IDs are mutually exclusive. "
             "Provide exactly one."
         )
         raise typer.Exit(code=1)
 
-    # --- --from-data: local listing_v1 files ---
-    if use_from_data:
+    # --- --local-ids: local listing_v1 files ---
+    if use_local_ids:
         ids = _read_ids_from_data_dir(data_dir)
         if provider:
             from unitysvc_core.utils import find_files_by_schema
@@ -517,7 +527,7 @@ def _resolve_or_fetch_ids(
         # is valid for.  Without this step the action runs on the whole
         # local set and the operator gets a wall of 400s for services
         # that were never going to be eligible (e.g. ``submit
-        # --from-data`` against a repo with already-active services
+        # --local-ids`` against a repo with already-active services
         # would always 400 on those).
         async def _filter_local() -> tuple[list[str], list[tuple[str, str]]]:
             async with async_client(api_key, base_url) as client:
@@ -568,11 +578,11 @@ def _resolve_or_fetch_ids(
 
     # --- explicit IDs ---
     if provider:
-        console.print("[red]Error:[/red] --provider requires --all or --from-data")
+        console.print("[red]Error:[/red] --provider requires --all or --local-ids")
         raise typer.Exit(code=1)
     if not service_ids:
         console.print(
-            f"[red]Error:[/red] Provide service IDs, --{flag_name}, or --from-data"
+            f"[red]Error:[/red] Provide service IDs, --{flag_name}, or --local-ids"
         )
         raise typer.Exit(code=1)
     return list(service_ids)
@@ -587,10 +597,10 @@ def _resolve_or_fetch_ids(
 def submit_service(
     service_ids: list[str] = typer.Argument(None, help="Service ID(s) to submit (≥8 chars)."),
     all_drafts: bool = typer.Option(False, "--all", help="Submit all draft and rejected services."),
-    from_data: bool = _FROM_DATA_OPTION,
+    local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     provider: str | None = typer.Option(
-        None, "--provider", help="Filter by provider when --all or --from-data is set."
+        None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -605,7 +615,7 @@ def submit_service(
         statuses_when_all=["draft", "rejected"],
         provider=provider,
         flag_name="all",
-        use_from_data=from_data,
+        use_local_ids=local_ids,
         data_dir=data_dir,
     )
     _bulk_status_change(
@@ -623,10 +633,10 @@ def submit_service(
 def withdraw_service(
     service_ids: list[str] = typer.Argument(None, help="Service ID(s) to withdraw (≥8 chars)."),
     all_pending: bool = typer.Option(False, "--all", help="Withdraw all pending and rejected services."),
-    from_data: bool = _FROM_DATA_OPTION,
+    local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     provider: str | None = typer.Option(
-        None, "--provider", help="Filter by provider when --all or --from-data is set."
+        None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -641,7 +651,7 @@ def withdraw_service(
         statuses_when_all=["pending", "rejected"],
         provider=provider,
         flag_name="all",
-        use_from_data=from_data,
+        use_local_ids=local_ids,
         data_dir=data_dir,
     )
     _bulk_status_change(
@@ -659,10 +669,10 @@ def withdraw_service(
 def deprecate_service(
     service_ids: list[str] = typer.Argument(None, help="Service ID(s) to deprecate (≥8 chars)."),
     all_active: bool = typer.Option(False, "--all", help="Deprecate all active services."),
-    from_data: bool = _FROM_DATA_OPTION,
+    local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     provider: str | None = typer.Option(
-        None, "--provider", help="Filter by provider when --all or --from-data is set."
+        None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -677,7 +687,7 @@ def deprecate_service(
         statuses_when_all=["active"],
         provider=provider,
         flag_name="all",
-        use_from_data=from_data,
+        use_local_ids=local_ids,
         data_dir=data_dir,
     )
     _bulk_status_change(
@@ -702,10 +712,10 @@ def publish_service(
         "--all",
         help="Publish all active services that aren't already public.",
     ),
-    from_data: bool = _FROM_DATA_OPTION,
+    local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     provider: str | None = typer.Option(
-        None, "--provider", help="Filter by provider when --all or --from-data is set."
+        None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -721,7 +731,7 @@ def publish_service(
         visibilities_when_all=["unlisted", "private"],
         provider=provider,
         flag_name="all",
-        use_from_data=from_data,
+        use_local_ids=local_ids,
         data_dir=data_dir,
     )
     _bulk_visibility_change(
@@ -743,10 +753,10 @@ def unlist_service(
         "--all",
         help="Unlist all active services that aren't already unlisted.",
     ),
-    from_data: bool = _FROM_DATA_OPTION,
+    local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     provider: str | None = typer.Option(
-        None, "--provider", help="Filter by provider when --all or --from-data is set."
+        None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -762,7 +772,7 @@ def unlist_service(
         visibilities_when_all=["public", "private"],
         provider=provider,
         flag_name="all",
-        use_from_data=from_data,
+        use_local_ids=local_ids,
         data_dir=data_dir,
     )
     _bulk_visibility_change(
@@ -784,10 +794,10 @@ def hide_service(
         "--all",
         help="Hide all active services that aren't already private.",
     ),
-    from_data: bool = _FROM_DATA_OPTION,
+    local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     provider: str | None = typer.Option(
-        None, "--provider", help="Filter by provider when --all or --from-data is set."
+        None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -803,7 +813,7 @@ def hide_service(
         visibilities_when_all=["public", "unlisted"],
         provider=provider,
         flag_name="all",
-        use_from_data=from_data,
+        use_local_ids=local_ids,
         data_dir=data_dir,
     )
     _bulk_visibility_change(
@@ -828,11 +838,11 @@ def delete_service(
         "--all",
         help="Delete all deletable services (draft, pending, review, rejected, suspended, deprecated).",
     ),
-    from_data: bool = _FROM_DATA_OPTION,
+    local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     status: str | None = typer.Option(None, "--status", help="Restrict --all to a single deletable status."),
     provider: str | None = typer.Option(
-        None, "--provider", help="Filter by provider when --all or --from-data is set."
+        None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
     dryrun: bool = typer.Option(False, "--dryrun", help="Show what would be deleted without doing it."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
@@ -858,7 +868,7 @@ def delete_service(
         statuses_when_all=statuses,
         provider=provider,
         flag_name="all",
-        use_from_data=from_data,
+        use_local_ids=local_ids,
         data_dir=data_dir,
     )
 
