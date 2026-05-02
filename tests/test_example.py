@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from unitysvc_sellers.example import build_upstream_template_context, execute_code_example
+from unitysvc_sellers.example import build_upstream_template_context, execute_code_example, expand_template_strings
 
 
 def test_build_upstream_template_context_renames_base_url() -> None:
@@ -50,6 +50,44 @@ def test_build_upstream_template_context_passes_other_fields_through() -> None:
 def test_build_upstream_template_context_empty() -> None:
     """An empty interface yields an empty context (no defaults)."""
     assert build_upstream_template_context({}) == {}
+
+
+# ---------------------------------------------------------------------------
+# expand_template_strings
+# ---------------------------------------------------------------------------
+
+def test_expand_template_strings_expands_top_level_strings() -> None:
+    result = expand_template_strings(
+        {"url": "https://{{ host }}/v1"},
+        extra_context={"host": "api.example.com"},
+    )
+    assert result == {"url": "https://api.example.com/v1"}
+
+
+def test_expand_template_strings_recurses_into_nested_dicts() -> None:
+    """Nested dict values (e.g. routing_key) must be expanded so that
+    ``routing_key.model = "{{ params.model }}"`` resolves to the default
+    parameter value before being placed into the code-example render context.
+    """
+    result = expand_template_strings(
+        {"routing_key": {"model": "{{ params.model }}", "stream": "true"}},
+        extra_context={"params": {"model": "gpt-4o"}},
+    )
+    assert result == {"routing_key": {"model": "gpt-4o", "stream": "true"}}
+
+
+def test_expand_template_strings_nested_unexpanded_strings_pass_through() -> None:
+    """Nested strings without Jinja2 syntax are left unchanged."""
+    result = expand_template_strings(
+        {"routing_key": {"model": "gpt-4o"}},
+        extra_context={"params": {}},
+    )
+    assert result == {"routing_key": {"model": "gpt-4o"}}
+
+
+def test_expand_template_strings_non_string_values_unchanged() -> None:
+    result = expand_template_strings({"port": 465, "flag": True})
+    assert result == {"port": 465, "flag": True}
 
 
 def test_execute_code_example_uses_resolved_credentials_for_template_context(
