@@ -33,6 +33,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from ..aclient import AsyncClient
 from ..exceptions import SellerSDKError
 from ._helpers import (
     api_key_option,
@@ -414,6 +415,65 @@ def _read_ids_from_data_dir(data_dir: Path) -> list[str]:
     return ids
 
 
+async def _filter_ids_by_state(
+    client: AsyncClient,
+    ids: list[str],
+    *,
+    statuses: list[str],
+    visibilities: list[str] | None,
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Fetch each id and partition into (eligible, skipped).
+
+    ``--all`` filters by status/visibility *server-side* via the list
+    endpoint, so the action only ever runs on services the operation
+    is actually valid for. ``--from-data`` starts from a fixed local
+    set, so we mirror that filtering on the client by fetching each
+    service and inspecting its current state.
+
+    Returns
+    -------
+    eligible
+        Ids whose ``status`` is in ``statuses`` and (if provided)
+        ``visibility`` is in ``visibilities``.
+    skipped
+        ``(id, reason)`` pairs for everything that was filtered out
+        (wrong state) or unreachable (404 / network error). The
+        caller is expected to surface these so the operator knows
+        why the action ran on a subset.
+    """
+    import asyncio
+
+    async def _check(sid: str) -> tuple[str, str | None, str | None, str | None]:
+        try:
+            svc = model_to_dict(await client.services.get(sid))
+            return (
+                sid,
+                str(svc.get("status") or "") or None,
+                str(svc.get("visibility") or "") or None,
+                None,
+            )
+        except SellerSDKError as exc:
+            return (sid, None, None, f"could not fetch: {exc}")
+
+    results = await asyncio.gather(*(_check(sid) for sid in ids))
+    eligible: list[str] = []
+    skipped: list[tuple[str, str]] = []
+    for sid, status, vis, fetch_err in results:
+        if fetch_err:
+            skipped.append((sid, fetch_err))
+            continue
+        if status not in statuses:
+            skipped.append((sid, f"status={status!r}, expected one of {statuses}"))
+            continue
+        if visibilities and vis not in visibilities:
+            skipped.append(
+                (sid, f"visibility={vis!r}, expected one of {visibilities}")
+            )
+            continue
+        eligible.append(sid)
+    return eligible, skipped
+
+
 def _resolve_or_fetch_ids(
     *,
     api_key: str | None,
@@ -430,12 +490,16 @@ def _resolve_or_fetch_ids(
     """Resolve the target service IDs from exactly one of three mutually exclusive sources.
 
     Sources (only one may be active):
-    - explicit positional ``service_ids``
-    - ``--all``: fetch from the API filtered by status/visibility/provider.
-    - ``--from-data``: read IDs from listing_v1 files under ``data_dir``;
-      ``--provider`` filters by the ``provider_name`` field in each listing.
+    - explicit positional ``service_ids`` — used as-is, no state check.
+    - ``--all``: fetch from the API filtered server-side by
+      status/visibility/provider, so only eligible services are returned.
+    - ``--from-data``: read IDs from listing_v1 files under ``data_dir``,
+      then fetch each and apply the *same* status/visibility filter
+      ``--all`` would have applied server-side. Skipped services are
+      reported with a reason so the operator can see why the action
+      ran on a subset.
 
-    ``visibilities_when_all`` further restricts the ``--all`` fetch to
+    ``visibilities_when_all`` further restricts the fetch to
     services whose current visibility is in the given list.
     """
     # --- strict mutual exclusivity ---
@@ -464,8 +528,35 @@ def _resolve_or_fetch_ids(
         if not ids:
             console.print("[yellow]No service IDs found in listing_v1 files under the given directory.[/yellow]")
             raise typer.Exit(code=0)
-        console.print(f"[cyan]Found {len(ids)} service ID(s) from {data_dir}[/cyan]\n")
-        return ids
+        console.print(f"[cyan]Found {len(ids)} service ID(s) from {data_dir}[/cyan]")
+
+        # Mirror --all's server-side filter: fetch each and drop the ones
+        # whose current status/visibility doesn't match what the action
+        # is valid for.  Without this step the action runs on the whole
+        # local set and the operator gets a wall of 400s for services
+        # that were never going to be eligible (e.g. ``submit
+        # --from-data`` against a repo with already-active services
+        # would always 400 on those).
+        async def _filter_local() -> tuple[list[str], list[tuple[str, str]]]:
+            async with async_client(api_key, base_url) as client:
+                return await _filter_ids_by_state(
+                    client,
+                    ids,
+                    statuses=statuses_when_all,
+                    visibilities=visibilities_when_all,
+                )
+
+        eligible, skipped = run_async(
+            _filter_local(),
+            error_prefix="Failed to inspect service states",
+        )
+        for sid, reason in skipped:
+            console.print(f"[dim]⊘ skipping[/dim] {sid[:8]}…: [dim]{reason}[/dim]")
+        if not eligible:
+            console.print("[yellow]No services in the data dir match the required state for this action.[/yellow]")
+            raise typer.Exit(code=0)
+        console.print(f"[green]Eligible: {len(eligible)} of {len(ids)} service(s)[/green]\n")
+        return eligible
 
     # --- --all: remote API ---
     if use_all:

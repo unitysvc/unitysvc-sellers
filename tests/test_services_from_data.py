@@ -12,7 +12,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import httpx as _httpx
 import pytest
+import respx as _respx
 import typer
 
 from unitysvc_sellers.commands.services import _read_ids_from_data_dir, _resolve_or_fetch_ids
@@ -134,24 +136,57 @@ class TestMutualExclusivity:
 # ---------------------------------------------------------------------------
 
 class TestResolveFromData:
-    def _call(self, data_dir: Path, provider: str | None = None) -> list[str]:
+    """``--from-data`` reads ids from the data dir, then fetches each
+    service and filters by ``statuses_when_all`` so the action runs only
+    on services in the right starting state — same contract as ``--all``,
+    just sourced from local data instead of a server-side list query.
+    """
+
+    _BASE = "https://api.example.test"
+
+    def _setup_state(self, **id_to_status: str) -> None:
+        """Mock ``GET /services/{id}`` responses with the given statuses."""
+        for sid, status in id_to_status.items():
+            _respx.get(f"{self._BASE}/services/{sid}").mock(
+                return_value=_httpx.Response(
+                    200,
+                    json={
+                        "service_id": sid,
+                        "service_name": "svc",
+                        "status": status,
+                        "visibility": "public",
+                        "documents": [],
+                        "interfaces": [],
+                    },
+                )
+            )
+
+    def _call(
+        self,
+        data_dir: Path,
+        provider: str | None = None,
+        *,
+        statuses_when_all: list[str] | None = None,
+    ) -> list[str]:
         return _resolve_or_fetch_ids(
-            api_key=None,
-            base_url="https://api.example.test",
+            api_key="svcpass_test",
+            base_url=self._BASE,
             service_ids=None,
             use_all=False,
-            statuses_when_all=["draft"],
+            statuses_when_all=statuses_when_all or ["draft"],
             provider=provider,
             flag_name="all",
             use_from_data=True,
             data_dir=data_dir,
         )
 
+    @_respx.mock
     def test_ids_collected_from_listing_files(self, tmp_path: Path) -> None:
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
             {"service_id": "svc-001"},
         )
+        self._setup_state(**{"svc-001": "draft"})
         assert self._call(tmp_path) == ["svc-001"]
 
     def test_empty_dir_exits_with_zero(self, tmp_path: Path) -> None:
@@ -159,6 +194,7 @@ class TestResolveFromData:
             self._call(tmp_path)
         assert exc.value.exit_code == 0
 
+    @_respx.mock
     def test_provider_filter_keeps_matching(self, tmp_path: Path) -> None:
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
@@ -168,14 +204,17 @@ class TestResolveFromData:
             tmp_path / "other" / "services" / "svc2" / "listing.json",
             {"service_id": "other-002", "provider_name": "Other Inc"},
         )
+        self._setup_state(**{"acme-001": "draft", "other-002": "draft"})
         result = self._call(tmp_path, provider="acme")
         assert result == ["acme-001"]
 
+    @_respx.mock
     def test_provider_filter_case_insensitive(self, tmp_path: Path) -> None:
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
             {"service_id": "acme-001", "provider_name": "ACME"},
         )
+        self._setup_state(**{"acme-001": "draft"})
         result = self._call(tmp_path, provider="acme")
         assert result == ["acme-001"]
 
@@ -188,14 +227,48 @@ class TestResolveFromData:
             self._call(tmp_path, provider="nobody")
         assert exc.value.exit_code == 0
 
+    @_respx.mock
     def test_service_id_from_override_is_included(self, tmp_path: Path) -> None:
         listing = _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
             {"provider_name": "Acme Corp"},
         )
         _write_override(listing, {"service_id": "from-override"})
+        self._setup_state(**{"from-override": "draft"})
         result = self._call(tmp_path)
         assert result == ["from-override"]
+
+    @_respx.mock
+    def test_status_filter_drops_ineligible_services(self, tmp_path: Path) -> None:
+        """The whole point of mirroring ``--all``'s server-side filter
+        on the client when ``--from-data`` is set: services in the
+        wrong state get skipped instead of producing 400s downstream
+        (e.g. ``submit --from-data`` against a repo that mixes
+        ``draft`` and ``active`` services).
+        """
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc1" / "listing.json",
+            {"service_id": "drft-001"},
+        )
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc2" / "listing.json",
+            {"service_id": "actv-002"},
+        )
+        self._setup_state(**{"drft-001": "draft", "actv-002": "active"})
+        # ``submit`` allows draft → pending only.
+        result = self._call(tmp_path, statuses_when_all=["draft", "rejected"])
+        assert result == ["drft-001"]
+
+    @_respx.mock
+    def test_all_ids_filtered_out_exits_zero(self, tmp_path: Path) -> None:
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc1" / "listing.json",
+            {"service_id": "actv-001"},
+        )
+        self._setup_state(**{"actv-001": "active"})
+        with pytest.raises(typer.Exit) as exc:
+            self._call(tmp_path, statuses_when_all=["draft", "rejected"])
+        assert exc.value.exit_code == 0
 
 
 # ---------------------------------------------------------------------------
@@ -203,8 +276,6 @@ class TestResolveFromData:
 # ---------------------------------------------------------------------------
 import json as _json  # noqa: E402
 
-import httpx as _httpx  # noqa: E402
-import respx as _respx  # noqa: E402
 from typer.testing import CliRunner  # noqa: E402
 
 from unitysvc_sellers.cli import app as _cli_app  # noqa: E402
