@@ -582,7 +582,7 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
         # never written into rendered output, so they have to come through env.
         env_vars: dict[str, str] = {}
         api_key = credentials.get("api_key")
-        if isinstance(api_key, (str, int, float, bool)):
+        if api_key:
             env_vars["UNITYSVC_API_KEY"] = str(api_key)
 
         # Expose the full env the subprocess actually sees so the caller
