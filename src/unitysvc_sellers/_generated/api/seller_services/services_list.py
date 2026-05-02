@@ -21,6 +21,7 @@ def _get_kwargs(
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
+    ids: list[str] | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -83,6 +84,8 @@ def _get_kwargs(
     else:
         json_provider = provider
     params["provider"] = json_provider
+
+    params["ids"] = ids
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -147,6 +150,7 @@ def sync_detailed(
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
+    ids: list[str] | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
@@ -202,6 +206,7 @@ def sync_detailed(
         listing_type=listing_type,
         name=name,
         provider=provider,
+        ids=ids,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -224,6 +229,7 @@ def sync(
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
+    ids: list[str] | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
@@ -280,6 +286,7 @@ def sync(
         listing_type=listing_type,
         name=name,
         provider=provider,
+        ids=ids,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
@@ -296,6 +303,7 @@ async def asyncio_detailed(
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
+    ids: list[str] | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[CursorPageServicePublic | ErrorResponse | HTTPValidationError]:
@@ -351,6 +359,7 @@ async def asyncio_detailed(
         listing_type=listing_type,
         name=name,
         provider=provider,
+        ids=ids,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -371,6 +380,7 @@ async def asyncio(
     listing_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
+    ids: list[str] | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> CursorPageServicePublic | ErrorResponse | HTTPValidationError | None:
@@ -428,6 +438,7 @@ async def asyncio(
             listing_type=listing_type,
             name=name,
             provider=provider,
+            ids=ids,
             authorization=authorization,
             x_role_id=x_role_id,
         )

@@ -186,6 +186,7 @@ async def fetch_service_ids_by_status(
     *,
     provider: str | None = None,
     visibilities: list[str] | None = None,
+    service_ids: list[str] | None = None,
 ) -> list[str]:
     """List all service ids matching any of ``statuses``, optionally filtered.
 
@@ -197,6 +198,9 @@ async def fetch_service_ids_by_status(
             in this list — used by ``publish/unlist/hide --all`` to skip
             services that already have the target visibility. ``None`` means
             no visibility filter (all visibilities).
+        service_ids: when set, restrict to this exact local id set. Used by
+            ``--from-data`` flows so state checks use the backend's current
+            status and visibility rather than fields in listing files.
 
     Follows cursor pagination to completion so sellers with more than
     one page of services in a given status aren't silently truncated.
@@ -223,6 +227,7 @@ async def fetch_service_ids_by_status(
                         status=status,
                         visibility=visibility,
                         provider=provider,
+                        ids=service_ids,
                         limit=PAGE_SIZE,
                         cursor=cursor,
                     )

@@ -10,11 +10,14 @@ Covers:
 from __future__ import annotations
 
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 import pytest
 import typer
 
+from unitysvc_sellers.commands import services as services_cmd
 from unitysvc_sellers.commands.services import _read_ids_from_data_dir, _resolve_or_fetch_ids
 
 # ---------------------------------------------------------------------------
@@ -196,3 +199,55 @@ class TestResolveFromData:
         _write_override(listing, {"service_id": "from-override"})
         result = self._call(tmp_path)
         assert result == ["from-override"]
+
+    def test_state_filter_uses_remote_service_metadata(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc1" / "listing.json",
+            {"service_id": "publish-me"},
+        )
+        _write_listing(
+            tmp_path / "acme" / "services" / "svc2" / "listing.json",
+            {"service_id": "already-public"},
+        )
+
+        @asynccontextmanager
+        async def fake_async_client(*_args: Any, **_kwargs: Any):
+            yield object()
+
+        async def fake_fetch_service_ids_by_status(
+            _client: object,
+            statuses: list[str],
+            *,
+            provider: str | None = None,
+            visibilities: list[str] | None = None,
+            service_ids: list[str] | None = None,
+        ) -> list[str]:
+            assert statuses == ["active"]
+            assert provider is None
+            assert visibilities == ["unlisted"]
+            assert set(service_ids or []) == {"publish-me", "already-public"}
+            return ["publish-me"]
+
+        monkeypatch.setattr(services_cmd, "async_client", fake_async_client)
+        monkeypatch.setattr(services_cmd, "fetch_service_ids_by_status", fake_fetch_service_ids_by_status)
+
+        result = _resolve_or_fetch_ids(
+            api_key="key",
+            base_url="https://api.example.test",
+            service_ids=None,
+            use_all=False,
+            statuses_when_all=["active"],
+            provider=None,
+            flag_name="all",
+            use_from_data=True,
+            data_dir=tmp_path,
+            visibilities_when_all=["unlisted", "private"],
+            visibilities_when_from_data=["unlisted"],
+            filter_from_data_state=True,
+        )
+
+        assert result == ["publish-me"]

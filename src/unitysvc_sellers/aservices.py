@@ -132,6 +132,7 @@ class AsyncServices:
         listing_type: str | None = None,
         name: str | None = None,
         provider: str | None = None,
+        ids: list[str] | None = None,
     ) -> AsyncServiceList:
         from ._generated.api.seller_services import services_list
         from ._generated.types import UNSET
@@ -147,6 +148,7 @@ class AsyncServices:
                 listing_type=listing_type if listing_type is not None else UNSET,
                 name=name if name is not None else UNSET,
                 provider=provider if provider is not None else UNSET,
+                ids=ids if ids is not None else UNSET,
             )
         )
         return AsyncServiceList(
@@ -162,6 +164,7 @@ class AsyncServices:
                 "listing_type": listing_type,
                 "name": name,
                 "provider": provider,
+                "ids": ids,
             },
         )
 
@@ -175,6 +178,7 @@ class AsyncServices:
         listing_type: str | None = None,
         name: str | None = None,
         provider: str | None = None,
+        ids: list[str] | None = None,
     ) -> AsyncIterator[AsyncService]:
         """Async-iterate over all services across pages."""
         kwargs: dict[str, Any] = {
@@ -185,6 +189,7 @@ class AsyncServices:
             "listing_type": listing_type,
             "name": name,
             "provider": provider,
+            "ids": ids,
         }
         page: AsyncServiceList | None = await self.list(**kwargs)
         while page is not None:

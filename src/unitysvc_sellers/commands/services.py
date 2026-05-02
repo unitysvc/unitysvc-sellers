@@ -362,6 +362,8 @@ def _resolve_or_fetch_ids(
     use_from_data: bool = False,
     data_dir: Path = Path("."),
     visibilities_when_all: list[str] | None = None,
+    visibilities_when_from_data: list[str] | None = None,
+    filter_from_data_state: bool = False,
 ) -> list[str]:
     """Resolve the target service IDs from exactly one of three mutually exclusive sources.
 
@@ -372,7 +374,11 @@ def _resolve_or_fetch_ids(
       ``--provider`` filters by the ``provider_name`` field in each listing.
 
     ``visibilities_when_all`` further restricts the ``--all`` fetch to
-    services whose current visibility is in the given list.
+    services whose current visibility is in the given list. When
+    ``filter_from_data_state`` is set, the same remote status/visibility
+    checks are applied to the ids collected from local data files. Use
+    ``visibilities_when_from_data`` when that local-id path needs a
+    narrower visibility filter than ``--all``.
     """
     # --- strict mutual exclusivity ---
     modes = sum([bool(service_ids), use_all, use_from_data])
@@ -401,6 +407,22 @@ def _resolve_or_fetch_ids(
             console.print("[yellow]No service IDs found in listing_v1 files under the given directory.[/yellow]")
             raise typer.Exit(code=0)
         console.print(f"[cyan]Found {len(ids)} service ID(s) from {data_dir}[/cyan]\n")
+        if filter_from_data_state:
+            async def _fetch_matching() -> list[str]:
+                async with async_client(api_key, base_url) as client:
+                    return await fetch_service_ids_by_status(
+                        client,
+                        statuses_when_all,
+                        provider=provider,
+                        visibilities=visibilities_when_from_data or visibilities_when_all,
+                        service_ids=ids,
+                    )
+
+            matching = set(run_async(_fetch_matching(), error_prefix="Failed to fetch services"))
+            ids = [sid for sid in ids if sid in matching]
+            if not ids:
+                console.print("[yellow]No services in the data dir match the required state for this action.[/yellow]")
+                raise typer.Exit(code=0)
         return ids
 
     # --- --all: remote API ---
@@ -470,6 +492,7 @@ def submit_service(
         flag_name="all",
         use_from_data=from_data,
         data_dir=data_dir,
+        filter_from_data_state=True,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -506,6 +529,7 @@ def withdraw_service(
         flag_name="all",
         use_from_data=from_data,
         data_dir=data_dir,
+        filter_from_data_state=True,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -542,6 +566,7 @@ def deprecate_service(
         flag_name="all",
         use_from_data=from_data,
         data_dir=data_dir,
+        filter_from_data_state=True,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -586,6 +611,8 @@ def publish_service(
         flag_name="all",
         use_from_data=from_data,
         data_dir=data_dir,
+        visibilities_when_from_data=["unlisted"],
+        filter_from_data_state=True,
     )
     _bulk_visibility_change(
         api_key=api_key,
@@ -627,6 +654,7 @@ def unlist_service(
         flag_name="all",
         use_from_data=from_data,
         data_dir=data_dir,
+        filter_from_data_state=True,
     )
     _bulk_visibility_change(
         api_key=api_key,
@@ -668,6 +696,7 @@ def hide_service(
         flag_name="all",
         use_from_data=from_data,
         data_dir=data_dir,
+        filter_from_data_state=True,
     )
     _bulk_visibility_change(
         api_key=api_key,
@@ -723,6 +752,7 @@ def delete_service(
         flag_name="all",
         use_from_data=from_data,
         data_dir=data_dir,
+        filter_from_data_state=True,
     )
 
     count = len(ids)

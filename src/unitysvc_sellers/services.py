@@ -207,6 +207,7 @@ class Services:
         listing_type: str | None = None,
         name: str | None = None,
         provider: str | None = None,
+        ids: list[str] | None = None,
     ) -> ServiceList:
         """List services owned by the authenticated seller.
 
@@ -229,6 +230,7 @@ class Services:
                 listing_type=listing_type if listing_type is not None else UNSET,
                 name=name if name is not None else UNSET,
                 provider=provider if provider is not None else UNSET,
+                ids=ids if ids is not None else UNSET,
             )
         )
         return ServiceList(
@@ -244,6 +246,7 @@ class Services:
                 "listing_type": listing_type,
                 "name": name,
                 "provider": provider,
+                "ids": ids,
             },
         )
 
@@ -257,6 +260,7 @@ class Services:
         listing_type: str | None = None,
         name: str | None = None,
         provider: str | None = None,
+        ids: list[str] | None = None,
     ) -> Iterable[Service]:
         """Iterate over all services across pages, auto-advancing the cursor.
 
@@ -272,6 +276,7 @@ class Services:
             "listing_type": listing_type,
             "name": name,
             "provider": provider,
+            "ids": ids,
         }
         page: ServiceList | None = self.list(**kwargs)
         while page is not None:
