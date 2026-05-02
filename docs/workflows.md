@@ -773,30 +773,30 @@ flowchart LR
 
 The CLI handles this order automatically. Incorrect order will result in foreign key errors.
 
-## Bulk Operations with --from-data
+## Bulk Operations with --local-ids
 
 After running `usvc_seller data upload`, each listing file gets a `listing.override.json`
 (or `.override.toml`) written alongside it containing the backend-assigned `service_id`.
-The `--from-data` flag on all bulk service commands reads those IDs automatically, so you
+The `--local-ids` flag on all bulk service commands reads those IDs automatically, so you
 don't have to copy-paste UUIDs from the upload output.
 
 ```bash
 # Submit all services whose override files live under the current directory
-usvc_seller services submit --from-data --yes
+usvc_seller services submit --local-ids --yes
 
 # Withdraw services for a specific provider only
-usvc_seller services withdraw --from-data --provider acme --yes
+usvc_seller services withdraw --local-ids --provider acme --yes
 
 # Submit services whose listing files are in a data/ subdirectory
-usvc_seller services submit --from-data --data-dir data --yes
+usvc_seller services submit --local-ids --data-dir data --yes
 
 # Publish all active services in a data subdirectory
-usvc_seller services publish --from-data --data-dir ./data --yes
+usvc_seller services publish --local-ids --data-dir ./data --yes
 ```
 
 ### How it works
 
-1. `--from-data` tells the command to scan for `listing_v1` files under `--data-dir`
+1. `--local-ids` tells the command to scan for `listing_v1` files under `--data-dir`
    (default: current directory).
 2. For each listing file found, the corresponding `*.override.*` file is merged in
    automatically. The `service_id` field from the merged result is collected.
@@ -825,19 +825,19 @@ usvc_seller services publish --from-data --data-dir ./data --yes
   env:
     UNITYSVC_SELLER_API_KEY: ${{ secrets.UNITYSVC_SELLER_API_KEY }}
     UNITYSVC_SELLER_API_URL: ${{ secrets.UNITYSVC_SELLER_API_URL }}
-  run: usvc_seller services submit --from-data --data-dir data --yes
+  run: usvc_seller services submit --local-ids --data-dir data --yes
 ```
 
 ### Mutual exclusivity
 
-`--from-data`, `--all`, and explicit service ID arguments are mutually exclusive.
+`--local-ids`, `--all`, and explicit service ID arguments are mutually exclusive.
 Only one source may be active per invocation.
 
 | Source | When to use |
 |--------|-------------|
 | Explicit IDs | You know the exact UUIDs |
 | `--all` | Operate on all services in the seller account matching a status/visibility |
-| `--from-data` | Operate on services whose listings live in the local data directory |
+| `--local-ids` | Restrict to services whose IDs are recorded in local listing files |
 
 ## Deleting Services
 

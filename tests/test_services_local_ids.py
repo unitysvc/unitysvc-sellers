@@ -1,10 +1,10 @@
-"""Tests for ``--from-data`` / ``--data-dir`` in ``usvc_seller services``.
+"""Tests for ``--local-ids`` / ``--data-dir`` in ``usvc_seller services``.
 
 Covers:
 - ``_read_ids_from_data_dir``: collects service_id from listing_v1 files,
   including via merged override files; skips listings without a service_id.
-- ``_resolve_or_fetch_ids``: mutual exclusivity enforcement; --from-data path;
-  --provider filter in --from-data mode; explicit-IDs path.
+- ``_resolve_or_fetch_ids``: mutual exclusivity enforcement; --local-ids path;
+  --provider filter in --local-ids mode; explicit-IDs path.
 """
 
 from __future__ import annotations
@@ -26,6 +26,13 @@ from unitysvc_sellers.commands.services import _read_ids_from_data_dir, _resolve
 # Helpers
 # ---------------------------------------------------------------------------
 
+# Fixed UUIDs used by the list-mode mocks (``_filter_ids_by_state`` casts the
+# ``ids`` list through ``UUID(sid)`` before passing them to the SDK, so test
+# fixtures must look like real UUIDs).
+_UUID_A = "11111111-1111-1111-1111-111111111111"
+_UUID_B = "22222222-2222-2222-2222-222222222222"
+
+
 def _write_listing(path: Path, extra: dict | None = None) -> Path:
     """Write a minimal listing_v1 JSON file, with optional extra fields."""
     data: dict = {"schema": "listing_v1", "status": "ready"}
@@ -43,6 +50,29 @@ def _write_override(listing_path: Path, override: dict) -> Path:
     override_path = listing_path.with_name(f"{stem}.override{suffix}")
     override_path.write_text(json.dumps(override))
     return override_path
+
+
+def _list_page(items: list[dict], *, has_more: bool = False, next_cursor: str | None = None) -> dict:
+    """Build a CursorPageServicePublic-shaped list response payload."""
+    return {"data": items, "has_more": has_more, "next_cursor": next_cursor}
+
+
+def _public_payload(service_id: str, **overrides) -> dict:
+    """Build a ServicePublic-shaped payload for list endpoint mocks."""
+    return {
+        "id": service_id,
+        "name": overrides.pop("name", "svc"),
+        "status": overrides.pop("status", "active"),
+        "visibility": overrides.pop("visibility", "public"),
+        "provider_name": overrides.pop("provider_name", "acme"),
+        "service_type": overrides.pop("service_type", "llm"),
+        "display_name": None,
+        "created_at": "2024-01-01T00:00:00Z",
+        "seller_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "offering_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "listing_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        **overrides,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +126,7 @@ class TestMutualExclusivity:
             statuses_when_all=["draft"],
             provider=None,
             flag_name="all",
-            use_from_data=False,
+            use_local_ids=False,
             data_dir=Path("."),
         )
         defaults.update(kwargs)
@@ -107,16 +137,16 @@ class TestMutualExclusivity:
             self._call(service_ids=["abc-123"], use_all=True)
         assert exc.value.exit_code == 1
 
-    def test_ids_and_from_data_together_is_error(self, tmp_path: Path) -> None:
+    def test_ids_and_local_ids_together_is_error(self, tmp_path: Path) -> None:
         _write_listing(tmp_path / "p" / "services" / "s" / "listing.json", {"service_id": "x"})
         with pytest.raises(typer.Exit) as exc:
-            self._call(service_ids=["abc-123"], use_from_data=True, data_dir=tmp_path)
+            self._call(service_ids=["abc-123"], use_local_ids=True, data_dir=tmp_path)
         assert exc.value.exit_code == 1
 
-    def test_all_and_from_data_together_is_error(self, tmp_path: Path) -> None:
+    def test_all_and_local_ids_together_is_error(self, tmp_path: Path) -> None:
         _write_listing(tmp_path / "p" / "services" / "s" / "listing.json", {"service_id": "x"})
         with pytest.raises(typer.Exit) as exc:
-            self._call(use_all=True, use_from_data=True, data_dir=tmp_path)
+            self._call(use_all=True, use_local_ids=True, data_dir=tmp_path)
         assert exc.value.exit_code == 1
 
     def test_no_mode_and_no_ids_is_error(self) -> None:
@@ -124,7 +154,7 @@ class TestMutualExclusivity:
             self._call()
         assert exc.value.exit_code == 1
 
-    def test_provider_without_all_or_from_data_is_error(self) -> None:
+    def test_provider_without_all_or_local_ids_is_error(self) -> None:
         with pytest.raises(typer.Exit) as exc:
             self._call(service_ids=["abc-123"], provider="acme")
         assert exc.value.exit_code == 1
@@ -135,34 +165,26 @@ class TestMutualExclusivity:
 
 
 # ---------------------------------------------------------------------------
-# _resolve_or_fetch_ids — --from-data path
+# _resolve_or_fetch_ids — --local-ids path
 # ---------------------------------------------------------------------------
+#
+# ``_filter_ids_by_state`` now resolves eligible ids via a single
+# ``services.list(ids=...)`` call (the backend expands the filter to also
+# include any service whose ``revision_of`` matches a requested id — see
+# backend PR #915).  Status / visibility filtering is then applied
+# client-side.  Tests mock the ``GET /services`` list endpoint accordingly.
 
-class TestResolveFromData:
-    """``--from-data`` reads ids from the data dir, then fetches each
-    service and filters by ``statuses_when_all`` so the action runs only
-    on services in the right starting state — same contract as ``--all``,
-    just sourced from local data instead of a server-side list query.
-    """
+_BASE = "https://api.example.test"
 
-    _BASE = "https://api.example.test"
 
-    def _setup_state(self, **id_to_status: str) -> None:
-        """Mock ``GET /services/{id}`` responses with the given statuses."""
-        for sid, status in id_to_status.items():
-            _respx.get(f"{self._BASE}/services/{sid}").mock(
-                return_value=_httpx.Response(
-                    200,
-                    json={
-                        "service_id": sid,
-                        "service_name": "svc",
-                        "status": status,
-                        "visibility": "public",
-                        "documents": [],
-                        "interfaces": [],
-                    },
-                )
-            )
+class TestResolveLocalIds:
+    """``--local-ids`` reads ids from the data dir, then resolves them via
+    the seller list endpoint (one round-trip, follows cursors)."""
+
+    def _mock_list(self, *items: dict) -> None:
+        _respx.get(f"{_BASE}/services").mock(
+            return_value=_httpx.Response(200, json=_list_page(list(items))),
+        )
 
     def _call(
         self,
@@ -173,13 +195,13 @@ class TestResolveFromData:
     ) -> list[str]:
         return _resolve_or_fetch_ids(
             api_key="svcpass_test",
-            base_url=self._BASE,
+            base_url=_BASE,
             service_ids=None,
             use_all=False,
             statuses_when_all=statuses_when_all or ["draft"],
             provider=provider,
             flag_name="all",
-            use_from_data=True,
+            use_local_ids=True,
             data_dir=data_dir,
         )
 
@@ -187,10 +209,10 @@ class TestResolveFromData:
     def test_ids_collected_from_listing_files(self, tmp_path: Path) -> None:
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
-            {"service_id": "svc-001"},
+            {"service_id": _UUID_A},
         )
-        self._setup_state(**{"svc-001": "draft"})
-        assert self._call(tmp_path) == ["svc-001"]
+        self._mock_list(_public_payload(_UUID_A, status="draft"))
+        assert self._call(tmp_path) == [_UUID_A]
 
     def test_empty_dir_exits_with_zero(self, tmp_path: Path) -> None:
         with pytest.raises(typer.Exit) as exc:
@@ -201,30 +223,31 @@ class TestResolveFromData:
     def test_provider_filter_keeps_matching(self, tmp_path: Path) -> None:
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
-            {"service_id": "acme-001", "provider_name": "Acme Corp"},
+            {"service_id": _UUID_A, "provider_name": "Acme Corp"},
         )
         _write_listing(
             tmp_path / "other" / "services" / "svc2" / "listing.json",
-            {"service_id": "other-002", "provider_name": "Other Inc"},
+            {"service_id": _UUID_B, "provider_name": "Other Inc"},
         )
-        self._setup_state(**{"acme-001": "draft", "other-002": "draft"})
+        # Only the acme id reaches the list call (provider filter trims locally).
+        self._mock_list(_public_payload(_UUID_A, status="draft"))
         result = self._call(tmp_path, provider="acme")
-        assert result == ["acme-001"]
+        assert result == [_UUID_A]
 
     @_respx.mock
     def test_provider_filter_case_insensitive(self, tmp_path: Path) -> None:
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
-            {"service_id": "acme-001", "provider_name": "ACME"},
+            {"service_id": _UUID_A, "provider_name": "ACME"},
         )
-        self._setup_state(**{"acme-001": "draft"})
+        self._mock_list(_public_payload(_UUID_A, status="draft"))
         result = self._call(tmp_path, provider="acme")
-        assert result == ["acme-001"]
+        assert result == [_UUID_A]
 
     def test_provider_filter_no_match_exits_zero(self, tmp_path: Path) -> None:
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
-            {"service_id": "acme-001", "provider_name": "Acme Corp"},
+            {"service_id": _UUID_A, "provider_name": "Acme Corp"},
         )
         with pytest.raises(typer.Exit) as exc:
             self._call(tmp_path, provider="nobody")
@@ -236,72 +259,48 @@ class TestResolveFromData:
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
             {"provider_name": "Acme Corp"},
         )
-        _write_override(listing, {"service_id": "from-override"})
-        self._setup_state(**{"from-override": "draft"})
+        _write_override(listing, {"service_id": _UUID_A})
+        self._mock_list(_public_payload(_UUID_A, status="draft"))
         result = self._call(tmp_path)
-        assert result == ["from-override"]
+        assert result == [_UUID_A]
 
     @_respx.mock
     def test_status_filter_drops_ineligible_services(self, tmp_path: Path) -> None:
-        """The whole point of mirroring ``--all``'s server-side filter
-        on the client when ``--from-data`` is set: services in the
-        wrong state get skipped instead of producing 400s downstream
-        (e.g. ``submit --from-data`` against a repo that mixes
-        ``draft`` and ``active`` services).
-        """
+        """``submit --local-ids`` allows draft → pending only.  When the
+        list call returns both an ``active`` and a ``draft`` service, only
+        the draft is eligible; the active one is silently filtered out."""
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
-            {"service_id": "drft-001"},
+            {"service_id": _UUID_A},
         )
         _write_listing(
             tmp_path / "acme" / "services" / "svc2" / "listing.json",
-            {"service_id": "actv-002"},
+            {"service_id": _UUID_B},
         )
-        self._setup_state(**{"drft-001": "draft", "actv-002": "active"})
-        # ``submit`` allows draft → pending only.
+        self._mock_list(
+            _public_payload(_UUID_A, status="draft"),
+            _public_payload(_UUID_B, status="active"),
+        )
         result = self._call(tmp_path, statuses_when_all=["draft", "rejected"])
-        assert result == ["drft-001"]
+        assert result == [_UUID_A]
 
     @_respx.mock
     def test_all_ids_filtered_out_exits_zero(self, tmp_path: Path) -> None:
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
-            {"service_id": "actv-001"},
+            {"service_id": _UUID_A},
         )
-        self._setup_state(**{"actv-001": "active"})
+        self._mock_list(_public_payload(_UUID_A, status="active"))
         with pytest.raises(typer.Exit) as exc:
             self._call(tmp_path, statuses_when_all=["draft", "rejected"])
         assert exc.value.exit_code == 0
 
 
 # ---------------------------------------------------------------------------
-# CLI: ``services list --from-data``
+# CLI: ``services list --local-ids``
 # ---------------------------------------------------------------------------
 
 _BASE_URL = "https://seller.test.unitysvc"
-
-
-def _list_page(items: list[dict], *, has_more: bool = False, next_cursor: str | None = None) -> dict:
-    """Build a CursorPageServicePublic-shaped list response payload."""
-    return {"data": items, "has_more": has_more, "next_cursor": next_cursor}
-
-
-def _public_payload(service_id: str, **overrides) -> dict:
-    """Build a ServicePublic-shaped payload for list endpoint mocks."""
-    return {
-        "id": service_id,
-        "name": overrides.pop("name", "svc"),
-        "status": overrides.pop("status", "active"),
-        "visibility": overrides.pop("visibility", "public"),
-        "provider_name": overrides.pop("provider_name", "acme"),
-        "service_type": overrides.pop("service_type", "llm"),
-        "display_name": None,
-        "created_at": "2024-01-01T00:00:00Z",
-        "seller_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-        "offering_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-        "listing_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
-        **overrides,
-    }
 
 
 @pytest.fixture
@@ -315,8 +314,8 @@ def _env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UNITYSVC_SELLER_API_URL", _BASE_URL)
 
 
-class TestListFromData:
-    """``services list --from-data`` reads ids from the local data dir and
+class TestListLocalIds:
+    """``services list --local-ids`` reads ids from the local data dir and
     calls ``GET /services?ids=...`` rather than paging the full catalog."""
 
     @_respx.mock
@@ -325,19 +324,19 @@ class TestListFromData:
     ) -> None:
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
-            {"service_id": "11111111-1111-1111-1111-111111111111"},
+            {"service_id": _UUID_A},
         )
         _write_listing(
             tmp_path / "acme" / "services" / "svc2" / "listing.json",
-            {"service_id": "22222222-2222-2222-2222-222222222222"},
+            {"service_id": _UUID_B},
         )
 
         _respx.get(f"{_BASE_URL}/services").mock(
             return_value=_httpx.Response(
                 200,
                 json=_list_page([
-                    _public_payload("11111111-1111-1111-1111-111111111111", name="alpha"),
-                    _public_payload("22222222-2222-2222-2222-222222222222", name="beta"),
+                    _public_payload(_UUID_A, name="alpha"),
+                    _public_payload(_UUID_B, name="beta"),
                 ]),
             )
         )
@@ -349,7 +348,7 @@ class TestListFromData:
             _cli_app,
             [
                 "services", "list",
-                "--from-data", "--data-dir", str(tmp_path),
+                "--local-ids", "--data-dir", str(tmp_path),
                 "--format", "json",
             ],
         )
@@ -366,7 +365,7 @@ class TestListFromData:
     ) -> None:
         result = _runner.invoke(
             _cli_app,
-            ["services", "list", "--from-data", "--data-dir", str(tmp_path)],
+            ["services", "list", "--local-ids", "--data-dir", str(tmp_path)],
         )
 
         assert result.exit_code == 0
@@ -380,11 +379,11 @@ class TestListFromData:
         endpoint returns only the matching services."""
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
-            {"service_id": "11111111-1111-1111-1111-111111111111"},
+            {"service_id": _UUID_A},
         )
         _write_listing(
             tmp_path / "acme" / "services" / "svc2" / "listing.json",
-            {"service_id": "22222222-2222-2222-2222-222222222222"},
+            {"service_id": _UUID_B},
         )
 
         # Backend returns only the active service (as it would for ?status=active).
@@ -392,11 +391,7 @@ class TestListFromData:
             return_value=_httpx.Response(
                 200,
                 json=_list_page([
-                    _public_payload(
-                        "11111111-1111-1111-1111-111111111111",
-                        name="alpha",
-                        status="active",
-                    ),
+                    _public_payload(_UUID_A, name="alpha", status="active"),
                 ]),
             )
         )
@@ -405,7 +400,7 @@ class TestListFromData:
             _cli_app,
             [
                 "services", "list",
-                "--from-data", "--data-dir", str(tmp_path),
+                "--local-ids", "--data-dir", str(tmp_path),
                 "--status", "active",
                 "--format", "json",
             ],
@@ -425,11 +420,11 @@ class TestListFromData:
         because the backend silently omits IDs it doesn't know about."""
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
-            {"service_id": "11111111-1111-1111-1111-111111111111"},
+            {"service_id": _UUID_A},
         )
         _write_listing(
             tmp_path / "acme" / "services" / "svc2" / "listing.json",
-            {"service_id": "22222222-2222-2222-2222-222222222222"},
+            {"service_id": _UUID_B},
         )
 
         # Backend silently omits the second id (deleted / not found).
@@ -437,7 +432,7 @@ class TestListFromData:
             return_value=_httpx.Response(
                 200,
                 json=_list_page([
-                    _public_payload("11111111-1111-1111-1111-111111111111", name="alpha"),
+                    _public_payload(_UUID_A, name="alpha"),
                 ]),
             )
         )
@@ -446,7 +441,7 @@ class TestListFromData:
             _cli_app,
             [
                 "services", "list",
-                "--from-data", "--data-dir", str(tmp_path),
+                "--local-ids", "--data-dir", str(tmp_path),
                 "--format", "json",
             ],
         )
