@@ -460,8 +460,18 @@ $ usvc_seller services [OPTIONS] COMMAND [ARGS]...
 
 List services owned by the authenticated seller.
 
-Uses cursor-based pagination. Pass ``--cursor`` to fetch a specific
-page, or ``--all`` to follow cursors to completion.
+Default mode uses cursor-based pagination over the seller&#x27;s full
+catalog: pass ``--cursor`` for a specific page or ``--all`` to follow
+cursors to completion.
+
+With ``--from-data``, only the services whose IDs are recorded in
+``listing.{json,toml}`` (or the merged ``listing.override.{json,toml}``)
+files under ``--data-dir`` are fetched and shown — handy for
+inspecting just the services managed by the current data repo
+without a wildcard query against a shared seller account. The
+``--status`` / ``--visibility`` / ``--name`` / ``--provider`` filters
+are applied server-side via the ``ids`` query parameter added in the
+backend ``GET /services?ids=&lt;uuid&gt;`` endpoint.
 
 **Usage**:
 
@@ -480,6 +490,8 @@ $ usvc_seller services list [OPTIONS]
 * `--provider TEXT`: Filter by provider name (case-insensitive partial match).
 * `--fields TEXT`: Comma-separated list of columns to display.  [default: id,name,provider_name,service_type,status,visibility]
 * `-f, --format TEXT`: Output format: table | json.  [default: table]
+* `--from-data`: Act on services whose IDs are found in listing_v1 files under --data-dir.
+* `--data-dir DIRECTORY`: Data directory for --from-data (default: current directory).  [default: .]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.

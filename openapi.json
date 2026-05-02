@@ -1791,7 +1791,7 @@
           "seller-services"
         ],
         "summary": "List My Services",
-        "description": "List all services for the current seller.\n\nServices are the identity layer connecting sellers to content versions\n(Provider, ServiceOffering, ServiceListing). Results are paginated using\ncursor-based (keyset) pagination, ordered newest-first by `created_at`.\n\nQuery Parameters:\n- cursor: Opaque pagination cursor from a previous response's\n  ``next_cursor``. Omit to start from the first page.\n- limit: Page size (default: 50, max: 200)\n- status: Filter by service status (draft, pending, review, active, rejected, suspended)\n- visibility: Filter by catalog visibility (public, unlisted, private)\n- service_type: Filter by service type (e.g., llm, vectordb, embedding)\n- listing_type: Filter by listing type (managed, byok, byoe)\n- name: Search by name, display name, or provider name (case-insensitive partial match)\n- provider: Strict provider-name filter (case-insensitive partial match) \u2014 narrower than ``name``,\n  which also matches service name / display name.",
+        "description": "List all services for the current seller.\n\nServices are the identity layer connecting sellers to content versions\n(Provider, ServiceOffering, ServiceListing). Results are paginated using\ncursor-based (keyset) pagination, ordered newest-first by `created_at`.\n\nQuery Parameters:\n- cursor: Opaque pagination cursor from a previous response's\n  ``next_cursor``. Omit to start from the first page.\n- limit: Page size (default: 50, max: 200)\n- status: Filter by service status (draft, pending, review, active, rejected, suspended)\n- visibility: Filter by catalog visibility (public, unlisted, private)\n- service_type: Filter by service type (e.g., llm, vectordb, embedding)\n- listing_type: Filter by listing type (managed, byok, byoe)\n- name: Search by name, display name, or provider name (case-insensitive partial match)\n- provider: Strict provider-name filter (case-insensitive partial match) \u2014 narrower than ``name``,\n  which also matches service name / display name.\n- ids: Restrict to specific service ids (repeatable query param). Combined with\n  the other filters via ``AND`` \u2014 passing ``?ids=<uuid>&status=active`` returns\n  only the listed ids whose current status is ``active``.",
         "operationId": "services_list",
         "parameters": [
           {
@@ -1931,6 +1931,28 @@
               "title": "Provider"
             },
             "description": "Filter strictly by provider name (case-insensitive partial match). Use this when ``name`` is too broad."
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict to a specific set of service ids. Repeat the parameter (``?ids=<uuid>&ids=<uuid>``) to pass multiple. Used by SDK callers that already know the id set (e.g. ``--from-data`` flows in usvc_seller) and want a single round-trip with the lean list payload instead of N detail fetches.",
+              "title": "Ids"
+            },
+            "description": "Restrict to a specific set of service ids. Repeat the parameter (``?ids=<uuid>&ids=<uuid>``) to pass multiple. Used by SDK callers that already know the id set (e.g. ``--from-data`` flows in usvc_seller) and want a single round-trip with the lean list payload instead of N detail fetches."
           },
           {
             "name": "authorization",

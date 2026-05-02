@@ -45,10 +45,12 @@ def expand_template_strings(
     data: dict[str, Any],
     extra_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Expand Jinja2 template syntax in string values of a dict.
+    """Expand Jinja2 template syntax in string values of a dict (recursively).
 
     Uses a fake enrollment_code() for local testing. Only processes
-    values that contain {{ or {%.
+    string values that contain {{ or {%; nested dicts are expanded
+    recursively so that ``routing_key.model = "{{ params.model }}"`` is
+    resolved before the value is placed into the template render context.
 
     Args:
         data: Dict whose string values may contain Jinja2 templates.
@@ -65,6 +67,8 @@ def expand_template_strings(
                 value = template.render(**ctx)
             except jinja2.TemplateError:
                 pass
+        elif isinstance(value, dict):
+            value = expand_template_strings(value, extra_context)
         result[key] = value
     return result
 
@@ -578,7 +582,7 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
         # never written into rendered output, so they have to come through env.
         env_vars: dict[str, str] = {}
         api_key = credentials.get("api_key")
-        if isinstance(api_key, (str, int, float, bool)):
+        if api_key:
             env_vars["UNITYSVC_API_KEY"] = str(api_key)
 
         # Expose the full env the subprocess actually sees so the caller
