@@ -178,17 +178,20 @@ usvc_seller services list --status active
 
 #### 8. Publish to Marketplace
 
-After your service is activated (approved by admin), it starts as **unlisted**. Set visibility to `public` when you're ready for it to appear in the catalog:
+A freshly activated service starts as **unlisted** unless you've already set its visibility to `public` on the draft (which the CI upload pipeline does — see below).  Switching visibility is a one-shot command:
 
 ```bash
-# Publish a specific service
-usvc_seller services update <service-id> --visibility public
+# Single service
+usvc_seller services set-visibility public <service-id>
 
-# Or publish all active services at once
-usvc_seller services set-visibility --all --visibility public --yes
+# All active services that aren't already public
+usvc_seller services set-visibility public --all --yes
+
+# Restrict to services whose service_id is recorded under ./data
+usvc_seller services set-visibility public --local-ids --data-dir data --yes
 ```
 
-See [Seller Lifecycle](seller-lifecycle.md#visibility) for details on visibility settings.
+See [Seller Lifecycle → setting visibility](seller-lifecycle.md#setting-visibility) for the full visibility model and when to publish before vs. after admin approval.
 
 ### Version Control Integration
 
@@ -790,8 +793,8 @@ usvc_seller services withdraw --local-ids --provider acme --yes
 # Submit services whose listing files are in a data/ subdirectory
 usvc_seller services submit --local-ids --data-dir data --yes
 
-# Publish all active services in a data subdirectory
-usvc_seller services publish --local-ids --data-dir ./data --yes
+# Set visibility to public for every service in a data subdirectory
+usvc_seller services set-visibility public --local-ids --data-dir ./data --yes
 ```
 
 ### How it works
@@ -821,12 +824,28 @@ usvc_seller services publish --local-ids --data-dir ./data --yes
     git diff --staged --quiet || git commit -m "chore: update service override files [skip ci]"
     git push
 
+# Set visibility=public BEFORE submit-for-review.  The flag has no
+# effect while the service is still draft / under review, but it
+# becomes effective the instant admin approves activation — so a
+# seller running this CI workflow gets a one-step "upload → public"
+# pipeline with no manual publish step after approval.  Sellers who
+# want a soft-launch / verification window should *omit* this step
+# (services activate as ``unlisted`` by default) and run
+# ``set-visibility public`` manually when they're ready.
+- name: Mark visibility public
+  env:
+    UNITYSVC_SELLER_API_KEY: ${{ secrets.UNITYSVC_SELLER_API_KEY }}
+    UNITYSVC_SELLER_API_URL: ${{ secrets.UNITYSVC_SELLER_API_URL }}
+  run: usvc_seller services set-visibility public --local-ids --data-dir data --yes
+
 - name: Submit for review
   env:
     UNITYSVC_SELLER_API_KEY: ${{ secrets.UNITYSVC_SELLER_API_KEY }}
     UNITYSVC_SELLER_API_URL: ${{ secrets.UNITYSVC_SELLER_API_URL }}
   run: usvc_seller services submit --local-ids --data-dir data --yes
 ```
+
+The order — `set-visibility public` **before** `submit` — matters: visibility is a flag, not a transition.  Setting it on a draft is a no-op until activation, but it persists through the review→active transition, so the service appears in the catalog the moment admin approves.  Reversing the order (submit first, then set-visibility) works for an active service but skips the catalog appearance for any window where activation has happened but the second command hasn't run yet.
 
 ### Mutual exclusivity
 

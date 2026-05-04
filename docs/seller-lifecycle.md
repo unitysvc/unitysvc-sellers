@@ -97,22 +97,45 @@ Every service has a visibility setting that controls catalog presence:
 !!! note "Unlisted services are fully functional"
     Unlisted services are not hidden — they are simply not listed in the catalog. Anyone with the direct URL can view the service page, enroll, and use the API without any additional restriction. This makes `unlisted` ideal for sharing with beta customers before a public launch: just send them the link.
 
-**After activation, you must explicitly publish your service** by setting visibility to `public`. This gives you a soft-launch period to:
+### Setting visibility
 
--   Verify billing and usage tracking work correctly
--   Share the direct link with beta customers for early feedback
--   Confirm documentation and pricing are final
+Visibility is **independent** of status — you can set it on a draft, on a service in review, or on an active service.  The flag only takes effect once the service reaches `active`:
 
-### Publishing your service
+-   On a **draft** or **review** service, `visibility=public` records the intent; the service does not appear in the catalog until admin approval activates it.
+-   On an **active** service, `visibility=public` is immediately visible to all users.
 
-**CLI:**
+This means there are two valid publishing patterns:
+
+**Pattern A — soft launch (set visibility after activation).** The default visibility on activation is `unlisted`, so a freshly approved service is live and routable but not in the public catalog.  Use this period to verify billing, share with beta customers via the direct URL, and finalise docs.  Then explicitly switch to public when you're ready:
 
 ```bash
-# Set a single service to public
-usvc_seller services update <service-id> --visibility public
+usvc_seller services set-visibility public <service-id>
+```
 
-# Set all active services to public (bulk)
-usvc_seller services set-visibility --all --visibility public --yes
+**Pattern B — declarative (set visibility before submission).** Set `visibility=public` while the service is still a draft, then submit for review.  When admin activates the service it becomes public immediately — no second step required.  This is what the CI-driven upload workflow does (see [Workflows → upload pipeline](workflows.md#typical-cicd-upload-and-submit-pattern)):
+
+```bash
+usvc_seller data upload
+usvc_seller services set-visibility public --local-ids --data-dir data --yes
+usvc_seller services submit --local-ids --data-dir data --yes
+```
+
+### Switching visibility
+
+**CLI** — set visibility on specific services or in bulk:
+
+```bash
+# Single service
+usvc_seller services set-visibility public <service-id>
+
+# All active services that aren't already public
+usvc_seller services set-visibility public --all --yes
+
+# Take a service back off the public catalog without breaking enrollments
+usvc_seller services set-visibility unlisted <service-id>
+
+# Hide entirely (also keeps it out of internal listings)
+usvc_seller services set-visibility private <service-id>
 ```
 
 **SDK:**
@@ -123,7 +146,7 @@ client.services.update(service_id, {"visibility": "public"})
 
 **Web interface:** Use the visibility toggle on the service detail page.
 
-You can switch back to `unlisted` at any time to temporarily remove a service from the catalog without affecting existing enrollments or routing.
+`unlisted` and `public` can be flipped freely at any time without affecting existing enrollments or routing.
 
 ### Once published
 

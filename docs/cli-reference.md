@@ -426,7 +426,7 @@ $ usvc_seller data list listings [OPTIONS] [DATA_DIR]
 
 ## `usvc_seller services`
 
-Remote service operations (list, show, submit, withdraw, deprecate, publish, unlist, hide, delete, update).
+Remote service operations (list, show, submit, withdraw, deprecate, set-visibility, delete, update).
 
 **Usage**:
 
@@ -445,9 +445,7 @@ $ usvc_seller services [OPTIONS] COMMAND [ARGS]...
 * `submit`: Submit services for review (draft|rejected...
 * `withdraw`: Withdraw services back to draft...
 * `deprecate`: Mark services as deprecated.
-* `publish`: Set visibility to public (visible in the...
-* `unlist`: Set visibility to unlisted (accessible by...
-* `hide`: Set visibility to private (hidden from all...
+* `set-visibility`: Set the visibility of one or more services.
 * `delete`: Permanently delete services.
 * `update`: Update visibility, routing vars, and/or...
 * `list-tests`: List testable documents for one service or...
@@ -592,73 +590,40 @@ $ usvc_seller services deprecate [OPTIONS] [SERVICE_IDS]...
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services publish`
+### `usvc_seller services set-visibility`
 
-Set visibility to public (visible in the catalog to all users).
+Set the visibility of one or more services.
 
-**Usage**:
+``VISIBILITY`` is one of:
 
-```console
-$ usvc_seller services publish [OPTIONS] [SERVICE_IDS]...
-```
+- ``public``   — service is listed in the public catalog (effective
+  only once the service is in the ``active`` status; setting this
+  on a draft service marks the *intent* to be public when the
+  service is activated).
+- ``unlisted`` — accessible by direct link, hidden from public
+  catalog browse views.
+- ``private``  — hidden from every catalog view; only the seller
+  and admins can see it.
 
-**Arguments**:
-
-* `[SERVICE_IDS]...`: Service ID(s) to publish (≥8 chars).
-
-**Options**:
-
-* `--all`: Publish all active services that aren&#x27;t already public.
-* `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
-* `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
-* `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-y, --yes`: Skip confirmation prompt.
-* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
-* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
-* `--help`: Show this message and exit.
-
-### `usvc_seller services unlist`
-
-Set visibility to unlisted (accessible by direct link, not shown in catalog).
+This command is a pure flag flip on the visibility column.  It
+does not transition status, does not validate that the service
+*should* be at the requested visibility, and does not interact
+with any review workflow.
 
 **Usage**:
 
 ```console
-$ usvc_seller services unlist [OPTIONS] [SERVICE_IDS]...
+$ usvc_seller services set-visibility [OPTIONS] VISIBILITY [SERVICE_IDS]...
 ```
 
 **Arguments**:
 
-* `[SERVICE_IDS]...`: Service ID(s) to unlist (≥8 chars).
+* `VISIBILITY`: Target visibility: one of public, unlisted, private.  [required]
+* `[SERVICE_IDS]...`: Service ID(s) to update (≥8 chars).
 
 **Options**:
 
-* `--all`: Unlist all active services that aren&#x27;t already unlisted.
-* `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
-* `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
-* `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-y, --yes`: Skip confirmation prompt.
-* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
-* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
-* `--help`: Show this message and exit.
-
-### `usvc_seller services hide`
-
-Set visibility to private (hidden from all catalog views).
-
-**Usage**:
-
-```console
-$ usvc_seller services hide [OPTIONS] [SERVICE_IDS]...
-```
-
-**Arguments**:
-
-* `[SERVICE_IDS]...`: Service ID(s) to hide (≥8 chars).
-
-**Options**:
-
-* `--all`: Hide all active services that aren&#x27;t already private.
+* `--all`: Apply to every non-deprecated service (draft, pending, review, active, rejected, suspended) not already at the target visibility.  Status is irrelevant — visibility is a flag that persists through the lifecycle and only takes effect on ``active``.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
