@@ -10,7 +10,7 @@ import json5
 import typer
 from rich.console import Console
 
-from .format_data import format_data
+from .format_data import format_data_files
 from .utils import find_files_by_schema
 
 app = typer.Typer(help="Populate services")
@@ -251,8 +251,14 @@ def populate(
         console.print("[dim]Running automatic formatting to ensure data conforms to format specification[/dim]\n")
 
         try:
-            # Run format command on the data directory
-            format_data(data_dir)
+            # Format in-place (``check_only=False``).  Calling the
+            # plain helper rather than the Typer-decorated ``format_data``
+            # command — calling that as a function leaks
+            # ``typer.Option(False)`` defaults through as ``OptionInfo``
+            # objects, which evaluate truthy and silently turn the post-
+            # populate format pass into a check-only run that never
+            # rewrites the generated files.
+            format_data_files(data_dir, check_only=False)
             console.print("\n[green]✓ Formatting completed successfully[/green]")
         except Exception as e:
             console.print(f"\n[yellow]⚠ Warning: Formatting failed: {e}[/yellow]")
