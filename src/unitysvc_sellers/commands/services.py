@@ -11,9 +11,7 @@ Commands:
 - ``submit``    — draft → pending (sets status='pending')
 - ``withdraw``  — pending|rejected → draft
 - ``deprecate`` — mark services as deprecated
-- ``publish``   — set visibility to public
-- ``unlist``    — set visibility to unlisted
-- ``hide``      — set visibility to private
+- ``set-visibility VISIBILITY`` — set visibility to ``public`` / ``unlisted`` / ``private``
 - ``delete``    — permanently delete services
 - ``update``    — set/remove routing vars and list price
 
@@ -61,7 +59,7 @@ _DATA_DIR_OPTION = typer.Option(
 console = Console()
 
 app = typer.Typer(
-    help="Remote service operations (list, show, submit, withdraw, deprecate, publish, unlist, hide, delete, update).",
+    help="Remote service operations (list, show, submit, withdraw, deprecate, set-visibility, delete, update).",
 )
 
 
@@ -702,15 +700,78 @@ def deprecate_service(
 
 
 # ---------------------------------------------------------------------------
-# publish / unlist / hide
+# set-visibility
 # ---------------------------------------------------------------------------
-@app.command("publish")
-def publish_service(
-    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to publish (≥8 chars)."),
+_VISIBILITIES: tuple[str, ...] = ("public", "unlisted", "private")
+
+# Per-target visibility, the *other* visibilities the ``--all`` filter
+# treats as candidates for change (everything except the target).
+_OTHER_VISIBILITIES: dict[str, list[str]] = {
+    "public": ["unlisted", "private"],
+    "unlisted": ["public", "private"],
+    "private": ["public", "unlisted"],
+}
+
+
+def _set_visibility_impl(
+    *,
+    visibility: str,
+    service_ids: list[str] | None,
+    all_active: bool,
+    local_ids: bool,
+    data_dir: Path,
+    provider: str | None,
+    yes: bool,
+    api_key: str | None,
+    base_url: str,
+) -> None:
+    """Shared implementation for the canonical ``set-visibility`` command
+    and the deprecated ``publish`` / ``unlist`` / ``hide`` aliases."""
+    if visibility not in _VISIBILITIES:
+        console.print(
+            f"[red]✗[/red] Invalid visibility {visibility!r}. "
+            f"Use one of: {', '.join(_VISIBILITIES)}.",
+            style="bold red",
+        )
+        raise typer.Exit(code=2)
+
+    ids = _resolve_or_fetch_ids(
+        api_key=api_key,
+        base_url=base_url,
+        service_ids=service_ids,
+        use_all=all_active,
+        statuses_when_all=["active"],
+        visibilities_when_all=_OTHER_VISIBILITIES[visibility],
+        provider=provider,
+        flag_name="all",
+        use_local_ids=local_ids,
+        data_dir=data_dir,
+    )
+    _bulk_visibility_change(
+        api_key=api_key,
+        base_url=base_url,
+        service_ids=ids,
+        visibility=visibility,
+        success_verb=f"Set to {visibility}",
+        confirm_prompt=f"Set {len(ids)} service(s) to {visibility}?",
+        yes=yes,
+    )
+
+
+@app.command("set-visibility")
+def set_visibility(
+    visibility: str = typer.Argument(
+        ...,
+        help="Target visibility: one of public, unlisted, private.",
+        metavar="VISIBILITY",
+    ),
+    service_ids: list[str] = typer.Argument(
+        None, help="Service ID(s) to update (≥8 chars)."
+    ),
     all_active: bool = typer.Option(
         False,
         "--all",
-        help="Publish all active services that aren't already public.",
+        help="Apply to all active services not already at the target visibility.",
     ),
     local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
@@ -721,110 +782,37 @@ def publish_service(
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Set visibility to public (visible in the catalog to all users)."""
-    ids = _resolve_or_fetch_ids(
-        api_key=api_key,
-        base_url=base_url,
+    """Set the visibility of one or more services.
+
+    ``VISIBILITY`` is one of:
+
+    - ``public``   — service is listed in the public catalog (effective
+      only once the service is in the ``active`` status; setting this
+      on a draft service marks the *intent* to be public when the
+      service is activated).
+    - ``unlisted`` — accessible by direct link, hidden from public
+      catalog browse views.
+    - ``private``  — hidden from every catalog view; only the seller
+      and admins can see it.
+
+    This command is a pure flag flip on the visibility column.  It
+    does not transition status, does not validate that the service
+    *should* be at the requested visibility, and does not interact
+    with any review workflow.
+    """
+    _set_visibility_impl(
+        visibility=visibility,
         service_ids=service_ids,
-        use_all=all_active,
-        statuses_when_all=["active"],
-        visibilities_when_all=["unlisted", "private"],
-        provider=provider,
-        flag_name="all",
-        use_local_ids=local_ids,
+        all_active=all_active,
+        local_ids=local_ids,
         data_dir=data_dir,
-    )
-    _bulk_visibility_change(
-        api_key=api_key,
-        base_url=base_url,
-        service_ids=ids,
-        visibility="public",
-        success_verb="Published",
-        confirm_prompt=f"Set {len(ids)} service(s) to public?",
-        yes=yes,
-    )
-
-
-@app.command("unlist")
-def unlist_service(
-    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to unlist (≥8 chars)."),
-    all_active: bool = typer.Option(
-        False,
-        "--all",
-        help="Unlist all active services that aren't already unlisted.",
-    ),
-    local_ids: bool = _LOCAL_IDS_OPTION,
-    data_dir: Path = _DATA_DIR_OPTION,
-    provider: str | None = typer.Option(
-        None, "--provider", help="Filter by provider when --all or --local-ids is set."
-    ),
-    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
-    api_key: str | None = api_key_option(),
-    base_url: str = base_url_option(),
-) -> None:
-    """Set visibility to unlisted (accessible by direct link, not shown in catalog)."""
-    ids = _resolve_or_fetch_ids(
-        api_key=api_key,
-        base_url=base_url,
-        service_ids=service_ids,
-        use_all=all_active,
-        statuses_when_all=["active"],
-        visibilities_when_all=["public", "private"],
         provider=provider,
-        flag_name="all",
-        use_local_ids=local_ids,
-        data_dir=data_dir,
-    )
-    _bulk_visibility_change(
+        yes=yes,
         api_key=api_key,
         base_url=base_url,
-        service_ids=ids,
-        visibility="unlisted",
-        success_verb="Unlisted",
-        confirm_prompt=f"Set {len(ids)} service(s) to unlisted?",
-        yes=yes,
     )
 
 
-@app.command("hide")
-def hide_service(
-    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to hide (≥8 chars)."),
-    all_active: bool = typer.Option(
-        False,
-        "--all",
-        help="Hide all active services that aren't already private.",
-    ),
-    local_ids: bool = _LOCAL_IDS_OPTION,
-    data_dir: Path = _DATA_DIR_OPTION,
-    provider: str | None = typer.Option(
-        None, "--provider", help="Filter by provider when --all or --local-ids is set."
-    ),
-    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
-    api_key: str | None = api_key_option(),
-    base_url: str = base_url_option(),
-) -> None:
-    """Set visibility to private (hidden from all catalog views)."""
-    ids = _resolve_or_fetch_ids(
-        api_key=api_key,
-        base_url=base_url,
-        service_ids=service_ids,
-        use_all=all_active,
-        statuses_when_all=["active"],
-        visibilities_when_all=["public", "unlisted"],
-        provider=provider,
-        flag_name="all",
-        use_local_ids=local_ids,
-        data_dir=data_dir,
-    )
-    _bulk_visibility_change(
-        api_key=api_key,
-        base_url=base_url,
-        service_ids=ids,
-        visibility="private",
-        success_verb="Hidden",
-        confirm_prompt=f"Hide {len(ids)} service(s) (set to private)?",
-        yes=yes,
-    )
 
 
 # ---------------------------------------------------------------------------
