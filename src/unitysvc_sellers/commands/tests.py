@@ -712,17 +712,14 @@ def run_tests(
                         console.print(f"      [yellow]→ saved:[/yellow] {path}")
                     except Exception as write_err:
                         console.print(f"      [yellow]⚠ could not write {path}: {write_err}[/yellow]")
-                env_path = f"{base}.env"
-                env_vars: dict[str, str] = iface_entry.get("env_vars") or {}
-                try:
-                    Path(env_path).write_text(
-                        "".join(f"{k}={v}\n" for k, v in env_vars.items()),
-                        encoding="utf-8",
-                    )
-                    console.print(f"      [yellow]→ saved:[/yellow] {env_path}")
-                    console.print(f"      [dim]  (source to reproduce: source {env_path})[/dim]")
-                except Exception as write_err:
-                    console.print(f"      [yellow]⚠ could not write {env_path}: {write_err}[/yellow]")
+                # Reproduce with: ``UNITYSVC_API_KEY=... bash failed_*.sh``.
+                # We deliberately don't dump a ``.env`` here even though
+                # ``UNITYSVC_API_KEY`` is the only var the script needs:
+                # the value already lives in the operator's shell env (it
+                # had to, to run this command), so writing it to a file
+                # just widens the secret's escape surface — a stray
+                # ``.env`` next to listing files in a data repo can end
+                # up committed, zipped into a bug report, or backed up.
 
         if entry.get("update_warning"):
             console.print(f"      [yellow](result upload failed: {entry['update_warning']})[/yellow]")
