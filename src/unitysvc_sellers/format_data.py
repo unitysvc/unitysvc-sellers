@@ -1,5 +1,6 @@
 """Format command - format data files."""
 
+import json as json_lib
 from pathlib import Path
 
 import typer
@@ -9,29 +10,26 @@ app = typer.Typer(help="Format data files")
 console = Console()
 
 
-@app.command()
-def format_data(
-    data_dir: Path | None = typer.Argument(
-        None,
-        help="Directory containing data files to format (default: current directory)",
-    ),
-    check_only: bool = typer.Option(
-        False,
-        "--check",
-        help="Check if files are formatted without modifying them",
-    ),
-):
-    """
-    Format data files (JSON, TOML, MD) to match pre-commit requirements.
+def format_data_files(data_dir: Path | None, *, check_only: bool = False) -> bool:
+    """Format every JSON / TOML / MD file under ``data_dir`` to match
+    the pre-commit / format-check pipeline's expectations:
 
-    This command:
-    - Formats JSON files with 2-space indentation
-    - Removes trailing whitespace
-    - Ensures files end with a newline
-    - Validates TOML syntax
-    """
-    import json as json_lib
+    - JSON files are re-emitted with sorted keys, 2-space indent, and a
+      trailing newline.
+    - All file types have trailing whitespace stripped from each line and
+      land with exactly one trailing newline.
 
+    Returns ``True`` when every file is already in the canonical form
+    (or, in ``check_only`` mode, would be).  Returns ``False`` when one
+    or more files needed formatting (and were rewritten unless
+    ``check_only`` is set), or when one or more files failed to parse.
+
+    Pure function — no Typer machinery.  Internal callers (e.g. the
+    ``populate`` post-step) invoke this directly so they don't have to
+    worry about ``typer.Option`` defaults leaking through as
+    ``OptionInfo`` instances when the function is called outside the
+    CLI entry point.
+    """
     # Set data directory
     if data_dir is None:
         data_dir = Path.cwd()
@@ -41,7 +39,7 @@ def format_data(
 
     if not data_dir.exists():
         console.print(f"[red]✗[/red] Data directory not found: {data_dir}", style="bold red")
-        raise typer.Exit(code=1)
+        return False
 
     console.print(f"[blue]{'Checking' if check_only else 'Formatting'} files in:[/blue] {data_dir}\n")
 
@@ -52,13 +50,13 @@ def format_data(
 
     if not all_files:
         console.print("[yellow]No files found to format.[/yellow]")
-        return
+        return True
 
     console.print(f"[cyan]Found {len(all_files)} file(s) to process[/cyan]\n")
 
     files_formatted = 0
-    files_with_issues = []
-    files_failed = []
+    files_with_issues: list[str] = []
+    files_failed: list[str] = []
 
     for file_path in sorted(all_files):
         try:
@@ -67,7 +65,7 @@ def format_data(
                 original_content = f.read()
 
             modified_content = original_content
-            changes = []
+            changes: list[str] = []
 
             # Format based on file type
             if file_path.suffix == ".json":
@@ -136,5 +134,30 @@ def format_data(
     if files_failed:
         console.print(f"  [red]✗ Failed: {len(files_failed)}[/red]")
 
-    if files_failed or (check_only and files_with_issues):
+    return not (files_failed or (check_only and files_with_issues))
+
+
+@app.command()
+def format_data(
+    data_dir: Path | None = typer.Argument(
+        None,
+        help="Directory containing data files to format (default: current directory)",
+    ),
+    check_only: bool = typer.Option(
+        False,
+        "--check",
+        help="Check if files are formatted without modifying them",
+    ),
+):
+    """
+    Format data files (JSON, TOML, MD) to match pre-commit requirements.
+
+    This command:
+    - Formats JSON files with 2-space indentation
+    - Removes trailing whitespace
+    - Ensures files end with a newline
+    - Validates TOML syntax
+    """
+    ok = format_data_files(data_dir, check_only=check_only)
+    if not ok:
         raise typer.Exit(code=1)
