@@ -623,7 +623,7 @@ $ usvc_seller services set-visibility [OPTIONS] VISIBILITY [SERVICE_IDS]...
 
 **Options**:
 
-* `--all`: Apply to all active services not already at the target visibility.
+* `--all`: Apply to every non-deprecated service (draft, pending, review, active, rejected, suspended) not already at the target visibility.  Status is irrelevant — visibility is a flag that persists through the lifecycle and only takes effect on ``active``.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.

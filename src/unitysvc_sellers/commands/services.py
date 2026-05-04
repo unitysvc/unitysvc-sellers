@@ -712,6 +712,24 @@ _OTHER_VISIBILITIES: dict[str, list[str]] = {
     "private": ["public", "unlisted"],
 }
 
+# Statuses where setting visibility is meaningful.  Visibility is a
+# flag, not a transition — it persists through the entire lifecycle
+# and only takes effect when the service reaches ``active``.  Setting
+# ``visibility=public`` on a ``draft`` is the canonical "Pattern B"
+# behaviour: the seller declares intent, the flag stays on the
+# service through review, and the moment admin approves activation
+# the service is in the public catalog.  ``deprecated`` is the
+# terminal status where flipping visibility is a no-op (the service
+# is permanently removed from routing), so we exclude it.
+_VISIBILITY_TARGETABLE_STATUSES: list[str] = [
+    "active",
+    "draft",
+    "pending",
+    "rejected",
+    "review",
+    "suspended",
+]
+
 
 def _set_visibility_impl(
     *,
@@ -740,7 +758,7 @@ def _set_visibility_impl(
         base_url=base_url,
         service_ids=service_ids,
         use_all=all_active,
-        statuses_when_all=["active"],
+        statuses_when_all=_VISIBILITY_TARGETABLE_STATUSES,
         visibilities_when_all=_OTHER_VISIBILITIES[visibility],
         provider=provider,
         flag_name="all",
@@ -771,7 +789,13 @@ def set_visibility(
     all_active: bool = typer.Option(
         False,
         "--all",
-        help="Apply to all active services not already at the target visibility.",
+        help=(
+            "Apply to every non-deprecated service (draft, pending, review, "
+            "active, rejected, suspended) not already at the target "
+            "visibility.  Status is irrelevant — visibility is a flag that "
+            "persists through the lifecycle and only takes effect on "
+            "``active``."
+        ),
     ),
     local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
