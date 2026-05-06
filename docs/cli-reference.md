@@ -636,6 +636,16 @@ $ usvc_seller services set-visibility [OPTIONS] VISIBILITY [SERVICE_IDS]...
 
 Permanently delete services.
 
+Only services that have **never been active** are deletable:
+``draft``, ``pending``, ``review``, ``rejected``.  Services in
+``active``, ``suspended``, or ``deprecated`` have an archived
+``ServiceData`` history that the platform retains for audit
+purposes; the backend rejects delete attempts on those even when
+they&#x27;re currently inactive.  Status changes don&#x27;t recover
+deletability: a service that was once activated stays
+non-deletable forever, even after a round-trip through
+``deprecated → active → deprecated``.
+
 **Usage**:
 
 ```console
@@ -648,7 +658,7 @@ $ usvc_seller services delete [OPTIONS] [SERVICE_IDS]...
 
 **Options**:
 
-* `--all`: Delete all deletable services (draft, pending, review, rejected, suspended, deprecated).
+* `--all`: Delete all deletable services (draft, pending, review, rejected).
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--status TEXT`: Restrict --all to a single deletable status.
