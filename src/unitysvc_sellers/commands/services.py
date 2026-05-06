@@ -848,7 +848,7 @@ def delete_service(
     all_deletable: bool = typer.Option(
         False,
         "--all",
-        help="Delete all deletable services (draft, pending, review, rejected, suspended, deprecated).",
+        help="Delete all deletable services (draft, pending, review, rejected).",
     ),
     local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
@@ -861,8 +861,26 @@ def delete_service(
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Permanently delete services."""
-    deletable_statuses = ["draft", "pending", "review", "rejected", "suspended", "deprecated"]
+    """Permanently delete services.
+
+    Only services that have **never been active** are deletable:
+    ``draft``, ``pending``, ``review``, ``rejected``.  Services in
+    ``active``, ``suspended``, or ``deprecated`` have an archived
+    ``ServiceData`` history that the platform retains for audit
+    purposes; the backend rejects delete attempts on those even when
+    they're currently inactive.  Status changes don't recover
+    deletability: a service that was once activated stays
+    non-deletable forever, even after a round-trip through
+    ``deprecated → active → deprecated``.
+    """
+    # Statuses for which the service has never reached ``active``,
+    # i.e. no archived ``ServiceData`` row exists.  Kept in sync with
+    # ``_check_service_deletable`` in
+    # ``backend/app/api/routes/seller/services.py`` (which is the
+    # source of truth — it checks the archived-history table rather
+    # than the status enum, but in practice these are the only
+    # statuses without history).
+    deletable_statuses = ["draft", "pending", "review", "rejected"]
     if status:
         if status not in deletable_statuses:
             valid = ", ".join(deletable_statuses)
