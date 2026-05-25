@@ -42,7 +42,7 @@ Manage services on the backend — requires API credentials.
 | `dedup`       | Remove duplicate draft services               |
 | `list-tests`  | List tests for deployed services              |
 | `show-test`   | Show details of a test for a deployed service |
-| `run-tests`   | Run tests via gateway (backend execution)     |
+| `run-tests`   | Run a service-wide diagnostic in the cluster (gateway, with upstream fallback on failures) |
 | `skip-test`   | Mark a code example test as skipped           |
 | `unskip-test` | Remove skip status from a test                |
 
@@ -244,8 +244,11 @@ generated code.
 | ------------------------- | ---------------------- | -------------------------------- |
 | `UNITYSVC_SELLER_API_URL` | Seller backend API URL | All remote commands              |
 | `UNITYSVC_SELLER_API_KEY` | Seller API key         | All remote commands              |
-| `UNITYSVC_API_KEY`        | Customer API key       | `services run-tests` (gateway)   |
-| `UNITYSVC_API_URL`        | Gateway API URL        | `services run-tests` (gateway)   |
+
+`services run-tests` no longer needs `UNITYSVC_API_KEY` / `UNITYSVC_API_URL`
+in the local environment — the diagnostic runs server-side, inside the
+cluster, using the ops customer's bearer token. The seller's
+`UNITYSVC_SELLER_API_KEY` is the only auth the CLI itself needs.
 
 ```bash
 export UNITYSVC_SELLER_API_URL=https://seller.unitysvc.com/v1
@@ -281,9 +284,7 @@ usvc_seller data upload
 # Verify on backend
 usvc_seller services list
 
-# Run tests via gateway
-export UNITYSVC_API_KEY=your-customer-api-key
-export UNITYSVC_API_URL=https://backend.unitysvc.com/v1
+# Run the in-cluster diagnostic (gateway + upstream fallback)
 usvc_seller services run-tests <service-id>
 
 # Submit for review

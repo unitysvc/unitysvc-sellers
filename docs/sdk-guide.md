@@ -158,14 +158,14 @@ Manager methods on `client.services`:
 | `list(cursor=, limit=, …)`       | Cursor-paged list returning a :class:`ServiceList` (iterable, has `next_page`). |
 | `iter_all(...)`                  | Generator that walks every page automatically.                                  |
 | `get(service_id)`                | Full service detail wrapped as a :class:`Service`.                              |
-| `get_test_env(service_id)`       | Environment variables for local connectivity testing.                           |
+| `run_tests(service_id, *, document_id=None, force=False, ...)` | Queue a server-side gateway-then-upstream diagnostic and block until complete. Returns a typed :class:`RunTestsResult` with per-(doc × iface) rows and pass/fail counts. |
 | `upload(body)`                   | POST provider + offering + listing bundle. Backend responds with a task id.     |
 | `update(service_id, body)`       | Patch fields — `status`, `visibility`, `routing_vars`, `list_price`.            |
 | `delete(service_id, dryrun=)`    | Remove a service. (Most flows should use `update({"status": "deprecated"})`.)   |
 
 `Service` wrappers expose the same operations pre-bound to the
 service id: `svc.refresh()`, `svc.update(body)`, `svc.delete()`,
-`svc.test_env()`, plus the `svc.submit()` shortcut for transitioning
+`svc.run_tests()`, plus the `svc.submit()` shortcut for transitioning
 status to `"pending"`.
 
 ### Listing services
@@ -373,12 +373,14 @@ with Client() as client:
     )
 ```
 
-`client.documents.execute(doc_id, force=True)` dispatches the
-document to the backend Celery worker for execution against the
-gateway. The CLI's `usvc_seller services run-tests` command, in
-contrast, runs the scripts **locally** on the seller's machine —
-see [Running connectivity tests locally](#running-connectivity-tests-locally)
-below for the recommended pattern.
+`client.documents.execute(doc_id, force=True)` dispatches a
+single document to the backend Celery worker for execution against
+the gateway. To run **every** executable document on a service
+across **every** active interface — with gateway-then-upstream
+attribution on failures — use `client.services.run_tests(...)` (or
+the equivalent `svc.run_tests()` instance method) instead. The CLI
+`usvc_seller services run-tests <service_id>` is a thin wrapper
+over the same SDK call.
 
 ## `client.secrets`
 
@@ -509,89 +511,72 @@ Useful keyword arguments:
 Returns an `UploadResult` dataclass with per-resource `services` /
 `promotions` / `groups` counts (total / success / failed / errors).
 
-## Running connectivity tests locally
+## Running connectivity tests
 
-The `usvc_seller services run-tests` CLI runs each service's
-connectivity test scripts on the seller's own machine, against the
-public gateway URL, using the seller's `UNITYSVC_API_KEY` from the
-local environment. The SDK exposes everything you need to do the
-same thing programmatically.
+The `usvc_seller services run-tests` CLI queues a server-side
+**diagnostic** that runs each executable document (connectivity
+tests and code examples) across every active access interface from
+inside the cluster — the same network path customers hit. On any
+iface-level gateway failure it falls back to an upstream-mode probe
+so the result attributes the fault as `platform_fault` (gateway
+broken, upstream fine) or `upstream_fault` (both fail).
 
-The flow is:
-
-1.  Fetch the service detail (for its interfaces + documents).
-2.  If the service is in `draft` or `rejected`, elevate it to
-    `pending` with `run_tests=False` so the backend does not
-    auto-queue its own full test suite.
-3.  For each executable document, pull its expanded `file_content`.
-4.  Run the script locally (per interface) with
-    `execute_script_content`, injecting `SERVICE_BASE_URL` /
-    `UNITYSVC_API_KEY` / routing_key env vars.
-5.  POST the per-interface results back via `documents.update_test`.
-6.  Restore the original status on exit.
+The SDK exposes the same call directly:
 
 ```python
-import os
 from unitysvc_sellers import AsyncClient
-from unitysvc_sellers.utils import execute_script_content
-
-EXECUTABLE = {"code_example", "connectivity_test"}
-ROUTABLE = {"pending", "review", "active"}
 
 
-async def run_tests(service_id: str) -> int:
-    user_api_key = os.environ.get("UNITYSVC_API_KEY", "")
-    failed = 0
+async def run_diagnostic(service_id: str) -> int:
     async with AsyncClient() as client:
-        svc = await client.services.get(service_id)
-        original_status = svc.status
-        elevated = original_status in ("draft", "rejected")
-        try:
-            if elevated:
-                await svc.update({"status": "pending", "run_tests": False})
-            docs = [d for d in (svc.documents or []) if d.category in EXECUTABLE]
-
-            for doc in docs:
-                full = await client.documents.get(doc.id)
-                if not full.file_content:
-                    continue
-                per_iface = {}
-                for iface in svc.interfaces or []:
-                    if not iface.is_active:
-                        continue
-                    env = {
-                        "SERVICE_BASE_URL": iface.base_url or "",
-                        "UNITYSVC_API_KEY": user_api_key,
-                    }
-                    for k, v in (iface.routing_key or {}).items():
-                        env[k.upper()] = str(v)
-                    result = execute_script_content(
-                        script=full.file_content,
-                        mime_type=full.mime_type or "",
-                        env_vars=env,
-                        timeout=30,
-                    )
-                    per_iface[iface.name] = {
-                        "status": result["status"],
-                        "exit_code": result.get("exit_code"),
-                        "stdout": (result.get("stdout") or "")[:10_000],
-                        "stderr": (result.get("stderr") or "")[:10_000],
-                        "error": result.get("error"),
-                    }
-                worst = next(
-                    (r["status"] for r in per_iface.values() if r["status"] != "success"),
-                    "success",
-                )
-                if worst != "success":
-                    failed += 1
-                await client.documents.update_test(
-                    doc.id, {"status": worst, "tests": per_iface}
-                )
-        finally:
-            if elevated:
-                await svc.update({"status": original_status, "run_tests": False})
-    return failed
+        result = await client.services.run_tests(service_id)
+        # result is a RunTestsResult dataclass — see services.py
+        for row in result.results:
+            mark = "✓" if row.status == "success" else "✗"
+            attribution = f" → {row.outcome}" if row.outcome else ""
+            print(f"  {mark} {row.document_title} [{row.interface_name}]: "
+                  f"{row.status}{attribution}")
+        return result.fail_count
 ```
+
+Sync equivalent:
+
+```python
+with Client() as client:
+    result = client.services.run_tests(
+        service_id,
+        document_id=None,    # optional: restrict to one document
+        force=False,         # re-execute already-passing rows
+        poll_interval=2.0,   # seconds between task-status polls
+        timeout=600.0,       # hard cap on total wait
+    )
+    print(f"passed: {result.passed}  fail_count: {result.fail_count}")
+```
+
+The active-record shortcut `svc.run_tests()` pre-binds the service
+id; everything else is the same.
+
+What the backend does under the hood:
+
+1.  Snapshots `service.status` and temporarily elevates `draft` /
+    `rejected` to `pending` so the gateway routing layer will
+    resolve. Restored in a `finally` block — a worker crash mid-run
+    can't leave the service permanently elevated.
+2.  Iterates every executable document × every active access
+    interface; renders gateway-mode and runs the script in a worker
+    subprocess.
+3.  On any iface-level gateway failure, renders+executes the same
+    document in upstream mode (cached per-doc — a single upstream
+    config drives all ifaces) for fault attribution.
+4.  Persists per-(doc × iface) results to
+    `Document.meta.test.tests[<iface_id>]` (readable later via
+    `usvc_seller services show-test --doc-id <id>` for full
+    stdout/stderr).
+5.  Restores the snapshotted status and returns the summary.
+
+The SDK call blocks until the task completes; under the hood it
+polls `GET /v1/seller/tasks/{task_id}` every `poll_interval`
+seconds until the task reaches a terminal state.
 
 ## Exceptions
 

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.response_tasks_get_task_status_additional_property import ResponseTasksGetTaskStatusAdditionalProperty
@@ -20,6 +22,10 @@ class ResponseTasksGetTaskStatus:
     )
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.response_tasks_get_task_status_additional_property import (
+            ResponseTasksGetTaskStatusAdditionalProperty,
+        )
+
         field_dict: dict[str, Any] = {}
         for prop_name, prop in self.additional_properties.items():
             field_dict[prop_name] = prop.to_dict()

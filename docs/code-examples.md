@@ -69,57 +69,44 @@ export UNITYSVC_API_URL="https://backend.unitysvc.com/v1"
 
 **Step 5: Run tests**
 
-With your existing seller credentials (`UNITYSVC_SELLER_API_KEY` and `UNITYSVC_API_URL`) already configured, run tests:
+With your seller credentials (`UNITYSVC_SELLER_API_KEY` and `UNITYSVC_API_URL`) configured, run the diagnostic:
 
 ```bash
 # Run all tests for a service
 usvc_seller services run-tests <service_id>
 
-# Run with verbose output
-usvc_seller services run-tests <service_id> --verbose
+# Run a single document instead of every executable doc
+usvc_seller services run-tests <service_id> --document-id <doc_id>
 
-# Force rerun previously passed tests
+# Force re-execute documents whose previous result was 'success'
 usvc_seller services run-tests <service_id> --force
 ```
 
-**Note:** Two API keys are involved:
-
--   `UNITYSVC_SELLER_API_KEY` (seller key) — authenticates with the backend API to fetch test scripts and submit results
--   `UNITYSVC_API_KEY` (customer key) — used by test scripts to access services through the gateway
+The diagnostic runs **server-side** inside the cluster — the gateway probe exercises the same network path customers hit. On any iface-level gateway failure it falls back to an upstream-mode probe and attributes the fault as `platform_fault` or `upstream_fault` so you can tell whether the gateway or your upstream is the problem.
 
 **Characteristics:**
 
--   Full control over test environment
--   Can use complex SDK setups, custom libraries, and local tools
--   Test execution happens on your local machine
--   Results are submitted back to the platform
--   Suitable for development, debugging, and advanced testing scenarios
-
-**Benefits:**
-
--   Use your own customer account for isolated testing
--   No shared resource constraints
--   Full access to local debugging tools
--   Can test with different API keys and configurations
+-   No `UNITYSVC_API_KEY` needed in the local environment — the server uses the ops customer's bearer token
+-   Per-(doc × iface) results land on `Document.meta.test.tests[<iface_id>]`; full stdout/stderr available via `usvc_seller services show-test --doc-id <id>`
+-   Suitable for development, validation, and CI/CD
 
 ### Comparison
 
-| Feature | Web-Based | SDK-Based (Local) |
-|---------|-----------|-------------------|
-| Setup | None required | Join unitysvc-ops team + create customer API key |
-| `SERVICE_BASE_URL` | Auto-set per interface | Auto-set per interface |
-| `UNITYSVC_API_KEY` | Platform ops customer | Your own customer API key |
-| Execution | Backend (Celery) | Local machine |
-| Script Types | Simple (curl, Python, JS) | Any (including complex SDKs) |
-| Debugging | Limited | Full local access |
-| Use Case | Quick validation | Development & advanced testing |
+| Feature | Web-Based | SDK/CLI (Server-Side) |
+|---------|-----------|-----------------------|
+| Setup | None required | Seller API key only |
+| Execution | Backend (Celery) | Backend (Celery), same code path |
+| `SERVICE_BASE_URL` | In-cluster gateway URL | In-cluster gateway URL |
+| `UNITYSVC_API_KEY` | Ops customer key (server-side) | Ops customer key (server-side) |
+| Upstream-fallback attribution | ✓ | ✓ |
+| Result viewing | Web UI | `show-test --doc-id` for full output |
+| Use Case | One-off validation | Scripting, CI/CD, batch |
 
 ### Recommended Workflow
 
-1. **One-time setup**: Join the unitysvc-ops team and create a customer API key (see SDK-Based Testing steps above)
-2. **Development**: Use SDK-based local testing for iterative development
-3. **Validation**: Use web-based testing for final validation before publishing
-4. **CI/CD**: Either method works; web-based is simpler, SDK-based offers more control
+1. **Development**: Iterate locally with `usvc_seller data run-tests` (validates the rendered script against the upstream)
+2. **Pre-submission validation**: Run `usvc_seller services run-tests <service_id>` to confirm the in-cluster gateway path works
+3. **Submit**: `usvc_seller services submit <service_id>` triggers the same diagnostic on the backend's submission flow
 
 ## Test Environment Variables
 

@@ -224,89 +224,6 @@
         }
       }
     },
-    "/documents/{document_id}/render": {
-      "get": {
-        "tags": [
-          "seller-documents"
-        ],
-        "summary": "Render Document",
-        "description": "Render a code-example or connectivity-test document for a specific interface.\n\n**Public, unauthenticated, gateway mode only.**  Render context is the\nnamed :class:`AccessInterface`'s gateway URL + ``routing_key``, plus\nthe listing's ``enrollment_vars`` / ``ops_testing_parameters``\n(``params``) / ``routing_vars``.  No upstream credentials are ever\ninlined \u2014 ``UNITYSVC_API_KEY`` is read from the runtime environment \u2014\nso the rendered output is by construction the same script a customer\nwould copy off the marketplace service-detail page. Anonymous access\nis therefore safe and intentional: ``usvc_seller services run-tests``\n(seller-owned drafts), the marketplace preview, and any third-party\nintegration that wants the canonical client snippet all hit the same\nURL with no auth.\n\nUpstream-mode rendering (which would expand ``${ secrets.X }`` against\nthe seller's secret store and inline the resolved values into the\nrendered script) is intentionally not exposed over HTTP.  Internal\ncallers \u2014 the upstream-connectivity Celery sweep and worker-side\ndocument execution \u2014 invoke :func:`render_document_upstream` directly.\n\nThe rendered ``filename`` has the ``.j2`` suffix stripped when the\ninput was a template.",
-        "operationId": "documents_render",
-        "parameters": [
-          {
-            "name": "document_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Document Id"
-            }
-          },
-          {
-            "name": "interface",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Interface"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentRenderResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unprocessable Entity"
-          }
-        }
-      }
-    },
     "/documents/{document_id}/execute": {
       "post": {
         "tags": [
@@ -2143,6 +2060,96 @@
         }
       }
     },
+    "/services/deprecated": {
+      "get": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "List Deprecated Services",
+        "description": "List services owned by the current seller that are deprecated.\n\nDeprecated services are excluded from ``GET /seller/services`` and\nfrom every other browse surface (see #1027). This endpoint exists\nonly to support the recovery workflow: a seller can find a\ndeprecated service id and email it to platform support, who has\nadmin access to flip ``deprecated \u2192 active``.\n\nThe response is read-only and intentionally minimal \u2014 id, names,\nprovider, and a deprecation timestamp. No filtering or pagination:\na seller's deprecated set is small in practice.",
+        "operationId": "services_list_deprecated",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeprecatedServiceItem"
+                  },
+                  "title": "Response Services List Deprecated"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/services/{service_id}": {
       "get": {
         "tags": [
@@ -2444,14 +2451,14 @@
         }
       }
     },
-    "/services/{service_id}/test-env": {
-      "get": {
+    "/services/{service_id}/run-tests": {
+      "post": {
         "tags": [
           "seller-services"
         ],
-        "summary": "Get Service Test Env",
-        "description": "Get rendered service_options.enrollment_vars for the ops_customer test enrollment.\n\nReturns the enrollment_vars key-value pairs with Jinja2 templates resolved\n(e.g. enrollment_code() expanded to the actual ActionCode token).\nUsed by ``usvc services run-tests`` to inject env vars into test scripts.\n\nThis endpoint is specifically for testing \u2014 it looks up the ops_customer\nenrollment for the service. Different enrollments may have different\nrendered values.\n\nSupports partial ID matching (minimum 8 characters).",
-        "operationId": "services_get_test_env",
+        "summary": "Run Service Tests Endpoint",
+        "description": "Queue a server-side diagnostic test run on one of the caller's services.\n\nReplaces the local-execution ``usvc_seller services run-tests`` path\n(#1105).  Runs every executable document (``connectivity_test`` and\n``code_example``) against every active access interface inside the\ncluster \u2014 the same network environment customers hit \u2014 and falls\nback to an upstream-mode probe on any iface-level gateway failure\nso the result attributes the fault as ``platform_fault`` vs\n``upstream_fault``.\n\nThe service's status is snapshotted and temporarily elevated to\n``pending`` if it isn't already in a routable state\n(``pending`` / ``review`` / ``active``); the original status is\nrestored in a ``finally`` block so a worker crash mid-run can't\nleave the service permanently elevated.\n\nPer-(doc \u00d7 iface) results land on\n``Document.meta.test.tests[<iface_id>]`` (same shape ingest writes,\nso ``services show-test`` keeps working).  The task return payload\nduplicates a summary with stdout/stderr truncated to 16 KB per\nstream; full streams remain available via ``show-test``.\n\nPoll via ``GET /v1/seller/tasks/{task_id}``.\n\nSupports partial service ID matching (minimum 8 characters).",
+        "operationId": "services_run_tests",
         "parameters": [
           {
             "name": "service_id",
@@ -2461,6 +2468,36 @@
               "type": "string",
               "title": "Service Id"
             }
+          },
+          {
+            "name": "document_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict to a single document on the service.",
+              "title": "Document Id"
+            },
+            "description": "Restrict to a single document on the service."
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Re-execute documents whose per-iface result on ``meta.test.tests[iface_id].status`` was previously ``success``. Default skips them, matching the CLI's behaviour.",
+              "default": false,
+              "title": "Force"
+            },
+            "description": "Re-execute documents whose per-iface result on ``meta.test.tests[iface_id].status`` was previously ``success``. Default skips them, matching the CLI's behaviour."
           },
           {
             "name": "authorization",
@@ -2496,12 +2533,12 @@
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TestEnvResponse"
+                  "$ref": "#/components/schemas/RunTestsResponse"
                 }
               }
             }
@@ -3112,6 +3149,66 @@
         ],
         "title": "CursorPage[ServicePublic]"
       },
+      "DeprecatedServiceItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "provider_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Name"
+          },
+          "deprecated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deprecated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "DeprecatedServiceItem",
+        "description": "GET /seller/services/deprecated \u2014 row in the deprecation archive.\n\nDeprecated services are excluded from ``service_mview`` and from\nevery browse surface (see #1027). This minimal shape exists only to\nsupport the recovery workflow: a seller can find a service they\ndeprecated and email the id to platform support, who has admin\naccess to flip ``deprecated \u2192 active``.\n\n``deprecated_at`` is the service's ``updated_at`` at the time of the\nstatus flip. It can drift if the deprecated row is later edited\n(rare), so callers should treat it as \"roughly when this was\ndeprecated\", not as an authoritative event time."
+      },
       "DocumentDetailResponse": {
         "properties": {
           "id": {
@@ -3297,58 +3394,6 @@
         ],
         "title": "DocumentExecuteResponse",
         "description": "POST /seller/documents/{id}/execute \u2014 queues a Celery test run.\n\nThis is the seller's pre-submission dry-run tool. It does NOT touch\nservice status or trigger admin review \u2014 contrast with the formal\nsubmission flow via PATCH /seller/services/{id} (set_status=pending)."
-      },
-      "DocumentRenderResponse": {
-        "properties": {
-          "document_id": {
-            "type": "string",
-            "title": "Document Id"
-          },
-          "filename": {
-            "type": "string",
-            "title": "Filename"
-          },
-          "content": {
-            "type": "string",
-            "title": "Content"
-          },
-          "mime_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mime Type"
-          },
-          "local_testing": {
-            "type": "boolean",
-            "title": "Local Testing"
-          },
-          "test": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Test"
-          }
-        },
-        "type": "object",
-        "required": [
-          "document_id",
-          "filename",
-          "content",
-          "local_testing"
-        ],
-        "title": "DocumentRenderResponse",
-        "description": "GET /seller/documents/{id}/render \u2014 rendered code-example / connectivity-test.\n\nReturns the document's ``file_content`` after Jinja2 expansion against a\nrender context derived from the document's service.  Two modes selected\nby the ``interface`` query param:\n\n- ``interface=<uuid>`` \u2192 gateway / e2e mode (``local_testing=False``).\n  Context is built from the named :class:`AccessInterface` (gateway URL,\n  routing_key) plus the listing's ``enrollment_vars`` / ``params`` /\n  ``routing_vars``.  This is what ``usvc_seller services run-tests``\n  consumes per-interface.\n- ``interface`` omitted \u2192 upstream mode (``local_testing=True``).\n  Context is built from the offering's ``upstream_access_config`` (first\n  interface).  Output matches ``usvc_seller data run-tests`` byte-for-byte.\n\n``filename`` has the ``.j2`` suffix stripped when the document was a\ntemplate (e.g. ``connectivity-v1.sh.j2`` \u2192 ``connectivity-v1.sh``)."
       },
       "DocumentTestStatusResponse": {
         "properties": {
@@ -3905,6 +3950,25 @@
           "set_body"
         ],
         "title": "RequestTransformEnum"
+      },
+      "RunTestsResponse": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_id",
+          "status"
+        ],
+        "title": "RunTestsResponse",
+        "description": "Response shape for ``POST /seller/services/{id}/run-tests``."
       },
       "SecretOwnerTypeEnum": {
         "type": "string",
@@ -5778,23 +5842,6 @@
         ],
         "title": "ServiceVisibilityEnum",
         "description": "Visibility of a service in the catalog.\n\n- unlisted: Live and routable, not in catalog, accessible via direct link\n- public: In catalog, fully discoverable\n- private: Live and routable, ops/internal use only"
-      },
-      "TestEnvResponse": {
-        "properties": {
-          "vars": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Vars"
-          }
-        },
-        "type": "object",
-        "required": [
-          "vars"
-        ],
-        "title": "TestEnvResponse",
-        "description": "GET /seller/services/{id}/test-env \u2014 rendered enrollment_vars.\n\nValues are Jinja2-rendered strings suitable for injection as\nenvironment variables into test scripts."
       },
       "TimeWindowEnum": {
         "type": "string",

@@ -21,12 +21,11 @@ from .currency_enum import CurrencyEnum
 from .cursor_page_price_rule_public import CursorPagePriceRulePublic
 from .cursor_page_service_group_public import CursorPageServiceGroupPublic
 from .cursor_page_service_public import CursorPageServicePublic
+from .deprecated_service_item import DeprecatedServiceItem
 from .document_detail_response import DocumentDetailResponse
 from .document_detail_response_meta_type_0 import DocumentDetailResponseMetaType0
 from .document_execute_response import DocumentExecuteResponse
 from .document_execute_response_test_type_0 import DocumentExecuteResponseTestType0
-from .document_render_response import DocumentRenderResponse
-from .document_render_response_test_type_0 import DocumentRenderResponseTestType0
 from .document_test_status_response import DocumentTestStatusResponse
 from .document_test_status_response_test_type_0 import DocumentTestStatusResponseTestType0
 from .document_test_update import DocumentTestUpdate
@@ -57,6 +56,7 @@ from .rate_limit_unit_enum import RateLimitUnitEnum
 from .request_transform_enum import RequestTransformEnum
 from .response_tasks_get_task_status import ResponseTasksGetTaskStatus
 from .response_tasks_get_task_status_additional_property import ResponseTasksGetTaskStatusAdditionalProperty
+from .run_tests_response import RunTestsResponse
 from .secret_owner_type_enum import SecretOwnerTypeEnum
 from .secret_public import SecretPublic
 from .secret_update import SecretUpdate
@@ -121,10 +121,8 @@ from .service_update_response_routing_vars_type_0 import ServiceUpdateResponseRo
 from .service_update_routing_vars_type_0 import ServiceUpdateRoutingVarsType0
 from .service_upload_response import ServiceUploadResponse
 from .service_visibility_enum import ServiceVisibilityEnum
-from .test_env_response import TestEnvResponse
 from .time_window_enum import TimeWindowEnum
 from .validation_error import ValidationError
-from .vars_ import Vars
 
 __all__ = (
     "AccessInterfacePublic",
@@ -142,12 +140,11 @@ __all__ = (
     "CursorPagePriceRulePublic",
     "CursorPageServiceGroupPublic",
     "CursorPageServicePublic",
+    "DeprecatedServiceItem",
     "DocumentDetailResponse",
     "DocumentDetailResponseMetaType0",
     "DocumentExecuteResponse",
     "DocumentExecuteResponseTestType0",
-    "DocumentRenderResponse",
-    "DocumentRenderResponseTestType0",
     "DocumentTestStatusResponse",
     "DocumentTestStatusResponseTestType0",
     "DocumentTestUpdate",
@@ -178,6 +175,7 @@ __all__ = (
     "RequestTransformEnum",
     "ResponseTasksGetTaskStatus",
     "ResponseTasksGetTaskStatusAdditionalProperty",
+    "RunTestsResponse",
     "SecretOwnerTypeEnum",
     "SecretPublic",
     "SecretsPublic",
@@ -234,8 +232,6 @@ __all__ = (
     "ServiceUpdateRoutingVarsType0",
     "ServiceUploadResponse",
     "ServiceVisibilityEnum",
-    "TestEnvResponse",
     "TimeWindowEnum",
     "ValidationError",
-    "Vars",
 )
