@@ -1,19 +1,18 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.deprecated_service_item import DeprecatedServiceItem
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
-from ...models.test_env_response import TestEnvResponse
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
-    service_id: str,
     *,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -27,9 +26,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/services/{service_id}/test-env".format(
-            service_id=quote(str(service_id), safe=""),
-        ),
+        "url": "/services/deprecated",
     }
 
     _kwargs["headers"] = headers
@@ -38,9 +35,14 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | HTTPValidationError | TestEnvResponse | None:
+) -> ErrorResponse | HTTPValidationError | list[DeprecatedServiceItem] | None:
     if response.status_code == 200:
-        response_200 = TestEnvResponse.from_dict(response.json())
+        response_200 = []
+        _response_200 = response.json()
+        for response_200_item_data in _response_200:
+            response_200_item = DeprecatedServiceItem.from_dict(response_200_item_data)
+
+            response_200.append(response_200_item)
 
         return response_200
 
@@ -67,7 +69,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | HTTPValidationError | TestEnvResponse]:
+) -> Response[ErrorResponse | HTTPValidationError | list[DeprecatedServiceItem]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -77,28 +79,26 @@ def _build_response(
 
 
 def sync_detailed(
-    service_id: str,
     *,
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[ErrorResponse | HTTPValidationError | TestEnvResponse]:
-    """Get Service Test Env
+) -> Response[ErrorResponse | HTTPValidationError | list[DeprecatedServiceItem]]:
+    """List Deprecated Services
 
-     Get rendered service_options.enrollment_vars for the ops_customer test enrollment.
+     List services owned by the current seller that are deprecated.
 
-    Returns the enrollment_vars key-value pairs with Jinja2 templates resolved
-    (e.g. enrollment_code() expanded to the actual ActionCode token).
-    Used by ``usvc services run-tests`` to inject env vars into test scripts.
+    Deprecated services are excluded from ``GET /seller/services`` and
+    from every other browse surface (see #1027). This endpoint exists
+    only to support the recovery workflow: a seller can find a
+    deprecated service id and email it to platform support, who has
+    admin access to flip ``deprecated → active``.
 
-    This endpoint is specifically for testing — it looks up the ops_customer
-    enrollment for the service. Different enrollments may have different
-    rendered values.
-
-    Supports partial ID matching (minimum 8 characters).
+    The response is read-only and intentionally minimal — id, names,
+    provider, and a deprecation timestamp. No filtering or pagination:
+    a seller's deprecated set is small in practice.
 
     Args:
-        service_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -107,11 +107,10 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | TestEnvResponse]
+        Response[ErrorResponse | HTTPValidationError | list[DeprecatedServiceItem]]
     """
 
     kwargs = _get_kwargs(
-        service_id=service_id,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -124,28 +123,26 @@ def sync_detailed(
 
 
 def sync(
-    service_id: str,
     *,
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> ErrorResponse | HTTPValidationError | TestEnvResponse | None:
-    """Get Service Test Env
+) -> ErrorResponse | HTTPValidationError | list[DeprecatedServiceItem] | None:
+    """List Deprecated Services
 
-     Get rendered service_options.enrollment_vars for the ops_customer test enrollment.
+     List services owned by the current seller that are deprecated.
 
-    Returns the enrollment_vars key-value pairs with Jinja2 templates resolved
-    (e.g. enrollment_code() expanded to the actual ActionCode token).
-    Used by ``usvc services run-tests`` to inject env vars into test scripts.
+    Deprecated services are excluded from ``GET /seller/services`` and
+    from every other browse surface (see #1027). This endpoint exists
+    only to support the recovery workflow: a seller can find a
+    deprecated service id and email it to platform support, who has
+    admin access to flip ``deprecated → active``.
 
-    This endpoint is specifically for testing — it looks up the ops_customer
-    enrollment for the service. Different enrollments may have different
-    rendered values.
-
-    Supports partial ID matching (minimum 8 characters).
+    The response is read-only and intentionally minimal — id, names,
+    provider, and a deprecation timestamp. No filtering or pagination:
+    a seller's deprecated set is small in practice.
 
     Args:
-        service_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -154,11 +151,10 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | TestEnvResponse
+        ErrorResponse | HTTPValidationError | list[DeprecatedServiceItem]
     """
 
     return sync_detailed(
-        service_id=service_id,
         client=client,
         authorization=authorization,
         x_role_id=x_role_id,
@@ -166,28 +162,26 @@ def sync(
 
 
 async def asyncio_detailed(
-    service_id: str,
     *,
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[ErrorResponse | HTTPValidationError | TestEnvResponse]:
-    """Get Service Test Env
+) -> Response[ErrorResponse | HTTPValidationError | list[DeprecatedServiceItem]]:
+    """List Deprecated Services
 
-     Get rendered service_options.enrollment_vars for the ops_customer test enrollment.
+     List services owned by the current seller that are deprecated.
 
-    Returns the enrollment_vars key-value pairs with Jinja2 templates resolved
-    (e.g. enrollment_code() expanded to the actual ActionCode token).
-    Used by ``usvc services run-tests`` to inject env vars into test scripts.
+    Deprecated services are excluded from ``GET /seller/services`` and
+    from every other browse surface (see #1027). This endpoint exists
+    only to support the recovery workflow: a seller can find a
+    deprecated service id and email it to platform support, who has
+    admin access to flip ``deprecated → active``.
 
-    This endpoint is specifically for testing — it looks up the ops_customer
-    enrollment for the service. Different enrollments may have different
-    rendered values.
-
-    Supports partial ID matching (minimum 8 characters).
+    The response is read-only and intentionally minimal — id, names,
+    provider, and a deprecation timestamp. No filtering or pagination:
+    a seller's deprecated set is small in practice.
 
     Args:
-        service_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -196,11 +190,10 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | TestEnvResponse]
+        Response[ErrorResponse | HTTPValidationError | list[DeprecatedServiceItem]]
     """
 
     kwargs = _get_kwargs(
-        service_id=service_id,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -211,28 +204,26 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    service_id: str,
     *,
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> ErrorResponse | HTTPValidationError | TestEnvResponse | None:
-    """Get Service Test Env
+) -> ErrorResponse | HTTPValidationError | list[DeprecatedServiceItem] | None:
+    """List Deprecated Services
 
-     Get rendered service_options.enrollment_vars for the ops_customer test enrollment.
+     List services owned by the current seller that are deprecated.
 
-    Returns the enrollment_vars key-value pairs with Jinja2 templates resolved
-    (e.g. enrollment_code() expanded to the actual ActionCode token).
-    Used by ``usvc services run-tests`` to inject env vars into test scripts.
+    Deprecated services are excluded from ``GET /seller/services`` and
+    from every other browse surface (see #1027). This endpoint exists
+    only to support the recovery workflow: a seller can find a
+    deprecated service id and email it to platform support, who has
+    admin access to flip ``deprecated → active``.
 
-    This endpoint is specifically for testing — it looks up the ops_customer
-    enrollment for the service. Different enrollments may have different
-    rendered values.
-
-    Supports partial ID matching (minimum 8 characters).
+    The response is read-only and intentionally minimal — id, names,
+    provider, and a deprecation timestamp. No filtering or pagination:
+    a seller's deprecated set is small in practice.
 
     Args:
-        service_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -241,12 +232,11 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | TestEnvResponse
+        ErrorResponse | HTTPValidationError | list[DeprecatedServiceItem]
     """
 
     return (
         await asyncio_detailed(
-            service_id=service_id,
             client=client,
             authorization=authorization,
             x_role_id=x_role_id,

@@ -7,11 +7,12 @@ the parent :class:`AsyncClient`.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from ._http import unwrap
+from .services import RunTestsResult, _parse_run_tests_payload
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
@@ -21,7 +22,6 @@ if TYPE_CHECKING:
     from ._generated.models.service_public import ServicePublic
     from ._generated.models.service_update_response import ServiceUpdateResponse
     from ._generated.models.task_queued_response import TaskQueuedResponse
-    from ._generated.models.test_env_response import TestEnvResponse
     from .aclient import AsyncClient
 
 
@@ -50,8 +50,24 @@ class AsyncService:
     async def refresh(self) -> AsyncService:
         return await self._parent.services.get(self._raw.id)
 
-    async def test_env(self) -> TestEnvResponse:
-        return await self._parent.services.get_test_env(self._raw.id)
+    async def run_tests(
+        self,
+        *,
+        document_id: str | None = None,
+        force: bool = False,
+        poll_interval: float = 2.0,
+        timeout: float = 600.0,
+        on_progress: Callable[[str], None] | None = None,
+    ) -> RunTestsResult:
+        """Async mirror of :meth:`unitysvc_sellers.services.Service.run_tests`."""
+        return await self._parent.services.run_tests(
+            self._raw.id,
+            document_id=document_id,
+            force=force,
+            poll_interval=poll_interval,
+            timeout=timeout,
+            on_progress=on_progress,
+        )
 
     async def update(self, body: dict[str, Any]) -> ServiceUpdateResponse:
         return await self._parent.services.update(self._raw.id, body)
@@ -206,15 +222,51 @@ class AsyncServices:
         )
         return AsyncService(raw, parent=self._parent)
 
-    async def get_test_env(self, service_id: str | UUID) -> TestEnvResponse:
-        from ._generated.api.seller_services import services_get_test_env
+    async def run_tests(
+        self,
+        service_id: str | UUID,
+        *,
+        document_id: str | None = None,
+        force: bool = False,
+        poll_interval: float = 2.0,
+        timeout: float = 600.0,
+        on_progress: Callable[[str], None] | None = None,
+    ) -> RunTestsResult:
+        """Async mirror of :meth:`unitysvc_sellers.services.Services.run_tests`.
 
-        return unwrap(
-            await services_get_test_env.asyncio_detailed(
+        See the sync version for the full argument and result
+        documentation.  Composes the async generated client call with
+        :meth:`AsyncTasks.wait` for the polling primitive.
+        """
+        from ._generated.api.seller_services import services_run_tests
+        from ._generated.types import UNSET
+
+        queued = unwrap(
+            await services_run_tests.asyncio_detailed(
                 service_id=str(service_id),
                 client=self._client,
+                document_id=document_id if document_id is not None else UNSET,
+                force=force,
             )
         )
+
+        wrapped_on_update = None
+        if on_progress is not None:
+
+            def _wrapped(done: int, total: int, last_ids: list[str]) -> None:  # pragma: no cover - thin adapter
+                _ = (done, total, last_ids)
+                on_progress("completed")
+
+            wrapped_on_update = _wrapped
+
+        terminal = await self._parent.tasks.wait(
+            queued.task_id,
+            timeout=timeout,
+            poll_interval=poll_interval,
+            on_update=wrapped_on_update,
+        )
+
+        return _parse_run_tests_payload(queued.task_id, terminal.get(queued.task_id) or {})
 
     async def upload(
         self,

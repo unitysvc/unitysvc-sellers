@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
+from attrs import field as _attrs_field
 
 from ..models.auth_method_enum import AuthMethodEnum, check_auth_method_enum
 from ..models.content_filter_enum import ContentFilterEnum, check_content_filter_enum

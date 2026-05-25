@@ -450,7 +450,7 @@ $ usvc_seller services [OPTIONS] COMMAND [ARGS]...
 * `update`: Update visibility, routing vars, and/or...
 * `list-tests`: List testable documents for one service or...
 * `show-test`: Show the latest test result for a single...
-* `run-tests`: Run a service&#x27;s testable documents locally...
+* `run-tests`: Run a service&#x27;s testable documents via a...
 * `skip-test`: Mark a code-example document as skipped...
 * `unskip-test`: Unskip a previously-skipped document so it...
 
@@ -750,22 +750,21 @@ $ usvc_seller services show-test [OPTIONS] [DOCUMENT_ID]
 
 ### `usvc_seller services run-tests`
 
-Run a service&#x27;s testable documents locally against the gateway.
+Run a service&#x27;s testable documents via a server-side diagnostic.
 
-Ported from the legacy ``usvc services run-tests`` flow. Unlike the
-backend-dispatched execute path (Celery), this command pulls each
-document&#x27;s rendered ``file_content`` from the backend and runs it
-on the seller&#x27;s own machine, using ``UNITYSVC_API_KEY`` from the
-local environment and the interface&#x27;s resolved ``base_url``.
+Queues ``run_service_diagnostic`` on the backend, which renders and
+executes every executable document (connectivity tests + code
+examples) across every active access interface — inside the cluster,
+using the same network path customers hit — and falls back to an
+upstream-mode probe on any iface-level gateway failure so the
+result attributes the fault as ``platform_fault`` vs
+``upstream_fault``.
 
-Because the gateway route resolver only accepts services in
-``pending``, ``review``, or ``active`` status, the command
-temporarily elevates ``draft`` or ``rejected`` services to
-``pending`` (with ``run_tests=False`` so the backend does not
-auto-queue its own Celery run) and restores the original status
-on exit. Per-interface results are POSTed back via
-``PATCH /seller/documents/{id}`` so the document&#x27;s ``meta.test``
-stays in sync with what the seller saw locally.
+Replaces the previous local-execution path
+(unitysvc/unitysvc#1105).  Test results are persisted on the
+backend in ``Document.meta.test.tests[&lt;iface_id&gt;]``; the rendered
+table here is a summary.  Use ``usvc_seller services show-test --doc-id &lt;id&gt;``
+to see full stdout/stderr for any failure.
 
 **Usage**:
 
@@ -780,8 +779,9 @@ $ usvc_seller services run-tests [OPTIONS] SERVICE_ID
 **Options**:
 
 * `-d, --document-id TEXT`: Run a single document instead of every executable doc on the service.
-* `--force`: Re-execute even if the document was previously skipped.
-* `--timeout INTEGER`: Per-script execution timeout in seconds.  [default: 30]
+* `--force`: Re-execute documents whose previous per-iface result was &#x27;success&#x27;.
+* `--poll-interval FLOAT`: Seconds between task-status polls while waiting for the diagnostic.  [default: 2.0]
+* `--timeout FLOAT`: Hard cap on total wait, including queue time, in seconds.  [default: 600.0]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.

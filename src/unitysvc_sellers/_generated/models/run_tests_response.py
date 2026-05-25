@@ -1,31 +1,54 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="DocumentRenderResponseTestType0")
+from ..types import UNSET, Unset
+
+T = TypeVar("T", bound="RunTestsResponse")
 
 
 @_attrs_define
-class DocumentRenderResponseTestType0:
+class RunTestsResponse:
+    """Response shape for ``POST /seller/services/{id}/run-tests``."""
+
+    task_id: str
+    status: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        task_id = self.task_id
+
+        status = self.status
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "task_id": task_id,
+                "status": status,
+            }
+        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        document_render_response_test_type_0 = cls()
+        task_id = d.pop("task_id")
 
-        document_render_response_test_type_0.additional_properties = d
-        return document_render_response_test_type_0
+        status = d.pop("status")
+
+        run_tests_response = cls(
+            task_id=task_id,
+            status=status,
+        )
+
+        run_tests_response.additional_properties = d
+        return run_tests_response
 
     @property
     def additional_keys(self) -> list[str]:

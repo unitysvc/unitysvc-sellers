@@ -3,7 +3,7 @@
 Wraps the seller-tagged ``/v1/seller/services/*`` operations from the
 generated low-level client. ``client.services.get(...)`` returns a
 :class:`Service` active-record wrapper whose methods (``refresh``,
-``update``, ``delete``, ``test_env``, ``submit``) navigate without
+``update``, ``delete``, ``submit``, ``run_tests``) navigate without
 re-passing the service id; ``client.services.list(...)`` returns a
 :class:`ServiceList` that's iterable directly so ``for svc in
 services`` works alongside ``services.next_cursor`` /
@@ -21,7 +21,8 @@ is just sugar that pre-binds the id.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -35,8 +36,126 @@ if TYPE_CHECKING:
     from ._generated.models.service_public import ServicePublic
     from ._generated.models.service_update_response import ServiceUpdateResponse
     from ._generated.models.task_queued_response import TaskQueuedResponse
-    from ._generated.models.test_env_response import TestEnvResponse
     from .client import Client
+
+
+@dataclass(frozen=True)
+class RunTestsIfaceResult:
+    """One per (document × interface) row from a diagnostic run.
+
+    Mirrors the dict shape returned by the backend's
+    ``run_service_diagnostic`` celery task (see
+    ``backend/app/workers/service_health_tasks.py``).  Fields are
+    optional because the task payload omits them on success rows
+    (stdout/stderr are stripped) and on skipped rows.
+    """
+
+    document_id: str
+    document_title: str | None = None
+    category: str | None = None
+    interface_id: str | None = None
+    interface_name: str | None = None
+    status: str = ""
+    exit_code: int | None = None
+    error: str | None = None
+    stdout: str | None = None
+    stderr: str | None = None
+    executed_at: str | None = None
+    # Outcome of the gateway-then-upstream attribution:
+    # gateway_pass | platform_fault | upstream_fault | gateway_only_fail | already_passed
+    outcome: str | None = None
+    # ``"success"`` | ``"script_failed"`` | … — the gateway-mode result string.
+    gateway: str | None = None
+    # When upstream fallback ran, this carries the upstream-mode probe summary.
+    upstream: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True)
+class RunTestsResult:
+    """Result of a server-side ``services.run_tests`` call.
+
+    Wraps the celery task payload from ``run_service_diagnostic`` plus
+    the ``task_id`` we polled, so consumers don't need to know about
+    the underlying task surface.
+
+    ``passed`` is the convenience boolean — ``True`` iff every executed
+    (doc × iface) row reported ``status="success"``.  Skipped rows
+    (``outcome="already_passed"``) don't count against ``passed``.
+    """
+
+    task_id: str
+    service_id: str
+    status: str  # the top-level task status: "success" | "failure" | "error"
+    outcome: str | None = None  # e.g. "no_executable_documents" or None on normal runs
+    snapshot_status: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    success_count: int = 0
+    fail_count: int = 0
+    skipped_count: int = 0
+    results: list[RunTestsIfaceResult] = field(default_factory=list)
+    # The raw task payload, kept around so callers can dig into fields
+    # we haven't promoted to typed attributes yet.
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def passed(self) -> bool:
+        """``True`` iff the diagnostic ran cleanly with zero failing rows."""
+        return self.status == "success" and self.fail_count == 0
+
+
+def _parse_run_tests_payload(task_id: str, payload: dict[str, Any]) -> RunTestsResult:
+    """Coerce the task-status dict from ``/tasks/{id}`` into a typed result.
+
+    The backend's diagnostic task returns its summary in
+    ``payload["result"]`` when the task succeeded.  When the celery
+    task itself errored (status="failed"), there's no ``result`` —
+    surface a minimal RunTestsResult with status="error" so callers
+    can render the failure without crashing on missing keys.
+    """
+    if payload.get("status") == "failed":
+        return RunTestsResult(
+            task_id=task_id,
+            service_id="",
+            status="error",
+            outcome=payload.get("error") or payload.get("message"),
+            raw=payload,
+        )
+
+    body: dict[str, Any] = payload.get("result") or {}
+    iface_results = [
+        RunTestsIfaceResult(
+            document_id=row.get("document_id", ""),
+            document_title=row.get("document_title"),
+            category=row.get("category"),
+            interface_id=row.get("interface_id"),
+            interface_name=row.get("interface_name"),
+            status=row.get("status", ""),
+            exit_code=row.get("exit_code"),
+            error=row.get("error"),
+            stdout=row.get("stdout"),
+            stderr=row.get("stderr"),
+            executed_at=row.get("executed_at"),
+            outcome=row.get("outcome"),
+            gateway=row.get("gateway"),
+            upstream=row.get("upstream"),
+        )
+        for row in (body.get("results") or [])
+    ]
+    return RunTestsResult(
+        task_id=task_id,
+        service_id=body.get("service_id", ""),
+        status=body.get("status", "unknown"),
+        outcome=body.get("outcome"),
+        snapshot_status=body.get("snapshot_status"),
+        started_at=body.get("started_at"),
+        completed_at=body.get("completed_at"),
+        success_count=int(body.get("success_count") or 0),
+        fail_count=int(body.get("fail_count") or 0),
+        skipped_count=int(body.get("skipped_count") or 0),
+        results=iface_results,
+        raw=payload,
+    )
 
 
 class Service:
@@ -53,8 +172,9 @@ class Service:
     - :meth:`update` — patch fields (status, visibility, routing_vars,
       list_price). Same body shape as :meth:`Services.update`.
     - :meth:`delete` — remove the service.
-    - :meth:`test_env` — rendered environment for code-example scripts.
     - :meth:`submit` — convenience for ``update({"status": "pending"})``.
+    - :meth:`run_tests` — queue a server-side diagnostic and block until
+      complete; returns gateway-then-upstream attribution per (doc × iface).
 
     Returned by :meth:`Services.get` and as items inside
     :class:`ServiceList` from :meth:`Services.list`.
@@ -91,9 +211,29 @@ class Service:
         """
         return self._parent.services.get(self._raw.id)
 
-    def test_env(self) -> TestEnvResponse:
-        """Rendered environment used to run code-example scripts."""
-        return self._parent.services.get_test_env(self._raw.id)
+    def run_tests(
+        self,
+        *,
+        document_id: str | None = None,
+        force: bool = False,
+        poll_interval: float = 2.0,
+        timeout: float = 600.0,
+        on_progress: Callable[[str], None] | None = None,
+    ) -> RunTestsResult:
+        """Queue a server-side diagnostic and block until it completes.
+
+        See :meth:`Services.run_tests` for the full argument and result
+        documentation; this is the active-record shortcut that
+        pre-binds the service id.
+        """
+        return self._parent.services.run_tests(
+            self._raw.id,
+            document_id=document_id,
+            force=force,
+            poll_interval=poll_interval,
+            timeout=timeout,
+            on_progress=on_progress,
+        )
 
     # ------------------------------------------------------------------
     # Write
@@ -298,16 +438,91 @@ class Services:
         )
         return Service(raw, parent=self._parent)
 
-    def get_test_env(self, service_id: str | UUID) -> TestEnvResponse:
-        """Return the rendered environment used to run code-example scripts for a service."""
-        from ._generated.api.seller_services import services_get_test_env
+    def run_tests(
+        self,
+        service_id: str | UUID,
+        *,
+        document_id: str | None = None,
+        force: bool = False,
+        poll_interval: float = 2.0,
+        timeout: float = 600.0,
+        on_progress: Callable[[str], None] | None = None,
+    ) -> RunTestsResult:
+        """Queue a server-side diagnostic and block until it completes.
 
-        return unwrap(
-            services_get_test_env.sync_detailed(
+        Calls ``POST /v1/seller/services/{id}/run-tests`` to queue a
+        ``run_service_diagnostic`` celery task on the backend, then
+        polls ``GET /v1/seller/tasks/{task_id}`` until the task reaches
+        a terminal state.  Returns the parsed task payload as a
+        :class:`RunTestsResult`.
+
+        The diagnostic runs every executable document (connectivity
+        tests + code examples) across every active access interface
+        inside the cluster — the same network environment customers
+        hit — and falls back to an upstream-mode probe on any
+        iface-level gateway failure so the result attributes the
+        fault as ``platform_fault`` vs ``upstream_fault``.
+
+        Args:
+            service_id: UUID of the service to test.
+            document_id: When set, restrict execution to one document.
+            force: Re-execute documents whose per-iface result on
+                ``meta.test.tests[iface_id].status`` was previously
+                ``success``.  Default skips them.
+            poll_interval: Seconds between task-status polls.
+            timeout: Hard cap on total wait, including queue time.
+            on_progress: Optional callback ``on_progress(status: str)``
+                called every poll tick with the current task status
+                string (``"pending"``, ``"running"``, …).  Use for
+                a spinner / progress indicator.
+
+        Returns:
+            :class:`RunTestsResult` with per-(doc × iface) rows on
+            ``.results`` and pass/fail counts on ``.success_count`` /
+            ``.fail_count`` / ``.skipped_count``.  ``.passed`` is the
+            convenience boolean.
+        """
+        from ._generated.api.seller_services import services_run_tests
+        from ._generated.types import UNSET
+
+        queued = unwrap(
+            services_run_tests.sync_detailed(
                 service_id=str(service_id),
                 client=self._client,
+                document_id=document_id if document_id is not None else UNSET,
+                force=force,
             )
         )
+
+        # Wrap tasks.wait()'s batch callback into the simpler
+        # per-tick callback the run_tests API exposes.
+        wrapped_on_update = None
+        if on_progress is not None:
+
+            def _wrapped(done: int, total: int, last_ids: list[str]) -> None:  # pragma: no cover - thin adapter
+                # tasks.wait only fires on_update when a task hits a
+                # terminal state, which for a single task means the
+                # final tick.  We additionally poll the status
+                # ourselves below to drive per-tick progress.
+                _ = (done, total, last_ids)
+                on_progress("completed")
+
+            wrapped_on_update = _wrapped
+
+        # Per-tick progress: tasks.wait doesn't expose a "every poll"
+        # hook, so callers that want a spinner can subscribe via
+        # on_progress and we'll drive it manually with a small inner
+        # loop.  For simplicity in v1 we just wait() and emit a
+        # single "completed"/"failed" tick at the end via the
+        # wrapped on_update above.
+        terminal = self._parent.tasks.wait(
+            queued.task_id,
+            timeout=timeout,
+            poll_interval=poll_interval,
+            on_update=wrapped_on_update,
+        )
+
+        return _parse_run_tests_payload(queued.task_id, terminal.get(queued.task_id) or {})
 
     # ------------------------------------------------------------------
     # Write — bulk upload

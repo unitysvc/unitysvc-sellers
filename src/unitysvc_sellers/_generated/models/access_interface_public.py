@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -53,11 +53,15 @@ class AccessInterfacePublic:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.access_interface_public_customer_secrets_optional_type_0_item import (
+            AccessInterfacePublicCustomerSecretsOptionalType0Item,
+        )
         from ..models.access_interface_public_request_transformer_type_0 import (
             AccessInterfacePublicRequestTransformerType0,
         )
         from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
         from ..models.access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
+        from ..models.rate_limit import RateLimit
         from ..models.service_constraints import ServiceConstraints
 
         id = str(self.id)
