@@ -17,7 +17,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "unitysvc-core>=0.1.9",
+  "unitysvc-core>=0.1.10",
   "unitysvc-data>=0.1.18",
   "typer",
   "rich",
