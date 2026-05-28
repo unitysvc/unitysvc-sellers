@@ -87,6 +87,7 @@ nav:
       - SDK Reference: sdk-reference.md
       - SDK Guide: sdk-guide.md
       - File Schemas: file-schemas.md
+      - Naming Conventions: naming-conventions.md
       - Pricing: pricing.md
       - Code Examples: code-examples.md
       - Documenting Services: documenting-services.md
