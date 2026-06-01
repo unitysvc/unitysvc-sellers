@@ -292,6 +292,40 @@ def show_service(
 # ---------------------------------------------------------------------------
 # Bulk-status helpers
 # ---------------------------------------------------------------------------
+
+# Backend 400 messages that mean "this status change is a no-op", not
+# that the request was broken.  They originate from the duplicate-content
+# check on the submit-for-review path
+# (``backend/app/api/routes/seller/services.py:815-844``): when a draft
+# is content-identical to an existing active service the same seller
+# owns, the backend rejects the submit and returns 400.  For CI flows
+# that re-run ``services submit`` after every PR merge that's a normal
+# steady state — the service is already where the seller wanted it.
+# Treating these as failures makes CI flap on every "no real changes"
+# merge, which is exactly what #(this commit) suppresses.
+_NOOP_400_PHRASES: tuple[str, ...] = (
+    "A service with identical content already exists",
+    "No changes detected",
+)
+
+
+def _is_noop_status_change(exc: Exception) -> bool:
+    """Return ``True`` if ``exc`` is a backend 400 that means "nothing
+    to do" rather than a real failure.
+
+    Specifically matches the ``submit-for-review`` duplicate-content
+    rejections so reruns / CI uploads don't fail when the catalog is
+    already in the desired state.  ``status_code`` is checked when
+    available so unrelated 400s with overlapping wording (none today,
+    but defensively) wouldn't be silenced.
+    """
+    status_code = getattr(exc, "status_code", None)
+    if status_code is not None and status_code != 400:
+        return False
+    msg = str(exc)
+    return any(phrase in msg for phrase in _NOOP_400_PHRASES)
+
+
 def _bulk_status_change(
     *,
     api_key: str | None,
@@ -323,17 +357,29 @@ def _bulk_status_change(
     results = run_async(_impl(), error_prefix=f"{success_verb} failed")
 
     success = 0
+    skipped = 0
     failed = 0
     for sid, err in results:
         if err is None:
             console.print(f"  [green]✓[/green] {sid}: {success_verb}")
             success += 1
+        elif _is_noop_status_change(err):
+            # No-op: catalog already matches the desired state.  Surface
+            # as a skip (yellow ⊘) so the operator can still see it, but
+            # don't count toward the failure tally that drives ``exit
+            # 1`` — CI must stay green when reruns find nothing to do.
+            console.print(
+                f"  [yellow]⊘[/yellow] {sid}: skipped (no-op — content already matches an active service)"
+            )
+            skipped += 1
         else:
             console.print(f"  [red]✗[/red] {sid}: {err}")
             failed += 1
 
     if count > 1:
         console.print(f"\n[green]✓ Success:[/green] {success}/{count}")
+        if skipped:
+            console.print(f"[yellow]⊘ Skipped:[/yellow] {skipped}/{count}")
         if failed:
             console.print(f"[red]✗ Failed:[/red] {failed}/{count}")
             raise typer.Exit(code=1)
