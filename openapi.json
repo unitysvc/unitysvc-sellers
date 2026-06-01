@@ -2817,31 +2817,6 @@
             ],
             "title": "Description"
           },
-          "request_transformer": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
-                    {
-                      "type": "string"
-                    }
-                  ]
-                },
-                "propertyNames": {
-                  "$ref": "#/components/schemas/RequestTransformEnum"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Request Transformer"
-          },
           "rate_limits": {
             "anyOf": [
               {
@@ -3941,15 +3916,6 @@
           "concurrent"
         ],
         "title": "RateLimitUnitEnum"
-      },
-      "RequestTransformEnum": {
-        "type": "string",
-        "enum": [
-          "proxy_rewrite",
-          "body_transformer",
-          "set_body"
-        ],
-        "title": "RequestTransformEnum"
       },
       "RunTestsResponse": {
         "properties": {
@@ -5669,6 +5635,7 @@
           "streaming",
           "compute",
           "proxy",
+          "gateway",
           "database",
           "monitoring",
           "analytics"
