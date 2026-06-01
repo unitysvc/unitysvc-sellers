@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from ..models.access_interface_public_customer_secrets_optional_type_0_item import (
         AccessInterfacePublicCustomerSecretsOptionalType0Item,
     )
-    from ..models.access_interface_public_request_transformer_type_0 import AccessInterfacePublicRequestTransformerType0
     from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
     from ..models.access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
     from ..models.rate_limit import RateLimit
@@ -41,7 +40,6 @@ class AccessInterfacePublic:
     base_url: None | str | Unset = UNSET
     base_url_pattern: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
-    request_transformer: AccessInterfacePublicRequestTransformerType0 | None | Unset = UNSET
     rate_limits: list[RateLimit] | None | Unset = UNSET
     constraint: None | ServiceConstraints | Unset = UNSET
     response_rules: AccessInterfacePublicResponseRulesType0 | None | Unset = UNSET
@@ -55,9 +53,6 @@ class AccessInterfacePublic:
     def to_dict(self) -> dict[str, Any]:
         from ..models.access_interface_public_customer_secrets_optional_type_0_item import (
             AccessInterfacePublicCustomerSecretsOptionalType0Item,
-        )
-        from ..models.access_interface_public_request_transformer_type_0 import (
-            AccessInterfacePublicRequestTransformerType0,
         )
         from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
         from ..models.access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
@@ -113,14 +108,6 @@ class AccessInterfacePublic:
             description = UNSET
         else:
             description = self.description
-
-        request_transformer: dict[str, Any] | None | Unset
-        if isinstance(self.request_transformer, Unset):
-            request_transformer = UNSET
-        elif isinstance(self.request_transformer, AccessInterfacePublicRequestTransformerType0):
-            request_transformer = self.request_transformer.to_dict()
-        else:
-            request_transformer = self.request_transformer
 
         rate_limits: list[dict[str, Any]] | None | Unset
         if isinstance(self.rate_limits, Unset):
@@ -218,8 +205,6 @@ class AccessInterfacePublic:
             field_dict["base_url_pattern"] = base_url_pattern
         if description is not UNSET:
             field_dict["description"] = description
-        if request_transformer is not UNSET:
-            field_dict["request_transformer"] = request_transformer
         if rate_limits is not UNSET:
             field_dict["rate_limits"] = rate_limits
         if constraint is not UNSET:
@@ -243,9 +228,6 @@ class AccessInterfacePublic:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.access_interface_public_customer_secrets_optional_type_0_item import (
             AccessInterfacePublicCustomerSecretsOptionalType0Item,
-        )
-        from ..models.access_interface_public_request_transformer_type_0 import (
-            AccessInterfacePublicRequestTransformerType0,
         )
         from ..models.access_interface_public_response_rules_type_0 import AccessInterfacePublicResponseRulesType0
         from ..models.access_interface_public_routing_key_type_0 import AccessInterfacePublicRoutingKeyType0
@@ -329,23 +311,6 @@ class AccessInterfacePublic:
             return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
-
-        def _parse_request_transformer(data: object) -> AccessInterfacePublicRequestTransformerType0 | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                request_transformer_type_0 = AccessInterfacePublicRequestTransformerType0.from_dict(data)
-
-                return request_transformer_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(AccessInterfacePublicRequestTransformerType0 | None | Unset, data)
-
-        request_transformer = _parse_request_transformer(d.pop("request_transformer", UNSET))
 
         def _parse_rate_limits(data: object) -> list[RateLimit] | None | Unset:
             if data is None:
@@ -505,7 +470,6 @@ class AccessInterfacePublic:
             base_url=base_url,
             base_url_pattern=base_url_pattern,
             description=description,
-            request_transformer=request_transformer,
             rate_limits=rate_limits,
             constraint=constraint,
             response_rules=response_rules,
