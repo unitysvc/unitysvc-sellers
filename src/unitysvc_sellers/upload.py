@@ -380,6 +380,7 @@ def upload_directory(
     on_progress: Any = None,
     task_wait_timeout: float = 600.0,
     task_poll_interval: float = 2.0,
+    name: str | None = None,
 ) -> UploadResult:
     """Upload all services, promotions, and service groups under ``data_dir``.
 
@@ -429,7 +430,23 @@ def upload_directory(
 
     # ----- Services ---------------------------------------------------
     if upload_services:
-        listing_files = sorted(p for p, _, _ in find_files_by_schema(data_dir, "listing_v1"))
+        all_listings = find_files_by_schema(data_dir, "listing_v1")
+        if name is not None:
+            # --name uploads exactly one service, selected by its
+            # service_name (= listing.name, #1138). Must be unambiguous.
+            matched = [(p, d) for p, _, d in all_listings if d.get("name") == name]
+            if not matched:
+                raise ValueError(
+                    f"No service with service_name (listing.name) '{name}' found under {data_dir}."
+                )
+            if len(matched) > 1:
+                paths = ", ".join(str(p) for p, _ in matched)
+                raise ValueError(
+                    f"Ambiguous --name '{name}': {len(matched)} listings share it ({paths})."
+                )
+            listing_files = [matched[0][0]]
+        else:
+            listing_files = sorted(p for p, _, _ in all_listings)
         result.services.total = len(listing_files)
 
         for listing_file in listing_files:

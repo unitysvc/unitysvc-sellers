@@ -182,6 +182,7 @@ $ usvc_seller data upload [OPTIONS] [DATA_DIR]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `-t, --type TEXT`: Upload only one resource: services / promotions / groups. Default: upload all three.
+* `-n, --name TEXT`: Upload only the single service whose service_name (= listing.name) equals this value.
 * `--help`: Show this message and exit.
 
 ### `usvc_seller data list-tests`

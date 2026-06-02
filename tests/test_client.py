@@ -40,7 +40,11 @@ class TestClientConstruction:
         with pytest.raises(ValueError, match="api_key is required"):
             Client(api_key="")
 
-    def test_default_base_url(self) -> None:
+    def test_default_base_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Isolate from a developer/CI environment that exports
+        # UNITYSVC_SELLER_API_URL — the Client honors it by design, so the
+        # default-URL assertion must clear it first.
+        monkeypatch.delenv("UNITYSVC_SELLER_API_URL", raising=False)
         c = Client(api_key="svcpass_test")
         assert c._base_url == "https://seller.unitysvc.com/v1"
 
