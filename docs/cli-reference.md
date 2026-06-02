@@ -195,16 +195,16 @@ Useful for exploring available examples before running tests.
 
 Examples:
     # List all code examples
-    usvc data list examples
+    usvc data list-tests
 
     # List for specific provider
-    usvc data list examples --provider fireworks
+    usvc data list-tests --provider fireworks
 
-    # List for specific services
-    usvc data list examples --services &quot;llama*,gpt-4*&quot;
+    # List for one service (by service_name = listing.name)
+    usvc data list-tests --name fireworks.ai/llama-3-1-405b-instruct
 
     # List as JSON
-    usvc data list examples --format json
+    usvc data list-tests --format json
 
 **Usage**:
 
@@ -219,7 +219,7 @@ $ usvc_seller data list-tests [OPTIONS] [DATA_DIR]
 **Options**:
 
 * `-p, --provider TEXT`: Only list code examples for a specific provider
-* `-s, --services TEXT`: Comma-separated list of service patterns (supports wildcards, e.g., &#x27;llama*,gpt-4*&#x27;)
+* `-n, --name TEXT`: Only the service whose listing.name (service_name) equals this value (exact).
 * `-f, --format TEXT`: Output format: json, table, tsv, csv  [default: table]
 * `--help`: Show this message and exit.
 
@@ -241,19 +241,16 @@ Examples:
     usvc data test
 
     # Run for specific provider
-    usvc data test --provider fireworks
+    usvc data run-tests --provider fireworks
 
-    # Run for specific services (with wildcards)
-    usvc data test --services &quot;llama*,gpt-4*&quot;
-
-    # Run single service
-    usvc data test --services &quot;llama-3-1-405b-instruct&quot;
+    # Run a single service (by service_name = listing.name)
+    usvc data run-tests --name fireworks.ai/llama-3-1-405b-instruct
 
     # Run specific file
-    usvc data test --test-file &quot;code-example.py.j2&quot;
+    usvc data run-tests --test-file &quot;code-example.py.j2&quot;
 
     # Combine filters
-    usvc data test --provider fireworks --services &quot;llama*&quot;
+    usvc data run-tests --provider fireworks
 
     # Show detailed output
     usvc data test --verbose
@@ -277,7 +274,7 @@ $ usvc_seller data run-tests [OPTIONS] [DATA_DIR]
 **Options**:
 
 * `-p, --provider TEXT`: Only test code examples for a specific provider
-* `-s, --services TEXT`: Comma-separated list of service patterns (supports wildcards, e.g., &#x27;llama*,gpt-4*&#x27;)
+* `-n, --name TEXT`: Only the service whose listing.name (service_name) equals this value (exact).
 * `-t, --test-file TEXT`: Only run a specific test file by filename (e.g., &#x27;code-example.py.j2&#x27;)
 * `-v, --verbose`: Show detailed output including stdout/stderr from scripts
 * `-f, --force`: Force rerun all tests, ignoring existing .out and .err files
@@ -303,7 +300,7 @@ $ usvc_seller data show-test [OPTIONS] SERVICE
 
 **Arguments**:
 
-* `SERVICE`: Service name to show test results for  [required]
+* `SERVICE`: Service name (service_name = listing.name) to show test results for  [required]
 
 **Options**:
 
@@ -535,6 +532,7 @@ $ usvc_seller services submit [OPTIONS] [SERVICE_IDS]...
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
+* `-n, --name TEXT`: Target all services whose service_name (= listing.name) equals this value.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -560,6 +558,7 @@ $ usvc_seller services withdraw [OPTIONS] [SERVICE_IDS]...
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
+* `-n, --name TEXT`: Target all services whose service_name (= listing.name) equals this value.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -585,6 +584,7 @@ $ usvc_seller services deprecate [OPTIONS] [SERVICE_IDS]...
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
+* `-n, --name TEXT`: Target all services whose service_name (= listing.name) equals this value.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -627,6 +627,7 @@ $ usvc_seller services set-visibility [OPTIONS] VISIBILITY [SERVICE_IDS]...
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
+* `-n, --name TEXT`: Target all services whose service_name (= listing.name) equals this value.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -663,6 +664,7 @@ $ usvc_seller services delete [OPTIONS] [SERVICE_IDS]...
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--status TEXT`: Restrict --all to a single deletable status.
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
+* `-n, --name TEXT`: Target all services whose service_name (= listing.name) equals this value.
 * `--dryrun`: Show what would be deleted without doing it.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]

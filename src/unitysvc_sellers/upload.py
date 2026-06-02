@@ -539,13 +539,11 @@ def upload_directory(
                     # {"service": {"id": "...", "name": "..."}, ...}.
                     task_result = status_dict.get("result") or {}
                     service_id = None
-                    service_name = None
                     revision_of = None
                     if isinstance(task_result, dict):
                         service_data = task_result.get("service") or {}
                         if isinstance(service_data, dict):
                             service_id = service_data.get("id")
-                            service_name = service_data.get("name")
                             revision_of = service_data.get("revision_of")
                     if revision_of:
                         # A revision of an active service was created (service_id
@@ -558,10 +556,11 @@ def upload_directory(
                         detail = f"service_id={service_id}" if service_id else f"task_id={task_id}"
                         _emit("service", "ok", name, detail)
                         if service_id:
-                            override = {"service_id": str(service_id)}
-                            if service_name:
-                                override["name"] = str(service_name)
-                            write_override_file(listing_file, override)
+                            # Only service_id needs to round-trip — it's the
+                            # backend-assigned identity. service_name = listing.name
+                            # (#1138), already in the source file, so it's no longer
+                            # written back to the override.
+                            write_override_file(listing_file, {"service_id": str(service_id)})
                 else:
                     result.services.failed += 1
                     error_msg = (

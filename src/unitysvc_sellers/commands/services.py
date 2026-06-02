@@ -55,6 +55,13 @@ _DATA_DIR_OPTION = typer.Option(
     help="Data directory for --local-ids (default: current directory).",
     exists=True, file_okay=False, dir_okay=True,
 )
+# --name targets every backend service whose service_name (= listing.name,
+# #1138) equals the value. A name can map to several rows (e.g. an active
+# service plus its pending revision), so duplicates are expected.
+_NAME_OPTION = typer.Option(
+    None, "--name", "-n",
+    help="Target all services whose service_name (= listing.name) equals this value.",
+)
 
 console = Console()
 
@@ -475,8 +482,9 @@ def _resolve_or_fetch_ids(
     use_local_ids: bool = False,
     data_dir: Path = Path("."),
     visibilities_when_all: list[str] | None = None,
+    name: str | None = None,
 ) -> list[str]:
-    """Resolve the target service IDs from exactly one of three mutually exclusive sources.
+    """Resolve the target service IDs from exactly one of four mutually exclusive sources.
 
     Sources (only one may be active):
     - explicit positional ``service_ids`` — used as-is, no state check.
@@ -488,18 +496,63 @@ def _resolve_or_fetch_ids(
       revisions of the requested ids — see backend PR #915). The same
       status/visibility filter ``--all`` would have applied server-side
       is then applied client-side against the returned set.
+    - ``--name``: resolve **all** backend services whose ``service_name``
+      (= listing.name, #1138) equals the given value, then keep those in an
+      eligible state. A service name can map to several rows (e.g. an active
+      service plus its pending revision), so duplicates are expected and all
+      matching rows are returned.
 
     ``visibilities_when_all`` further restricts the fetch to
     services whose current visibility is in the given list.
     """
     # --- strict mutual exclusivity ---
-    modes = sum([bool(service_ids), use_all, use_local_ids])
+    modes = sum([bool(service_ids), use_all, use_local_ids, name is not None])
     if modes > 1:
         console.print(
-            "[red]Error:[/red] --all, --local-ids, and explicit service IDs are mutually exclusive. "
-            "Provide exactly one."
+            "[red]Error:[/red] --all, --local-ids, --name, and explicit service IDs are "
+            "mutually exclusive. Provide exactly one."
         )
         raise typer.Exit(code=1)
+
+    # --- --name: all backend rows with this exact service_name ---
+    if name is not None:
+
+        async def _fetch_by_name() -> list[str]:
+            matched: list[str] = []
+            cursor: str | None = None
+            async with async_client(api_key, base_url) as client:
+                while True:
+                    response = await client.services.list(
+                        name=name, limit=200, cursor=cursor, provider=provider
+                    )
+                    for svc in model_list(response):
+                        row = svc if isinstance(svc, dict) else model_to_dict(svc)
+                        # Server ``name`` is a partial match — keep exact only.
+                        if (row.get("name") or row.get("service_name")) != name:
+                            continue
+                        if (str(row.get("status") or "") or None) not in statuses_when_all:
+                            continue
+                        if visibilities_when_all and (
+                            str(row.get("visibility") or "") or None
+                        ) not in visibilities_when_all:
+                            continue
+                        if row.get("id"):
+                            matched.append(str(row["id"]))
+                    next_cursor = getattr(response, "next_cursor", None)
+                    has_more = getattr(response, "has_more", False)
+                    if not has_more or not next_cursor:
+                        break
+                    cursor = str(next_cursor)
+            return matched
+
+        ids = run_async(_fetch_by_name(), error_prefix="Failed to fetch services by name")
+        if not ids:
+            console.print(
+                f"[yellow]No services named '{name}' match the required state for this action.[/yellow]"
+            )
+            raise typer.Exit(code=0)
+        console.print(f"[green]Found {len(ids)} service(s) named '{name}'[/green]\n")
+        return ids
 
     # --- --local-ids: local listing_v1 files ---
     if use_local_ids:
@@ -600,6 +653,7 @@ def submit_service(
     provider: str | None = typer.Option(
         None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
+    name: str | None = _NAME_OPTION,
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -615,6 +669,7 @@ def submit_service(
         flag_name="all",
         use_local_ids=local_ids,
         data_dir=data_dir,
+        name=name,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -636,6 +691,7 @@ def withdraw_service(
     provider: str | None = typer.Option(
         None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
+    name: str | None = _NAME_OPTION,
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -651,6 +707,7 @@ def withdraw_service(
         flag_name="all",
         use_local_ids=local_ids,
         data_dir=data_dir,
+        name=name,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -672,6 +729,7 @@ def deprecate_service(
     provider: str | None = typer.Option(
         None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
+    name: str | None = _NAME_OPTION,
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -687,6 +745,7 @@ def deprecate_service(
         flag_name="all",
         use_local_ids=local_ids,
         data_dir=data_dir,
+        name=name,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -742,6 +801,7 @@ def _set_visibility_impl(
     yes: bool,
     api_key: str | None,
     base_url: str,
+    name: str | None = None,
 ) -> None:
     """Shared implementation for the canonical ``set-visibility`` command
     and the deprecated ``publish`` / ``unlist`` / ``hide`` aliases."""
@@ -764,6 +824,7 @@ def _set_visibility_impl(
         flag_name="all",
         use_local_ids=local_ids,
         data_dir=data_dir,
+        name=name,
     )
     _bulk_visibility_change(
         api_key=api_key,
@@ -802,6 +863,7 @@ def set_visibility(
     provider: str | None = typer.Option(
         None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
+    name: str | None = _NAME_OPTION,
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -834,6 +896,7 @@ def set_visibility(
         yes=yes,
         api_key=api_key,
         base_url=base_url,
+        name=name,
     )
 
 
@@ -856,6 +919,7 @@ def delete_service(
     provider: str | None = typer.Option(
         None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
+    name: str | None = _NAME_OPTION,
     dryrun: bool = typer.Option(False, "--dryrun", help="Show what would be deleted without doing it."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -900,6 +964,7 @@ def delete_service(
         flag_name="all",
         use_local_ids=local_ids,
         data_dir=data_dir,
+        name=name,
     )
 
     count = len(ids)
