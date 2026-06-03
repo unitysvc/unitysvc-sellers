@@ -51,18 +51,18 @@ def env(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_rejects_both_service_id_and_name(env):
-    """``run-tests <sid> --name <pat>`` is an error — exactly one source."""
+def test_rejects_both_positional_name_and_id(env):
+    """``run-tests <NAME> --id <sid>`` is an error — exactly one source."""
     runner = CliRunner()
     result = runner.invoke(
         cli_app,
-        ["services", "run-tests", SID_A, "--name", "cohere/command-r-plus"],
+        ["services", "run-tests", "cohere/command-r-plus", "--id", SID_A],
     )
     assert result.exit_code == 1, result.output
     assert "exactly one" in result.output.lower()
 
 
-def test_rejects_neither_service_id_nor_name(env):
+def test_rejects_neither_positional_name_nor_id(env):
     """``run-tests`` with no target is an error."""
     runner = CliRunner()
     result = runner.invoke(cli_app, ["services", "run-tests"])
@@ -117,7 +117,7 @@ def test_name_literal_resolves_one_service(env):
         runner = CliRunner()
         result = runner.invoke(
             cli_app,
-            ["services", "run-tests", "--name", "cohere/command-r-plus"],
+            ["services", "run-tests", "cohere/command-r-plus"],
         )
 
     assert result.exit_code == 0, result.output
@@ -144,7 +144,7 @@ def test_name_pattern_resolves_multiple_services_and_loops(env):
         runner = CliRunner()
         result = runner.invoke(
             cli_app,
-            ["services", "run-tests", "--name", "cohere/*"],
+            ["services", "run-tests", "cohere/*"],
         )
 
     assert result.exit_code == 0, result.output
@@ -166,7 +166,7 @@ def test_name_with_no_matches_exits_zero(env):
         runner = CliRunner()
         result = runner.invoke(
             cli_app,
-            ["services", "run-tests", "--name", "no-such-thing/*"],
+            ["services", "run-tests", "no-such-thing/*"],
         )
 
     assert result.exit_code == 0, result.output

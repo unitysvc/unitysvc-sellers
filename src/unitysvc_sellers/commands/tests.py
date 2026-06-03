@@ -350,11 +350,23 @@ async def _resolve_service_ids_by_name(api_key: str | None, base_url: str, name:
 
 @services_app.command("run-tests")
 def run_tests(
-    service_id: str | None = typer.Argument(
+    name: str | None = typer.Argument(
         None,
-        help="Service ID (full or partial, ≥8 chars). Mutually exclusive with ``--name``.",
+        help=(
+            "Service(s) to test, by service_name (= listing.name) — fnmatch pattern, "
+            "e.g. 'cohere/*' or a literal name. Matching multiple services runs the "
+            "diagnostic once per match in sequence. Mutually exclusive with ``--id``."
+        ),
     ),
-    name: str | None = _NAME_OPTION,
+    service_id: str | None = typer.Option(
+        None,
+        "--id",
+        help=(
+            "Service ID (full or partial, ≥8 chars).  Use this when a name matches "
+            "multiple rows (e.g. an active service plus its pending revision) and you "
+            "need to pin one specific row."
+        ),
+    ),
     document_id: str | None = typer.Option(
         None,
         "--document-id",
@@ -396,16 +408,12 @@ def run_tests(
     to see full stdout/stderr for any failure.
 
     Targeting:
-        usvc_seller services run-tests <service-id>
-        usvc_seller services run-tests --name cohere/command-r-plus
-        usvc_seller services run-tests --name 'cohere/*' --force
-
-    ``--name`` is an fnmatch pattern on ``service_name`` (= listing.name,
-    #1138); matching multiple services runs the diagnostic once per match
-    in sequence.
+        usvc_seller services run-tests cohere/command-r-plus
+        usvc_seller services run-tests 'cohere/*' --force
+        usvc_seller services run-tests --id 6c55d6d9          # disambiguate
     """
-    if (service_id is None) == (name is None):
-        console.print("[red]Error:[/red] provide exactly one of a service_id or ``--name``.")
+    if (name is None) == (service_id is None):
+        console.print("[red]Error:[/red] provide exactly one of a positional NAME or ``--id``.")
         raise typer.Exit(code=1)
 
     if name is not None:
