@@ -470,13 +470,14 @@ The `test` command helps validate code examples against upstream APIs before pub
 
 ```bash
 # List all available code examples
-usvc_seller test list
+usvc_seller data list-tests
 
 # List examples for a specific provider
-usvc_seller test list --provider fireworks
+usvc_seller data list-tests --provider fireworks
 
-# List examples for specific services (supports wildcards)
-usvc_seller test list --services "llama*,gpt-4*"
+# List examples for one service or a pattern
+# (--name is an fnmatch pattern on service_name = listing.name)
+usvc_seller data list-tests --name "fireworks.ai/llama*"
 ```
 
 The output shows:
@@ -491,16 +492,17 @@ The output shows:
 
 ```bash
 # Run all code examples
-usvc_seller test run
+usvc_seller data run-tests
 
 # Run tests for a specific provider
-usvc_seller test run --provider fireworks
+usvc_seller data run-tests --provider fireworks
 
-# Run tests for specific services (supports wildcards)
-usvc_seller test run --services "code-llama-*"
+# Run tests for one service or a pattern
+# (--name is an fnmatch pattern on service_name = listing.name)
+usvc_seller data run-tests --name "fireworks.ai/code-llama-*"
 
 # Show verbose output including stdout/stderr
-usvc_seller test run --verbose
+usvc_seller data run-tests --verbose
 
 # Force rerun all tests (ignore cached results)
 usvc_seller test run --force
@@ -751,16 +753,16 @@ usvc_seller test list
 # File Path: fireworks/docs/test.py.j2
 ```
 
-pass option `--services` to limit to particular services.
+pass option `--name` (an fnmatch pattern on service_name = listing.name) to limit to particular services.
 
 **Step 5.3: Run tests**
 
 ```bash
 # Test your specific provider
-usvc_seller test run --provider fireworks
+usvc_seller data run-tests --provider fireworks
 
-# Or test specific services
-usvc_seller test run --services "llama*"
+# Or test a pattern of services
+usvc_seller data run-tests --name "fireworks.ai/llama*"
 
 # Expected output:
 # Testing: llama-3-1-405b-instruct - Python code example

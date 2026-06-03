@@ -182,7 +182,7 @@ $ usvc_seller data upload [OPTIONS] [DATA_DIR]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `-t, --type TEXT`: Upload only one resource: services / promotions / groups. Default: upload all three.
-* `-n, --name TEXT`: Upload only the single service whose service_name (= listing.name) equals this value.
+* `-n, --name TEXT`: Upload only services whose service_name (= listing.name) matches this fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `--help`: Show this message and exit.
 
 ### `usvc_seller data list-tests`
@@ -220,7 +220,7 @@ $ usvc_seller data list-tests [OPTIONS] [DATA_DIR]
 **Options**:
 
 * `-p, --provider TEXT`: Only list code examples for a specific provider
-* `-n, --name TEXT`: Only the service whose listing.name (service_name) equals this value (exact).
+* `-n, --name TEXT`: Filter services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-f, --format TEXT`: Output format: json, table, tsv, csv  [default: table]
 * `--help`: Show this message and exit.
 
@@ -275,7 +275,7 @@ $ usvc_seller data run-tests [OPTIONS] [DATA_DIR]
 **Options**:
 
 * `-p, --provider TEXT`: Only test code examples for a specific provider
-* `-n, --name TEXT`: Only the service whose listing.name (service_name) equals this value (exact).
+* `-n, --name TEXT`: Filter services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-t, --test-file TEXT`: Only run a specific test file by filename (e.g., &#x27;code-example.py.j2&#x27;)
 * `-v, --verbose`: Show detailed output including stdout/stderr from scripts
 * `-f, --force`: Force rerun all tests, ignoring existing .out and .err files
@@ -533,7 +533,7 @@ $ usvc_seller services submit [OPTIONS] [SERVICE_IDS]...
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-n, --name TEXT`: Target all services whose service_name (= listing.name) equals this value.
+* `-n, --name TEXT`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -559,7 +559,7 @@ $ usvc_seller services withdraw [OPTIONS] [SERVICE_IDS]...
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-n, --name TEXT`: Target all services whose service_name (= listing.name) equals this value.
+* `-n, --name TEXT`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -585,7 +585,7 @@ $ usvc_seller services deprecate [OPTIONS] [SERVICE_IDS]...
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-n, --name TEXT`: Target all services whose service_name (= listing.name) equals this value.
+* `-n, --name TEXT`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -628,7 +628,7 @@ $ usvc_seller services set-visibility [OPTIONS] VISIBILITY [SERVICE_IDS]...
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-n, --name TEXT`: Target all services whose service_name (= listing.name) equals this value.
+* `-n, --name TEXT`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -665,7 +665,7 @@ $ usvc_seller services delete [OPTIONS] [SERVICE_IDS]...
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--status TEXT`: Restrict --all to a single deletable status.
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-n, --name TEXT`: Target all services whose service_name (= listing.name) equals this value.
+* `-n, --name TEXT`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `--dryrun`: Show what would be deleted without doing it.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]

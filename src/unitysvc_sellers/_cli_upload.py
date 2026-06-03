@@ -51,7 +51,8 @@ def upload(
         None,
         "--name",
         "-n",
-        help="Upload only the single service whose service_name (= listing.name) equals this value.",
+        help="Upload only services whose service_name (= listing.name) matches this fnmatch "
+        "pattern, e.g. 'cohere/*' or a literal name.",
     ),
 ) -> None:
     """Upload a seller catalog (services + promotions + service groups) to UnitySVC."""

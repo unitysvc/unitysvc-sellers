@@ -229,9 +229,9 @@ class Client:
         """Upload an entire seller catalog directory.
 
         Thin wrapper around
-        :func:`upload.upload_directory`. Pass ``name`` to upload only the
-        single service whose ``service_name`` (= ``listing.name``) matches.
-        See that function for argument and return-type docs.
+        :func:`upload.upload_directory`. Pass ``name`` (an fnmatch pattern) to
+        upload only the services whose ``service_name`` (= ``listing.name``)
+        match. See that function for argument and return-type docs.
         """
         from pathlib import Path as _Path
 

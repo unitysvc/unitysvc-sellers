@@ -48,7 +48,7 @@ from typing import TYPE_CHECKING, Any
 from unitysvc_core.utils import find_files_by_schema, write_override_file
 
 from .exceptions import APIError
-from .utils import convert_convenience_fields_to_documents
+from .utils import convert_convenience_fields_to_documents, service_name_matches
 
 if TYPE_CHECKING:
     from .client import Client
@@ -432,19 +432,15 @@ def upload_directory(
     if upload_services:
         all_listings = find_files_by_schema(data_dir, "listing_v1")
         if name is not None:
-            # --name uploads exactly one service, selected by its
-            # service_name (= listing.name, #1138). Must be unambiguous.
-            matched = [(p, d) for p, _, d in all_listings if d.get("name") == name]
+            # --name uploads every service whose service_name (= listing.name,
+            # #1138) matches the fnmatch pattern: a literal name uploads one
+            # service, ``cohere/*`` uploads the set.
+            matched = [p for p, _, d in all_listings if service_name_matches(d.get("name"), name)]
             if not matched:
                 raise ValueError(
-                    f"No service with service_name (listing.name) '{name}' found under {data_dir}."
+                    f"No service with service_name (listing.name) matching '{name}' found under {data_dir}."
                 )
-            if len(matched) > 1:
-                paths = ", ".join(str(p) for p, _ in matched)
-                raise ValueError(
-                    f"Ambiguous --name '{name}': {len(matched)} listings share it ({paths})."
-                )
-            listing_files = [matched[0][0]]
+            listing_files = sorted(matched)
         else:
             listing_files = sorted(p for p, _, _ in all_listings)
         result.services.total = len(listing_files)

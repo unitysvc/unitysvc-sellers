@@ -513,3 +513,44 @@ def test_render_template_file_extra_context(tmp_path: Path) -> None:
         'requests.post("https://api.example.com/v1/chat", '
         'json={"model": "gpt-4o"})'
     )
+
+
+class TestServiceNameMatches:
+    """fnmatch-style --name matching against service_name (= listing.name)."""
+
+    @pytest.mark.parametrize(
+        "name,pattern,expected",
+        [
+            ("cohere/command-r", "cohere/command-r", True),  # literal == exact
+            ("cohere/command-r", "cohere/*", True),
+            ("cohere/command-r", "cohere/command-*", True),
+            ("cohere/v1/foo", "cohere/*", True),  # '*' spans '/'
+            ("cohere/command-r", "anthropic/*", False),
+            ("ntfy", "ntfy/*", False),  # bare top-level name not under a provider glob
+            ("ntfy", "ntfy", True),
+            ("Qwen/model", "qwen/*", False),  # case-sensitive (deterministic)
+            ("llama-3", "*llama*", True),
+            (None, "*", False),
+            ("", "*", False),
+        ],
+    )
+    def test_matches(self, name, pattern, expected) -> None:
+        from unitysvc_sellers.utils import service_name_matches
+
+        assert service_name_matches(name, pattern) is expected
+
+    @pytest.mark.parametrize(
+        "pattern,expected",
+        [
+            ("cohere/command-r", "cohere/command-r"),
+            ("cohere/command-*", "cohere/command-"),
+            ("cohere/*", "cohere/"),
+            ("*llama*", None),
+            ("?x", None),
+            ("[ab]c", None),
+        ],
+    )
+    def test_literal_prefix(self, pattern, expected) -> None:
+        from unitysvc_sellers.utils import literal_pattern_prefix
+
+        assert literal_pattern_prefix(pattern) == expected

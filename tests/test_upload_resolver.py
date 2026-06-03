@@ -400,11 +400,32 @@ class TestUploadByName:
             with pytest.raises(ValueError, match="No service with service_name"):
                 upload_directory(client, tmp_path, name="acme/does-not-exist")
 
-    def test_name_ambiguous_raises(self, tmp_path: Path) -> None:
-        # Two listings sharing the same name → ambiguous.
+    @respx.mock
+    def test_name_glob_uploads_all_matches(self, tmp_path: Path) -> None:
+        # A wildcard pattern uploads every matching service.
         provider_dir = tmp_path / "acme"
-        _write_service(provider_dir, "svc1", "acme/dup")
-        _write_service(provider_dir, "svc2", "acme/dup")
+        _write_service(provider_dir, "svc1", "acme/svc1")
+        _write_service(provider_dir, "svc2", "acme/svc2")
+        _write_service(provider_dir, "other", "acme/other")
+
+        upload_route = respx.post(f"{BASE_URL}/services").mock(
+            return_value=httpx.Response(202, json={"task_id": "t1", "status": "queued", "message": "q"})
+        )
+        respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "t1": {"task_id": "t1", "state": "SUCCESS", "status": "completed", "result": {"service_id": "s1"}}
+                },
+            )
+        )
+
         with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
-            with pytest.raises(ValueError, match="Ambiguous --name"):
-                upload_directory(client, tmp_path, name="acme/dup")
+            result = upload_directory(
+                client, tmp_path, name="acme/svc*", task_poll_interval=0.001, task_wait_timeout=5.0
+            )
+
+        # acme/svc1 + acme/svc2 match 'acme/svc*'; acme/other does not.
+        assert result.services.total == 2
+        uploaded = {json.loads(c.request.content.decode())["listing_data"]["name"] for c in upload_route.calls}
+        assert uploaded == {"acme/svc1", "acme/svc2"}

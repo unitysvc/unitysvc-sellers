@@ -56,11 +56,12 @@ _DATA_DIR_OPTION = typer.Option(
     exists=True, file_okay=False, dir_okay=True,
 )
 # --name targets every backend service whose service_name (= listing.name,
-# #1138) equals the value. A name can map to several rows (e.g. an active
-# service plus its pending revision), so duplicates are expected.
+# #1138) matches the fnmatch pattern. A literal name targets one service's
+# rows (an active service plus any pending revision); ``cohere/*`` targets the
+# whole set.
 _NAME_OPTION = typer.Option(
     None, "--name", "-n",
-    help="Target all services whose service_name (= listing.name) equals this value.",
+    help="Target services by service_name (= listing.name) — fnmatch pattern, e.g. 'cohere/*' or a literal name.",
 )
 
 console = Console()
@@ -497,10 +498,10 @@ def _resolve_or_fetch_ids(
       status/visibility filter ``--all`` would have applied server-side
       is then applied client-side against the returned set.
     - ``--name``: resolve **all** backend services whose ``service_name``
-      (= listing.name, #1138) equals the given value, then keep those in an
-      eligible state. A service name can map to several rows (e.g. an active
-      service plus its pending revision), so duplicates are expected and all
-      matching rows are returned.
+      (= listing.name, #1138) matches the given fnmatch pattern, then keep
+      those in an eligible state. A literal name still maps to several rows
+      (e.g. an active service plus its pending revision); ``cohere/*`` maps to
+      the whole set — all matching rows are returned.
 
     ``visibilities_when_all`` further restricts the fetch to
     services whose current visibility is in the given list.
@@ -514,8 +515,15 @@ def _resolve_or_fetch_ids(
         )
         raise typer.Exit(code=1)
 
-    # --- --name: all backend rows with this exact service_name ---
+    # --- --name: all backend rows whose service_name matches the pattern ---
     if name is not None:
+        from ..utils import literal_pattern_prefix, service_name_matches
+
+        # Narrow the server-side partial search to the pattern's literal prefix
+        # (``cohere/command-*`` → ``cohere/command-``); fnmatch-filter precisely
+        # client-side. A leading-wildcard pattern (``*llama*``) scans the seller's
+        # catalog with no server hint.
+        server_hint = literal_pattern_prefix(name)
 
         async def _fetch_by_name() -> list[str]:
             matched: list[str] = []
@@ -523,12 +531,12 @@ def _resolve_or_fetch_ids(
             async with async_client(api_key, base_url) as client:
                 while True:
                     response = await client.services.list(
-                        name=name, limit=200, cursor=cursor, provider=provider
+                        name=server_hint, limit=200, cursor=cursor, provider=provider
                     )
                     for svc in model_list(response):
                         row = svc if isinstance(svc, dict) else model_to_dict(svc)
-                        # Server ``name`` is a partial match — keep exact only.
-                        if (row.get("name") or row.get("service_name")) != name:
+                        row_name = row.get("name") or row.get("service_name")
+                        if not service_name_matches(row_name, name):
                             continue
                         if (str(row.get("status") or "") or None) not in statuses_when_all:
                             continue
@@ -548,10 +556,10 @@ def _resolve_or_fetch_ids(
         ids = run_async(_fetch_by_name(), error_prefix="Failed to fetch services by name")
         if not ids:
             console.print(
-                f"[yellow]No services named '{name}' match the required state for this action.[/yellow]"
+                f"[yellow]No services matching '{name}' match the required state for this action.[/yellow]"
             )
             raise typer.Exit(code=0)
-        console.print(f"[green]Found {len(ids)} service(s) named '{name}'[/green]\n")
+        console.print(f"[green]Found {len(ids)} service(s) matching '{name}'[/green]\n")
         return ids
 
     # --- --local-ids: local listing_v1 files ---

@@ -17,6 +17,7 @@ without caring whether a given helper is core or seller-specific.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
 from pathlib import Path
@@ -44,6 +45,34 @@ from unitysvc_core.utils import (  # noqa: F401
     write_data_file,
     write_override_file,
 )
+
+
+def service_name_matches(service_name: str | None, pattern: str) -> bool:
+    """Return True if ``service_name`` matches an fnmatch-style ``--name`` pattern.
+
+    ``--name`` accepts shell-style wildcards against ``service_name``
+    (= ``listing.name``, #1138): a literal name matches exactly one service,
+    while ``cohere/*`` or ``*llama*`` match a set. Matching is **case-sensitive
+    and platform-independent** (``fnmatchcase``), and ``*`` spans ``/`` so
+    ``cohere/*`` also matches hierarchical names like ``cohere/v1/foo``.
+    """
+    if not service_name:
+        return False
+    return fnmatch.fnmatchcase(service_name, pattern)
+
+
+def literal_pattern_prefix(pattern: str) -> str | None:
+    """Return the literal prefix of an fnmatch pattern, before the first wildcard.
+
+    Used to narrow a server-side partial-name search before fnmatch-filtering
+    client-side: ``cohere/command-*`` → ``cohere/command-``; ``*llama*`` → None.
+    """
+    out: list[str] = []
+    for ch in pattern:
+        if ch in "*?[":
+            break
+        out.append(ch)
+    return "".join(out) or None
 
 
 def resolve_provider_name(file_path: Path) -> str | None:

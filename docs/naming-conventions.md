@@ -184,20 +184,29 @@ for the common case — a stable, sticky service — use
 
 ## Selecting services by name on the CLI
 
-Because `service_name = listing.name` is unambiguous, the CLI selects
-services by it:
+The CLI selects services by `service_name` (= `listing.name`). The
+**`--name`** option is an **fnmatch pattern**: a literal name matches one
+service, while wildcards (`cohere/*`, `*llama*`) match a set. `*` spans
+`/`, and matching is case-sensitive.
 
 ```bash
-# Local data commands — exact service_name match
+# Local data commands — exact name (one service) or a pattern (a set)
 usvc_seller data run-tests  --name cohere/command-r-plus
-usvc_seller data list-tests --name cohere/command-r-plus
+usvc_seller data list-tests --name 'cohere/*'
+usvc_seller data upload     --name 'cohere/*'
 usvc_seller data show-test  cohere/command-r-plus
 
-# Remote service commands — target every backend row with this service_name
-# (a name can map to several rows, e.g. an active service + its pending revision)
-usvc_seller services submit        --name cohere/command-r-plus
+# Remote service commands — every backend row whose service_name matches
+# (a name can also map to several rows, e.g. an active service + its
+# pending revision)
+usvc_seller services submit        --name 'cohere/*'
 usvc_seller services set-visibility public --name cohere/command-r-plus
 ```
+
+`--provider` remains a separate axis: it scopes by the provider slug and
+is the only way to select a provider's **top-level** services (whose
+`service_name` is bare, with no `provider/` prefix, so a `provider/*`
+pattern can't reach them).
 
 ## Validating locally
 

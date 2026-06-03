@@ -21,7 +21,13 @@ from rich.table import Table
 from unitysvc_core.models.base import DocumentCategoryEnum
 
 from .output import format_output
-from .utils import execute_script_content, find_files_by_schema, load_data_file, render_template_file
+from .utils import (
+    execute_script_content,
+    find_files_by_schema,
+    load_data_file,
+    render_template_file,
+    service_name_matches,
+)
 
 app = typer.Typer(help="List and run code examples locally with upstream credentials")
 console = Console()
@@ -197,8 +203,9 @@ def discover_code_examples(
     Args:
         data_dir: Root directory to scan for listing files.
         provider_name: Only include examples from this provider (exact match).
-        name: Only include the service whose ``listing.name`` (service_name)
-            equals this value (exact match — the service identifier, #1138).
+        name: Only include services whose ``service_name`` (= ``listing.name``,
+            #1138) matches this fnmatch pattern. A literal name matches one
+            service; ``cohere/*`` / ``*llama*`` match a set.
 
     Returns:
         List of (code_example_dict, provider_name) tuples.
@@ -222,8 +229,8 @@ def discover_code_examples(
         if provider_name and prov_name != provider_name:
             continue
 
-        # Filter by service identifier (listing.name == name, exact)
-        if name is not None and listing_data.get("name") != name:
+        # Filter by service identifier — fnmatch pattern on listing.name
+        if name is not None and not service_name_matches(listing_data.get("name"), name):
             continue
 
         # Load upstream interfaces from offering (cross-product with documents)
@@ -689,7 +696,7 @@ def list_code_examples(
         None,
         "--name",
         "-n",
-        help="Only the service whose listing.name (service_name) equals this value (exact).",
+        help="Filter services by service_name (= listing.name) — fnmatch pattern, e.g. 'cohere/*' or a literal name.",
     ),
     output_format: str = typer.Option(
         "table",
@@ -892,7 +899,7 @@ def run_local(
         None,
         "--name",
         "-n",
-        help="Only the service whose listing.name (service_name) equals this value (exact).",
+        help="Filter services by service_name (= listing.name) — fnmatch pattern, e.g. 'cohere/*' or a literal name.",
     ),
     test_file: str | None = typer.Option(
         None,
