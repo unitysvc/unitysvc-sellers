@@ -1,88 +1,153 @@
 # Service Names & `base_url` Naming Conventions
 
-This page documents the rules the platform enforces on **service /
-listing names** and on the **`user_access_interfaces[].base_url`**
-field — the gateway-path portion that comes after
-`${API_GATEWAY_BASE_URL}/`. The rules exist so customers can predict
-how to reach your services, so the gateway can resolve every published
-URL unambiguously, and so future platform features can reserve URL
-namespaces (memoization, request logs, async fan-out, etc.) without
-breaking existing seller catalogs.
+This page documents how the platform names services and how the
+`user_access_interfaces[].base_url` field must reference that name. The
+rules exist so customers can predict how to reach your services, so the
+gateway can resolve every published URL unambiguously, and so future
+platform features can reserve URL namespaces (memoization, request logs,
+async fan-out, etc.) without breaking existing seller catalogs.
 
 The validator that enforces these rules lives in
 [`unitysvc-core`](https://pypi.org/project/unitysvc-core/) and runs on
 every `usvc_seller data validate` invocation. CI / upload pipelines
 reject non-conformant catalogs before they reach the platform.
 
-## TL;DR
+## `service_name` = `listing.name`
+
+The platform service identifier is **`service_name`, and it is exactly
+`listing.name`** — written verbatim by the seller. There is no
+composition and no fallback: `listing.name` is the single source of
+truth. It is:
+
+- **Required.** Every `listing.{json,toml}` must declare `name`.
+- **The routable, customer-facing identifier** — the value the gateway
+  routes by, the value `usvc_seller … --name` selects on, and the value
+  `{{ service_name }}` renders to in a `base_url`.
+
+### `listing.name` vs `offering.name`
+
+These are two different names with two different jobs — do not confuse
+them:
+
+| Field | Role | Faces | Example |
+|---|---|---|---|
+| **`listing.name`** | **`service_name`** — the platform service identifier | **Customers** | `cohere/command-r-plus` |
+| **`offering.name`** | the **upstream name**, kept in sync with the upstream provider's own service id | The upstream provider | `command-r-plus` |
+
+`offering.name` describes the thing you are reselling as the *upstream*
+calls it (e.g. the model id at the provider's API). `listing.name` is
+what *your customers* see and route to. `offering.name` **never**
+becomes `service_name` — only `listing.name` does.
 
 ```toml
-# user_access_interface base_url — only the path after the placeholder is constrained
-base_url = "${API_GATEWAY_BASE_URL}/<provider>[/<service-name>][@<variant>]"
+# offering.{json,toml} — the upstream's name for the service
+name = "command-r-plus"
 
-# Examples that pass
-base_url = "${API_GATEWAY_BASE_URL}/cohere"
-base_url = "${API_GATEWAY_BASE_URL}/cohere/command-r-plus"
-base_url = "${API_GATEWAY_BASE_URL}/cohere/command-r-plus@byok"
-base_url = "${API_GATEWAY_BASE_URL}/Qwen/Qwen2.5-Coder-7B-Instruct"   # hierarchical
-base_url = "${API_GATEWAY_BASE_URL}/cohere/command-r-plus/{{ enrollment_vars.code }}"
+# listing.{json,toml} — the customer-facing service identifier (service_name)
+name = "cohere/command-r-plus"
+```
+
+### Namespaced vs top-level names
+
+Whether a name is namespaced or top-level is **purely syntactic — does
+the name part contain a `/`?**
+
+- **Has `/` ⇒ namespaced** (`cohere/command-r-plus`): self-service. The
+  **first segment must equal your provider slug** (`provider_v1.name`),
+  so you cannot register `otherprovider/…` under your own provider.
+- **No `/` ⇒ top-level** (`ntfy`, `http-relay`): a request that an
+  **admin must accept** (reserved-name allowlist). Sellers cannot
+  self-register top-level names; `usvc_seller data validate` accepts the
+  grammar locally, but the backend gates the name at registration.
+
+```toml
+# Namespaced — first segment is the provider slug (self-service)
+name = "cohere/command-r-plus"
+name = "huggingface/Qwen/Qwen2.5-Coder-7B-Instruct"   # hierarchical
+name = "cohere/command-r-plus@byok"                   # with variant tag
+
+# Top-level — admin-gated (e.g. a canonical open protocol or gateway-native service)
+name = "ntfy"
+```
+
+## `base_url` must route by `{{ service_name }}`
+
+A `user_access_interfaces[].base_url` does **not** hard-code the service
+path. It references the service identifier through the
+`{{ service_name }}` Jinja variable, which the platform renders to
+`listing.name` when the access interface is materialized. This keeps the
+routable path bound to the name automatically.
+
+```toml
+# The canonical form — service_name leads the path
+base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}"
+
+# With a static or dynamic suffix
+base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}/v1/chat/completions"
+base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}/{{ enrollment_vars.code }}"
+
+# Wrapper-stack primitive prefixes may precede it
+base_url = "${API_GATEWAY_BASE_URL}/u/{{ service_name }}"
 
 # The /a/ movable-pointer convention (#1139)
 base_url = "${API_GATEWAY_BASE_URL}/a/cohere-latest"
-base_url = "${API_GATEWAY_BASE_URL}/a/anthropic/claude-opus-latest"
 ```
 
-## The grammar
+**Rejected:**
 
-After `${API_GATEWAY_BASE_URL}/`, the path is structured as:
+```toml
+# Literal <provider>/<service> path — use {{ service_name }} instead
+base_url = "${API_GATEWAY_BASE_URL}/cohere/command-r-plus"
 
+# The removed /p/ route primitive
+base_url = "${API_GATEWAY_BASE_URL}/p/cohere"
 ```
-<provider>[/<segment>...][@<variant>]
-```
 
-Each `/`-separated piece is a **segment**. Segments are validated
-independently:
+A `base_url` is accepted when, after `${API_GATEWAY_BASE_URL}`, it
+**references `{{ service_name }}`**, is an **`/a/<alias>`** movable
+pointer, is the **gateway root** (`${API_GATEWAY_BASE_URL}` alone), or is
+**entirely dynamic** from its first segment (e.g. a BYOE
+`${API_GATEWAY_BASE_URL}/{{ enrollment_vars.endpoint }}`).
+
+## The name grammar
+
+`listing.name` (and the alias after `/a/`) is validated per-segment.
+The identifier has the form `<name>[@<variant>]`; each `/`-separated
+piece of `<name>` is a **segment**:
 
 | Rule | Detail |
 |---|---|
 | Minimum length | Every segment must be **2 or more characters**. Single-character segments are reserved (see below). |
 | Allowed characters | Letters (`A-Z`, `a-z`), digits (`0-9`), `.`, `-`, `_`. |
 | First character | Must be alphanumeric. Leading `-`, `_`, `.` are rejected. |
-| `@` variant tag | At most **one** `@` separates the name part from an optional seller-defined variant suffix (`@byok`, `@premium-eu`, etc.). The variant has the same per-segment rules as the name but **no minimum-length requirement** — variants don't collide with gateway primitive prefixes because they sit after `@`, not at the start of a path segment. |
-| Hierarchical names | Multi-segment names like HuggingFace's `Qwen/Qwen2.5-Coder-7B-Instruct` are accepted; each segment is validated individually. |
-
-### Dynamic substitution is treated specially
-
-Anywhere from the first `{{`, `{%`, or `${` onward is considered
-**per-enrollment dynamic content** — the platform substitutes it at
-request time, so the validator skips it. The portion **before** the
-first dynamic marker is the **static identifier prefix** and is
-validated against the grammar above.
+| `@` variant tag | At most **one** `@` separates the name part from an optional seller-defined variant suffix (`@byok`, `@premium-eu`, etc.). The variant has the same per-segment character rules but no minimum-length requirement. |
+| Hierarchical names | Multi-segment names like HuggingFace's `huggingface/Qwen/Qwen2.5-Coder-7B-Instruct` are accepted; each segment is validated individually. |
 
 ```toml
-# Static prefix: "cohere/command-r-plus"  (valid)
-# Dynamic suffix: "/{{ enrollment_vars.code }}"  (skipped by the validator)
-base_url = "${API_GATEWAY_BASE_URL}/cohere/command-r-plus/{{ enrollment_vars.code }}"
+# Accepted
+name = "cohere/command-r-plus"
+name = "cohere/command-r-plus@byok"
+name = "huggingface/Qwen/Qwen2.5-Coder-7B-Instruct"
 
-# A base_url that is entirely dynamic after the placeholder is also accepted —
-# the platform-native interface uses the gateway root.
-base_url = "${API_GATEWAY_BASE_URL}/{{ provider_name }}"
+# Rejected
+name = "co/x"          # single-char segment
+name = "a@b@c"         # multiple '@'
+name = "/leading"      # leading '/'
+name = "trailing/"     # trailing '/'
+name = "with space"    # space not allowed
+name = "-leading-dash" # must start alphanumeric
 ```
-
-A static-prefix bug is still caught even when a Jinja block follows.
-For example, `${API_GATEWAY_BASE_URL}/u/uptime/{{ code }}` is rejected
-because `u` is a single-character segment.
 
 ## Reserved single-letter prefixes
 
 Single-character first segments are reserved to keep the gateway's
 **wrapper / primitive** namespace free of collisions with seller paths.
-The platform uses these prefixes to layer behavior on top of any
-service URL without changing the seller's published path:
+The platform uses these prefixes to layer behavior on top of any service
+URL without changing the seller's published path:
 
 | Prefix | Reserved for | Purpose |
 |---|---|---|
-| `a/` | **Aliases** | Customer-defined URL aliases (and seller "movable pointer" naming — see below). |
+| `a/` | **Aliases** | Customer-defined URL aliases and seller "movable pointer" naming (see below). |
 | `b/` | **Broadcast** | Fan-out a single request to multiple services. |
 | `c/` | **Chain** | Sequence two or more services. |
 | `d/` | **Delayed dispatch** | Register a one-shot future call. |
@@ -90,88 +155,58 @@ service URL without changing the seller's published path:
 | `g/` | **Groups** | Address a service group rather than a single listing. |
 | `l/` | **Logging** | Force a request to be captured in the customer's call log. |
 | `m/` | **Memoize** | Cache the response in the gateway. |
-| `p/` | (legacy) | Was the explicit `/p/<provider>` prefix; superseded by bare `<provider>/...` paths. |
+| `p/` | (removed) | Was the explicit `/p/<provider>` prefix; superseded by `{{ service_name }}` (#1138). |
 | `r/` | **Recurrent** | Register a recurring scheduled call. |
 | `t/` | **Tee** | Fire-and-forget mirror of a request to a second service. |
 
-If your `base_url` starts with any of these letters followed by `/`,
-the validator rejects it. Pick a different leading segment.
+## The `a/` movable-pointer convention (#1139)
 
-## Exception — the `a/` movable-pointer convention (#1139)
-
-The single-character rule has **one carve-out**: a literal leading
-`a/` segment is permitted on seller- and platform-published
-`user_access_interface` paths as a customer-facing **movable-pointer
-naming convention**.
-
-The convention has a single purpose: signal to customers *"this URL is
-a movable pointer — the publisher reserves the right to re-point the
+`/a/<alias>` is a customer-facing **movable pointer**: *"this URL is a
+movable pointer — the publisher reserves the right to re-point the
 underlying target at a newer listing later."* It carries no special
-routing behavior at the listing layer; gateway-side, `a/<rest>`
-resolves like any other listing path. The benefit is purely social:
-customers reading their dashboard see at a glance which URLs are
-stable (`cohere/command-r-plus` — a sticky listing identifier) and
-which are intentionally mutable (`a/cohere-latest` — the seller's
-"latest" pointer that may point at `command-r-plus-v2` next month).
-
-### What's accepted
+routing behavior at the listing layer; gateway-side, `a/<rest>` resolves
+like any other listing path. The benefit is social: customers see which
+URLs are stable (`{{ service_name }}` → a sticky listing identifier) and
+which are intentionally mutable (`a/cohere-latest`).
 
 ```toml
 base_url = "${API_GATEWAY_BASE_URL}/a/cohere-latest"
 base_url = "${API_GATEWAY_BASE_URL}/a/anthropic/claude-opus-latest"
-base_url = "${API_GATEWAY_BASE_URL}/a/cohere-latest@byok"
 base_url = "${API_GATEWAY_BASE_URL}/a/cohere-latest/{{ enrollment_vars.code }}"
 ```
 
-After the leading `a/` is stripped, the remainder is validated under
-the normal grammar. So:
+After the leading `a/` is stripped, the remaining alias is validated
+under the normal grammar: bare `a/` is rejected, `a/x` is rejected
+(single-char), and other primitive prefixes are not part of the
+carve-out. Use `/a/` only when you intend to re-point the URL over time;
+for the common case — a stable, sticky service — use
+`${API_GATEWAY_BASE_URL}/{{ service_name }}`.
 
-- The remainder must be non-empty — bare `a/` is rejected.
-- The remainder's segments must still be ≥ 2 characters — `a/x` is rejected.
-- Other primitive prefixes are **not** part of the carve-out — `a/m/foo` is rejected because `m/` is still reserved at the second segment slot. Sellers should use plain `<provider>/<service>` form after the `a/` prefix.
+## Selecting services by name on the CLI
 
-### When to use it
+The CLI selects services by `service_name` (= `listing.name`). The
+**`--name`** option is an **fnmatch pattern**: a literal name matches one
+service, while wildcards (`cohere/*`, `*llama*`) match a set. `*` spans
+`/`, and matching is case-sensitive.
 
-Use the `a/` prefix when you intend to re-point the URL over time
-without forcing customers to re-configure their integrations:
+```bash
+# Local data commands — exact name (one service) or a pattern (a set)
+usvc_seller data run-tests  --name cohere/command-r-plus
+usvc_seller data list-tests --name 'cohere/*'
+usvc_seller data upload     --name 'cohere/*'
+usvc_seller data show-test  cohere/command-r-plus
 
-- **Canonical / latest pointers**: `a/cohere-latest` — points at your
-  current flagship listing; you bump it to `command-r-plus-v2` when
-  you ship a new generation.
-- **Migration aliases**: `a/cohere-legacy` — points at an older
-  listing during a sunset window; you remove it after the deprecation
-  period.
-
-For URLs that should remain bound to a specific listing forever (the
-common case — most of your catalog), use the plain
-`<provider>/<service>` form. Listing names are **sticky**: once
-published, the platform expects them to remain bound to the same
-underlying service.
-
-## Service / listing names
-
-The same per-segment rules apply to the **`name` field** on offerings
-and listings (the identifier used in service paths). The `a/`
-carve-out does **not** apply here — listing names themselves should
-not start with `a/`, since the convention is about how customers
-*reach* the listing, not what it is called internally.
-
-```toml
-# Listing names — same grammar as base_url segments
-name = "command-r-plus"
-name = "command-r-plus@byok"
-name = "Qwen/Qwen2.5-Coder-7B-Instruct"
-name = "Qwen/Qwen2.5-Coder-7B-Instruct@byok"
-
-# Rejected
-name = "a"             # single-char
-name = "a/foo"         # single-char first segment (no carve-out for names)
-name = "a@b@c"         # multiple '@'
-name = "/leading"      # leading '/'
-name = "trailing/"     # trailing '/'
-name = "with space"    # space not allowed
-name = "-leading-dash" # must start alphanumeric
+# Remote service commands — every backend row whose service_name matches
+# (a name can also map to several rows, e.g. an active service + its
+# pending revision)
+usvc_seller services submit        --name 'cohere/*'
+usvc_seller services set-visibility public --name cohere/command-r-plus
 ```
+
+`--provider` remains a separate axis: it scopes by the provider slug and
+is the only way to select a provider's **top-level** services (whose
+`service_name` is bare, with no `provider/` prefix, so a `provider/*`
+pattern can't reach them).
 
 ## Validating locally
 
@@ -183,13 +218,12 @@ usvc_seller data format --check    # CI-style formatting check
 ```
 
 Both run the same validators the platform uses on upload; catching
-issues locally avoids a round-trip through `usvc_seller data upload`
-just to see the rejection.
+issues locally avoids a round-trip through `usvc_seller data upload` just
+to see the rejection.
 
 ## Related
 
-- Backend gateway resolver — [`unitysvc/unitysvc#1147`](https://github.com/unitysvc/unitysvc/pull/1147)
-  (the `/a/<name>` fall-through that makes seller-published `a/` paths resolvable end-to-end).
+- Naming convention & `/p/` removal — [`unitysvc/unitysvc#1138`](https://github.com/unitysvc/unitysvc/issues/1138).
+- `/a/` movable-pointer umbrella — [`unitysvc/unitysvc#1139`](https://github.com/unitysvc/unitysvc/issues/1139).
 - Validator implementation — [`unitysvc-core`](https://github.com/unitysvc/unitysvc-core)
   (`validate_listing_gateway_base_urls`, `validate_service_identifier`).
-- Umbrella discussion — [`unitysvc/unitysvc#1139`](https://github.com/unitysvc/unitysvc/issues/1139).

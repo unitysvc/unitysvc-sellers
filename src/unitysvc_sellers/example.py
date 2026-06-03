@@ -7,7 +7,6 @@ Test results are written to .out and .err files alongside the code example,
 making it easy to track results in version control.
 """
 
-import fnmatch
 import os
 import random
 import re
@@ -22,7 +21,13 @@ from rich.table import Table
 from unitysvc_core.models.base import DocumentCategoryEnum
 
 from .output import format_output
-from .utils import execute_script_content, find_files_by_schema, load_data_file, render_template_file
+from .utils import (
+    execute_script_content,
+    find_files_by_schema,
+    load_data_file,
+    render_template_file,
+    service_name_matches,
+)
 
 app = typer.Typer(help="List and run code examples locally with upstream credentials")
 console = Console()
@@ -73,28 +78,6 @@ def expand_template_strings(
     return result
 
 
-def extract_service_directory_name(listing_file: Path) -> str | None:
-    """Extract service directory name from listing file path.
-
-    The service directory is the directory immediately after "services" directory.
-    For example: .../services/llama-3-1-405b-instruct/listing-svcreseller.json
-    Returns: "llama-3-1-405b-instruct"
-
-    Args:
-        listing_file: Path to the listing file
-
-    Returns:
-        Service directory name or None if not found
-    """
-    parts = listing_file.parts
-    try:
-        services_idx = parts.index("services")
-        # Service directory is immediately after "services"
-        if services_idx + 1 < len(parts):
-            return parts[services_idx + 1]
-    except (ValueError, IndexError):
-        pass
-    return None
 
 
 def extract_code_examples_from_listing(listing_data: dict[str, Any], listing_file: Path) -> list[dict[str, Any]]:
@@ -109,8 +92,8 @@ def extract_code_examples_from_listing(listing_data: dict[str, Any], listing_fil
     """
     code_examples = []
 
-    # Get service name from directory structure
-    service_name = extract_service_directory_name(listing_file) or "unknown"
+    # service_name IS listing.name — the platform service identifier (#1138).
+    service_name = listing_data.get("name") or "unknown"
 
     # Categories that are testable (executable code)
     testable_categories = {
@@ -208,7 +191,7 @@ def discover_code_examples(
     data_dir: Path,
     *,
     provider_name: str | None = None,
-    service_patterns: list[str] | None = None,
+    name: str | None = None,
 ) -> list[tuple[dict[str, Any], str]]:
     """Discover code examples by scanning listing files.
 
@@ -220,8 +203,9 @@ def discover_code_examples(
     Args:
         data_dir: Root directory to scan for listing files.
         provider_name: Only include examples from this provider (exact match).
-        service_patterns: Glob patterns for service directory names
-            (supports wildcards via fnmatch). Pass a literal name for exact match.
+        name: Only include services whose ``service_name`` (= ``listing.name``,
+            #1138) matches this fnmatch pattern. A literal name matches one
+            service; ``cohere/*`` / ``*llama*`` match a set.
 
     Returns:
         List of (code_example_dict, provider_name) tuples.
@@ -245,13 +229,9 @@ def discover_code_examples(
         if provider_name and prov_name != provider_name:
             continue
 
-        # Filter by service patterns
-        if service_patterns:
-            service_dir = extract_service_directory_name(listing_file)
-            if not service_dir:
-                continue
-            if not any(fnmatch.fnmatch(service_dir, p) for p in service_patterns):
-                continue
+        # Filter by service identifier — fnmatch pattern on listing.name
+        if name is not None and not service_name_matches(listing_data.get("name"), name):
+            continue
 
         # Load upstream interfaces from offering (cross-product with documents)
         upstream_interfaces = extract_upstream_interfaces_from_offering(listing_file)
@@ -712,11 +692,11 @@ def list_code_examples(
         "-p",
         help="Only list code examples for a specific provider",
     ),
-    services: str | None = typer.Option(
+    name: str | None = typer.Option(
         None,
-        "--services",
-        "-s",
-        help="Comma-separated list of service patterns (supports wildcards, e.g., 'llama*,gpt-4*')",
+        "--name",
+        "-n",
+        help="Filter services by service_name (= listing.name) — fnmatch pattern, e.g. 'cohere/*' or a literal name.",
     ),
     output_format: str = typer.Option(
         "table",
@@ -734,16 +714,16 @@ def list_code_examples(
 
     Examples:
         # List all code examples
-        usvc data list examples
+        usvc data list-tests
 
         # List for specific provider
-        usvc data list examples --provider fireworks
+        usvc data list-tests --provider fireworks
 
-        # List for specific services
-        usvc data list examples --services "llama*,gpt-4*"
+        # List for one service (by service_name = listing.name)
+        usvc data list-tests --name fireworks.ai/llama-3-1-405b-instruct
 
         # List as JSON
-        usvc data list examples --format json
+        usvc data list-tests --format json
     """
     # Set data directory
     if data_dir is None:
@@ -759,17 +739,12 @@ def list_code_examples(
         )
         raise typer.Exit(code=1)
 
-    # Parse service patterns if provided
-    service_patterns: list[str] | None = None
-    if services:
-        service_patterns = [s.strip() for s in services.split(",") if s.strip()]
-
     console.print(f"[blue]Scanning for code examples in:[/blue] {data_dir}\n")
 
     all_code_examples = discover_code_examples(
         data_dir,
         provider_name=provider_name,
-        service_patterns=service_patterns,
+        name=name,
     )
 
     if not all_code_examples:
@@ -828,7 +803,7 @@ def list_code_examples(
 
 @app.command("show")
 def show_test(
-    service: str = typer.Argument(..., help="Service name to show test results for"),
+    service: str = typer.Argument(..., help="Service name (service_name = listing.name) to show test results for"),
     title: str = typer.Option(None, "--title", "-t", help="Only show results for specific test title"),
     data_dir: Path | None = typer.Option(
         None,
@@ -857,7 +832,7 @@ def show_test(
         console.print(f"[red]Data directory not found: {data_dir}[/red]")
         raise typer.Exit(code=1)
 
-    examples = discover_code_examples(data_dir, service_patterns=[service])
+    examples = discover_code_examples(data_dir, name=service)
 
     if not examples:
         console.print(f"[red]Service not found: {service}[/red]")
@@ -920,11 +895,11 @@ def run_local(
         "-p",
         help="Only test code examples for a specific provider",
     ),
-    services: str | None = typer.Option(
+    name: str | None = typer.Option(
         None,
-        "--services",
-        "-s",
-        help="Comma-separated list of service patterns (supports wildcards, e.g., 'llama*,gpt-4*')",
+        "--name",
+        "-n",
+        help="Filter services by service_name (= listing.name) — fnmatch pattern, e.g. 'cohere/*' or a literal name.",
     ),
     test_file: str | None = typer.Option(
         None,
@@ -967,19 +942,16 @@ def run_local(
         usvc data test
 
         # Run for specific provider
-        usvc data test --provider fireworks
+        usvc data run-tests --provider fireworks
 
-        # Run for specific services (with wildcards)
-        usvc data test --services "llama*,gpt-4*"
-
-        # Run single service
-        usvc data test --services "llama-3-1-405b-instruct"
+        # Run a single service (by service_name = listing.name)
+        usvc data run-tests --name fireworks.ai/llama-3-1-405b-instruct
 
         # Run specific file
-        usvc data test --test-file "code-example.py.j2"
+        usvc data run-tests --test-file "code-example.py.j2"
 
         # Combine filters
-        usvc data test --provider fireworks --services "llama*"
+        usvc data run-tests --provider fireworks
 
         # Show detailed output
         usvc data test --verbose
@@ -1004,11 +976,8 @@ def run_local(
         )
         raise typer.Exit(code=1)
 
-    # Parse service patterns if provided
-    service_patterns: list[str] | None = None
-    if services:
-        service_patterns = [s.strip() for s in services.split(",") if s.strip()]
-        console.print(f"[blue]Service filter patterns:[/blue] {', '.join(service_patterns)}\n")
+    if name:
+        console.print(f"[blue]Service filter (service_name):[/blue] {name}\n")
 
     # Display test file filter if provided
     if test_file:
@@ -1019,7 +988,7 @@ def run_local(
     discovered = discover_code_examples(
         data_dir,
         provider_name=provider_name,
-        service_patterns=service_patterns,
+        name=name,
     )
 
     # Filter by test file name if provided

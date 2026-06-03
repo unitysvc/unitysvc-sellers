@@ -48,7 +48,7 @@ from typing import TYPE_CHECKING, Any
 from unitysvc_core.utils import find_files_by_schema, write_override_file
 
 from .exceptions import APIError
-from .utils import convert_convenience_fields_to_documents
+from .utils import convert_convenience_fields_to_documents, service_name_matches
 
 if TYPE_CHECKING:
     from .client import Client
@@ -380,6 +380,7 @@ def upload_directory(
     on_progress: Any = None,
     task_wait_timeout: float = 600.0,
     task_poll_interval: float = 2.0,
+    name: str | None = None,
 ) -> UploadResult:
     """Upload all services, promotions, and service groups under ``data_dir``.
 
@@ -429,7 +430,19 @@ def upload_directory(
 
     # ----- Services ---------------------------------------------------
     if upload_services:
-        listing_files = sorted(p for p, _, _ in find_files_by_schema(data_dir, "listing_v1"))
+        all_listings = find_files_by_schema(data_dir, "listing_v1")
+        if name is not None:
+            # --name uploads every service whose service_name (= listing.name,
+            # #1138) matches the fnmatch pattern: a literal name uploads one
+            # service, ``cohere/*`` uploads the set.
+            matched = [p for p, _, d in all_listings if service_name_matches(d.get("name"), name)]
+            if not matched:
+                raise ValueError(
+                    f"No service with service_name (listing.name) matching '{name}' found under {data_dir}."
+                )
+            listing_files = sorted(matched)
+        else:
+            listing_files = sorted(p for p, _, _ in all_listings)
         result.services.total = len(listing_files)
 
         for listing_file in listing_files:
@@ -539,13 +552,11 @@ def upload_directory(
                     # {"service": {"id": "...", "name": "..."}, ...}.
                     task_result = status_dict.get("result") or {}
                     service_id = None
-                    service_name = None
                     revision_of = None
                     if isinstance(task_result, dict):
                         service_data = task_result.get("service") or {}
                         if isinstance(service_data, dict):
                             service_id = service_data.get("id")
-                            service_name = service_data.get("name")
                             revision_of = service_data.get("revision_of")
                     if revision_of:
                         # A revision of an active service was created (service_id
@@ -558,10 +569,11 @@ def upload_directory(
                         detail = f"service_id={service_id}" if service_id else f"task_id={task_id}"
                         _emit("service", "ok", name, detail)
                         if service_id:
-                            override = {"service_id": str(service_id)}
-                            if service_name:
-                                override["name"] = str(service_name)
-                            write_override_file(listing_file, override)
+                            # Only service_id needs to round-trip — it's the
+                            # backend-assigned identity. service_name = listing.name
+                            # (#1138), already in the source file, so it's no longer
+                            # written back to the override.
+                            write_override_file(listing_file, {"service_id": str(service_id)})
                 else:
                     result.services.failed += 1
                     error_msg = (

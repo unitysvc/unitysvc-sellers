@@ -47,6 +47,13 @@ def upload(
         "-t",
         help="Upload only one resource: services / promotions / groups. Default: upload all three.",
     ),
+    name: str | None = typer.Option(
+        None,
+        "--name",
+        "-n",
+        help="Upload only services whose service_name (= listing.name) matches this fnmatch "
+        "pattern, e.g. 'cohere/*' or a literal name.",
+    ),
 ) -> None:
     """Upload a seller catalog (services + promotions + service groups) to UnitySVC."""
     if not api_key:
@@ -70,9 +77,15 @@ def upload(
         )
         raise typer.Exit(code=1)
 
+    if name and upload_type not in (None, "services"):
+        console.print("[red]✗[/red] --name only applies to service uploads; drop --type or use --type services.")
+        raise typer.Exit(code=1)
+
+    # --name selects one service; promotions/groups are not service-scoped,
+    # so a named upload is services-only.
     upload_services = upload_type in (None, "services")
-    upload_promotions = upload_type in (None, "promotions")
-    upload_groups = upload_type in (None, "groups")
+    upload_promotions = upload_type in (None, "promotions") and not name
+    upload_groups = upload_type in (None, "groups") and not name
 
     console.print(f"[bold blue]Uploading from:[/bold blue] {data_dir}")
     console.print(f"[bold blue]Backend:[/bold blue] {base_url}")
@@ -110,6 +123,7 @@ def upload(
                 upload_promotions=upload_promotions,
                 upload_groups=upload_groups,
                 on_progress=_on_progress,
+                name=name,
             )
     except APIError as exc:
         console.print(f"[red]✗[/red] API error: {exc}", style="bold red")

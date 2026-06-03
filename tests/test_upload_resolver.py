@@ -55,9 +55,7 @@ class TestResolveFileReferencesUnit:
         ``{{ ... }}`` placeholders are sent verbatim — no client-side
         substitution. See unitysvc/unitysvc#877 / #878.
         """
-        (tmp_path / "code.py.j2").write_text(
-            "import os\nbase_url = '{{ interface.base_url }}'\n"
-        )
+        (tmp_path / "code.py.j2").write_text("import os\nbase_url = '{{ interface.base_url }}'\n")
         data = {
             "file_path": "code.py.j2",
             "mime_type": "python",
@@ -73,9 +71,7 @@ class TestResolveFileReferencesUnit:
         # .j2 preserved on the stored file_path.
         assert resolved["file_path"] == "code.py.j2"
         # Raw template content — the placeholder is *not* substituted.
-        assert resolved["file_content"] == (
-            "import os\nbase_url = '{{ interface.base_url }}'\n"
-        )
+        assert resolved["file_content"] == ("import os\nbase_url = '{{ interface.base_url }}'\n")
 
     def test_connectivity_test_template_kept_raw_for_backend_render(self, tmp_path: Path) -> None:
         (tmp_path / "probe.sh.j2").write_text("curl '{{ interface.base_url }}/health'\n")
@@ -316,3 +312,120 @@ class TestResolveFileReferencesIntegration:
         # ``{{ offering.name }}`` placeholder are preserved verbatim.
         assert doc["file_path"] == "../../docs/code_example.js.j2"
         assert doc["file_content"] == "const svc = '{{ offering.name }}';\n"
+
+
+def _write_service(provider_dir: Path, svc: str, listing_name: str) -> None:
+    """Write a minimal provider + offering + listing bundle for ``svc``."""
+    provider_dir.mkdir(parents=True, exist_ok=True)
+    if not (provider_dir / "provider.json").exists():
+        (provider_dir / "provider.json").write_text(
+            json.dumps(
+                {
+                    "schema": "provider_v1",
+                    "name": provider_dir.name,
+                    "display_name": "Acme",
+                    "contact_email": "ops@acme.example",
+                    "homepage": "https://acme.example",
+                    "status": "ready",
+                }
+            )
+        )
+    service_dir = provider_dir / "services" / svc
+    service_dir.mkdir(parents=True)
+    (service_dir / "offering.json").write_text(
+        json.dumps(
+            {
+                "schema": "offering_v1",
+                "name": svc,
+                "display_name": svc,
+                "service_type": "llm",
+                "status": "ready",
+                "upstream_access_config": {
+                    "default": {"access_method": "http", "base_url": "https://api.acme.example"},
+                },
+            }
+        )
+    )
+    (service_dir / "listing.json").write_text(
+        json.dumps(
+            {
+                "schema": "listing_v1",
+                "name": listing_name,
+                "display_name": svc,
+                "status": "ready",
+                "list_price": {"type": "constant", "price": "1.00"},
+            }
+        )
+    )
+
+
+class TestUploadByName:
+    """``upload_directory(name=...)`` uploads exactly the one service whose
+    service_name (= listing.name) matches (#1138)."""
+
+    @respx.mock
+    def test_name_uploads_only_matching_service(self, tmp_path: Path) -> None:
+        provider_dir = tmp_path / "acme"
+        _write_service(provider_dir, "svc1", "acme/svc1")
+        _write_service(provider_dir, "svc2", "acme/svc2")
+
+        upload_route = respx.post(f"{BASE_URL}/services").mock(
+            return_value=httpx.Response(202, json={"task_id": "t1", "status": "queued", "message": "q"})
+        )
+        respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "t1": {"task_id": "t1", "state": "SUCCESS", "status": "completed", "result": {"service_id": "s1"}}
+                },
+            )
+        )
+
+        with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
+            result = upload_directory(
+                client, tmp_path, name="acme/svc1", task_poll_interval=0.001, task_wait_timeout=5.0
+            )
+
+        assert result.services.total == 1
+        assert result.services.success == 1
+        # Exactly one POST, for the matching service.
+        assert upload_route.call_count == 1
+        sent = json.loads(upload_route.calls.last.request.content.decode())
+        assert sent["listing_data"]["name"] == "acme/svc1"
+
+    def test_name_no_match_raises(self, tmp_path: Path) -> None:
+        provider_dir = tmp_path / "acme"
+        _write_service(provider_dir, "svc1", "acme/svc1")
+        with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
+            with pytest.raises(ValueError, match="No service with service_name"):
+                upload_directory(client, tmp_path, name="acme/does-not-exist")
+
+    @respx.mock
+    def test_name_glob_uploads_all_matches(self, tmp_path: Path) -> None:
+        # A wildcard pattern uploads every matching service.
+        provider_dir = tmp_path / "acme"
+        _write_service(provider_dir, "svc1", "acme/svc1")
+        _write_service(provider_dir, "svc2", "acme/svc2")
+        _write_service(provider_dir, "other", "acme/other")
+
+        upload_route = respx.post(f"{BASE_URL}/services").mock(
+            return_value=httpx.Response(202, json={"task_id": "t1", "status": "queued", "message": "q"})
+        )
+        respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "t1": {"task_id": "t1", "state": "SUCCESS", "status": "completed", "result": {"service_id": "s1"}}
+                },
+            )
+        )
+
+        with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
+            result = upload_directory(
+                client, tmp_path, name="acme/svc*", task_poll_interval=0.001, task_wait_timeout=5.0
+            )
+
+        # acme/svc1 + acme/svc2 match 'acme/svc*'; acme/other does not.
+        assert result.services.total == 2
+        uploaded = {json.loads(c.request.content.decode())["listing_data"]["name"] for c in upload_route.calls}
+        assert uploaded == {"acme/svc1", "acme/svc2"}

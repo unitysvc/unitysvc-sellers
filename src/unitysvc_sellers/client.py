@@ -224,12 +224,14 @@ class Client:
         upload_promotions: bool = True,
         upload_groups: bool = True,
         on_progress: Callable[[str, str, str, str], None] | None = None,
+        name: str | None = None,
     ) -> UploadResult:
         """Upload an entire seller catalog directory.
 
         Thin wrapper around
-        :func:`upload.upload_directory`.
-        See that function for argument and return-type docs.
+        :func:`upload.upload_directory`. Pass ``name`` (an fnmatch pattern) to
+        upload only the services whose ``service_name`` (= ``listing.name``)
+        match. See that function for argument and return-type docs.
         """
         from pathlib import Path as _Path
 
@@ -242,6 +244,7 @@ class Client:
             upload_promotions=upload_promotions,
             upload_groups=upload_groups,
             on_progress=on_progress,
+            name=name,
         )
 
     # ------------------------------------------------------------------
