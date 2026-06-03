@@ -234,10 +234,19 @@ class TestServicesCommands:
         respx.get(f"{BASE_URL}/services/abcdef12").mock(
             return_value=httpx.Response(404, json={"detail": "Service not found"})
         )
+        # ``--id`` resolution falls back to listing on a 404; mock an
+        # empty list so the helper reports "not found" rather than
+        # "ambiguous".
+        respx.get(f"{BASE_URL}/services").mock(
+            return_value=httpx.Response(
+                200, json={"data": [], "has_more": False, "count": 0}
+            )
+        )
 
-        result = runner.invoke(cli_app, ["services", "show", "abcdef12"])
+        result = runner.invoke(cli_app, ["services", "show", "--id", "abcdef12"])
         assert result.exit_code == 1
-        assert "Failed to show service" in result.stdout
+        # ``resolve_service_id`` reports a not-found via the list fallback.
+        assert "not found" in result.stdout.lower() or "Failed to resolve" in result.stdout
 
     @respx.mock
     def test_deprecate_calls_set_status(self, runner: CliRunner, env: None) -> None:

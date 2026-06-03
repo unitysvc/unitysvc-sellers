@@ -106,6 +106,14 @@ def list_services(
         "--all",
         help="Follow cursors and print every page as one combined result.",
     ),
+    name: str | None = typer.Argument(
+        None,
+        help=(
+            "Optional name filter — search by name, display_name, or provider "
+            "name (case-insensitive partial match against ``service.name`` on the "
+            "backend).  Omit to list every service the seller owns."
+        ),
+    ),
     status: str | None = typer.Option(
         None,
         "--status",
@@ -115,12 +123,6 @@ def list_services(
         None,
         "--visibility",
         help="Filter by catalog visibility (public, unlisted, private).",
-    ),
-    name: str | None = typer.Option(
-        None,
-        "--name",
-        "-n",
-        help="Search by name, display_name, or provider name (case-insensitive partial match).",
     ),
     provider: str | None = typer.Option(
         None,
@@ -245,14 +247,88 @@ def list_services(
 # ---------------------------------------------------------------------------
 # show
 # ---------------------------------------------------------------------------
+def _resolve_single_target_id(
+    api_key: str | None,
+    base_url: str,
+    *,
+    name: str | None,
+    service_id: str | None,
+) -> str:
+    """Resolve a single-target services command's selector to one id.
+
+    Single-target commands (``show``, ``update``) want exactly one row.
+    Multi-match on a name pattern is an error with a "use ``--id`` to
+    disambiguate" hint; the ``--id`` path returns immediately (the
+    operator pinned this row).
+    """
+    if (name is None) == (service_id is None):
+        console.print("[red]Error:[/red] provide exactly one of a positional NAME or ``--id``.")
+        raise typer.Exit(code=1)
+
+    if service_id is not None:
+        # Defer to the existing partial-UUID resolver — it handles
+        # ambiguous prefixes and not-found with its own errors.
+        async def _resolve_id() -> str:
+            async with async_client(api_key, base_url) as client:
+                return await resolve_service_id(client, service_id)
+
+        return run_async(_resolve_id(), error_prefix="Failed to resolve --id")
+
+    # The mutex check above guarantees name is not None when service_id is.
+    assert name is not None
+    name_value: str = name
+
+    async def _resolve_one_by_name() -> str:
+        from ..utils import literal_pattern_prefix, service_name_matches
+        server_hint = literal_pattern_prefix(name_value)
+        matched: list[tuple[str, str]] = []
+        cursor: str | None = None
+        async with async_client(api_key, base_url) as client:
+            while True:
+                response = await client.services.list(name=server_hint, limit=200, cursor=cursor)
+                for svc in model_list(response):
+                    row = svc if isinstance(svc, dict) else model_to_dict(svc)
+                    row_name = row.get("name") or row.get("service_name")
+                    if service_name_matches(row_name, name_value) and row.get("id"):
+                        matched.append((str(row["id"]), str(row_name)))
+                next_cursor = getattr(response, "next_cursor", None)
+                has_more = getattr(response, "has_more", False)
+                if not has_more or not next_cursor:
+                    break
+                cursor = str(next_cursor)
+        if not matched:
+            console.print(f"[red]Error:[/red] no service matches '{name_value}'.")
+            raise typer.Exit(code=1)
+        if len(matched) > 1:
+            console.print(
+                f"[red]Error:[/red] '{name_value}' matched {len(matched)} services — "
+                f"use ``--id`` to disambiguate. Matches:"
+            )
+            for sid, nm in matched:
+                console.print(f"  [dim]{sid[:8]}…[/dim] {nm}")
+            raise typer.Exit(code=1)
+        return matched[0][0]
+
+    return run_async(_resolve_one_by_name(), error_prefix="Failed to resolve service by name")
+
+
 @app.command("show")
 def show_service(
-    service_id: str = typer.Argument(..., help="Service ID (full or partial, ≥8 chars)."),
+    name: str | None = typer.Argument(
+        None,
+        help=(
+            "Service to show, by service_name (= listing.name) — literal name or "
+            "single-match fnmatch.  If multiple rows match (e.g. an active service "
+            "plus its pending revision), the command errors and asks for --id."
+        ),
+    ),
+    service_id: str | None = _ID_OPTION,
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
     """Show details of a single service, including documents and access interfaces."""
+    service_id = _resolve_single_target_id(api_key, base_url, name=name, service_id=service_id)
 
     async def _impl() -> dict[str, Any]:
         async with async_client(api_key, base_url) as client:
@@ -1065,7 +1141,15 @@ def _parse_set_options(items: list[str], option_name: str) -> dict[str, Any]:
 
 @app.command("update")
 def update_service(
-    service_id: str = typer.Argument(..., help="Service ID (full or partial, ≥8 chars)."),
+    name: str | None = typer.Argument(
+        None,
+        help=(
+            "Service to update, by service_name (= listing.name) — literal name or "
+            "single-match fnmatch.  If multiple rows match (e.g. an active service "
+            "plus its pending revision), the command errors and asks for --id."
+        ),
+    ),
+    service_id: str | None = _ID_OPTION,
     visibility: str | None = typer.Option(
         None,
         "--visibility", "-v",
@@ -1103,6 +1187,8 @@ def update_service(
 
     All updates are sent in a single PATCH request.
     """
+    service_id = _resolve_single_target_id(api_key, base_url, name=name, service_id=service_id)
+
     has_routing = bool(set_routing_var or remove_routing_var or load_routing_vars)
     has_price = bool(set_price or remove_price_field)
 

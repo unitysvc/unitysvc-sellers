@@ -92,9 +92,18 @@ def _doc_test_status(doc: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 @services_app.command("list-tests")
 def list_tests(
-    service_id: str | None = typer.Argument(
+    name: str | None = typer.Argument(
         None,
-        help="Service ID (full or partial, ≥8 chars). If omitted, lists tests across all services.",
+        help=(
+            "Service to list tests for, by service_name (= listing.name) — literal "
+            "name or single-match fnmatch.  If multiple rows match, the command "
+            "errors and asks for --id.  Omit to list tests across every service."
+        ),
+    ),
+    service_id: str | None = typer.Option(
+        None,
+        "--id",
+        help="Service ID (full or partial, ≥8 chars).  Mutually exclusive with the positional NAME.",
     ),
     all_docs: bool = typer.Option(False, "--all", "-a", help="Show all documents, not just executable tests."),
     status_filter: str | None = typer.Option(
@@ -108,6 +117,15 @@ def list_tests(
     base_url: str = base_url_option(),
 ) -> None:
     """List testable documents for one service or every service the seller owns."""
+    if name is not None and service_id is not None:
+        console.print("[red]Error:[/red] positional NAME and --id are mutually exclusive.")
+        raise typer.Exit(code=1)
+
+    # Resolve the selector to a single service_id if one was provided.
+    # Single-target semantics — multi-match name errors with a --id hint.
+    if name is not None or service_id is not None:
+        from .services import _resolve_single_target_id
+        service_id = _resolve_single_target_id(api_key, base_url, name=name, service_id=service_id)
 
     async def _impl() -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
