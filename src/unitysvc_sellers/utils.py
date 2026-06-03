@@ -48,17 +48,25 @@ from unitysvc_core.utils import (  # noqa: F401
 
 
 def service_name_matches(service_name: str | None, pattern: str) -> bool:
-    """Return True if ``service_name`` matches an fnmatch-style ``--name`` pattern.
+    """Return True if ``service_name`` matches a ``--name`` pattern.
 
-    ``--name`` accepts shell-style wildcards against ``service_name``
-    (= ``listing.name``, #1138): a literal name matches exactly one service,
-    while ``cohere/*`` or ``*llama*`` match a set. Matching is **case-sensitive
-    and platform-independent** (``fnmatchcase``), and ``*`` spans ``/`` so
-    ``cohere/*`` also matches hierarchical names like ``cohere/v1/foo``.
+    The CLI accepts shell-style wildcards against ``service_name`` (=
+    ``listing.name``, #1138).  A literal name matches exactly one service;
+    ``cohere/*`` (or ``cohere/%`` — see below) matches a set.
+
+    **``%`` is a synonym for ``*``** so operators can type the pattern
+    unquoted in a shell — the unix shell would glob-expand ``cohere/*``
+    against the local filesystem, but ``cohere/%`` is shell-safe.  Both
+    glyphs are platform-illegal in real service names (#1138's grammar
+    only permits ``[a-zA-Z0-9._-]``) so this alias loses nothing.
+
+    Matching is **case-sensitive and platform-independent**
+    (``fnmatchcase``), and ``*`` spans ``/`` so ``cohere/*`` also matches
+    hierarchical names like ``cohere/v1/foo``.
     """
     if not service_name:
         return False
-    return fnmatch.fnmatchcase(service_name, pattern)
+    return fnmatch.fnmatchcase(service_name, pattern.replace("%", "*"))
 
 
 def literal_pattern_prefix(pattern: str) -> str | None:
@@ -66,10 +74,13 @@ def literal_pattern_prefix(pattern: str) -> str | None:
 
     Used to narrow a server-side partial-name search before fnmatch-filtering
     client-side: ``cohere/command-*`` → ``cohere/command-``; ``*llama*`` → None.
+
+    ``%`` is treated as a synonym for ``*`` (see ``service_name_matches``);
+    ``cohere/command-%`` also returns ``cohere/command-``.
     """
     out: list[str] = []
     for ch in pattern:
-        if ch in "*?[":
+        if ch in "*?[%":
             break
         out.append(ch)
     return "".join(out) or None
