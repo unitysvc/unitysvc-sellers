@@ -93,6 +93,7 @@ nav:
       - Documenting Services: documenting-services.md
   - Advanced:
       - User Access Interface Templates: tech-notes/user-access-interface-template.md
+      - Claude Code Skill: claude-code-skill.md
 
 extra:
   social:

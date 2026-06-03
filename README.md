@@ -300,6 +300,18 @@ either. Dynamic group membership is now refreshed automatically by a
 background worker whenever a group is mutated, so there's no manual
 refresh step for sellers to invoke.
 
+## Claude Code skill
+
+This repository ships a [Claude Code](https://claude.com/claude-code)
+skill at `skills/writing-unitysvc-services/SKILL.md`. Installed
+into `<your-repo>/.claude/skills/` or `~/.claude/skills/`, it teaches
+Claude the platform's file-organization rules, naming conventions, and
+the validate → format → data-tests → gateway-tests → upload pipeline,
+so Claude can author services to spec without you having to thread
+every rule into the prompt each time. See [Claude Code
+Skill](https://unitysvc-sellers.readthedocs.io/en/latest/claude-code-skill/)
+for install + usage.
+
 ## Layout
 
 ```
