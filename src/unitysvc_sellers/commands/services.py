@@ -55,13 +55,28 @@ _DATA_DIR_OPTION = typer.Option(
     help="Data directory for --local-ids (default: current directory).",
     exists=True, file_okay=False, dir_okay=True,
 )
-# --name targets every backend service whose service_name (= listing.name,
-# #1138) matches the fnmatch pattern. A literal name targets one service's
-# rows (an active service plus any pending revision); ``cohere/*`` targets the
-# whole set.
-_NAME_OPTION = typer.Option(
-    None, "--name", "-n",
-    help="Target services by service_name (= listing.name) — fnmatch pattern, e.g. 'cohere/*' or a literal name.",
+# The positional NAME argument used by every bulk and single-target services
+# command — fnmatch on ``service_name`` (= listing.name, #1138).  A literal name
+# targets the active row plus any pending revision via the backend's ``ids=``
+# expansion; ``cohere/*`` targets the whole namespace.
+_NAME_ARGUMENT = typer.Argument(
+    None,
+    help=(
+        "Target services by service_name (= listing.name) — fnmatch pattern, e.g. "
+        "'cohere/*' for a whole provider or a literal name.  Mutually exclusive "
+        "with --id, --all, --local-ids."
+    ),
+)
+# ``--id`` is the explicit override for the rare case where a name matches
+# multiple rows (e.g. active + pending revision) and the operator needs to
+# pin one specific row.
+_ID_OPTION = typer.Option(
+    None, "--id",
+    help=(
+        "Service ID (full or partial, ≥8 chars).  Use this when a name matches "
+        "multiple rows and you need to pin one specific row.  Mutually exclusive "
+        "with the positional NAME, --all, --local-ids."
+    ),
 )
 
 console = Console()
@@ -475,20 +490,28 @@ def _resolve_or_fetch_ids(
     *,
     api_key: str | None,
     base_url: str,
-    service_ids: list[str] | None,
+    name: str | None,
+    service_id: str | None,
     use_all: bool,
     statuses_when_all: list[str],
     provider: str | None,
-    flag_name: str,
     use_local_ids: bool = False,
     data_dir: Path = Path("."),
     visibilities_when_all: list[str] | None = None,
-    name: str | None = None,
 ) -> list[str]:
     """Resolve the target service IDs from exactly one of four mutually exclusive sources.
 
     Sources (only one may be active):
-    - explicit positional ``service_ids`` — used as-is, no state check.
+    - positional ``name`` — resolve **all** backend services whose
+      ``service_name`` (= listing.name, #1138) matches the given fnmatch
+      pattern, then keep those in an eligible state. A literal name still
+      maps to several rows (e.g. an active service plus its pending
+      revision via the backend's ``ids=`` expansion); ``cohere/*`` maps
+      to the whole namespace.
+    - ``--id``: resolve a partial or full UUID via prefix match; returns
+      exactly one row.  Used to pin a specific row when the name would
+      match multiple (active + revision, etc.); **no status filter** is
+      applied — the operator named this exact row, do it.
     - ``--all``: fetch from the API filtered server-side by
       status/visibility/provider, so only eligible services are returned.
     - ``--local-ids``: read IDs from listing_v1 files under ``data_dir``
@@ -497,23 +520,26 @@ def _resolve_or_fetch_ids(
       revisions of the requested ids — see backend PR #915). The same
       status/visibility filter ``--all`` would have applied server-side
       is then applied client-side against the returned set.
-    - ``--name``: resolve **all** backend services whose ``service_name``
-      (= listing.name, #1138) matches the given fnmatch pattern, then keep
-      those in an eligible state. A literal name still maps to several rows
-      (e.g. an active service plus its pending revision); ``cohere/*`` maps to
-      the whole set — all matching rows are returned.
 
     ``visibilities_when_all`` further restricts the fetch to
     services whose current visibility is in the given list.
     """
     # --- strict mutual exclusivity ---
-    modes = sum([bool(service_ids), use_all, use_local_ids, name is not None])
-    if modes > 1:
+    modes = sum([name is not None, service_id is not None, use_all, use_local_ids])
+    if modes != 1:
         console.print(
-            "[red]Error:[/red] --all, --local-ids, --name, and explicit service IDs are "
-            "mutually exclusive. Provide exactly one."
+            "[red]Error:[/red] provide exactly one of: positional NAME, --id, --all, --local-ids."
         )
         raise typer.Exit(code=1)
+
+    # --- --id: single row via prefix match, no status filter ---
+    if service_id is not None:
+        async def _resolve_one() -> list[str]:
+            async with async_client(api_key, base_url) as client:
+                full_id = await resolve_service_id(client, service_id)
+                return [full_id]
+
+        return run_async(_resolve_one(), error_prefix="Failed to resolve --id")
 
     # --- --name: all backend rows whose service_name matches the pattern ---
     if name is not None:
@@ -635,16 +661,9 @@ def _resolve_or_fetch_ids(
         console.print(f"[green]Found {len(ids)} service(s)[/green]\n")
         return ids
 
-    # --- explicit IDs ---
-    if provider:
-        console.print("[red]Error:[/red] --provider requires --all or --local-ids")
-        raise typer.Exit(code=1)
-    if not service_ids:
-        console.print(
-            f"[red]Error:[/red] Provide service IDs, --{flag_name}, or --local-ids"
-        )
-        raise typer.Exit(code=1)
-    return list(service_ids)
+    # Unreachable — the mutex check above guarantees exactly one mode is
+    # active, and each mode returns from its own branch.
+    raise AssertionError("unreachable: mutex check should have caught this")
 
 
 # ---------------------------------------------------------------------------
@@ -654,14 +673,14 @@ def _resolve_or_fetch_ids(
 
 @app.command("submit")
 def submit_service(
-    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to submit (≥8 chars)."),
+    name: str | None = _NAME_ARGUMENT,
+    service_id: str | None = _ID_OPTION,
     all_drafts: bool = typer.Option(False, "--all", help="Submit all draft and rejected services."),
     local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     provider: str | None = typer.Option(
         None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
-    name: str | None = _NAME_OPTION,
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -670,14 +689,13 @@ def submit_service(
     ids = _resolve_or_fetch_ids(
         api_key=api_key,
         base_url=base_url,
-        service_ids=service_ids,
+        name=name,
+        service_id=service_id,
         use_all=all_drafts,
         statuses_when_all=["draft", "rejected"],
         provider=provider,
-        flag_name="all",
         use_local_ids=local_ids,
         data_dir=data_dir,
-        name=name,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -692,14 +710,14 @@ def submit_service(
 
 @app.command("withdraw")
 def withdraw_service(
-    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to withdraw (≥8 chars)."),
+    name: str | None = _NAME_ARGUMENT,
+    service_id: str | None = _ID_OPTION,
     all_pending: bool = typer.Option(False, "--all", help="Withdraw all pending and rejected services."),
     local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     provider: str | None = typer.Option(
         None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
-    name: str | None = _NAME_OPTION,
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -708,14 +726,13 @@ def withdraw_service(
     ids = _resolve_or_fetch_ids(
         api_key=api_key,
         base_url=base_url,
-        service_ids=service_ids,
+        name=name,
+        service_id=service_id,
         use_all=all_pending,
         statuses_when_all=["pending", "rejected"],
         provider=provider,
-        flag_name="all",
         use_local_ids=local_ids,
         data_dir=data_dir,
-        name=name,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -730,14 +747,14 @@ def withdraw_service(
 
 @app.command("deprecate")
 def deprecate_service(
-    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to deprecate (≥8 chars)."),
+    name: str | None = _NAME_ARGUMENT,
+    service_id: str | None = _ID_OPTION,
     all_active: bool = typer.Option(False, "--all", help="Deprecate all active services."),
     local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     provider: str | None = typer.Option(
         None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
-    name: str | None = _NAME_OPTION,
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -746,14 +763,13 @@ def deprecate_service(
     ids = _resolve_or_fetch_ids(
         api_key=api_key,
         base_url=base_url,
-        service_ids=service_ids,
+        name=name,
+        service_id=service_id,
         use_all=all_active,
         statuses_when_all=["active"],
         provider=provider,
-        flag_name="all",
         use_local_ids=local_ids,
         data_dir=data_dir,
-        name=name,
     )
     _bulk_status_change(
         api_key=api_key,
@@ -801,7 +817,8 @@ _VISIBILITY_TARGETABLE_STATUSES: list[str] = [
 def _set_visibility_impl(
     *,
     visibility: str,
-    service_ids: list[str] | None,
+    name: str | None,
+    service_id: str | None,
     all_active: bool,
     local_ids: bool,
     data_dir: Path,
@@ -809,7 +826,6 @@ def _set_visibility_impl(
     yes: bool,
     api_key: str | None,
     base_url: str,
-    name: str | None = None,
 ) -> None:
     """Shared implementation for the canonical ``set-visibility`` command
     and the deprecated ``publish`` / ``unlist`` / ``hide`` aliases."""
@@ -824,15 +840,14 @@ def _set_visibility_impl(
     ids = _resolve_or_fetch_ids(
         api_key=api_key,
         base_url=base_url,
-        service_ids=service_ids,
+        name=name,
+        service_id=service_id,
         use_all=all_active,
         statuses_when_all=_VISIBILITY_TARGETABLE_STATUSES,
         visibilities_when_all=_OTHER_VISIBILITIES[visibility],
         provider=provider,
-        flag_name="all",
         use_local_ids=local_ids,
         data_dir=data_dir,
-        name=name,
     )
     _bulk_visibility_change(
         api_key=api_key,
@@ -852,9 +867,8 @@ def set_visibility(
         help="Target visibility: one of public, unlisted, private.",
         metavar="VISIBILITY",
     ),
-    service_ids: list[str] = typer.Argument(
-        None, help="Service ID(s) to update (≥8 chars)."
-    ),
+    name: str | None = _NAME_ARGUMENT,
+    service_id: str | None = _ID_OPTION,
     all_active: bool = typer.Option(
         False,
         "--all",
@@ -871,7 +885,6 @@ def set_visibility(
     provider: str | None = typer.Option(
         None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
-    name: str | None = _NAME_OPTION,
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -896,7 +909,8 @@ def set_visibility(
     """
     _set_visibility_impl(
         visibility=visibility,
-        service_ids=service_ids,
+        name=name,
+        service_id=service_id,
         all_active=all_active,
         local_ids=local_ids,
         data_dir=data_dir,
@@ -904,7 +918,6 @@ def set_visibility(
         yes=yes,
         api_key=api_key,
         base_url=base_url,
-        name=name,
     )
 
 
@@ -915,7 +928,8 @@ def set_visibility(
 # ---------------------------------------------------------------------------
 @app.command("delete")
 def delete_service(
-    service_ids: list[str] = typer.Argument(None, help="Service ID(s) to delete (≥8 chars)."),
+    name: str | None = _NAME_ARGUMENT,
+    service_id: str | None = _ID_OPTION,
     all_deletable: bool = typer.Option(
         False,
         "--all",
@@ -927,7 +941,6 @@ def delete_service(
     provider: str | None = typer.Option(
         None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
-    name: str | None = _NAME_OPTION,
     dryrun: bool = typer.Option(False, "--dryrun", help="Show what would be deleted without doing it."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
@@ -965,14 +978,13 @@ def delete_service(
     ids = _resolve_or_fetch_ids(
         api_key=api_key,
         base_url=base_url,
-        service_ids=service_ids,
+        name=name,
+        service_id=service_id,
         use_all=all_deletable,
         statuses_when_all=statuses,
         provider=provider,
-        flag_name="all",
         use_local_ids=local_ids,
         data_dir=data_dir,
-        name=name,
     )
 
     count = len(ids)

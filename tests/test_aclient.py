@@ -242,12 +242,26 @@ class TestServicesCommands:
     @respx.mock
     def test_deprecate_calls_set_status(self, runner: CliRunner, env: None) -> None:
         sid = "12345678-1234-1234-1234-123456789abc"
+        # ``--id`` resolution: tries ``GET /services/{sid}`` first; if that
+        # fails (including any non-success), falls back to listing and
+        # prefix-matching.  We exercise the list fallback here because
+        # ServiceDetailResponse has many required fields and a list-shape
+        # mock is closer to what the partial-id case actually hits.
+        respx.get(f"{BASE_URL}/services/{sid}").mock(
+            return_value=httpx.Response(404, json={"detail": "not found"})
+        )
+        respx.get(f"{BASE_URL}/services").mock(
+            return_value=httpx.Response(
+                200,
+                json={"data": [_service_public(id=sid)], "has_more": False, "count": 1},
+            )
+        )
         route = respx.patch(f"{BASE_URL}/services/{sid}").mock(
             return_value=httpx.Response(200, json={"id": sid, "status": "deprecated"})
         )
 
-        result = runner.invoke(cli_app, ["services", "deprecate", sid, "--yes"])
-        assert result.exit_code == 0
+        result = runner.invoke(cli_app, ["services", "deprecate", "--id", sid, "--yes"])
+        assert result.exit_code == 0, result.output
         body = json.loads(route.calls.last.request.content.decode())
         assert body["status"] == "deprecated"
 

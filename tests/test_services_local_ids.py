@@ -117,30 +117,39 @@ class TestReadIdsFromDataDir:
 # ---------------------------------------------------------------------------
 
 class TestMutualExclusivity:
+    """The four selector modes (positional NAME, --id, --all, --local-ids)
+    are mutually exclusive — exactly one must be active per invocation.
+    """
+
     def _call(self, **kwargs) -> list[str]:
         defaults = dict(
             api_key=None,
             base_url="https://api.example.test",
-            service_ids=None,
+            name=None,
+            service_id=None,
             use_all=False,
             statuses_when_all=["draft"],
             provider=None,
-            flag_name="all",
             use_local_ids=False,
             data_dir=Path("."),
         )
         defaults.update(kwargs)
         return _resolve_or_fetch_ids(**defaults)
 
-    def test_ids_and_all_together_is_error(self, tmp_path: Path) -> None:
+    def test_name_and_id_together_is_error(self, tmp_path: Path) -> None:
         with pytest.raises(typer.Exit) as exc:
-            self._call(service_ids=["abc-123"], use_all=True)
+            self._call(name="cohere/*", service_id="abc12345")
         assert exc.value.exit_code == 1
 
-    def test_ids_and_local_ids_together_is_error(self, tmp_path: Path) -> None:
+    def test_name_and_all_together_is_error(self, tmp_path: Path) -> None:
+        with pytest.raises(typer.Exit) as exc:
+            self._call(name="cohere/*", use_all=True)
+        assert exc.value.exit_code == 1
+
+    def test_id_and_local_ids_together_is_error(self, tmp_path: Path) -> None:
         _write_listing(tmp_path / "p" / "services" / "s" / "listing.json", {"service_id": "x"})
         with pytest.raises(typer.Exit) as exc:
-            self._call(service_ids=["abc-123"], use_local_ids=True, data_dir=tmp_path)
+            self._call(service_id="abc12345", use_local_ids=True, data_dir=tmp_path)
         assert exc.value.exit_code == 1
 
     def test_all_and_local_ids_together_is_error(self, tmp_path: Path) -> None:
@@ -149,19 +158,11 @@ class TestMutualExclusivity:
             self._call(use_all=True, use_local_ids=True, data_dir=tmp_path)
         assert exc.value.exit_code == 1
 
-    def test_no_mode_and_no_ids_is_error(self) -> None:
+    def test_no_mode_is_error(self) -> None:
+        """No selector at all is also an error — exactly one required."""
         with pytest.raises(typer.Exit) as exc:
             self._call()
         assert exc.value.exit_code == 1
-
-    def test_provider_without_all_or_local_ids_is_error(self) -> None:
-        with pytest.raises(typer.Exit) as exc:
-            self._call(service_ids=["abc-123"], provider="acme")
-        assert exc.value.exit_code == 1
-
-    def test_explicit_ids_returned_directly(self) -> None:
-        result = self._call(service_ids=["id-a", "id-b"])
-        assert result == ["id-a", "id-b"]
 
 
 # ---------------------------------------------------------------------------
@@ -196,11 +197,11 @@ class TestResolveLocalIds:
         return _resolve_or_fetch_ids(
             api_key="svcpass_test",
             base_url=_BASE,
-            service_ids=None,
+            name=None,
+            service_id=None,
             use_all=False,
             statuses_when_all=statuses_when_all or ["draft"],
             provider=provider,
-            flag_name="all",
             use_local_ids=True,
             data_dir=data_dir,
         )

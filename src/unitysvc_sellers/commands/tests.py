@@ -34,7 +34,6 @@ from ._helpers import (
     model_to_dict,
     run_async,
 )
-from .services import _NAME_OPTION
 from .services import app as services_app
 
 # Backend enforces ``limit <= 200`` on the cursor-paged services list.
