@@ -34,6 +34,7 @@ from ._helpers import (
     model_to_dict,
     run_async,
 )
+from .services import _NAME_OPTION
 from .services import app as services_app
 
 # Backend enforces ``limit <= 200`` on the cursor-paged services list.
@@ -312,9 +313,48 @@ def show_test(
 # layer: parse typer args → call the SDK → render the result with rich.
 
 
+async def _resolve_service_ids_by_name(api_key: str | None, base_url: str, name: str) -> list[tuple[str, str | None]]:
+    """Resolve a ``--name`` fnmatch pattern to ``[(service_id, display_name), …]``.
+
+    Trimmed-down sibling of ``services.py:_resolve_or_fetch_ids``'s
+    name path.  We don't apply a status / visibility filter here —
+    ``run-tests`` should attempt the diagnostic against whatever the
+    user named and let the backend explain if the service can't be
+    tested (e.g. no active interfaces).  The seller list endpoint's
+    ``ids=`` expansion already auto-includes pending revisions of
+    matched parents, so a literal name targets the active row plus
+    any draft revision under it.
+    """
+    from ..utils import literal_pattern_prefix, service_name_matches
+
+    server_hint = literal_pattern_prefix(name)
+    matched: list[tuple[str, str | None]] = []
+    cursor: str | None = None
+    async with async_client(api_key, base_url) as client:
+        while True:
+            response = await client.services.list(name=server_hint, limit=200, cursor=cursor)
+            for svc in model_list(response):
+                row = svc if isinstance(svc, dict) else model_to_dict(svc)
+                row_name = row.get("name") or row.get("service_name")
+                if not service_name_matches(row_name, name):
+                    continue
+                if row.get("id"):
+                    matched.append((str(row["id"]), row_name))
+            next_cursor = getattr(response, "next_cursor", None)
+            has_more = getattr(response, "has_more", False)
+            if not has_more or not next_cursor:
+                break
+            cursor = str(next_cursor)
+    return matched
+
+
 @services_app.command("run-tests")
 def run_tests(
-    service_id: str = typer.Argument(..., help="Service ID (full or partial, ≥8 chars)."),
+    service_id: str | None = typer.Argument(
+        None,
+        help="Service ID (full or partial, ≥8 chars). Mutually exclusive with ``--name``.",
+    ),
+    name: str | None = _NAME_OPTION,
     document_id: str | None = typer.Option(
         None,
         "--document-id",
@@ -354,19 +394,64 @@ def run_tests(
     backend in ``Document.meta.test.tests[<iface_id>]``; the rendered
     table here is a summary.  Use ``usvc_seller services show-test --doc-id <id>``
     to see full stdout/stderr for any failure.
+
+    Targeting:
+        usvc_seller services run-tests <service-id>
+        usvc_seller services run-tests --name cohere/command-r-plus
+        usvc_seller services run-tests --name 'cohere/*' --force
+
+    ``--name`` is an fnmatch pattern on ``service_name`` (= listing.name,
+    #1138); matching multiple services runs the diagnostic once per match
+    in sequence.
     """
+    if (service_id is None) == (name is None):
+        console.print("[red]Error:[/red] provide exactly one of a service_id or ``--name``.")
+        raise typer.Exit(code=1)
 
-    async def _impl() -> Any:
-        async with async_client(api_key, base_url) as client:
-            return await client.services.run_tests(
-                service_id,
-                document_id=document_id,
-                force=force,
-                poll_interval=poll_interval,
-                timeout=timeout,
-            )
+    if name is not None:
+        targets = run_async(
+            _resolve_service_ids_by_name(api_key, base_url, name),
+            error_prefix="Failed to resolve services by name",
+        )
+        if not targets:
+            console.print(f"[yellow]No services match '{name}'.[/yellow]")
+            raise typer.Exit(code=0)
+        console.print(f"[green]Found {len(targets)} service(s) matching '{name}'[/green]\n")
+    else:
+        # service_id is non-None — the mutex check above guarantees it.
+        assert service_id is not None
+        targets = [(service_id, None)]
 
-    result = run_async(_impl(), error_prefix="Failed to run tests")
+    overall_exit = 0
+    for sid, display_name in targets:
+        if len(targets) > 1:
+            label = display_name or sid
+            console.print(f"\n[bold cyan]── {label} ──[/bold cyan]")
+
+        async def _impl(_sid: str = sid) -> Any:
+            async with async_client(api_key, base_url) as client:
+                return await client.services.run_tests(
+                    _sid,
+                    document_id=document_id,
+                    force=force,
+                    poll_interval=poll_interval,
+                    timeout=timeout,
+                )
+
+        try:
+            result = run_async(_impl(), error_prefix="Failed to run tests")
+        except typer.Exit as exc:
+            overall_exit = max(overall_exit, getattr(exc, "exit_code", 1) or 1)
+            continue
+        rendered_exit = _render_run_tests_result(result)
+        overall_exit = max(overall_exit, rendered_exit)
+
+    if overall_exit:
+        raise typer.Exit(code=overall_exit)
+
+
+def _render_run_tests_result(result: Any) -> int:
+    """Render one service's RunTestsResult; return a non-zero exit code on failure."""
 
     # ------------------------------------------------------------------
     # Render the result.  The SDK returns a typed RunTestsResult; we
@@ -375,15 +460,15 @@ def run_tests(
     # ------------------------------------------------------------------
     if result.status == "error":
         console.print(f"[red]✗[/red] Diagnostic task failed: {result.outcome or '(no detail)'}")
-        raise typer.Exit(code=1)
+        return 1
 
     if result.outcome == "no_executable_documents":
         console.print("[dim]No testable documents found on this service.[/dim]")
-        return
+        return 0
 
     if not result.results:
         console.print(f"[dim]Diagnostic completed with no rows (outcome={result.outcome or 'unknown'}).[/dim]")
-        return
+        return 0
 
     # Per-row rendering.  Skipped → dim ⊘, success → green ✓, failure →
     # red ✗ with the outcome attribution (platform_fault / upstream_fault).
@@ -416,7 +501,8 @@ def run_tests(
             f"(see [bold]usvc_seller services show-test --doc-id <id>[/bold] "
             f"for full stdout/stderr)"
         )
-        raise typer.Exit(code=1)
+        return 1
+    return 0
 
 
 def _render_iface_row(row: Any, *, prefix: str) -> None:
