@@ -250,10 +250,12 @@ usvc_seller services list --local-ids
 
 # 6. Gateway-side tests: the same documents executed from the platform,
 #    routed through the gateway, exercising the registered route +
-#    svcpass auth + the upstream chain end-to-end. Note: this command
-#    takes the SERVICE_ID (not --name), and skips documents whose last
-#    per-iface result was 'success' — pass --force to re-run them.
-usvc_seller services run-tests --force <service-id>
+#    svcpass auth + the upstream chain end-to-end. The command skips
+#    documents whose last per-iface result was 'success' — pass
+#    --force to re-run them.  --name takes an fnmatch pattern, so a
+#    literal name targets the active row plus any pending revision
+#    under it, and 'cohere/*' targets the whole provider.
+usvc_seller services run-tests --name <service-name> --force
 ```
 
 If 3 passes but 6 fails, the upstream is healthy but the *gateway routing* or *svcpass attribution* is broken — that's almost always a wrong `user_access_interfaces.<iface>.base_url` (must use `{{ service_name }}`, see `unitysvc-sellers/docs/naming-conventions.md`) or a misconfigured `api_key` disposition (`unitysvc/unitysvc#1198` — unset/empty/`__strip__`/`__forward__`/literal).
