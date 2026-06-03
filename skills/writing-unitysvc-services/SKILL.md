@@ -237,13 +237,26 @@ usvc_seller data format
 #    upstreams, wrong base_urls, broken auth before the gateway sees them.
 usvc_seller data run-tests --name <service-name>
 
-# 4. Gateway-side tests: same tests but routed through the gateway
-#    (post-upload), exercising the registered route + svcpass auth + the
-#    upstream chain end-to-end.
-usvc_seller services run-tests --name <service-name>
+# 4. Upload to staging so the gateway has a route to test against.
+usvc_seller data upload --name <service-name>
+
+# 5. Make the uploaded service routable: visibility public + status active.
+#    Newly-uploaded services start as draft/unlisted; the gateway only
+#    routes active/public services.
+usvc_seller services set-visibility public --local-ids --yes
+usvc_seller services submit --local-ids --yes
+# Wait a few seconds for the activation; verify with:
+usvc_seller services list --local-ids
+
+# 6. Gateway-side tests: the same documents executed from the platform,
+#    routed through the gateway, exercising the registered route +
+#    svcpass auth + the upstream chain end-to-end. Note: this command
+#    takes the SERVICE_ID (not --name), and skips documents whose last
+#    per-iface result was 'success' — pass --force to re-run them.
+usvc_seller services run-tests --force <service-id>
 ```
 
-If 3 passes but 4 fails, the upstream is healthy but the *gateway routing* or *svcpass attribution* is broken — that's almost always a wrong `user_access_interfaces.<iface>.base_url` (must use `{{ service_name }}`, see `unitysvc-sellers/docs/naming-conventions.md`) or a misconfigured `api_key` disposition (`unitysvc/unitysvc#1198` — unset/empty/`__strip__`/`__forward__`/literal).
+If 3 passes but 6 fails, the upstream is healthy but the *gateway routing* or *svcpass attribution* is broken — that's almost always a wrong `user_access_interfaces.<iface>.base_url` (must use `{{ service_name }}`, see `unitysvc-sellers/docs/naming-conventions.md`) or a misconfigured `api_key` disposition (`unitysvc/unitysvc#1198` — unset/empty/`__strip__`/`__forward__`/literal).
 
 To upload a single service in isolation (faster than uploading the whole repo):
 
@@ -251,7 +264,7 @@ To upload a single service in isolation (faster than uploading the whole repo):
 usvc_seller data upload --name <service-name>
 ```
 
-Do not declare a service done until you have actually run all four commands and they all returned green. "It looks right" or "validate passed" alone has bitten this workflow more than once.
+Do not declare a service done until you have actually run all four test steps (validate, format, data run-tests, services run-tests) and they all returned green. "It looks right" or "validate passed" alone has bitten this workflow more than once. The `data run-tests` Python examples may fail with `ModuleNotFoundError: No module named 'requests'` if the test runner picks the system Python instead of the active venv — that's a unitysvc-sellers runner issue, not your service data; if shell + connectivity tests pass, treat the Python failure as environmental.
 
 ## 6. Iterator + template pattern — when you have a collection
 
