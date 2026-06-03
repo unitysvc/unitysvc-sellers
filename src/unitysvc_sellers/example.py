@@ -682,21 +682,13 @@ def save_output_files(
 
 @app.command("list")
 def list_code_examples(
-    data_dir: Path | None = typer.Argument(
+    name: str | None = typer.Argument(
         None,
-        help="Directory containing provider data files (default: current directory)",
-    ),
-    provider_name: str | None = typer.Option(
-        None,
-        "--provider",
-        "-p",
-        help="Only list code examples for a specific provider",
-    ),
-    name: str | None = typer.Option(
-        None,
-        "--name",
-        "-n",
-        help="Filter services by service_name (= listing.name) — fnmatch pattern, e.g. 'cohere/*' or a literal name.",
+        help=(
+            "Service to list, by service_name (= listing.name) — fnmatch pattern, e.g. "
+            "'cohere/*' for a whole provider or a literal name. Omit to list every "
+            "service in the current directory."
+        ),
     ),
     output_format: str = typer.Option(
         "table",
@@ -716,36 +708,23 @@ def list_code_examples(
         # List all code examples
         usvc data list-tests
 
-        # List for specific provider
-        usvc data list-tests --provider fireworks
+        # List for a whole provider (fnmatch pattern on listing.name)
+        usvc data list-tests 'fireworks/*'
 
-        # List for one service (by service_name = listing.name)
-        usvc data list-tests --name fireworks.ai/llama-3-1-405b-instruct
+        # List for one service (literal listing.name)
+        usvc data list-tests fireworks.ai/llama-3-1-405b-instruct
 
         # List as JSON
         usvc data list-tests --format json
     """
-    # Set data directory
-    if data_dir is None:
-        data_dir = Path.cwd()
-
-    if not data_dir.is_absolute():
-        data_dir = Path.cwd() / data_dir
-
-    if not data_dir.exists():
-        console.print(
-            f"[red]✗[/red] Data directory not found: {data_dir}",
-            style="bold red",
-        )
-        raise typer.Exit(code=1)
+    # Always operate on the current working directory — cd into your data
+    # repo before running.  Keeps the CLI surface minimal; there's no
+    # ``--data-dir`` flag to remember.
+    data_dir = Path.cwd()
 
     console.print(f"[blue]Scanning for code examples in:[/blue] {data_dir}\n")
 
-    all_code_examples = discover_code_examples(
-        data_dir,
-        provider_name=provider_name,
-        name=name,
-    )
+    all_code_examples = discover_code_examples(data_dir, name=name)
 
     if not all_code_examples:
         console.print("[yellow]No code examples found.[/yellow]")
@@ -885,21 +864,12 @@ def show_test(
 
 @app.command("run")
 def run_local(
-    data_dir: Path | None = typer.Argument(
+    name: str | None = typer.Argument(
         None,
-        help="Directory containing provider data files (default: current directory)",
-    ),
-    provider_name: str | None = typer.Option(
-        None,
-        "--provider",
-        "-p",
-        help="Only test code examples for a specific provider",
-    ),
-    name: str | None = typer.Option(
-        None,
-        "--name",
-        "-n",
-        help="Filter services by service_name (= listing.name) — fnmatch pattern, e.g. 'cohere/*' or a literal name.",
+        help=(
+            "Service to test, by service_name (= listing.name) — fnmatch pattern, e.g. "
+            "'cohere/*' or a literal name. Omit to test every service in the current directory."
+        ),
     ),
     test_file: str | None = typer.Option(
         None,
@@ -938,43 +908,32 @@ def run_local(
     7. Displays test results
 
     Examples:
-        # Run all code examples
-        usvc data test
+        # Run all code examples in the current directory
+        usvc data run-tests
 
-        # Run for specific provider
-        usvc data run-tests --provider fireworks
+        # Run for a whole provider (fnmatch pattern on listing.name)
+        usvc data run-tests 'fireworks/*'
 
-        # Run a single service (by service_name = listing.name)
-        usvc data run-tests --name fireworks.ai/llama-3-1-405b-instruct
+        # Run a single service (literal listing.name)
+        usvc data run-tests fireworks.ai/llama-3-1-405b-instruct
+        usvc data run-tests 'cohere/command-r-*'
 
         # Run specific file
         usvc data run-tests --test-file "code-example.py.j2"
 
-        # Combine filters
-        usvc data run-tests --provider fireworks
-
         # Show detailed output
-        usvc data test --verbose
+        usvc data run-tests --verbose
 
         # Force rerun all tests (ignore existing results)
-        usvc data test --force
+        usvc data run-tests --force
 
         # Stop on first failure
-        usvc data test --fail-fast
+        usvc data run-tests --fail-fast
     """
-    # Set data directory
-    if data_dir is None:
-        data_dir = Path.cwd()
-
-    if not data_dir.is_absolute():
-        data_dir = Path.cwd() / data_dir
-
-    if not data_dir.exists():
-        console.print(
-            f"[red]✗[/red] Data directory not found: {data_dir}",
-            style="bold red",
-        )
-        raise typer.Exit(code=1)
+    # Always operate on the current working directory — cd into your data
+    # repo before running.  Keeps the CLI surface minimal; there's no
+    # ``--data-dir`` flag to remember.
+    data_dir = Path.cwd()
 
     if name:
         console.print(f"[blue]Service filter (service_name):[/blue] {name}\n")
@@ -985,11 +944,7 @@ def run_local(
 
     console.print(f"[blue]Scanning for listing files in:[/blue] {data_dir}\n")
 
-    discovered = discover_code_examples(
-        data_dir,
-        provider_name=provider_name,
-        name=name,
-    )
+    discovered = discover_code_examples(data_dir, name=name)
 
     # Filter by test file name if provided
     if test_file:

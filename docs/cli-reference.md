@@ -170,19 +170,18 @@ Upload a seller catalog (services + promotions + service groups) to UnitySVC.
 **Usage**:
 
 ```console
-$ usvc_seller data upload [OPTIONS] [DATA_DIR]
+$ usvc_seller data upload [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `[DATA_DIR]`: Path to the seller catalog directory (default: current directory).
+* `[NAME]`: Service to upload, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Omit to upload every service in the current directory (plus promotions and groups unless ``--type`` restricts the scope).
 
 **Options**:
 
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `-t, --type TEXT`: Upload only one resource: services / promotions / groups. Default: upload all three.
-* `-n, --name TEXT`: Upload only services whose service_name (= listing.name) matches this fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `--help`: Show this message and exit.
 
 ### `usvc_seller data list-tests`
@@ -198,11 +197,11 @@ Examples:
     # List all code examples
     usvc data list-tests
 
-    # List for specific provider
-    usvc data list-tests --provider fireworks
+    # List for a whole provider (fnmatch pattern on listing.name)
+    usvc data list-tests &#x27;fireworks/*&#x27;
 
-    # List for one service (by service_name = listing.name)
-    usvc data list-tests --name fireworks.ai/llama-3-1-405b-instruct
+    # List for one service (literal listing.name)
+    usvc data list-tests fireworks.ai/llama-3-1-405b-instruct
 
     # List as JSON
     usvc data list-tests --format json
@@ -210,17 +209,15 @@ Examples:
 **Usage**:
 
 ```console
-$ usvc_seller data list-tests [OPTIONS] [DATA_DIR]
+$ usvc_seller data list-tests [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `[DATA_DIR]`: Directory containing provider data files (default: current directory)
+* `[NAME]`: Service to list, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name. Omit to list every service in the current directory.
 
 **Options**:
 
-* `-p, --provider TEXT`: Only list code examples for a specific provider
-* `-n, --name TEXT`: Filter services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-f, --format TEXT`: Output format: json, table, tsv, csv  [default: table]
 * `--help`: Show this message and exit.
 
@@ -238,44 +235,40 @@ This command:
 7. Displays test results
 
 Examples:
-    # Run all code examples
-    usvc data test
+    # Run all code examples in the current directory
+    usvc data run-tests
 
-    # Run for specific provider
-    usvc data run-tests --provider fireworks
+    # Run for a whole provider (fnmatch pattern on listing.name)
+    usvc data run-tests &#x27;fireworks/*&#x27;
 
-    # Run a single service (by service_name = listing.name)
-    usvc data run-tests --name fireworks.ai/llama-3-1-405b-instruct
+    # Run a single service (literal listing.name)
+    usvc data run-tests fireworks.ai/llama-3-1-405b-instruct
+    usvc data run-tests &#x27;cohere/command-r-*&#x27;
 
     # Run specific file
     usvc data run-tests --test-file &quot;code-example.py.j2&quot;
 
-    # Combine filters
-    usvc data run-tests --provider fireworks
-
     # Show detailed output
-    usvc data test --verbose
+    usvc data run-tests --verbose
 
     # Force rerun all tests (ignore existing results)
-    usvc data test --force
+    usvc data run-tests --force
 
     # Stop on first failure
-    usvc data test --fail-fast
+    usvc data run-tests --fail-fast
 
 **Usage**:
 
 ```console
-$ usvc_seller data run-tests [OPTIONS] [DATA_DIR]
+$ usvc_seller data run-tests [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `[DATA_DIR]`: Directory containing provider data files (default: current directory)
+* `[NAME]`: Service to test, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Omit to test every service in the current directory.
 
 **Options**:
 
-* `-p, --provider TEXT`: Only test code examples for a specific provider
-* `-n, --name TEXT`: Filter services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-t, --test-file TEXT`: Only run a specific test file by filename (e.g., &#x27;code-example.py.j2&#x27;)
 * `-v, --verbose`: Show detailed output including stdout/stderr from scripts
 * `-f, --force`: Force rerun all tests, ignoring existing .out and .err files
