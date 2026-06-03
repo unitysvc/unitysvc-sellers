@@ -769,18 +769,28 @@ backend in ``Document.meta.test.tests[&lt;iface_id&gt;]``; the rendered
 table here is a summary.  Use ``usvc_seller services show-test --doc-id &lt;id&gt;``
 to see full stdout/stderr for any failure.
 
+Targeting:
+    usvc_seller services run-tests &lt;service-id&gt;
+    usvc_seller services run-tests --name cohere/command-r-plus
+    usvc_seller services run-tests --name &#x27;cohere/*&#x27; --force
+
+``--name`` is an fnmatch pattern on ``service_name`` (= listing.name,
+#1138); matching multiple services runs the diagnostic once per match
+in sequence.
+
 **Usage**:
 
 ```console
-$ usvc_seller services run-tests [OPTIONS] SERVICE_ID
+$ usvc_seller services run-tests [OPTIONS] [SERVICE_ID]
 ```
 
 **Arguments**:
 
-* `SERVICE_ID`: Service ID (full or partial, ≥8 chars).  [required]
+* `[SERVICE_ID]`: Service ID (full or partial, ≥8 chars). Mutually exclusive with ``--name``.
 
 **Options**:
 
+* `-n, --name TEXT`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-d, --document-id TEXT`: Run a single document instead of every executable doc on the service.
 * `--force`: Re-execute documents whose previous per-iface result was &#x27;success&#x27;.
 * `--poll-interval FLOAT`: Seconds between task-status polls while waiting for the diagnostic.  [default: 2.0]
