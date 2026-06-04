@@ -465,8 +465,12 @@ backend ``GET /services?ids=&lt;uuid&gt;`` endpoint.
 **Usage**:
 
 ```console
-$ usvc_seller services list [OPTIONS]
+$ usvc_seller services list [OPTIONS] [NAME]
 ```
+
+**Arguments**:
+
+* `[NAME]`: Optional name filter — search by name, display_name, or provider name (case-insensitive partial match against ``service.name`` on the backend).  Omit to list every service the seller owns.
 
 **Options**:
 
@@ -475,7 +479,6 @@ $ usvc_seller services list [OPTIONS]
 * `--all`: Follow cursors and print every page as one combined result.
 * `--status TEXT`: Filter by service status (draft, pending, review, active, rejected, suspended, deprecated).
 * `--visibility TEXT`: Filter by catalog visibility (public, unlisted, private).
-* `-n, --name TEXT`: Search by name, display_name, or provider name (case-insensitive partial match).
 * `--provider TEXT`: Filter by provider name (case-insensitive partial match).
 * `--fields TEXT`: Comma-separated list of columns to display.  [default: id,name,provider_name,service_type,status,visibility]
 * `-f, --format TEXT`: Output format: table | json.  [default: table]
@@ -492,15 +495,16 @@ Show details of a single service, including documents and access interfaces.
 **Usage**:
 
 ```console
-$ usvc_seller services show [OPTIONS] SERVICE_ID
+$ usvc_seller services show [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `SERVICE_ID`: Service ID (full or partial, ≥8 chars).  [required]
+* `[NAME]`: Service to show, by service_name (= listing.name) — literal name or single-match fnmatch.  If multiple rows match (e.g. an active service plus its pending revision), the command errors and asks for --id.
 
 **Options**:
 
+* `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `-f, --format TEXT`: Output format: table | json.  [default: table]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -513,20 +517,20 @@ Submit services for review (draft|rejected → pending).
 **Usage**:
 
 ```console
-$ usvc_seller services submit [OPTIONS] [SERVICE_IDS]...
+$ usvc_seller services submit [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `[SERVICE_IDS]...`: Service ID(s) to submit (≥8 chars).
+* `[NAME]`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
 
+* `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `--all`: Submit all draft and rejected services.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-n, --name TEXT`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -539,20 +543,20 @@ Withdraw services back to draft (pending|rejected → draft).
 **Usage**:
 
 ```console
-$ usvc_seller services withdraw [OPTIONS] [SERVICE_IDS]...
+$ usvc_seller services withdraw [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `[SERVICE_IDS]...`: Service ID(s) to withdraw (≥8 chars).
+* `[NAME]`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
 
+* `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `--all`: Withdraw all pending and rejected services.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-n, --name TEXT`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -565,20 +569,20 @@ Mark services as deprecated.
 **Usage**:
 
 ```console
-$ usvc_seller services deprecate [OPTIONS] [SERVICE_IDS]...
+$ usvc_seller services deprecate [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `[SERVICE_IDS]...`: Service ID(s) to deprecate (≥8 chars).
+* `[NAME]`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
 
+* `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `--all`: Deprecate all active services.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-n, --name TEXT`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -607,21 +611,21 @@ with any review workflow.
 **Usage**:
 
 ```console
-$ usvc_seller services set-visibility [OPTIONS] VISIBILITY [SERVICE_IDS]...
+$ usvc_seller services set-visibility [OPTIONS] VISIBILITY [NAME]
 ```
 
 **Arguments**:
 
 * `VISIBILITY`: Target visibility: one of public, unlisted, private.  [required]
-* `[SERVICE_IDS]...`: Service ID(s) to update (≥8 chars).
+* `[NAME]`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
 
+* `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `--all`: Apply to every non-deprecated service (draft, pending, review, active, rejected, suspended) not already at the target visibility.  Status is irrelevant — visibility is a flag that persists through the lifecycle and only takes effect on ``active``.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-n, --name TEXT`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -644,21 +648,21 @@ non-deletable forever, even after a round-trip through
 **Usage**:
 
 ```console
-$ usvc_seller services delete [OPTIONS] [SERVICE_IDS]...
+$ usvc_seller services delete [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `[SERVICE_IDS]...`: Service ID(s) to delete (≥8 chars).
+* `[NAME]`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
 
+* `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `--all`: Delete all deletable services (draft, pending, review, rejected).
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--status TEXT`: Restrict --all to a single deletable status.
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
-* `-n, --name TEXT`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name.
 * `--dryrun`: Show what would be deleted without doing it.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -674,15 +678,16 @@ All updates are sent in a single PATCH request.
 **Usage**:
 
 ```console
-$ usvc_seller services update [OPTIONS] SERVICE_ID
+$ usvc_seller services update [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `SERVICE_ID`: Service ID (full or partial, ≥8 chars).  [required]
+* `[NAME]`: Service to update, by service_name (= listing.name) — literal name or single-match fnmatch.  If multiple rows match (e.g. an active service plus its pending revision), the command errors and asks for --id.
 
 **Options**:
 
+* `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `-v, --visibility TEXT`: Set catalog visibility: public, unlisted, or private.
 * `--set-routing-var TEXT`: Set routing var(s): key=value or JSON object &#x27;{...}&#x27; (repeatable).
 * `--remove-routing-var TEXT`: Remove a routing var by key or dotted path (repeatable).
@@ -700,15 +705,16 @@ List testable documents for one service or every service the seller owns.
 **Usage**:
 
 ```console
-$ usvc_seller services list-tests [OPTIONS] [SERVICE_ID]
+$ usvc_seller services list-tests [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `[SERVICE_ID]`: Service ID (full or partial, ≥8 chars). If omitted, lists tests across all services.
+* `[NAME]`: Service to list tests for, by service_name (= listing.name) — literal name or single-match fnmatch.  If multiple rows match, the command errors and asks for --id.  Omit to list tests across every service.
 
 **Options**:
 
+* `--id TEXT`: Service ID (full or partial, ≥8 chars).  Mutually exclusive with the positional NAME.
 * `-a, --all`: Show all documents, not just executable tests.
 * `-s, --status TEXT`: Filter by test status (success, script_failed, pending, …).
 * `-f, --format TEXT`: Output format: table | json.  [default: table]
@@ -762,18 +768,24 @@ backend in ``Document.meta.test.tests[&lt;iface_id&gt;]``; the rendered
 table here is a summary.  Use ``usvc_seller services show-test --doc-id &lt;id&gt;``
 to see full stdout/stderr for any failure.
 
+Targeting:
+    usvc_seller services run-tests cohere/command-r-plus
+    usvc_seller services run-tests &#x27;cohere/*&#x27; --force
+    usvc_seller services run-tests --id 6c55d6d9          # disambiguate
+
 **Usage**:
 
 ```console
-$ usvc_seller services run-tests [OPTIONS] SERVICE_ID
+$ usvc_seller services run-tests [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `SERVICE_ID`: Service ID (full or partial, ≥8 chars).  [required]
+* `[NAME]`: Service(s) to test, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Matching multiple services runs the diagnostic once per match in sequence. Mutually exclusive with ``--id``.
 
 **Options**:
 
+* `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows (e.g. an active service plus its pending revision) and you need to pin one specific row.
 * `-d, --document-id TEXT`: Run a single document instead of every executable doc on the service.
 * `--force`: Re-execute documents whose previous per-iface result was &#x27;success&#x27;.
 * `--poll-interval FLOAT`: Seconds between task-status polls while waiting for the diagnostic.  [default: 2.0]

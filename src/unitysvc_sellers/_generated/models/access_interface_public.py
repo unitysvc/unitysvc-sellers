@@ -36,7 +36,6 @@ class AccessInterfacePublic:
     created_at: str
     service_id: None | Unset | UUID = UNSET
     group_id: None | Unset | UUID = UNSET
-    has_api_key: bool | Unset = False
     base_url: None | str | Unset = UNSET
     base_url_pattern: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
@@ -88,8 +87,6 @@ class AccessInterfacePublic:
             group_id = str(self.group_id)
         else:
             group_id = self.group_id
-
-        has_api_key = self.has_api_key
 
         base_url: None | str | Unset
         if isinstance(self.base_url, Unset):
@@ -197,8 +194,6 @@ class AccessInterfacePublic:
             field_dict["service_id"] = service_id
         if group_id is not UNSET:
             field_dict["group_id"] = group_id
-        if has_api_key is not UNSET:
-            field_dict["has_api_key"] = has_api_key
         if base_url is not UNSET:
             field_dict["base_url"] = base_url
         if base_url_pattern is not UNSET:
@@ -282,8 +277,6 @@ class AccessInterfacePublic:
             return cast(None | Unset | UUID, data)
 
         group_id = _parse_group_id(d.pop("group_id", UNSET))
-
-        has_api_key = d.pop("has_api_key", UNSET)
 
         def _parse_base_url(data: object) -> None | str | Unset:
             if data is None:
@@ -466,7 +459,6 @@ class AccessInterfacePublic:
             created_at=created_at,
             service_id=service_id,
             group_id=group_id,
-            has_api_key=has_api_key,
             base_url=base_url,
             base_url_pattern=base_url_pattern,
             description=description,
