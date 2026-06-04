@@ -226,19 +226,22 @@ When something in this skill conflicts with the docs, the docs win — they evol
 The user's working definition of "ready": **validate, format, data run-tests, AND services run-tests all green.** Skipping any step risks a silent breakage upstream. Run them in order; each catches a different class of mistake:
 
 ```bash
-# 1. Schema + cross-file validation (fast, no network)
+# 1. Schema + cross-file validation (fast, no network).
+#    Always runs on every service in the current directory.
 usvc_seller data validate
 
-# 2. JSON/TOML canonical formatting (writes in-place; commit the result)
+# 2. JSON/TOML canonical formatting (writes in-place; commit the result).
+#    Always runs on every service in the current directory.
 usvc_seller data format
 
 # 3. Upstream-side tests: render and execute the connectivity / code-example
 #    docs against the upstream URL directly (no gateway). Catches dead
 #    upstreams, wrong base_urls, broken auth before the gateway sees them.
-usvc_seller data run-tests --name <service-name>
+#    NAME is a restricted glob — see "Selector grammar" below.
+usvc_seller data run-tests <name>
 
 # 4. Upload to staging so the gateway has a route to test against.
-usvc_seller data upload --name <service-name>
+usvc_seller data upload <name>
 
 # 5. Make the uploaded service routable: visibility public + status active.
 #    Newly-uploaded services start as draft/unlisted; the gateway only
@@ -251,19 +254,41 @@ usvc_seller services list --local-ids
 # 6. Gateway-side tests: the same documents executed from the platform,
 #    routed through the gateway, exercising the registered route +
 #    svcpass auth + the upstream chain end-to-end. The command skips
-#    documents whose last per-iface result was 'success' — pass
-#    --force to re-run them.  --name takes an fnmatch pattern, so a
-#    literal name targets the active row plus any pending revision
-#    under it, and 'cohere/*' targets the whole provider.
-usvc_seller services run-tests --name <service-name> --force
+#    documents whose last per-iface result was 'success' — pass --force
+#    to re-run them.
+usvc_seller services run-tests <name> --force
 ```
+
+### Selector grammar (positional NAME)
+
+All `data` and `services` commands that accept a service selector take a **positional NAME** that fnmatches against `service_name` (= `listing.name`, unitysvc#1138). The grammar is intentionally restricted so it maps cleanly onto the backend's SQL `ILIKE`:
+
+| Form | Meaning |
+|---|---|
+| `cohere/command-r-plus` | exact name |
+| `cohere/*` or `cohere/%` | provider scope (every service under `cohere/`) |
+| `*-byok` or `%-byok` | suffix (every variant tagged `-byok`) |
+| `*command*` or `%command%` | substring |
+| omit (no positional) | every service in the current directory (for `data` commands) |
+
+**`%` is a synonym for `*`** and the recommended interactive form — shells glob-expand `cohere/*` against the local filesystem and force you to quote it (`'cohere/*'`), but `cohere/%` is shell-safe.
+
+Wildcards are only allowed at the **start, end, or both**. `?`, `[…]`, and mid-pattern wildcards like `cohere/com*and` are rejected — by design, so the grammar stays predictable.
+
+For `services` subcommands that operate on **one** specific row (e.g. `services show`, `services update`, single-service `services run-tests`), if the positional NAME matches multiple rows (an active service plus its pending revision is the common case), the command errors and asks for **`--id <prefix>`** to disambiguate:
+
+```bash
+usvc_seller services run-tests --id 6c55d6d9 --force
+```
+
+### Why the pipeline order matters
 
 If 3 passes but 6 fails, the upstream is healthy but the *gateway routing* or *svcpass attribution* is broken — that's almost always a wrong `user_access_interfaces.<iface>.base_url` (must use `{{ service_name }}`, see `unitysvc-sellers/docs/naming-conventions.md`) or a misconfigured `api_key` disposition (`unitysvc/unitysvc#1198` — unset/empty/`__strip__`/`__forward__`/literal).
 
 To upload a single service in isolation (faster than uploading the whole repo):
 
 ```bash
-usvc_seller data upload --name <service-name>
+usvc_seller data upload <name>
 ```
 
 Do not declare a service done until you have actually run all four test steps (validate, format, data run-tests, services run-tests) and they all returned green. "It looks right" or "validate passed" alone has bitten this workflow more than once. The `data run-tests` Python examples may fail with `ModuleNotFoundError: No module named 'requests'` if the test runner picks the system Python instead of the active venv — that's a unitysvc-sellers runner issue, not your service data; if shell + connectivity tests pass, treat the Python failure as environmental.
@@ -355,9 +380,9 @@ When the user says "add a service to repo X":
 4. **Fill in the listing** — name (per `naming-conventions.md`), list_price (per `pricing.md`), user_access_interfaces base_url (`${API_GATEWAY_BASE_URL}/{{ service_name }}` for normal services; bare top-level for platform-internal), documents block.
 5. **Add the connectivity test** — preset if a stock one fits; local Jinja file otherwise. Make sure it handles both `localtesting` modes if it isn't purely env-var-driven.
 6. **Validate, format** — fix anything `usvc_seller data validate` complains about; `usvc_seller data format` to canonicalize.
-7. **Data run-tests** — `usvc_seller data run-tests --name <name>` against the live upstream.
-8. **Upload** — `usvc_seller data upload --name <name>` to staging.
-9. **Services run-tests** — `usvc_seller services run-tests --name <name>` through the gateway.
+7. **Data run-tests** — `usvc_seller data run-tests <name>` against the live upstream.
+8. **Upload** — `usvc_seller data upload <name>` to staging.
+9. **Services run-tests** — `usvc_seller services run-tests <name>` through the gateway (add `--id <prefix>` if the name matches more than one row).
 10. **Only after all four green:** report "ready". If anything failed, fix the underlying issue (don't skip the step) and re-run from the failing point.
 
 ## 10. Common failure modes and where to look
@@ -366,7 +391,7 @@ When the user says "add a service to repo X":
 |---|---|---|
 | `validate` fails with "base_url must route by service identifier" | Literal `<provider>/<service>` path in user_access_interfaces | `unitysvc-sellers/docs/naming-conventions.md` — switch to `${API_GATEWAY_BASE_URL}/{{ service_name }}` |
 | `validate` fails with "listing name … first segment must be the provider slug" | Namespaced name doesn't match provider | Rename to `<provider-slug>/<bare>` or use a bare top-level name |
-| `data run-tests` succeeds, `services run-tests` 404s | Service not yet uploaded, or uploaded under a different name | Re-run `usvc_seller data upload --name <name>` and check `usvc_seller services list --name <name>` |
+| `data run-tests` succeeds, `services run-tests` 404s | Service not yet uploaded, or uploaded under a different name | Re-run `usvc_seller data upload <name>` and check `usvc_seller services list <name>` |
 | Gateway returns 401 with "Missing svcpass API key" | Customer not authenticated; case-sensitive `Bearer` required | `Authorization: Bearer <svcpass_…>` (capital B) or `x-api-key: …` |
 | Test passes locally but fails in CI | Template uses generator-time Jinja for a runtime variable | Wrap in `{% raw %}…{% endraw %}` (see Section 4) |
 | Re-upload creates a draft revision instead of in-place update | Renamed `listing.name` or changed routing-affecting fields — backend treats as content change and queues admin review | Expected. Submit the revision: `usvc_seller services submit --local-ids` |
