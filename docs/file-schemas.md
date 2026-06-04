@@ -156,7 +156,7 @@ Service files define the service offering from the upstream provider's perspecti
 | `schema`                     | string                      | Must be `"offering_v1"`                                                                                                                                                           |
 | `name`                       | string                      | Service identifier (must match directory name, allows slashes for hierarchy)                                                                                                      |
 | `service_type`               | enum                        | Service category (see [ServiceTypeEnum values](#servicetype-enum-values))                                                                                                         |
-| `upstream_access_config` | dict of AccessInterfaceData | How to access upstream services, keyed by interface name. Supports Jinja2 templates (e.g. `{{ enrollment_code(6) }}`); expanded at gateway routing time using enrollment context. |
+| `upstream_access_config` | dict of AccessInterfaceData | How to access upstream services, keyed by interface name. Supports Jinja2 templates (e.g. `{{ enrollment.code }}`); expanded at gateway routing time using enrollment context. |
 | `time_created`               | datetime (ISO 8601)         | Timestamp when offering was created                                                                                                                                               |
 
 ### Optional Fields
@@ -280,22 +280,22 @@ The `service_options` field configures backend behavior for service listings. Al
 
 **Enrollment Variables (`enrollment_vars`):**
 
-The `enrollment_vars` field defines per-enrollment variables that are rendered and passed to code examples and test scripts during both local testing (`usvc_seller data run-tests`) and gateway testing (`usvc_seller services run-tests`). Values support Jinja2 template syntax with access to enrollment context functions.
+The `enrollment_vars` field defines per-enrollment variables that are rendered and passed to code examples and test scripts during both local testing (`usvc_seller data run-tests`) and gateway testing (`usvc_seller services run-tests`). Values support Jinja2 template syntax with access to the enrollment context.
 
 ```json
 {
     "service_options": {
         "enrollment_vars": {
-            "user_id": "{{ enrollment_code(6) }}",
+            "user_id": "{{ enrollment.code }}",
             "region": "us-east-1"
         }
     }
 }
 ```
 
-Template functions available in `enrollment_vars` values:
+Enrollment context available in `enrollment_vars` values:
 
-- `{{ enrollment_code(N) }}` — Returns the enrollment's unique code (N = length). The code is stable per enrollment.
+- `{{ enrollment.code }}` — the enrollment's unique 4-character code, stable per enrollment (also reachable at `/e/<code>`).
 
 Variable names should be lowercase. They are available directly in access interface templates as `{{ var_name }}`.
 
@@ -316,7 +316,7 @@ Variable names should be lowercase. They are available directly in access interf
             "region": "us-east-1"
         },
         "enrollment_vars": {
-            "USER_ID": "{{ enrollment_code(6) }}"
+            "USER_ID": "{{ enrollment.code }}"
         },
         "enrollment_limit": 100,
         "enrollment_limit_per_customer": 5,
@@ -338,7 +338,7 @@ api_key = "${ secrets.SERVICE_API_KEY }"
 region = "us-east-1"
 
 [service_options.enrollment_vars]
-user_id = "{{ enrollment_code(6) }}"
+user_id = "{{ enrollment.code }}"
 ```
 
 ### Listing Name Field
@@ -693,19 +693,16 @@ String values in `user_access_interfaces` and `upstream_access_config` can use *
 
 **Template context variables:**
 
-| Variable                 | Type   | Description               |
-| ------------------------ | ------ | ------------------------- |
-| `enrollment.id`          | string | Enrollment UUID           |
-| `enrollment.customer_id` | string | Customer UUID             |
-| `enrollment.parameters`  | dict   | All enrollment parameters |
+| Variable                 | Type   | Description                                          |
+| ------------------------ | ------ | --------------------------------------------------- |
+| `enrollment.code`        | string | The enrollment's unique **4-character** reference code |
+| `enrollment.id`          | string | Enrollment UUID                                     |
+| `enrollment.customer_id` | string | Customer UUID                                       |
+| `enrollment.parameters`  | dict   | All enrollment parameters                           |
 
-**Template functions:**
+Every enrollment has a unique, stable **4-character code** (Crockford base32, e.g. `CEFF`), available as `{{ enrollment.code }}` and identical across `user_access_interfaces` and `upstream_access_config`. The same code is a built-in routing handle: **every enrollment is reachable at `/e/<code>`** regardless of its `base_url`. `/e/` is reserved — do not use it in `base_url`.
 
-| Function                    | Returns | Description                                                    |
-| --------------------------- | ------- | -------------------------------------------------------------- |
-| `enrollment_code(length=6)` | string  | Create or retrieve a random code tied to a specific enrollment |
-
-The `enrollment_code` function is idempotent — calling it multiple times for the same enrollment returns the same code. The code is persisted in the `action_code` table and can be referenced from both `user_access_interfaces` and `upstream_access_config` templates.
+> **Migration:** `enrollment.code` replaces the old `enrollment_code()` function. Use `{{ enrollment.code }}` instead of `{{ enrollment_code(6) }}` (the length argument is gone — the code is always 4 characters).
 
 **Behavior:**
 
@@ -719,7 +716,7 @@ The `enrollment_code` function is idempotent — calling it multiple times for t
 ```toml
 [user_access_interfaces.ntfy-gateway]
 access_method = "http"
-base_url = "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment_code(6) }}"
+base_url = "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment.code }}"
 description = "Your ntfy notification endpoint"
 ```
 
@@ -730,7 +727,7 @@ description = "Your ntfy notification endpoint"
     "user_access_interfaces": {
         "ntfy-gateway": {
             "access_method": "http",
-            "base_url": "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment_code(6) }}",
+            "base_url": "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment.code }}",
             "description": "Your ntfy notification endpoint"
         }
     }
@@ -741,21 +738,21 @@ After enrollment, the `base_url` is rendered with the generated code (e.g., `${A
 
 **Example — upstream access interface with template:**
 
-The corresponding upstream interface in the offering can reference the same `enrollment_code()` to route requests to the correct upstream target:
+The corresponding upstream interface in the offering can reference the same `{{ enrollment.code }}` to route requests to the correct upstream target:
 
 ```json
 {
     "upstream_access_config": {
         "ntfy-upstream": {
             "access_method": "http",
-            "base_url": "https://ntfy.svcpass.com/{{ enrollment_code(6) }}",
+            "base_url": "https://ntfy.svcpass.com/{{ enrollment.code }}",
             "description": "Private ntfy instance"
         }
     }
 }
 ```
 
-Unlike user interfaces, upstream templates are **not** materialized at enrollment time. They are rendered at gateway routing time — the gateway identifies the enrollment from the inbound request, then expands the upstream template with the enrollment's `enrollment_code()` to determine the final upstream URL.
+Unlike user interfaces, upstream templates are **not** materialized at enrollment time. They are rendered at gateway routing time — the gateway identifies the enrollment from the inbound request, then expands the upstream template with the enrollment's `enrollment.code` to determine the final upstream URL.
 
 #### Routing Key
 

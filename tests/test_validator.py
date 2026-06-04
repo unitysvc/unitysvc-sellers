@@ -657,7 +657,7 @@ class TestServiceOptionsValidation:
         data = {
             "schema": "listing_v1",
             "service_options": {
-                "enrollment_vars": {"user_id": "{{ enrollment_code(6) }}"},
+                "enrollment_vars": {"user_id": "{{ enrollment.code }}"},
             },
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
@@ -697,10 +697,9 @@ class TestServiceOptionsValidation:
         data = {
             "schema": "listing_v1",
             "service_options": {
-                "enrollment_vars": {"topic": "{{ enrollment_code() }}"},
+                "enrollment_vars": {"topic": "{{ enrollment.code }}"},
                 "enrollment_limit_per_customer": 5,
             },
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
         assert errors == []
-

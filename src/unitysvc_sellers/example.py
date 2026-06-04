@@ -10,7 +10,6 @@ making it easy to track results in version control.
 import os
 import random
 import re
-import string
 from pathlib import Path
 from typing import Any
 
@@ -34,15 +33,22 @@ console = Console()
 
 _jinja_env = jinja2.Environment()
 
+# Crockford base32 alphabet (no I/L/O/U) — matches the real enrollment code.
+_CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
 # Fixed test code reused across a single run so all templates resolve consistently
 _test_enrollment_code: str | None = None
 
 
-def _get_test_enrollment_code(length: int = 6) -> str:
-    """Return a fixed random code for local testing (no real enrollment)."""
+def _get_test_enrollment_code(length: int = 4) -> str:
+    """Return a fixed random 4-character code for local testing (no real enrollment).
+
+    Mirrors the platform's intrinsic ``enrollment.code`` (a fixed 4-character
+    Crockford base32 code assigned to every enrollment).
+    """
     global _test_enrollment_code
     if _test_enrollment_code is None:
-        _test_enrollment_code = "".join(random.choices(string.ascii_uppercase, k=length))
+        _test_enrollment_code = "".join(random.choices(_CROCKFORD, k=length))
     return _test_enrollment_code
 
 
@@ -52,7 +58,7 @@ def expand_template_strings(
 ) -> dict[str, Any]:
     """Expand Jinja2 template syntax in string values of a dict (recursively).
 
-    Uses a fake enrollment_code() for local testing. Only processes
+    Provides a fake ``enrollment.code`` for local testing. Only processes
     string values that contain {{ or {%; nested dicts are expanded
     recursively so that ``routing_key.model = "{{ params.model }}"`` is
     resolved before the value is placed into the template render context.
@@ -61,9 +67,14 @@ def expand_template_strings(
         data: Dict whose string values may contain Jinja2 templates.
         extra_context: Additional template variables (e.g. rendered enrollment_vars).
     """
-    ctx: dict[str, Any] = {"enrollment_code": _get_test_enrollment_code}
+    ctx: dict[str, Any] = {}
     if extra_context:
         ctx.update(extra_context)
+    # Ensure {{ enrollment.code }} resolves for local testing, without
+    # clobbering any enrollment context the caller already supplied.
+    enrollment_ctx = dict(ctx.get("enrollment") or {})
+    enrollment_ctx.setdefault("code", _get_test_enrollment_code())
+    ctx["enrollment"] = enrollment_ctx
     result = {}
     for key, value in data.items():
         if isinstance(value, str) and ("{{" in value or "{%" in value):
@@ -76,8 +87,6 @@ def expand_template_strings(
             value = expand_template_strings(value, extra_context)
         result[key] = value
     return result
-
-
 
 
 def extract_code_examples_from_listing(listing_data: dict[str, Any], listing_file: Path) -> list[dict[str, Any]]:

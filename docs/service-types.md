@@ -148,7 +148,7 @@ When per-enrollment values are needed in URLs (e.g., unique topic codes):
 
 ```toml
 [service_options.enrollment_vars]
-topic = "{{ enrollment_code(6) }}"
+topic = "{{ enrollment.code }}"
 
 [user_access_interfaces.gateway]
 access_method = "http"
@@ -156,8 +156,10 @@ base_url = "${API_GATEWAY_BASE_URL}/ntfy/{{ topic }}"
 ```
 
 Rendering happens in two phases:
-1. `enrollment_vars` rendered first — `{{ enrollment_code(6) }}` → `VTXBNM`
-2. Access interface URL rendered — `{{ topic }}` → `VTXBNM`
+1. `enrollment_vars` rendered first — `{{ enrollment.code }}` → `CEFF` (every enrollment's unique 4-character code)
+2. Access interface URL rendered — `{{ topic }}` → `CEFF`
+
+Every enrollment is also reachable directly at `/e/CEFF` regardless of `base_url` — see [User Access Interface Templates](tech-notes/user-access-interface-template.md).
 
 See [User Access Interface Templates](tech-notes/user-access-interface-template.md) for details.
 
