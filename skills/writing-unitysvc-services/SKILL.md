@@ -241,22 +241,29 @@ usvc_seller data format
 usvc_seller data run-tests <name>
 
 # 4. Upload to staging so the gateway has a route to test against.
+#    A re-upload of an existing service creates a *revision* (admin-review
+#    queue) rather than mutating the active row in place — that's expected.
 usvc_seller data upload <name>
 
-# 5. Make the uploaded service routable: visibility public + status active.
-#    Newly-uploaded services start as draft/unlisted; the gateway only
-#    routes active/public services.
-usvc_seller services set-visibility public --local-ids --yes
-usvc_seller services submit --local-ids --yes
-# Wait a few seconds for the activation; verify with:
-usvc_seller services list --local-ids
-
-# 6. Gateway-side tests: the same documents executed from the platform,
+# 5. Gateway-side tests: the same documents executed from the platform,
 #    routed through the gateway, exercising the registered route +
 #    svcpass auth + the upstream chain end-to-end. The command skips
 #    documents whose last per-iface result was 'success' — pass --force
-#    to re-run them.
+#    to re-run them. NAME may match the active row plus the pending
+#    revision; both rows get tested.
 usvc_seller services run-tests <name> --force
+```
+
+**Testing does NOT require the service to be public or active.** The gateway test runner authenticates as the seller and can route freshly-uploaded draft/pending revisions through the gateway just to verify routing + svcpass attribution + upstream chain work end-to-end. `set-visibility` and `submit` are about making a service *customer-facing* — that's a separate publishing step, **not** part of the verification pipeline. Don't run them just to test.
+
+When you *are* ready to publish (after all four verification gates pass) — that's a separate action, intentionally explicit:
+
+```bash
+# Make the active row routable for customers (visibility public + status active).
+# This is publishing, not verifying — skip it when you're only testing.
+usvc_seller services set-visibility public --local-ids --yes
+usvc_seller services submit --local-ids --yes
+usvc_seller services list --local-ids   # confirm visibility/status flipped
 ```
 
 ### Selector grammar (positional NAME)
@@ -283,7 +290,7 @@ usvc_seller services run-tests --id 6c55d6d9 --force
 
 ### Why the pipeline order matters
 
-If 3 passes but 6 fails, the upstream is healthy but the *gateway routing* or *svcpass attribution* is broken — that's almost always a wrong `user_access_interfaces.<iface>.base_url` (must use `{{ service_name }}`, see `unitysvc-sellers/docs/naming-conventions.md`) or a misconfigured `api_key` disposition (`unitysvc/unitysvc#1198` — unset/empty/`__strip__`/`__forward__`/literal).
+If step 3 (`data run-tests`) passes but step 5 (`services run-tests`) fails, the upstream is healthy but the *gateway routing* or *svcpass attribution* is broken — that's almost always a wrong `user_access_interfaces.<iface>.base_url` (must use `{{ service_name }}`, see `unitysvc-sellers/docs/naming-conventions.md`) or a misconfigured `api_key` disposition (`unitysvc/unitysvc#1198` — unset/empty/`__strip__`/`__forward__`/literal).
 
 To upload a single service in isolation (faster than uploading the whole repo):
 
@@ -291,7 +298,7 @@ To upload a single service in isolation (faster than uploading the whole repo):
 usvc_seller data upload <name>
 ```
 
-Do not declare a service done until you have actually run all four test steps (validate, format, data run-tests, services run-tests) and they all returned green. "It looks right" or "validate passed" alone has bitten this workflow more than once. The `data run-tests` Python examples may fail with `ModuleNotFoundError: No module named 'requests'` if the test runner picks the system Python instead of the active venv — that's a unitysvc-sellers runner issue, not your service data; if shell + connectivity tests pass, treat the Python failure as environmental.
+Do not declare a service done until you have actually run all four test steps (validate, format, data run-tests, services run-tests) and they all returned green. "It looks right" or "validate passed" alone has bitten this workflow more than once. The `data run-tests` Python examples may fail with `ModuleNotFoundError: No module named 'requests'` if the test runner picks the system Python instead of the active venv (the workspace venv lives at `~/unitysvc/.venv` on this system — `source ~/unitysvc/.venv/bin/activate` before running) — that's a unitysvc-sellers runner issue, not your service data; if shell + connectivity tests pass, treat the Python failure as environmental.
 
 ## 6. Iterator + template pattern — when you have a collection
 
@@ -382,8 +389,8 @@ When the user says "add a service to repo X":
 6. **Validate, format** — fix anything `usvc_seller data validate` complains about; `usvc_seller data format` to canonicalize.
 7. **Data run-tests** — `usvc_seller data run-tests <name>` against the live upstream.
 8. **Upload** — `usvc_seller data upload <name>` to staging.
-9. **Services run-tests** — `usvc_seller services run-tests <name>` through the gateway (add `--id <prefix>` if the name matches more than one row).
-10. **Only after all four green:** report "ready". If anything failed, fix the underlying issue (don't skip the step) and re-run from the failing point.
+9. **Services run-tests** — `usvc_seller services run-tests <name> --force` through the gateway. No visibility / submit step needed: the test runner authenticates as the seller and can route freshly-uploaded draft/pending revisions. Add `--id <prefix>` only if the name matches more than one row *and* you want to scope to one.
+10. **Only after all four green:** report "ready". If anything failed, fix the underlying issue (don't skip the step) and re-run from the failing point. **Publishing** the service to customers (`set-visibility public` + `submit`) is a separate, explicit action — not part of verification.
 
 ## 10. Common failure modes and where to look
 
