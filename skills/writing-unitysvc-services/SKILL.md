@@ -383,12 +383,12 @@ When the user says "add a service to repo X":
 
 1. **Identify the closest pattern** — `ls ~/unitysvc/unitysvc-services-demo/data/unitysvc-demo/services/` and pick one. Copy `offering.json`, `listing.json` into the target repo as a starting point.
 2. **Decide single vs. iterator** — if this is one service, hand-edit. If part of a collection of >5 similar services, set up `scripts/update_services.py` + `templates/*.j2` first.
-3. **Fill in the offering** — name, service_type, capabilities, upstream_access_config, payout_price. Cross-check against `unitysvc-sellers/docs/file-schemas.md` for field semantics.
-4. **Fill in the listing** — name (per `naming-conventions.md`), list_price (per `pricing.md`), user_access_interfaces base_url (`${API_GATEWAY_BASE_URL}/{{ service_name }}` for normal services; bare top-level for platform-internal), documents block.
+3. **Fill in the offering** — name, service_type, capabilities, upstream_access_config, payout_price. Cross-check against `unitysvc-sellers/docs/file-schemas.md` for field semantics. **For secret references:** put sensitive values behind `${ customer_secrets.<NAME> }` with a service-specific prefix (`SMTP_RELAY_HOST`, not bare `SMTP_HOST`); put operational config in direct params or as literal fields with `?? default` fallbacks. See **§11**.
+4. **Fill in the listing** — name (per `naming-conventions.md`), list_price (per `pricing.md`), user_access_interfaces base_url (`${API_GATEWAY_BASE_URL}/{{ service_name }}` for normal services; bare top-level for platform-internal), documents block. **For `-plus` services**: `ops_testing_parameters` holds literal values (host, port, etc.); only `*_secret` keys name a seller secret. `user_parameters_schema` `*_secret` defaults point at the non-plus literal name. See **§11**.
 5. **Add the connectivity test** — preset if a stock one fits; local Jinja file otherwise. Make sure it handles both `localtesting` modes if it isn't purely env-var-driven.
 6. **Validate, format** — fix anything `usvc_seller data validate` complains about; `usvc_seller data format` to canonicalize.
 7. **Data run-tests** — `usvc_seller data run-tests <name>` against the live upstream.
-8. **Upload** — `usvc_seller data upload <name>` to staging.
+8. **Upload** — `usvc_seller data upload <name>` to staging. If this fails with `ValueError: Customer secret 'X' … requires a seller secret with the same name`, seed it: `usvc_seller secrets set X --value <v>` and retry. (In CI, the seed-secrets workflow step handles this automatically — see **§11**.)
 9. **Services run-tests** — `usvc_seller services run-tests <name> --force` through the gateway. No visibility / submit step needed: the test runner authenticates as the seller and can route freshly-uploaded draft/pending revisions. Add `--id <prefix>` only if the name matches more than one row *and* you want to scope to one.
 10. **Only after all four green:** report "ready". If anything failed, fix the underlying issue (don't skip the step) and re-run from the failing point. **Publishing** the service to customers (`set-visibility public` + `submit`) is a separate, explicit action — not part of verification.
 
@@ -402,8 +402,92 @@ When the user says "add a service to repo X":
 | Gateway returns 401 with "Missing svcpass API key" | Customer not authenticated; case-sensitive `Bearer` required | `Authorization: Bearer <svcpass_…>` (capital B) or `x-api-key: …` |
 | Test passes locally but fails in CI | Template uses generator-time Jinja for a runtime variable | Wrap in `{% raw %}…{% endraw %}` (see Section 4) |
 | Re-upload creates a draft revision instead of in-place update | Renamed `listing.name` or changed routing-affecting fields — backend treats as content change and queues admin review | Expected. Submit the revision: `usvc_seller services submit --local-ids` |
+| `data upload` fails with `ValueError: Customer secret 'X' … requires a seller secret with the same name for testing` | Every `${ customer_secrets.X }` reference in a listing/offering needs a same-named seller secret in *your* seller-secrets store, because the platform's gateway-side tests plug in a real value | Seed it: `usvc_seller secrets set X --value <v>` locally, or via the CI seed-secrets workflow step that auto-derives names from `data/`. See **§11**. |
+| `data upload` fails with `[Errno 21] Is a directory: '.../services/<other-service>'` | A description / tutorial markdown contains a relative link to a sibling **directory** like `[label](../smtp-to-msg/)`. The uploader's markdown scanner picks up local refs as S3 assets and `open()` blows up on the directory | Replace directory-target links with prose, or point them at a specific file inside the sibling (e.g. `../smtp-to-msg/msg-description.md`). |
 
-## 11. When to ask the user vs. proceed
+## 11. Secrets, parameters, and ops_testing wiring
+
+Service definitions reference customer-supplied values through one of three forms — knowing which is which avoids the two most common upload-time errors.
+
+### Three shapes a reference can take
+
+```text
+${ customer_secrets.<NAME> }              ← literal customer-secret reference
+${ customer_secrets.{{ params.<X> }} }    ← per-enrollment customer-secret reference (-plus services)
+{{ params.<X> }}                          ← direct enrollment parameter (no secret indirection)
+```
+
+The first is for **fixed-name secrets** every customer of the service supplies under the same name (e.g. `HTTP_RELAY_BASE_URL` on the free single variant). The second is the multi-enrollment indirection: the customer names the secret at enrollment time via the `<X>_secret` parameter, value resolved at request time. The third is for **non-sensitive operational config** — a URL, port, hostname, flag — that doesn't need to live in the secrets store.
+
+**Decision rule:** anything sensitive (password, API key, bearer token) goes through `customer_secrets`. Anything operational (host, port, tls flag, plain destination URL) is a direct parameter with a default. Don't put a URL behind `customer_secrets` just because someone wanted "the same indirection for everything" — that's how an op URL ends up needing a seller-secret seed at upload time when a literal param would suffice.
+
+### Every `${ customer_secrets.<NAME> }` needs a same-named seller secret on the platform
+
+The upload validator rejects a listing whose `${ customer_secrets.X }` references don't have a same-named seller secret in *your* seller-secrets store. This is because the platform's gateway-side tests plug in a real value for the synthetic test enrollment. Two ways to satisfy it:
+
+- **Locally** (one-off): `usvc_seller secrets set <NAME> --value <value>` against staging or production.
+- **In CI** (the right answer at scale): the seed-secrets workflow step — grep `${ customer_secrets.X }` and `${ secrets.X }` out of `data/`, look up each name in `toJSON(secrets)`, call `usvc_seller secrets set <NAME>` before `data upload`. Auto-derive from the data files; don't hand-maintain a manifest — it drifts. Reference implementation: `unitysvc-services-http/.github/workflows/upload-to-staging.yml` "Seed seller-secrets store".
+
+Optional references with `?? ` fallback (e.g. `${ customer_secrets.HTTP_RELAY_API_KEY ?? }`) don't strictly require the seller-secret to exist, but the seed step will `::warning::` + skip them if unset, which is fine.
+
+### Namespace your customer-secret names
+
+`SMTP_HOST` and `SMTP_PASSWORD` are too generic — they'll collide the moment a second SMTP-flavored service appears under the same customer. Use a service-specific prefix:
+
+- `SMTP_RELAY_HOST` / `SMTP_RELAY_PASSWORD` — for `smtp-relay`
+- `HTTP_RELAY_BASE_URL` / `HTTP_RELAY_API_KEY` — for `http-relay`
+- `<PROVIDER>_API_KEY` — for upstream-provider services (`ANTHROPIC_API_KEY`, `COHERE_API_KEY`, …)
+
+The seed-secrets CI step grep-matches against bare names, so collisions are silent bugs. Pick the namespace once when the service is created.
+
+### `ops_testing_parameters` shape — literals, not template refs
+
+For `-plus` (multi-enrollment) services, `service_options.ops_testing_parameters` defines the synthetic enrollment the platform uses for gateway tests. The values are **literals** — what the platform plugs in directly — except for one special case:
+
+```json
+"ops_testing_parameters": {
+  "host":            "mailpit.svcmarket.com",
+  "port":            1025,
+  "username":        "",
+  "tls":             false,
+  "password_secret": "SMTP_RELAY_PASSWORD"     ← ONLY this names a seller secret
+}
+```
+
+- All non-`_secret` keys are **literal values** of the right type (string / int / bool). Do **not** wrap them in `${ customer_secrets.X }` — that's the wrong primitive, even though the platform may resolve it at upload time by accident.
+- Keys ending in `_secret` (`password_secret`, `api_key_secret`) name a seller secret. The platform looks up the value at test time. Default them to the corresponding non-plus service's literal secret name (e.g. `SMTP_RELAY_PASSWORD`, `HTTP_RELAY_API_KEY`).
+
+### `-plus` `user_parameters_schema` defaults
+
+Same convention in the customer-facing parameter schema:
+
+- Non-secret params (`host`, `port`, `username`, `tls`, `base_url`) get **direct literal defaults** of the right type.
+- `*_secret` params **default to the non-plus literal secret name**. This makes an empty-params enrollment work out of the box against the seller-seeded fixture, and the seed-secrets grep over the non-plus offering picks the name up transparently — no per-enrollment fix-up needed for the common case.
+
+```json
+"user_parameters_schema": {
+  "type": "object",
+  "required": [],
+  "properties": {
+    "host":            { "type": "string",  "default": "mailpit.svcmarket.com" },
+    "port":            { "type": "integer", "default": 1025 },
+    "tls":             { "type": "boolean", "default": false },
+    "username":        { "type": "string",  "default": "" },
+    "password_secret": { "type": "string",  "default": "SMTP_RELAY_PASSWORD" }
+  }
+}
+```
+
+### Markdown links to sibling services — never bare directories
+
+The uploader's markdown scanner extracts every local href (anything containing `/`) and tries to upload it to S3. A link like `[label](../smtp-to-msg/)` resolves to a *directory*, the uploader calls `open()` on it, and the whole offering fails with `[Errno 21] Is a directory`. Two safe forms:
+
+- **Prose** (recommended for "switch to X" pointers): `the smtp-to-msg service` — no link at all.
+- **File-specific link** (when navigation is genuinely useful): `[smtp-to-msg](../smtp-to-msg/msg-description.md)` — targets a real file.
+
+Never `[label](../sibling/)` with a trailing slash.
+
+## 12. When to ask the user vs. proceed
 
 - **Proceed without asking** if the closest demo pattern is obvious and the user gave a specific service name + behavior.
 - **Ask the user** about: list_price shape (constant vs. token-based vs. revenue_share); whether the service needs a routing_key.model (most LLMs do, some don't); whether customer secrets are required (BYOK / BYOE) or seller-supplied (managed). Don't invent these — pricing and auth model are commercial decisions, not technical ones.
