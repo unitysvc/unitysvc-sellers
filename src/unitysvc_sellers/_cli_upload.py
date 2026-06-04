@@ -24,9 +24,13 @@ console = Console()
 
 
 def upload(
-    data_dir: Path | None = typer.Argument(
+    name: str | None = typer.Argument(
         None,
-        help="Path to the seller catalog directory (default: current directory).",
+        help=(
+            "Service to upload, by service_name (= listing.name) — fnmatch pattern, e.g. "
+            "'cohere/*' or a literal name. Omit to upload every service in the current "
+            "directory (plus promotions and groups unless ``--type`` restricts the scope)."
+        ),
     ),
     api_key: str | None = typer.Option(
         None,
@@ -47,13 +51,6 @@ def upload(
         "-t",
         help="Upload only one resource: services / promotions / groups. Default: upload all three.",
     ),
-    name: str | None = typer.Option(
-        None,
-        "--name",
-        "-n",
-        help="Upload only services whose service_name (= listing.name) matches this fnmatch "
-        "pattern, e.g. 'cohere/*' or a literal name.",
-    ),
 ) -> None:
     """Upload a seller catalog (services + promotions + service groups) to UnitySVC."""
     if not api_key:
@@ -63,11 +60,10 @@ def upload(
         )
         raise typer.Exit(code=1)
 
-    if data_dir is None:
-        data_dir = Path.cwd()
-    if not data_dir.exists():
-        console.print(f"[red]✗[/red] Directory not found: {data_dir}", style="bold red")
-        raise typer.Exit(code=1)
+    # Always operate on the current working directory — cd into your data
+    # repo before running.  Keeps the CLI surface minimal; there's no
+    # ``--data-dir`` flag to remember.
+    data_dir = Path.cwd()
 
     valid_types = {"services", "promotions", "groups"}
     if upload_type and upload_type not in valid_types:
@@ -78,11 +74,14 @@ def upload(
         raise typer.Exit(code=1)
 
     if name and upload_type not in (None, "services"):
-        console.print("[red]✗[/red] --name only applies to service uploads; drop --type or use --type services.")
+        console.print(
+            "[red]✗[/red] A positional name only applies to service uploads; drop --type or use --type services."
+        )
         raise typer.Exit(code=1)
 
-    # --name selects one service; promotions/groups are not service-scoped,
-    # so a named upload is services-only.
+    # A positional name selects one or more services; promotions/groups
+    # are not service-scoped, so a name-restricted upload is
+    # services-only.
     upload_services = upload_type in (None, "services")
     upload_promotions = upload_type in (None, "promotions") and not name
     upload_groups = upload_type in (None, "groups") and not name

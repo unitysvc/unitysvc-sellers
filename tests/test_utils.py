@@ -532,6 +532,14 @@ class TestServiceNameMatches:
             ("llama-3", "*llama*", True),
             (None, "*", False),
             ("", "*", False),
+            # ``%`` is a synonym for ``*``; lets the operator pass the
+            # pattern unquoted in a shell that would otherwise glob-expand
+            # ``*`` against the local filesystem.
+            ("cohere/command-r", "cohere/%", True),
+            ("cohere/v1/foo", "cohere/%", True),
+            ("cohere/command-r", "%command%", True),
+            ("llama-3", "%llama%", True),
+            ("cohere/command-r", "anthropic/%", False),
         ],
     )
     def test_matches(self, name, pattern, expected) -> None:
@@ -548,6 +556,10 @@ class TestServiceNameMatches:
             ("*llama*", None),
             ("?x", None),
             ("[ab]c", None),
+            # ``%`` stops the prefix scan the same way ``*`` does.
+            ("cohere/command-%", "cohere/command-"),
+            ("cohere/%", "cohere/"),
+            ("%llama%", None),
         ],
     )
     def test_literal_prefix(self, pattern, expected) -> None:
