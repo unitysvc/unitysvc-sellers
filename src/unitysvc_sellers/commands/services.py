@@ -279,17 +279,19 @@ def _resolve_single_target_id(
     name_value: str = name
 
     async def _resolve_one_by_name() -> str:
-        from ..utils import literal_pattern_prefix, service_name_matches
-        server_hint = literal_pattern_prefix(name_value)
+        # Backend (unitysvc#1201) now applies the strict ``*``/``%`` glob
+        # grammar against ``service.name`` directly — every row in the
+        # response is a genuine match, so no client-side narrowing step
+        # is needed.  We just walk the cursor pages and collect the ids.
         matched: list[tuple[str, str]] = []
         cursor: str | None = None
         async with async_client(api_key, base_url) as client:
             while True:
-                response = await client.services.list(name=server_hint, limit=200, cursor=cursor)
+                response = await client.services.list(name=name_value, limit=200, cursor=cursor)
                 for svc in model_list(response):
                     row = svc if isinstance(svc, dict) else model_to_dict(svc)
                     row_name = row.get("name") or row.get("service_name")
-                    if service_name_matches(row_name, name_value) and row.get("id"):
+                    if row.get("id"):
                         matched.append((str(row["id"]), str(row_name)))
                 next_cursor = getattr(response, "next_cursor", None)
                 has_more = getattr(response, "has_more", False)
@@ -619,27 +621,24 @@ def _resolve_or_fetch_ids(
 
     # --- --name: all backend rows whose service_name matches the pattern ---
     if name is not None:
-        from ..utils import literal_pattern_prefix, service_name_matches
-
-        # Narrow the server-side partial search to the pattern's literal prefix
-        # (``cohere/command-*`` → ``cohere/command-``); fnmatch-filter precisely
-        # client-side. A leading-wildcard pattern (``*llama*``) scans the seller's
-        # catalog with no server hint.
-        server_hint = literal_pattern_prefix(name)
-
+        # Backend (unitysvc#1201) precise-matches ``service.name`` against
+        # the strict ``*``/``%`` glob grammar, so every row returned is a
+        # genuine name match.  We still apply the status / visibility
+        # filters client-side because those are per-command policy (the
+        # ``--all`` server-side filter doesn't apply when targeting by
+        # name — the operator named these rows, action is gated on
+        # whether they're currently eligible for the requested
+        # transition).
         async def _fetch_by_name() -> list[str]:
             matched: list[str] = []
             cursor: str | None = None
             async with async_client(api_key, base_url) as client:
                 while True:
                     response = await client.services.list(
-                        name=server_hint, limit=200, cursor=cursor, provider=provider
+                        name=name, limit=200, cursor=cursor, provider=provider
                     )
                     for svc in model_list(response):
                         row = svc if isinstance(svc, dict) else model_to_dict(svc)
-                        row_name = row.get("name") or row.get("service_name")
-                        if not service_name_matches(row_name, name):
-                            continue
                         if (str(row.get("status") or "") or None) not in statuses_when_all:
                             continue
                         if visibilities_when_all and (

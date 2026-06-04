@@ -342,19 +342,17 @@ async def _resolve_service_ids_by_name(api_key: str | None, base_url: str, name:
     matched parents, so a literal name targets the active row plus
     any draft revision under it.
     """
-    from ..utils import literal_pattern_prefix, service_name_matches
-
-    server_hint = literal_pattern_prefix(name)
+    # Backend (unitysvc#1201) precise-matches ``service.name`` against
+    # the strict ``*``/``%`` glob grammar — every returned row is a
+    # genuine match, so no client-side narrowing step is needed.
     matched: list[tuple[str, str | None]] = []
     cursor: str | None = None
     async with async_client(api_key, base_url) as client:
         while True:
-            response = await client.services.list(name=server_hint, limit=200, cursor=cursor)
+            response = await client.services.list(name=name, limit=200, cursor=cursor)
             for svc in model_list(response):
                 row = svc if isinstance(svc, dict) else model_to_dict(svc)
                 row_name = row.get("name") or row.get("service_name")
-                if not service_name_matches(row_name, name):
-                    continue
                 if row.get("id"):
                     matched.append((str(row["id"]), row_name))
             next_cursor = getattr(response, "next_cursor", None)
