@@ -15,22 +15,24 @@ Interfaces containing template syntax (`{{` or `{%`) are rendered per-enrollment
 
 Templates are rendered with these variables:
 
-| Variable                     | Type   | Description                     |
-| ---------------------------- | ------ | ------------------------------- |
-| `enrollment.id`              | string | Enrollment UUID                 |
-| `enrollment.customer_id`     | string | Customer UUID                   |
-| `enrollment.parameters`      | dict   | All enrollment parameters       |
+| Variable                     | Type   | Description                                          |
+| ---------------------------- | ------ | --------------------------------------------------- |
+| `enrollment.code`            | string | The enrollment's unique **4-character** reference code |
+| `enrollment.id`              | string | Enrollment UUID                                     |
+| `enrollment.customer_id`     | string | Customer UUID                                       |
+| `enrollment.parameters`      | dict   | All enrollment parameters                           |
 
-## Template Functions
+## `enrollment.code` and the `/e/<code>` primitive
 
-### `enrollment_code(length=6)`
+**Every enrollment is assigned a unique, stable 4-character code** (Crockford base32, e.g. `CEFF`) at creation. Reference it in any template with `{{ enrollment.code }}` — both `user_access_interfaces` and `upstream_access_config` see the same value for a given enrollment.
 
-Creates or retrieves a random code tied to a specific enrollment. The function is **idempotent** — repeated calls for the same enrollment return the same code (looked up by `entity_id` and `code_type=enrollment` in the `action_code` table). This allows both `user_access_interfaces` and `upstream_access_config` to reference the same enrollment-specific code.
+The code is also a built-in routing handle: **every enrollment is reachable at `/e/<code>`** (e.g. `${API_GATEWAY_BASE_URL}/e/CEFF`), which the gateway resolves to that enrollment's endpoint — regardless of the `base_url` you define. You don't build `/e/...` yourself, and `/e/` is **reserved** (you cannot use it in `base_url`); it is always available for free, as a short, unique handle to the enrollment.
 
 ```jinja2
-{{ enrollment_code() }}      {# 6-character uppercase token, e.g. VTXBNM #}
-{{ enrollment_code(8) }}     {# 8-character token #}
+{{ enrollment.code }}      {# 4-character code, e.g. CEFF #}
 ```
+
+> **Migration:** `enrollment.code` replaces the old `enrollment_code()` template function. Use `{{ enrollment.code }}` instead of `{{ enrollment_code(6) }}`. The code is now a fixed 4 characters — the length argument is gone.
 
 ## Example: ntfy Service
 
@@ -42,7 +44,7 @@ The ntfy service exposes a notification gateway where each enrollment gets a uni
 # listing.toml — user-facing endpoint with per-enrollment topic
 [user_access_interfaces.ntfy-gateway]
 access_method = "http"
-base_url = "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment_code(6) }}"
+base_url = "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment.code }}"
 description = "Your ntfy notification endpoint"
 ```
 
@@ -50,18 +52,18 @@ description = "Your ntfy notification endpoint"
 # offering.toml — upstream endpoint with same enrollment code
 [upstream_access_config.ntfy-upstream]
 access_method = "http"
-base_url = "https://ntfy.svcpass.com/{{ enrollment_code(6) }}"
+base_url = "https://ntfy.svcpass.com/{{ enrollment.code }}"
 description = "Private ntfy instance"
 ```
 
-Both templates call `enrollment_code(6)` and resolve to the same code (e.g. `VTXBNM`) for a given enrollment.
+Both templates reference `{{ enrollment.code }}` and resolve to the same code (e.g. `CEFF`) for a given enrollment.
 
 ### After Enrollment
 
-- Topic code `VTXBNM` is generated and persisted in the `action_code` table
-- An enrollment-scoped `AccessInterface` is created with `base_url = "${API_GATEWAY_BASE_URL}/ntfy/VTXBNM"`
+- The enrollment's code (e.g. `CEFF`) is generated at enrollment creation
+- An enrollment-scoped `AccessInterface` is created with `base_url = "${API_GATEWAY_BASE_URL}/ntfy/CEFF"`
 - The user sees their complete, personalized endpoint
-- At gateway routing time, the upstream template resolves to `https://ntfy.svcpass.com/VTXBNM`
+- At gateway routing time, the upstream template resolves to `https://ntfy.svcpass.com/CEFF`
 - Gateway forwards the request to the correct upstream topic
 
 ### Access Control
@@ -82,14 +84,14 @@ Enrollment-scoped `AccessInterface` records are only visible to the enrollment t
 2. Each interface is classified:
    - **Template** (contains `{{` or `{%`): rendered per-enrollment, creates enrollment-scoped `AccessInterface`
    - **Static** (no template syntax): shared listing-scoped `AccessInterface` (idempotent)
-3. Template rendering uses `jinja2.Environment(enable_async=True)` with `render_async()`, which auto-awaits async functions like `enrollment_code()`
+3. Template rendering substitutes `{{ enrollment.code }}` (and the other `enrollment.*` context values) with the enrollment's data
 4. Rendered values are validated as `AccessInterfaceData` and persisted via upsert
 
 ### Upstream access interfaces (gateway routing time)
 
 1. When a request arrives, the gateway identifies the enrollment from the user access interface match
 2. If the offering's `upstream_access_config` contain template syntax, they are rendered using the enrollment context
-3. `enrollment_code()` resolves to the same code that was created at enrollment time (idempotent lookup)
+3. `{{ enrollment.code }}` resolves to the enrollment's 4-character code (assigned at enrollment creation)
 4. The resolved upstream URL is used to forward the request — no upstream `AccessInterface` records are created per enrollment
 
 ## Consistency with Service Groups
