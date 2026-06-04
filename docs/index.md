@@ -21,6 +21,7 @@ match freely.
 -   **[CLI Guide](cli-guide.md)** / **[CLI Reference](cli-reference.md)** - Command-line workflows and complete option listing
 -   **[SDK Guide](sdk-guide.md)** / **[SDK Reference](sdk-reference.md)** - Python SDK usage and auto-generated class docs
 -   **[Workflows](workflows.md)** - Common usage patterns and best practices
+-   **[Claude Code Skill](claude-code-skill.md)** - Install the bundled Claude Code skill so Claude authors services to platform conventions automatically
 
 ## What the package gives you
 
