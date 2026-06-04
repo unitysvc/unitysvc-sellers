@@ -198,8 +198,14 @@ def sync_detailed(
         visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
         listing_type (None | str | Unset): Filter by listing type
-        name (None | str | Unset): Search by name, display name, or provider name (case-
-            insensitive partial match)
+        name (None | str | Unset): Filter by ``service.name`` (= listing.name, #1138).  Restricted
+            glob: ``*`` and ``%`` are accepted as synonymous wildcards, allowed only at the start,
+            end, or both — ``cohere/command-r-plus`` matches exactly that row, ``cohere/*`` (or
+            ``cohere/%``) matches the namespace, ``*-byok`` (or ``%-byok``) matches the suffix,
+            ``*command*`` (or ``%command%``) matches anything containing the substring.  ``%`` is
+            shell-safe (no quoting needed for interactive use); ``*`` is fnmatch-familiar.  ``?`` and
+            ``[...]`` are rejected.  Use the dedicated ``provider`` parameter to filter by provider
+            name.
         provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
             match). Use this when ``name`` is too broad.
         ids (list[UUID] | None | Unset): Restrict to a specific set of service ids. Repeat the
@@ -284,8 +290,14 @@ def sync(
         visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
         listing_type (None | str | Unset): Filter by listing type
-        name (None | str | Unset): Search by name, display name, or provider name (case-
-            insensitive partial match)
+        name (None | str | Unset): Filter by ``service.name`` (= listing.name, #1138).  Restricted
+            glob: ``*`` and ``%`` are accepted as synonymous wildcards, allowed only at the start,
+            end, or both — ``cohere/command-r-plus`` matches exactly that row, ``cohere/*`` (or
+            ``cohere/%``) matches the namespace, ``*-byok`` (or ``%-byok``) matches the suffix,
+            ``*command*`` (or ``%command%``) matches anything containing the substring.  ``%`` is
+            shell-safe (no quoting needed for interactive use); ``*`` is fnmatch-familiar.  ``?`` and
+            ``[...]`` are rejected.  Use the dedicated ``provider`` parameter to filter by provider
+            name.
         provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
             match). Use this when ``name`` is too broad.
         ids (list[UUID] | None | Unset): Restrict to a specific set of service ids. Repeat the
@@ -365,8 +377,14 @@ async def asyncio_detailed(
         visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
         listing_type (None | str | Unset): Filter by listing type
-        name (None | str | Unset): Search by name, display name, or provider name (case-
-            insensitive partial match)
+        name (None | str | Unset): Filter by ``service.name`` (= listing.name, #1138).  Restricted
+            glob: ``*`` and ``%`` are accepted as synonymous wildcards, allowed only at the start,
+            end, or both — ``cohere/command-r-plus`` matches exactly that row, ``cohere/*`` (or
+            ``cohere/%``) matches the namespace, ``*-byok`` (or ``%-byok``) matches the suffix,
+            ``*command*`` (or ``%command%``) matches anything containing the substring.  ``%`` is
+            shell-safe (no quoting needed for interactive use); ``*`` is fnmatch-familiar.  ``?`` and
+            ``[...]`` are rejected.  Use the dedicated ``provider`` parameter to filter by provider
+            name.
         provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
             match). Use this when ``name`` is too broad.
         ids (list[UUID] | None | Unset): Restrict to a specific set of service ids. Repeat the
@@ -449,8 +467,14 @@ async def asyncio(
         visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
         listing_type (None | str | Unset): Filter by listing type
-        name (None | str | Unset): Search by name, display name, or provider name (case-
-            insensitive partial match)
+        name (None | str | Unset): Filter by ``service.name`` (= listing.name, #1138).  Restricted
+            glob: ``*`` and ``%`` are accepted as synonymous wildcards, allowed only at the start,
+            end, or both — ``cohere/command-r-plus`` matches exactly that row, ``cohere/*`` (or
+            ``cohere/%``) matches the namespace, ``*-byok`` (or ``%-byok``) matches the suffix,
+            ``*command*`` (or ``%command%``) matches anything containing the substring.  ``%`` is
+            shell-safe (no quoting needed for interactive use); ``*`` is fnmatch-familiar.  ``?`` and
+            ``[...]`` are rejected.  Use the dedicated ``provider`` parameter to filter by provider
+            name.
         provider (None | str | Unset): Filter strictly by provider name (case-insensitive partial
             match). Use this when ``name`` is too broad.
         ids (list[UUID] | None | Unset): Restrict to a specific set of service ids. Repeat the
