@@ -99,7 +99,7 @@ def test_execute_code_example_uses_resolved_credentials_for_template_context(
     ``offering.upstream_access_config`` and passed it to the Jinja2 namespace.
     Listings whose upstream entry contained nested templating
     (``"{{ routing_vars.backend_host }}"``, ``"${ customer_secrets.X }"``,
-    ``"https://.../{{ enrollment_vars.code }}"``) ended up emitting the
+    ``"https://.../{{ enrollment.code }}"``) ended up emitting the
     *raw* placeholder text into the rendered script and crashing at execution
     time with "bad substitution" / "HTTP  from {{ routing_vars.X }}".
 
