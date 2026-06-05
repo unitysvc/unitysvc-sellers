@@ -270,36 +270,26 @@ Listing files define how a seller presents/sells a service to end users.
 
 The `service_options` field configures backend behavior for service listings. All fields are optional.
 
-| Field                           | Type    | Description                                                                    |
-| ------------------------------- | ------- | ------------------------------------------------------------------------------ |
-| `ops_testing_parameters`        | object  | Default parameter values for testing (see [User Parameters](#user-parameters)) |
-| `enrollment_vars`               | object  | Per-enrollment variables rendered into code examples and test scripts (see below) |
-| `enrollment_limit`              | integer | Maximum total active enrollments allowed for this service (global limit)       |
-| `enrollment_limit_per_customer` | integer | Maximum active enrollments per customer for this service                       |
-| `enrollment_limit_per_user`     | integer | Maximum active enrollments per user (creator) for this service                 |
+| Field                    | Type   | Description                                                                    |
+| ------------------------ | ------ | ------------------------------------------------------------------------------ |
+| `ops_testing_parameters` | object | Default parameter values for testing (see [User Parameters](#user-parameters)) |
+| `routing_vars`           | object | Seller-managed operational variables, referenced as `{{ routing_vars.X }}`     |
+| `enrollment`             | object | Per-enrollment configuration — code scope and enrollment limits (see below)    |
 
-**Enrollment Variables (`enrollment_vars`):**
+**Enrollment configuration (`enrollment`):**
 
-The `enrollment_vars` field defines per-enrollment variables that are rendered and passed to code examples and test scripts during both local testing (`usvc_seller data run-tests`) and gateway testing (`usvc_seller services run-tests`). Values support Jinja2 template syntax with access to the enrollment context.
+All enrollment-related options live under a single `enrollment` object:
 
-```json
-{
-    "service_options": {
-        "enrollment_vars": {
-            "user_id": "{{ enrollment.code }}",
-            "region": "us-east-1"
-        }
-    }
-}
-```
+| Key                  | Type    | Description                                                                                                                                                                                              |
+| -------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scope`              | string  | Enrollment-code scope: `"customer"` (default) or `"global"`. With `"global"`, each enrollment gets a longer, globally-unique code — use it when the code lands in a **shared upstream namespace** (e.g. a notification topic), where a per-customer-only code could collide across customers. |
+| `limit`              | integer | Maximum total active enrollments for this service (global)                                                                                                                                              |
+| `limit_per_customer` | integer | Maximum active enrollments per customer                                                                                                                                                                 |
+| `limit_per_user`     | integer | Maximum active enrollments per user (creator)                                                                                                                                                           |
 
-Enrollment context available in `enrollment_vars` values:
+> **No `enrollment_vars`.** Every enrollment automatically carries a unique code, available in any template as `{{ enrollment.code }}` (also reachable at `/e/<code>`). Reference it **directly** in `user_access_interfaces` / `upstream_access_config` — there is no per-enrollment variable to declare. The old `service_options.enrollment_vars` mechanism has been removed.
 
-- `{{ enrollment.code }}` — the enrollment's unique 4-character code, stable per enrollment (also reachable at `/e/<code>`).
-
-Variable names should be lowercase. They are available directly in access interface templates as `{{ var_name }}`.
-
-**Enrollment Limits:**
+**Enrollment limits:**
 
 - Limits apply only to **active** enrollments (cancelled/inactive enrollments don't count)
 - Invalid values (non-integers, zero, negative, or boolean) are treated as "no limit"
@@ -315,12 +305,12 @@ Variable names should be lowercase. They are available directly in access interf
             "api_key": "${ secrets.SERVICE_API_KEY }",
             "region": "us-east-1"
         },
-        "enrollment_vars": {
-            "USER_ID": "{{ enrollment.code }}"
-        },
-        "enrollment_limit": 100,
-        "enrollment_limit_per_customer": 5,
-        "enrollment_limit_per_user": 2
+        "enrollment": {
+            "scope": "global",
+            "limit": 100,
+            "limit_per_customer": 5,
+            "limit_per_user": 2
+        }
     }
 }
 ```
@@ -328,17 +318,15 @@ Variable names should be lowercase. They are available directly in access interf
 **Example (TOML):**
 
 ```toml
-[service_options]
-enrollment_limit = 100
-enrollment_limit_per_customer = 5
-enrollment_limit_per_user = 2
-
 [service_options.ops_testing_parameters]
 api_key = "${ secrets.SERVICE_API_KEY }"
 region = "us-east-1"
 
-[service_options.enrollment_vars]
-user_id = "{{ enrollment.code }}"
+[service_options.enrollment]
+scope = "global"
+limit = 100
+limit_per_customer = 5
+limit_per_user = 2
 ```
 
 ### Listing Name Field

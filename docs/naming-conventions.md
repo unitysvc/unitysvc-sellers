@@ -84,7 +84,7 @@ base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}"
 
 # With a static or dynamic suffix
 base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}/v1/chat/completions"
-base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}/{{ enrollment_vars.code }}"
+base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}/{{ enrollment.code }}"
 
 # Wrapper-stack primitive prefixes may precede it
 base_url = "${API_GATEWAY_BASE_URL}/u/{{ service_name }}"
@@ -107,7 +107,7 @@ A `base_url` is accepted when, after `${API_GATEWAY_BASE_URL}`, it
 **references `{{ service_name }}`**, is an **`/a/<alias>`** movable
 pointer, is the **gateway root** (`${API_GATEWAY_BASE_URL}` alone), or is
 **entirely dynamic** from its first segment (e.g. a BYOE
-`${API_GATEWAY_BASE_URL}/{{ enrollment_vars.endpoint }}`).
+`${API_GATEWAY_BASE_URL}/{{ params.endpoint }}`).
 
 ## The name grammar
 
@@ -172,7 +172,7 @@ which are intentionally mutable (`a/cohere-latest`).
 ```toml
 base_url = "${API_GATEWAY_BASE_URL}/a/cohere-latest"
 base_url = "${API_GATEWAY_BASE_URL}/a/anthropic/claude-opus-latest"
-base_url = "${API_GATEWAY_BASE_URL}/a/cohere-latest/{{ enrollment_vars.code }}"
+base_url = "${API_GATEWAY_BASE_URL}/a/cohere-latest/{{ enrollment.code }}"
 ```
 
 After the leading `a/` is stripped, the remaining alias is validated

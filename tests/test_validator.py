@@ -483,9 +483,12 @@ class TestServiceOptionsValidation:
         data = {
             "schema": "listing_v1",
             "service_options": {
-                "enrollment_limit": 10,
-                "enrollment_limit_per_customer": 2,
-                "enrollment_limit_per_user": 3,
+                "enrollment": {
+                    "limit": 10,
+                    "limit_per_customer": 2,
+                    "limit_per_user": 3,
+                    "scope": "global",
+                },
                 "ops_testing_parameters": {"model": "gpt-4"},
             },
         }
@@ -507,11 +510,11 @@ class TestServiceOptionsValidation:
         validator = DataValidator(example_data_dir, schema_dir)
         data = {
             "schema": "listing_v1",
-            "service_options": {"enrollment_limit": "five"},
+            "service_options": {"enrollment": {"limit": "five"}},
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
         assert len(errors) == 1
-        assert "must be int, got str" in errors[0]
+        assert "service_options.enrollment.limit must be int, got str" in errors[0]
 
     def test_wrong_type_ops_testing_parameters(self, schema_dir, example_data_dir):
         validator = DataValidator(example_data_dir, schema_dir)
@@ -527,31 +530,31 @@ class TestServiceOptionsValidation:
         validator = DataValidator(example_data_dir, schema_dir)
         data = {
             "schema": "listing_v1",
-            "service_options": {"enrollment_limit": 0},
+            "service_options": {"enrollment": {"limit": 0}},
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
         assert len(errors) == 1
-        assert "must be a positive integer, got 0" in errors[0]
+        assert "service_options.enrollment.limit must be a positive integer, got 0" in errors[0]
 
     def test_negative_enrollment_limit(self, schema_dir, example_data_dir):
         validator = DataValidator(example_data_dir, schema_dir)
         data = {
             "schema": "listing_v1",
-            "service_options": {"enrollment_limit_per_user": -1},
+            "service_options": {"enrollment": {"limit_per_user": -1}},
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
         assert len(errors) == 1
-        assert "must be a positive integer, got -1" in errors[0]
+        assert "service_options.enrollment.limit_per_user must be a positive integer, got -1" in errors[0]
 
     def test_boolean_enrollment_limit_rejected(self, schema_dir, example_data_dir):
         validator = DataValidator(example_data_dir, schema_dir)
         data = {
             "schema": "listing_v1",
-            "service_options": {"enrollment_limit": True},
+            "service_options": {"enrollment": {"limit": True}},
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
         assert len(errors) == 1
-        assert "must be int, got bool" in errors[0]
+        assert "service_options.enrollment.limit must be int, got bool" in errors[0]
 
     def test_none_service_options_passes(self, schema_dir, example_data_dir):
         validator = DataValidator(example_data_dir, schema_dir)
@@ -579,8 +582,8 @@ class TestServiceOptionsValidation:
         data = {
             "schema": "listing_v1",
             "service_options": {
-                "enrollment_limt": 5,
-                "enrollment_limit": "bad",
+                "bogus_key": 5,
+                "enrollment": {"limit": "bad"},
             },
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
@@ -652,54 +655,62 @@ class TestServiceOptionsValidation:
         assert len(errors) == 1
         assert "must be int, got bool" in errors[0]
 
-    def test_valid_env_option(self, schema_dir, example_data_dir):
+    def test_valid_enrollment_scope(self, schema_dir, example_data_dir):
         validator = DataValidator(example_data_dir, schema_dir)
         data = {
             "schema": "listing_v1",
             "service_options": {
-                "enrollment_vars": {"user_id": "{{ enrollment.code }}"},
+                "enrollment": {"scope": "global"},
             },
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
         assert errors == []
 
-    def test_enrollment_vars_empty_dict_valid(self, schema_dir, example_data_dir):
+    def test_enrollment_empty_dict_valid(self, schema_dir, example_data_dir):
         validator = DataValidator(example_data_dir, schema_dir)
         data = {
             "schema": "listing_v1",
-            "service_options": {"enrollment_vars": {}},
+            "service_options": {"enrollment": {}},
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
         assert errors == []
 
-    def test_enrollment_vars_wrong_type(self, schema_dir, example_data_dir):
+    def test_enrollment_wrong_type(self, schema_dir, example_data_dir):
         validator = DataValidator(example_data_dir, schema_dir)
         data = {
             "schema": "listing_v1",
-            "service_options": {"enrollment_vars": "not a dict"},
+            "service_options": {"enrollment": "not a dict"},
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
         assert len(errors) == 1
-        assert "must be dict, got str" in errors[0]
+        assert "service_options.enrollment must be dict, got str" in errors[0]
 
-    def test_enrollment_vars_value_must_be_string(self, schema_dir, example_data_dir):
+    def test_enrollment_bad_scope(self, schema_dir, example_data_dir):
         validator = DataValidator(example_data_dir, schema_dir)
         data = {
             "schema": "listing_v1",
-            "service_options": {"enrollment_vars": {"count": 42}},
+            "service_options": {"enrollment": {"scope": "team"}},
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
         assert len(errors) == 1
-        assert "service_options.enrollment_vars.count must be str" in errors[0]
+        assert "service_options.enrollment.scope must be 'customer' or 'global'" in errors[0]
 
-    def test_enrollment_vars_with_other_options(self, schema_dir, example_data_dir):
+    def test_enrollment_unknown_inner_key(self, schema_dir, example_data_dir):
         validator = DataValidator(example_data_dir, schema_dir)
         data = {
             "schema": "listing_v1",
-            "service_options": {
-                "enrollment_vars": {"topic": "{{ enrollment.code }}"},
-                "enrollment_limit_per_customer": 5,
-            },
+            "service_options": {"enrollment": {"topic": "x"}},
         }
         errors = validator.validate_service_options_keys(data, "listing_v1")
-        assert errors == []
+        assert len(errors) == 1
+        assert "Unrecognized service_options.enrollment key 'topic'" in errors[0]
+
+    def test_enrollment_vars_is_unrecognized_option(self, schema_dir, example_data_dir):
+        validator = DataValidator(example_data_dir, schema_dir)
+        data = {
+            "schema": "listing_v1",
+            "service_options": {"enrollment_vars": {"topic": "x"}},
+        }
+        errors = validator.validate_service_options_keys(data, "listing_v1")
+        assert len(errors) == 1
+        assert "Unrecognized service_option 'enrollment_vars'" in errors[0]
