@@ -142,24 +142,25 @@ recurrence_allow_cron = true
 
 For services where customers pay for duration (compute, content libraries), the platform creates a daily/hourly heartbeat request via RecurrentRequest. Charges accrue while enrolled; cancellation stops charges. No new billing model — uses existing `constant` pricing + scheduled requests.
 
-### Enrollment variables
+### Per-enrollment code in URLs
 
-When per-enrollment values are needed in URLs (e.g., unique topic codes):
+When a URL needs a per-enrollment value (e.g. a unique topic code), reference the
+intrinsic `{{ enrollment.code }}` **directly** — every enrollment has a unique code,
+so no per-enrollment variable needs to be declared:
 
 ```toml
-[service_options.enrollment_vars]
-topic = "{{ enrollment.code }}"
-
 [user_access_interfaces.gateway]
 access_method = "http"
-base_url = "${API_GATEWAY_BASE_URL}/ntfy/{{ topic }}"
+base_url = "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment.code }}"
 ```
 
-Rendering happens in two phases:
-1. `enrollment_vars` rendered first — `{{ enrollment.code }}` → `CEFF` (every enrollment's unique 4-character code)
-2. Access interface URL rendered — `{{ topic }}` → `CEFF`
+`{{ enrollment.code }}` renders to the enrollment's unique code (e.g. `CEFF`) at enrollment
+time. The same enrollment is also reachable directly at `/e/CEFF` regardless of `base_url`.
 
-Every enrollment is also reachable directly at `/e/CEFF` regardless of `base_url` — see [User Access Interface Templates](tech-notes/user-access-interface-template.md).
+> If the code is used as the discriminator in a **shared upstream namespace** (e.g. an ntfy
+> topic shared across customers), set `service_options.enrollment.scope = "global"` so the
+> code is globally unique rather than only per-customer. See
+> [file-schemas.md](file-schemas.md#service-options).
 
 See [User Access Interface Templates](tech-notes/user-access-interface-template.md) for details.
 
@@ -178,7 +179,7 @@ See [User Access Interface Templates](tech-notes/user-access-interface-template.
 | Condition | Why |
 |-----------|-----|
 | `user_parameters_schema` is non-empty | Customer must provide configuration |
-| `enrollment_vars` is non-empty | Per-enrollment URL templating |
+| A `user_access_interfaces` / `upstream_access_config` template references `{{ enrollment.* }}` or `{{ params.* }}` | Per-enrollment URL templating |
 | `prompt_recurrence` is true | Per-enrollment schedule |
 | Subscription pricing | Heartbeat linked to enrollment lifecycle |
 

@@ -31,7 +31,7 @@ The single highest-leverage move when starting a new service is to **find an exi
 | `byoe` | customer brings both endpoint URL and key |
 | `params` | per-enrollment routing key from a user parameter |
 | `byoe-params` | parameterized customer-secret *names* |
-| `enrollment_vars` | per-enrollment URL fragment (e.g. unique codes) |
+| `enrollment_vars` | per-enrollment URL fragment via the intrinsic `{{ enrollment.code }}` (the `enrollment_vars` mechanism is removed — reference `{{ enrollment.code }}` directly) |
 | `recurrent` | scheduled / recurrence service |
 | `routing_vars` | seller knobs editable after activation |
 | `s3` / `s3-byoe` / `s3-byoe-params` | S3 gateway variants |
@@ -160,7 +160,7 @@ The validator only constrains the path **after** `${API_GATEWAY_BASE_URL}/`. The
 
 ```
 ✓ ${API_GATEWAY_BASE_URL}/{{ service_name }}                            (most common — runtime substitution)
-✓ ${API_GATEWAY_BASE_URL}/{{ service_name }}/{{ enrollment_vars.code }}
+✓ ${API_GATEWAY_BASE_URL}/{{ service_name }}/{{ enrollment.code }}
 ✓ ${API_GATEWAY_BASE_URL}/a/cohere-latest                               (movable-pointer convention; see below)
 ✓ ${API_GATEWAY_BASE_URL}                                               (gateway root; platform-native interfaces)
 ✗ ${API_GATEWAY_BASE_URL}/cohere                                        (literal provider segment, no {{ service_name }})
@@ -317,7 +317,7 @@ data/<provider>/
 
 The script imports `populate_from_iterator` from `unitysvc_sellers.template_populate`, builds a per-service dict (`provider_name`, `offering_name`, `display_name`, capabilities, pricing, etc.), and the template renders that dict. Real examples in `~/unitysvc/unitysvc-services-anthropic/data/anthropic/scripts/update_services.py` and `…/templates/listing.json.j2`. Cross-reference with `~/unitysvc/unitysvc-services-cohere`, `~/unitysvc/unitysvc-services-mistral`, `~/unitysvc/unitysvc-services-ollama` for variations.
 
-**Critical Jinja escaping rule** — the template's Jinja runs at generate-time and resolves variables from the script's context (`{{ provider_name }}`, `{{ offering_name }}`, etc.). The gateway's runtime Jinja is a *different pass* that resolves later from the live service row (`{{ service_name }}`, `{{ enrollment_vars.code }}`, etc.). For runtime Jinja to survive the generator pass, wrap it in `{% raw %}…{% endraw %}`:
+**Critical Jinja escaping rule** — the template's Jinja runs at generate-time and resolves variables from the script's context (`{{ provider_name }}`, `{{ offering_name }}`, etc.). The gateway's runtime Jinja is a *different pass* that resolves later from the live service row (`{{ service_name }}`, `{{ enrollment.code }}`, etc.). For runtime Jinja to survive the generator pass, wrap it in `{% raw %}…{% endraw %}`:
 
 ```jinja
 "base_url": "${API_GATEWAY_BASE_URL}/{% raw %}{{ service_name }}{% endraw %}"
