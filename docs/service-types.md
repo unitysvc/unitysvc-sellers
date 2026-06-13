@@ -202,3 +202,11 @@ Groups can contain a mix of delivery patterns:
 - **BYOE services** — skipped if the customer hasn't enrolled
 
 This enables fallback patterns: route to the customer's BYOK key first, fall back to a seller-managed service if the key is missing.
+
+## Capability Pools
+
+A **capability pool** (`/p/<capability>`) is a special kind of service group for a *commodity* capability — a model and contract fixed by the platform, offered by many providers at a **single, uniform price**. A customer sends a request to the pool path (e.g., `/p/llama3-2-1b/v1/chat/completions`) and the gateway load-balances across all verified providers of that capability. Because price and terms are identical across members, every provider is fungible, so the pool routes by **performance** (latency / quality / health) rather than cost.
+
+You don't author a pool service by hand. Membership comes **only** from instantiating a pool-named [service template](service-templates.md) — `usvc_seller data upload` of a hand-written spec always produces a plain standalone service, never a pool member. Opting in is deliberately simple: instantiate the pool template (dashboard or `usvc_seller templates instantiate`) and supply just your upstream URL (and a key secret, if your upstream needs one).
+
+Pool membership is **opt-in and non-exclusive** — if you want to offer the same capability at your own price, publish it as a separate standalone service; joining a pool doesn't stop you.
