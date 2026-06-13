@@ -78,6 +78,7 @@ nav:
       - Usage Overview: usage.md
       - Installation & Quick Start: getting-started.md
       - Service Types: service-types.md
+      - Service Templates: service-templates.md
       - Data Structure: data-structure.md
       - Workflows: workflows.md
       - Seller Lifecycle: seller-lifecycle.md

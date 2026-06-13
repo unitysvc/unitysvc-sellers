@@ -62,6 +62,7 @@ class ServicePublic:
     - public: In catalog, fully discoverable
     - private: Live and routable, ops/internal use only """
     routing_vars: None | ServicePublicRoutingVarsType0 | Unset = UNSET
+    managed_by_template: None | str | Unset = UNSET
     review_count: int | Unset = 0
     average_rating: float | None | Unset = UNSET
     ops_subscription_id: None | Unset | UUID = UNSET
@@ -158,6 +159,12 @@ class ServicePublic:
         else:
             routing_vars = self.routing_vars
 
+        managed_by_template: None | str | Unset
+        if isinstance(self.managed_by_template, Unset):
+            managed_by_template = UNSET
+        else:
+            managed_by_template = self.managed_by_template
+
         review_count = self.review_count
 
         average_rating: float | None | Unset
@@ -226,6 +233,8 @@ class ServicePublic:
             field_dict["visibility"] = visibility
         if routing_vars is not UNSET:
             field_dict["routing_vars"] = routing_vars
+        if managed_by_template is not UNSET:
+            field_dict["managed_by_template"] = managed_by_template
         if review_count is not UNSET:
             field_dict["review_count"] = review_count
         if average_rating is not UNSET:
@@ -387,6 +396,15 @@ class ServicePublic:
 
         routing_vars = _parse_routing_vars(d.pop("routing_vars", UNSET))
 
+        def _parse_managed_by_template(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        managed_by_template = _parse_managed_by_template(d.pop("managed_by_template", UNSET))
+
         review_count = d.pop("review_count", UNSET)
 
         def _parse_average_rating(data: object) -> float | None | Unset:
@@ -468,6 +486,7 @@ class ServicePublic:
             is_featured=is_featured,
             visibility=visibility,
             routing_vars=routing_vars,
+            managed_by_template=managed_by_template,
             review_count=review_count,
             average_rating=average_rating,
             ops_subscription_id=ops_subscription_id,

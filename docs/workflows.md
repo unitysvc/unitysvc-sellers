@@ -208,6 +208,12 @@ usvc_seller data upload --data-path ./data
 
 ## Automated Workflow (Template-Based)
 
+This is **use #3** of [Service Templates](service-templates.md): you author
+your own `.j2` templates and a populator script, then generate a whole group of
+services with `usvc_seller data populate`. (For the *platform-authored*
+templates and capability pools — the zero-authoring paths — see the
+[Service Templates](service-templates.md) overview.)
+
 Best for providers with:
 
 - Large service catalogs (> 20 services)

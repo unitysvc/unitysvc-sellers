@@ -11,6 +11,8 @@ UnitySVC provides two complementary approaches:
 The [UnitySVC web platform](https://unitysvc.com) provides a user-friendly interface to:
 
 - Create, edit, and manage providers, offerings, and listings
+- **Create a service from a platform template** in a few clicks — the fastest
+  way to offer a common service type (see [Service Templates](service-templates.md))
 - Validate data with instant feedback
 - Preview how services appear to customers
 - Export data for use with the SDK

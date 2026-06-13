@@ -49,6 +49,7 @@ from .provider_status_enum import ProviderStatusEnum
 from .quota_reset_cycle_enum import QuotaResetCycleEnum
 from .rate_limit import RateLimit
 from .rate_limit_unit_enum import RateLimitUnitEnum
+from .response_seller_instances_delete_instance import ResponseSellerInstancesDeleteInstance
 from .response_tasks_get_task_status import ResponseTasksGetTaskStatus
 from .response_tasks_get_task_status_additional_property import ResponseTasksGetTaskStatusAdditionalProperty
 from .run_tests_response import RunTestsResponse
@@ -107,6 +108,10 @@ from .service_offering_data_upstream_access_config_type_0_additional_property im
 from .service_public import ServicePublic
 from .service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
 from .service_status_enum import ServiceStatusEnum
+from .service_template_summaries_public import ServiceTemplateSummariesPublic
+from .service_template_summary import ServiceTemplateSummary
+from .service_template_summary_parameter_schema import ServiceTemplateSummaryParameterSchema
+from .service_template_summary_parameter_ui_schema_type_0 import ServiceTemplateSummaryParameterUiSchemaType0
 from .service_type_enum import ServiceTypeEnum
 from .service_update import ServiceUpdate
 from .service_update_price_type_0 import ServiceUpdatePriceType0
@@ -116,6 +121,8 @@ from .service_update_response_routing_vars_type_0 import ServiceUpdateResponseRo
 from .service_update_routing_vars_type_0 import ServiceUpdateRoutingVarsType0
 from .service_upload_response import ServiceUploadResponse
 from .service_visibility_enum import ServiceVisibilityEnum
+from .template_instance_create import TemplateInstanceCreate
+from .template_instance_create_response import TemplateInstanceCreateResponse
 from .time_window_enum import TimeWindowEnum
 from .validation_error import ValidationError
 
@@ -165,6 +172,7 @@ __all__ = (
     "QuotaResetCycleEnum",
     "RateLimit",
     "RateLimitUnitEnum",
+    "ResponseSellerInstancesDeleteInstance",
     "ResponseTasksGetTaskStatus",
     "ResponseTasksGetTaskStatusAdditionalProperty",
     "RunTestsResponse",
@@ -215,6 +223,10 @@ __all__ = (
     "ServicePublic",
     "ServicePublicRoutingVarsType0",
     "ServiceStatusEnum",
+    "ServiceTemplateSummariesPublic",
+    "ServiceTemplateSummary",
+    "ServiceTemplateSummaryParameterSchema",
+    "ServiceTemplateSummaryParameterUiSchemaType0",
     "ServiceTypeEnum",
     "ServiceUpdate",
     "ServiceUpdatePriceType0",
@@ -224,6 +236,8 @@ __all__ = (
     "ServiceUpdateRoutingVarsType0",
     "ServiceUploadResponse",
     "ServiceVisibilityEnum",
+    "TemplateInstanceCreate",
+    "TemplateInstanceCreateResponse",
     "TimeWindowEnum",
     "ValidationError",
 )

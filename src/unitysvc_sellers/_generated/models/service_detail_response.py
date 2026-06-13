@@ -48,6 +48,7 @@ class ServiceDetailResponse:
     service_name: None | str | Unset = UNSET
     status_message: None | str | Unset = UNSET
     routing_vars: None | ServiceDetailResponseRoutingVarsType0 | Unset = UNSET
+    managed_by_template: None | str | Unset = UNSET
     provider: None | ProviderData | Unset = UNSET
     offering: None | ServiceOfferingData | Unset = UNSET
     listing: None | ServiceListingData | Unset = UNSET
@@ -95,6 +96,12 @@ class ServiceDetailResponse:
         else:
             routing_vars = self.routing_vars
 
+        managed_by_template: None | str | Unset
+        if isinstance(self.managed_by_template, Unset):
+            managed_by_template = UNSET
+        else:
+            managed_by_template = self.managed_by_template
+
         provider: dict[str, Any] | None | Unset
         if isinstance(self.provider, Unset):
             provider = UNSET
@@ -135,6 +142,8 @@ class ServiceDetailResponse:
             field_dict["status_message"] = status_message
         if routing_vars is not UNSET:
             field_dict["routing_vars"] = routing_vars
+        if managed_by_template is not UNSET:
+            field_dict["managed_by_template"] = managed_by_template
         if provider is not UNSET:
             field_dict["provider"] = provider
         if offering is not UNSET:
@@ -207,6 +216,15 @@ class ServiceDetailResponse:
 
         routing_vars = _parse_routing_vars(d.pop("routing_vars", UNSET))
 
+        def _parse_managed_by_template(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        managed_by_template = _parse_managed_by_template(d.pop("managed_by_template", UNSET))
+
         def _parse_provider(data: object) -> None | ProviderData | Unset:
             if data is None:
                 return data
@@ -266,6 +284,7 @@ class ServiceDetailResponse:
             service_name=service_name,
             status_message=status_message,
             routing_vars=routing_vars,
+            managed_by_template=managed_by_template,
             provider=provider,
             offering=offering,
             listing=listing,

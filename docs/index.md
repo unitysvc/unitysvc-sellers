@@ -74,6 +74,17 @@ This enables scenarios like:
 - One offering with multiple listings (e.g., basic/premium tiers)
 - Shared documentation across services
 
+## Service Templates
+
+A **service template** is a *parameterized* version of the service data above —
+the variable parts replaced by parameters, plus the logic to fill them. Render
+it and you get back complete, schema-valid service data. Templates make it easy
+to **offer a common service** (the platform authored the hard parts; you supply
+a few values) and to **populate a whole group of services** from a source list.
+See [Service Templates](service-templates.md) for the three ways to use them —
+platform templates, capability pools, and your own `usvc_seller data populate`
+generators.
+
 ## Key Features
 
 -   **Unified Upload** — Provider, offering, and listing uploaded together atomically

@@ -38,10 +38,12 @@ from .client import DEFAULT_SELLER_API_URL, ENV_SELLER_API_KEY, ENV_SELLER_API_U
 if TYPE_CHECKING:
     from .adocuments import AsyncDocuments
     from .agroups import AsyncGroups
+    from .ainstances import AsyncInstances
     from .apromotions import AsyncPromotions
     from .asecrets import AsyncSecrets
     from .aservices import AsyncServices
     from .atasks import AsyncTasks
+    from .atemplates import AsyncTemplates
 
 
 class AsyncClient:
@@ -90,6 +92,8 @@ class AsyncClient:
         self._groups: AsyncGroups | None = None
         self._documents: AsyncDocuments | None = None
         self._tasks: AsyncTasks | None = None
+        self._templates: AsyncTemplates | None = None
+        self._instances: AsyncInstances | None = None
         self._secrets: AsyncSecrets | None = None
 
     # ------------------------------------------------------------------
@@ -148,6 +152,22 @@ class AsyncClient:
 
             self._tasks = AsyncTasks(self._client)
         return self._tasks
+
+    @property
+    def templates(self) -> AsyncTemplates:
+        if self._templates is None:
+            from .atemplates import AsyncTemplates
+
+            self._templates = AsyncTemplates(self._client)
+        return self._templates
+
+    @property
+    def instances(self) -> AsyncInstances:
+        if self._instances is None:
+            from .ainstances import AsyncInstances
+
+            self._instances = AsyncInstances(self._client)
+        return self._instances
 
     @property
     def secrets(self) -> AsyncSecrets:

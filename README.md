@@ -16,6 +16,30 @@ API (`https://seller.unitysvc.com/v1`). This package provides:
 | **Python SDK** | [SDK Guide](https://unitysvc-sellers.readthedocs.io/en/latest/sdk-guide/) | [SDK Reference](https://unitysvc-sellers.readthedocs.io/en/latest/sdk-reference/) (auto-generated from docstrings) |
 | **CLI** | [CLI Guide](https://unitysvc-sellers.readthedocs.io/en/latest/cli-guide/) | [CLI Reference](https://unitysvc-sellers.readthedocs.io/en/latest/cli-reference/) (auto-generated from `typer`) |
 
+## Service templates
+
+A **service template** is a *parameterized* version of service data — the
+`offering.json` / `listing.json` you'd otherwise write by hand, with the parts
+that vary replaced by parameters plus the logic to fill them. Render it and you
+get back complete, schema-valid service data. Templates are the easy way to
+**offer a common service** and the scalable way to **populate a group of
+services**. There are three ways to use them:
+
+1. **Platform templates** *(easiest)* — the platform authors a template for a
+   common service type; pick it in the dashboard's *Create from template* flow
+   or from the CLI (`usvc_seller templates list`/`show` + `usvc_seller params instantiate`), fill
+   a short set of parameters, and it renders + uploads with its own bundled tests.
+2. **Capability pools** — a platform template carrying a *pool name*;
+   instantiating it joins `/p/<pool>` at the pool's uniform terms and price. You
+   provide only the upstream URL. (Opt-in; `usvc_seller data upload` cannot
+   create a pool service — only a pool template can.)
+3. **Your own templates** — author `.j2` templates + a populator script, then
+   `usvc_seller data populate` to generate many services from a source list.
+
+See **[Service Templates](https://unitysvc-sellers.readthedocs.io/en/latest/service-templates/)**
+for the full guide, and [Workflows → Automated Workflow](https://unitysvc-sellers.readthedocs.io/en/latest/workflows/#automated-workflow-template-based)
+for the populator walkthrough.
+
 ## Install
 
 ```bash

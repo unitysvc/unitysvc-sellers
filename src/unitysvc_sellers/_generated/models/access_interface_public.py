@@ -43,7 +43,6 @@ class AccessInterfacePublic:
     constraint: None | ServiceConstraints | Unset = UNSET
     response_rules: AccessInterfacePublicResponseRulesType0 | None | Unset = UNSET
     routing_key: AccessInterfacePublicRoutingKeyType0 | None | Unset = UNSET
-    enrollment_id: None | Unset | UUID = UNSET
     customer_secrets_needed: list[str] | None | Unset = UNSET
     customer_secrets_optional: list[AccessInterfacePublicCustomerSecretsOptionalType0Item] | None | Unset = UNSET
     updated_at: None | str | Unset = UNSET
@@ -142,14 +141,6 @@ class AccessInterfacePublic:
         else:
             routing_key = self.routing_key
 
-        enrollment_id: None | str | Unset
-        if isinstance(self.enrollment_id, Unset):
-            enrollment_id = UNSET
-        elif isinstance(self.enrollment_id, UUID):
-            enrollment_id = str(self.enrollment_id)
-        else:
-            enrollment_id = self.enrollment_id
-
         customer_secrets_needed: list[str] | None | Unset
         if isinstance(self.customer_secrets_needed, Unset):
             customer_secrets_needed = UNSET
@@ -208,8 +199,6 @@ class AccessInterfacePublic:
             field_dict["response_rules"] = response_rules
         if routing_key is not UNSET:
             field_dict["routing_key"] = routing_key
-        if enrollment_id is not UNSET:
-            field_dict["enrollment_id"] = enrollment_id
         if customer_secrets_needed is not UNSET:
             field_dict["customer_secrets_needed"] = customer_secrets_needed
         if customer_secrets_optional is not UNSET:
@@ -378,23 +367,6 @@ class AccessInterfacePublic:
 
         routing_key = _parse_routing_key(d.pop("routing_key", UNSET))
 
-        def _parse_enrollment_id(data: object) -> None | Unset | UUID:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                enrollment_id_type_0 = UUID(data)
-
-                return enrollment_id_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(None | Unset | UUID, data)
-
-        enrollment_id = _parse_enrollment_id(d.pop("enrollment_id", UNSET))
-
         def _parse_customer_secrets_needed(data: object) -> list[str] | None | Unset:
             if data is None:
                 return data
@@ -466,7 +438,6 @@ class AccessInterfacePublic:
             constraint=constraint,
             response_rules=response_rules,
             routing_key=routing_key,
-            enrollment_id=enrollment_id,
             customer_secrets_needed=customer_secrets_needed,
             customer_secrets_optional=customer_secrets_optional,
             updated_at=updated_at,

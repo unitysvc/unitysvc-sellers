@@ -29,6 +29,8 @@ $ usvc_seller [OPTIONS] COMMAND [ARGS]...
 * `promotions`: Remote promotion operations (list, show,...
 * `groups`: Remote service group operations (list,...
 * `secrets`: Remote secret operations (list, show, set,...
+* `templates`: Browse the platform service-template...
+* `params`: Create services from templates +...
 
 ## `usvc_seller data`
 
@@ -1143,6 +1145,109 @@ $ usvc_seller secrets delete [OPTIONS] NAME
 **Options**:
 
 * `-f, --force`: Skip confirmation prompt.
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+## `usvc_seller templates`
+
+Browse the platform service-template catalog (list, show).
+
+**Usage**:
+
+```console
+$ usvc_seller templates [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `list`: List the active platform templates you can...
+* `show`: Show a template&#x27;s metadata and its...
+
+### `usvc_seller templates list`
+
+List the active platform templates you can instantiate.
+
+**Usage**:
+
+```console
+$ usvc_seller templates list [OPTIONS]
+```
+
+**Options**:
+
+* `-f, --format TEXT`: Output format: table | json.  [default: table]
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller templates show`
+
+Show a template&#x27;s metadata and its parameter schema.
+
+**Usage**:
+
+```console
+$ usvc_seller templates show [OPTIONS] NAME_OR_ID
+```
+
+**Arguments**:
+
+* `NAME_OR_ID`: Template name or partial UUID.  [required]
+
+**Options**:
+
+* `-f, --format TEXT`: Output format: table | json.  [default: table]
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+## `usvc_seller params`
+
+Create services from templates + parameters (instantiate).
+
+**Usage**:
+
+```console
+$ usvc_seller params [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `instantiate`: Instantiate a template + parameters into a...
+
+### `usvc_seller params instantiate`
+
+Instantiate a template + parameters into a service (the params-kind
+analog of ``specs upload``).
+
+Examples:
+    usvc_seller params instantiate openai-compatible-llm \
+        -P api_base_url=https://ollama.example.com/v1 -P input_price=1.00
+
+**Usage**:
+
+```console
+$ usvc_seller params instantiate [OPTIONS] TEMPLATE
+```
+
+**Arguments**:
+
+* `TEMPLATE`: Template name or partial UUID.  [required]
+
+**Options**:
+
+* `-P, --param TEXT`: A template parameter as key=value (repeatable). Secret-typed params take the secret NAME, not the value.
+* `--name TEXT`: Optional label for the service (defaults to template).
+* `--submit / --no-submit`: Submit the rendered service for review (default), or leave it a draft.  [default: submit]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.

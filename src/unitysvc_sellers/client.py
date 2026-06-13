@@ -59,10 +59,12 @@ if TYPE_CHECKING:
 
     from .documents import Documents
     from .groups import Groups
+    from .instances import Instances
     from .promotions import Promotions
     from .secrets import Secrets
     from .services import Services
     from .tasks import Tasks
+    from .templates import Templates
     from .upload import UploadResult
 
 DEFAULT_SELLER_API_URL = "https://seller.unitysvc.com/v1"
@@ -120,6 +122,8 @@ class Client:
         self._groups: Groups | None = None
         self._documents: Documents | None = None
         self._tasks: Tasks | None = None
+        self._templates: Templates | None = None
+        self._instances: Instances | None = None
         self._secrets: Secrets | None = None
 
     # ------------------------------------------------------------------
@@ -183,6 +187,22 @@ class Client:
 
             self._tasks = Tasks(self._client)
         return self._tasks
+
+    @property
+    def templates(self) -> Templates:
+        if self._templates is None:
+            from .templates import Templates
+
+            self._templates = Templates(self._client)
+        return self._templates
+
+    @property
+    def instances(self) -> Instances:
+        if self._instances is None:
+            from .instances import Instances
+
+            self._instances = Instances(self._client)
+        return self._instances
 
     @property
     def secrets(self) -> Secrets:
