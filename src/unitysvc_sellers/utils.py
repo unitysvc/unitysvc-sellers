@@ -115,14 +115,13 @@ def resolve_provider_name(file_path: Path) -> str | None:
             # Get the full path to the provider directory
             provider_path = Path(*parts[:services_idx])
 
-            # Look for provider data file to validate and get the actual provider name
+            # Look for the provider file (by filename) and return its name.
             for data_file in find_data_files(provider_path):
                 try:
                     # Only check files in the provider directory itself, not subdirectories
-                    if data_file.parent == provider_path:
+                    if data_file.parent == provider_path and data_file.stem == "provider":
                         data, _file_format = load_data_file(data_file)
-                        if data.get("schema") == "provider_v1":
-                            return data.get("name")
+                        return data.get("name")
                 except Exception:
                     continue
 
@@ -151,12 +150,13 @@ def resolve_service_name_for_listing(listing_file: Path, listing_data: dict[str,
     """
     listing_dir = listing_file.parent
 
-    # Find the service offering file in the same directory
+    # Find the service offering file (by filename) in the same directory.
     for data_file in find_data_files(listing_dir):
+        if data_file.stem != "offering":
+            continue
         try:
             data, _file_format = load_data_file(data_file)
-            if data.get("schema") == "offering_v1":
-                return data.get("name")
+            return data.get("name")
         except Exception:
             continue
 

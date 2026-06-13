@@ -98,16 +98,17 @@ class DataValidator(CoreDataValidator):
         listings: list[Path] = []
 
         for file_path in data_files:
+            # File TYPE is the filename now, not an in-file ``schema`` field.
+            if file_path.stem not in ("offering", "listing"):
+                continue
             try:
                 data, load_errors = self.load_data_file(file_path)
                 if load_errors or data is None:
                     continue
 
-                schema = data.get("schema")
-
-                if schema == "offering_v1":
+                if file_path.stem == "offering":
                     offerings.append((file_path, data))
-                elif schema == "listing_v1":
+                else:
                     listings.append(file_path)
 
             except Exception as e:
@@ -139,21 +140,11 @@ class DataValidator(CoreDataValidator):
 
         directories_to_validate: set[Path] = set()
 
-        for pattern in ["*.json", "*.toml"]:
+        for pattern in ["offering.json", "offering.toml", "listing.json", "listing.toml"]:
             for file_path in data_dir.rglob(pattern):
                 if any(part.startswith(".") for part in file_path.parts):
                     continue
-
-                try:
-                    data, load_errors = self.load_data_file(file_path)
-                    if load_errors or data is None:
-                        continue
-
-                    schema = data.get("schema")
-                    if schema in ["offering_v1", "listing_v1"]:
-                        directories_to_validate.add(file_path.parent)
-                except Exception:
-                    continue
+                directories_to_validate.add(file_path.parent)
 
         for directory in sorted(directories_to_validate):
             try:
