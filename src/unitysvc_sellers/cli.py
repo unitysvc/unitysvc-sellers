@@ -7,6 +7,7 @@ import importlib.metadata
 import typer
 
 from . import data
+from . import specs as specs_cmd
 from .commands import groups as groups_cmd
 from .commands import params as params_cmd
 from .commands import promotions as promotions_cmd
@@ -52,6 +53,7 @@ def main(
 
 # Local catalog tools
 app.add_typer(data.app, name="data")
+app.add_typer(specs_cmd.app, name="specs")
 
 # Remote API command groups (use AsyncClient under the hood)
 app.add_typer(services_cmd.app, name="services")
