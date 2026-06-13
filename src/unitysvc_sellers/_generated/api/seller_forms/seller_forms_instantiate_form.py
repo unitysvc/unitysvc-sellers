@@ -79,11 +79,11 @@ def sync_detailed(
 
      One-shot: create a form from a template + parameters and submit it.
 
-    The CLI/CI counterpart of the dashboard's two-step *create form → submit*.
-    Creates the backing ``ServiceForm`` (the durable handle for later revise /
-    clone) and dispatches it through the canonical ingest pipeline in a single
-    call. The template must be **active**. Returns 202 with the new
-    ``form_id`` and the ingest ``task_id``.
+    This is the single path to a service from a template (dashboard, CLI, and
+    CI all use it). Creates the backing ``ServiceForm`` (the durable provenance
+    handle, and the basis for capability-pool membership) and dispatches it
+    through the canonical ingest pipeline in one call. The template must be
+    **active**. Returns 202 with the new ``form_id`` and the ingest ``task_id``.
 
     Args:
         authorization (None | str | Unset):
@@ -122,11 +122,11 @@ def sync(
 
      One-shot: create a form from a template + parameters and submit it.
 
-    The CLI/CI counterpart of the dashboard's two-step *create form → submit*.
-    Creates the backing ``ServiceForm`` (the durable handle for later revise /
-    clone) and dispatches it through the canonical ingest pipeline in a single
-    call. The template must be **active**. Returns 202 with the new
-    ``form_id`` and the ingest ``task_id``.
+    This is the single path to a service from a template (dashboard, CLI, and
+    CI all use it). Creates the backing ``ServiceForm`` (the durable provenance
+    handle, and the basis for capability-pool membership) and dispatches it
+    through the canonical ingest pipeline in one call. The template must be
+    **active**. Returns 202 with the new ``form_id`` and the ingest ``task_id``.
 
     Args:
         authorization (None | str | Unset):
@@ -160,11 +160,11 @@ async def asyncio_detailed(
 
      One-shot: create a form from a template + parameters and submit it.
 
-    The CLI/CI counterpart of the dashboard's two-step *create form → submit*.
-    Creates the backing ``ServiceForm`` (the durable handle for later revise /
-    clone) and dispatches it through the canonical ingest pipeline in a single
-    call. The template must be **active**. Returns 202 with the new
-    ``form_id`` and the ingest ``task_id``.
+    This is the single path to a service from a template (dashboard, CLI, and
+    CI all use it). Creates the backing ``ServiceForm`` (the durable provenance
+    handle, and the basis for capability-pool membership) and dispatches it
+    through the canonical ingest pipeline in one call. The template must be
+    **active**. Returns 202 with the new ``form_id`` and the ingest ``task_id``.
 
     Args:
         authorization (None | str | Unset):
@@ -201,11 +201,11 @@ async def asyncio(
 
      One-shot: create a form from a template + parameters and submit it.
 
-    The CLI/CI counterpart of the dashboard's two-step *create form → submit*.
-    Creates the backing ``ServiceForm`` (the durable handle for later revise /
-    clone) and dispatches it through the canonical ingest pipeline in a single
-    call. The template must be **active**. Returns 202 with the new
-    ``form_id`` and the ingest ``task_id``.
+    This is the single path to a service from a template (dashboard, CLI, and
+    CI all use it). Creates the backing ``ServiceForm`` (the durable provenance
+    handle, and the basis for capability-pool membership) and dispatches it
+    through the canonical ingest pipeline in one call. The template must be
+    **active**. Returns 202 with the new ``form_id`` and the ingest ``task_id``.
 
     Args:
         authorization (None | str | Unset):
