@@ -27,7 +27,7 @@ services**. There are three ways to use them:
 
 1. **Platform templates** *(easiest)* — the platform authors a template for a
    common service type; pick it in the dashboard's *Create from template* flow
-   or from the CLI (`usvc_seller templates list`/`show` + `usvc_seller instances create`), fill
+   or from the CLI (`usvc_seller templates list`/`show` + `usvc_seller params instantiate`), fill
    a short set of parameters, and it renders + uploads with its own bundled tests.
 2. **Capability pools** — a platform template carrying a *pool name*;
    instantiating it joins `/p/<pool>` at the pool's uniform terms and price. You

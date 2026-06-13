@@ -29,7 +29,7 @@ the row that matches what you're doing.
 
 | Use | Who authors the template | How you use it | Best for |
 |---|---|---|---|
-| **1. Platform templates** | The platform | Dashboard *Create from template*, or `usvc_seller instances create` | Offering a common service type with zero file authoring |
+| **1. Platform templates** | The platform | Dashboard *Create from template*, or `usvc_seller params instantiate` | Offering a common service type with zero file authoring |
 | **2. Capability pools** | The platform (template carries a pool name) | Instantiate a pool template (dashboard or CLI); you provide only the upstream URL | Joining a fungible, uniformly-priced commodity pool |
 | **3. Your own templates** | You | Author `.j2` templates + a populator script, then `usvc_seller data populate` | Generating many services programmatically from a source list |
 
@@ -48,16 +48,15 @@ You manage the resulting service exactly like any other (it appears under your
 files and refine them with this SDK.
 
 **From the CLI / CI**, the same flow is available without the dashboard — browse
-the catalog with `templates`, create with `instances`:
+the catalog with `templates`, instantiate with `params`:
 
 ```bash
 usvc_seller templates list                        # active platform templates
 usvc_seller templates show openai-compatible-llm  # its parameters
-usvc_seller instances create openai-compatible-llm \
+usvc_seller params instantiate openai-compatible-llm \
     -P api_base_url=https://api.example.com/v1 \
     -P api_key_secret_name=UPSTREAM_API_KEY \
     -P input_price=1.00
-usvc_seller instances list                        # your instances + service status
 ```
 
 **From the SDK**, `client.templates` (catalog) and `client.instances` (create):
