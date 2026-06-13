@@ -41,13 +41,14 @@ and upload a service**: in the dashboard, choose *Create from template*, fill a
 short, typed form (model id, upstream URL, an API-key secret name, a price),
 and the platform renders the complete service spec, runs the bundled
 connectivity test, and submits it through the normal publish pipeline. No local
-files, no SDK, no test to write — the template ships its own.
+files to author and no test to write — the template ships its own.
 
 You manage the resulting service exactly like any other (it appears under your
 **Staging** list), and if you outgrow the template you can download the rendered
 files and refine them with this SDK.
 
-**From the CLI / CI**, the same flow is available without the dashboard:
+**From the CLI / CI**, the same one-shot flow is available without the
+dashboard:
 
 ```bash
 usvc_seller templates list                        # active platform templates
@@ -58,10 +59,28 @@ usvc_seller templates instantiate openai-compatible-llm \
     -P price=1.00
 ```
 
+**From the SDK**, `client.templates` does the same:
+
+```python
+from unitysvc_sellers import Client
+
+with Client() as client:
+    result = client.templates.instantiate(
+        "openai-compatible-llm",
+        parameters={
+            "api_base_url": "https://api.example.com/v1",
+            "api_key_secret_name": "UPSTREAM_API_KEY",
+            "price": 1.00,
+        },
+    )
+```
+
 `instantiate` renders the template, creates the service, and submits it in one
 call — returning the new `form_id` and the ingest `task_id`. Secret-typed
 parameters take the **secret name** (create it first with
-`usvc_seller secrets`), never the key value.
+`usvc_seller secrets`), never the key value. See the
+[SDK Guide → `client.templates`](sdk-guide.md#clienttemplates) for the full
+API.
 
 ### 2. Capability pools — opt in with a pool name
 
