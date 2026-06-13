@@ -26,8 +26,9 @@ get back complete, schema-valid service data. Templates are the easy way to
 services**. There are three ways to use them:
 
 1. **Platform templates** *(easiest)* — the platform authors a template for a
-   common service type; you pick it in the dashboard's *Create from template*
-   flow, fill a short form, and it renders + uploads with its own bundled tests.
+   common service type; pick it in the dashboard's *Create from template* flow
+   or from the CLI (`usvc_seller templates list` / `show` / `instantiate`), fill
+   a short set of parameters, and it renders + uploads with its own bundled tests.
 2. **Capability pools** — a platform template carrying a *pool name*;
    instantiating it joins `/p/<pool>` at the pool's uniform terms and price. You
    provide only the upstream URL. (Opt-in; `usvc_seller data upload` cannot

@@ -47,7 +47,14 @@ class ServiceGroupPublic:
     - No rules, no access interfaces → category (organizes descendants)
     - Rules, no access interfaces → collection (curated set for browsing)
     - Rules + access interfaces → group (has own API endpoint + routing)
-    - System-generated catch-all → misc """
+    - System-generated catch-all → misc
+    - Set explicitly (never derived, like misc) → capability_pool
+
+    ``capability_pool`` (#1244) backs the ``/p/<name>`` namespace: membership
+    is claim-driven — services instantiated from a ServiceTemplate whose
+    ``pool_name`` matches the group name — computed by a dedicated refresh,
+    not by ``membership_rules``. Distinct from ``routable`` (``/g/``), whose
+    membership is curated. """
     sort_order: int | Unset = 0
     ancestor_path: str | Unset = "/"
     service_count: int | None | Unset = UNSET

@@ -340,6 +340,721 @@
         }
       }
     },
+    "/forms": {
+      "post": {
+        "tags": [
+          "seller-forms"
+        ],
+        "summary": "Create Form",
+        "description": "Create a form bound to a template (template must be active).",
+        "operationId": "seller-forms-create_form",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceFormCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceFormPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "seller-forms"
+        ],
+        "summary": "List Forms",
+        "description": "List my forms with derived service status.",
+        "operationId": "seller-forms-list_forms",
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Skip"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceFormsPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/forms/{form_id}": {
+      "get": {
+        "tags": [
+          "seller-forms"
+        ],
+        "summary": "Get Form",
+        "description": "Get one form: parameters, template metadata, linked service status.",
+        "operationId": "seller-forms-get_form",
+        "parameters": [
+          {
+            "name": "form_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Form Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceFormPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "seller-forms"
+        ],
+        "summary": "Update Form",
+        "description": "Edit a form's label and/or parameters (validated against the schema).",
+        "operationId": "seller-forms-update_form",
+        "parameters": [
+          {
+            "name": "form_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Form Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceFormUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceFormPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "seller-forms"
+        ],
+        "summary": "Delete Form",
+        "description": "Delete a form. The linked service (if any) is not unpublished.",
+        "operationId": "seller-forms-delete_form",
+        "parameters": [
+          {
+            "name": "form_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Form Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Seller-Forms-Delete Form"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/forms/{form_id}/clone": {
+      "post": {
+        "tags": [
+          "seller-forms"
+        ],
+        "summary": "Clone Form",
+        "description": "Clone a form (\"create another\") rebound to the current active version.\n\nThe clone copies parameters but starts a fresh service lineage. It rebinds\nto the template family's current **active** version and re-validates the\ncopied parameters against that version's schema \u2014 disabled when the family\nhas no active version.",
+        "operationId": "seller-forms-clone_form",
+        "parameters": [
+          {
+            "name": "form_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Form Id"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Label for the clone",
+              "title": "Name"
+            },
+            "description": "Label for the clone"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceFormPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/forms/{form_id}/render": {
+      "post": {
+        "tags": [
+          "seller-forms"
+        ],
+        "summary": "Render Form",
+        "description": "Render the form to a complete ``ServiceDataInput`` (preview, no persist).\n\n``$doc_preset`` references stay intact \u2014 expansion happens at ingest, so\nthe preview matches what submit would publish and what the SDK produces.",
+        "operationId": "seller-forms-render_form",
+        "parameters": [
+          {
+            "name": "form_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Form Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceDataInput-Output"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/forms/{form_id}/submit": {
+      "post": {
+        "tags": [
+          "seller-forms"
+        ],
+        "summary": "Submit Form",
+        "description": "Render and publish through the canonical ingest pipeline (async).\n\nCreate (no ``service_id`` yet) requires the form's pinned template version\nto be **active**; revise (``service_id`` set) is allowed even on a\ndeprecated version. The rendered listing carries the form's canonical\n``service_id`` for revises, so the ingest worker branches exactly as it\ndoes for SDK uploads (create / revise-active / replace / unchanged).\n\nReturns 202 with the ingest ``task_id``; the form's ``service_id`` is\nreconciled from the task result on subsequent reads.",
+        "operationId": "seller-forms-submit_form",
+        "parameters": [
+          {
+            "name": "form_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Form Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceFormSubmitResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/forms/instantiate": {
+      "post": {
+        "tags": [
+          "seller-forms"
+        ],
+        "summary": "Instantiate Form",
+        "description": "One-shot: create a form from a template + parameters and submit it.\n\nThe CLI/CI counterpart of the dashboard's two-step *create form \u2192 submit*.\nCreates the backing ``ServiceForm`` (the durable handle for later revise /\nclone) and dispatches it through the canonical ingest pipeline in a single\ncall. The template must be **active**. Returns 202 with the new\n``form_id`` and the ingest ``task_id``.",
+        "operationId": "seller-forms-instantiate_form",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceFormCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceFormInstantiateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/service-groups": {
       "get": {
         "tags": [
@@ -2011,7 +2726,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ServiceDataInput"
+                "$ref": "#/components/schemas/ServiceDataInput-Input"
               }
             }
           }
@@ -2662,6 +3377,188 @@
         }
       }
     },
+    "/templates": {
+      "get": {
+        "tags": [
+          "seller-templates"
+        ],
+        "summary": "List Seller Templates",
+        "description": "List the ``active`` templates a seller can instantiate.\n\nOnly active templates are selectable for net-new service creation; draft\nand deprecated versions are hidden from this list.",
+        "operationId": "seller-templates-list_seller_templates",
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Skip"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "service_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ServiceTypeEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by service type",
+              "title": "Service Type"
+            },
+            "description": "Filter by service type"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceTemplateSummariesPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/templates/{template_id}": {
+      "get": {
+        "tags": [
+          "seller-templates"
+        ],
+        "summary": "Get Seller Template",
+        "description": "Get one template's parameter schema + metadata (active only).",
+        "operationId": "seller-templates-get_seller_template",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceTemplateSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/upload": {
       "post": {
         "tags": [
@@ -2881,18 +3778,6 @@
               }
             ],
             "title": "Routing Key"
-          },
-          "enrollment_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Enrollment Id"
           },
           "customer_secrets_needed": {
             "anyOf": [
@@ -3505,10 +4390,11 @@
           "category",
           "collection",
           "routable",
-          "misc"
+          "misc",
+          "capability_pool"
         ],
         "title": "GroupTypeEnum",
-        "description": "Type of service group \u2014 derived from configuration, not set directly.\n\nDerivation rules:\n- No rules, no access interfaces \u2192 category (organizes descendants)\n- Rules, no access interfaces \u2192 collection (curated set for browsing)\n- Rules + access interfaces \u2192 group (has own API endpoint + routing)\n- System-generated catch-all \u2192 misc"
+        "description": "Type of service group \u2014 derived from configuration, not set directly.\n\nDerivation rules:\n- No rules, no access interfaces \u2192 category (organizes descendants)\n- Rules, no access interfaces \u2192 collection (curated set for browsing)\n- Rules + access interfaces \u2192 group (has own API endpoint + routing)\n- System-generated catch-all \u2192 misc\n- Set explicitly (never derived, like misc) \u2192 capability_pool\n\n``capability_pool`` (#1244) backs the ``/p/<name>`` namespace: membership\nis claim-driven \u2014 services instantiated from a ServiceTemplate whose\n``pool_name`` matches the group name \u2014 computed by a dedicated refresh,\nnot by ``membership_rules``. Distinct from ``routable`` (``/g/``), whose\nmembership is curated."
       },
       "HTTPValidationError": {
         "properties": {
@@ -4511,7 +5397,31 @@
         "type": "object",
         "title": "ServiceConstraints"
       },
-      "ServiceDataInput": {
+      "ServiceDataInput-Input": {
+        "properties": {
+          "provider_data": {
+            "$ref": "#/components/schemas/ProviderData",
+            "description": "Provider configuration data"
+          },
+          "offering_data": {
+            "$ref": "#/components/schemas/ServiceOfferingData",
+            "description": "Service offering configuration data"
+          },
+          "listing_data": {
+            "$ref": "#/components/schemas/ServiceListingData",
+            "description": "Service listing configuration data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider_data",
+          "offering_data",
+          "listing_data"
+        ],
+        "title": "ServiceDataInput",
+        "description": "Complete service data input for publishing.\n\nFields are typed against the shared ``unitysvc_core`` models so the\nOpenAPI spec carries the full provider/offering/listing schemas, and\ngenerated clients expose typed upload methods instead of ``dict[str, Any]``."
+      },
+      "ServiceDataInput-Output": {
         "properties": {
           "provider_data": {
             "$ref": "#/components/schemas/ProviderData",
@@ -4748,6 +5658,276 @@
         ],
         "title": "ServiceDocumentItem",
         "description": "Document pointer embedded in ``ServiceDetailResponse``.\n\nIncludes the fields the seller UI needs to render the documents tab\n(split by ``context_type``, show MIME type / visibility, and display\ntest status via ``meta``). File content still requires\n``GET /seller/documents/{id}``."
+      },
+      "ServiceFormCreate": {
+        "properties": {
+          "template_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Template Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Optional label; defaults to the template display name."
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "template_id"
+        ],
+        "title": "ServiceFormCreate",
+        "description": "Create a form bound to the active version of a template."
+      },
+      "ServiceFormInstantiateResponse": {
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Form Id"
+          },
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "form_id",
+          "task_id",
+          "status",
+          "message"
+        ],
+        "title": "ServiceFormInstantiateResponse",
+        "description": "202 response for a one-shot instantiate (form created + submitted)."
+      },
+      "ServiceFormPublic": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "template_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Template Id"
+          },
+          "template_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Name"
+          },
+          "template_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Version"
+          },
+          "template_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Status"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Id"
+          },
+          "service_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Status"
+          },
+          "pending_revision_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Revision Id"
+          },
+          "last_submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Submitted At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "template_id",
+          "parameters",
+          "created_at"
+        ],
+        "title": "ServiceFormPublic",
+        "description": "Seller-facing read model with derived service state."
+      },
+      "ServiceFormSubmitResponse": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_id",
+          "status",
+          "message"
+        ],
+        "title": "ServiceFormSubmitResponse",
+        "description": "202 response for a form submit dispatch."
+      },
+      "ServiceFormUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "parameters": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameters"
+          }
+        },
+        "type": "object",
+        "title": "ServiceFormUpdate",
+        "description": "Edit a form's label and/or parameters."
+      },
+      "ServiceFormsPublic": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceFormPublic"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "count"
+        ],
+        "title": "ServiceFormsPublic",
+        "description": "List envelope for ServiceForms."
       },
       "ServiceGroupCreate": {
         "properties": {
@@ -5617,6 +6797,102 @@
         ],
         "title": "ServiceStatusEnum",
         "description": "Status of a Service (identity layer).\n\nWorkflow:\n- draft: Not yet submitted for review (default, seller still editing)\n- pending: Tests running (transient, after seller publishes)\n- review: Tests passed, awaiting admin approval\n- active: Approved and operational, accepting requests\n- rejected: Admin rejected (seller can revise and republish)\n- suspended: Admin suspended due to issues/violations\n- deprecated: Service ending"
+      },
+      "ServiceTemplateSummariesPublic": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceTemplateSummary"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "count"
+        ],
+        "title": "ServiceTemplateSummariesPublic",
+        "description": "List envelope for seller-facing template summaries."
+      },
+      "ServiceTemplateSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "service_type": {
+            "$ref": "#/components/schemas/ServiceTypeEnum"
+          },
+          "pool_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Name"
+          },
+          "parameter_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "ServiceTemplateSummaryParameterSchema"
+          },
+          "parameter_ui_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameter Ui Schema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "version",
+          "display_name",
+          "service_type",
+          "parameter_schema"
+        ],
+        "title": "ServiceTemplateSummary",
+        "description": "Seller-facing read model \u2014 the bounded input surface only.\n\nExcludes the Jinja2 bodies and platform ``constants`` (the seller never\nsees the rendered offering/listing schema or the platform-fixed context)."
       },
       "ServiceTypeEnum": {
         "type": "string",

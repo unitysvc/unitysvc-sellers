@@ -29,8 +29,8 @@ the row that matches what you're doing.
 
 | Use | Who authors the template | How you use it | Best for |
 |---|---|---|---|
-| **1. Platform templates** | The platform | Dashboard → *Create from template*, fill a short form | Offering a common service type with zero file authoring |
-| **2. Capability pools** | The platform (template carries a pool name) | Dashboard → instantiate a pool template; you provide only the upstream URL | Joining a fungible, uniformly-priced commodity pool |
+| **1. Platform templates** | The platform | Dashboard *Create from template*, or `usvc_seller templates instantiate` | Offering a common service type with zero file authoring |
+| **2. Capability pools** | The platform (template carries a pool name) | Instantiate a pool template (dashboard or CLI); you provide only the upstream URL | Joining a fungible, uniformly-priced commodity pool |
 | **3. Your own templates** | You | Author `.j2` templates + a populator script, then `usvc_seller data populate` | Generating many services programmatically from a source list |
 
 ### 1. Platform service templates — the easy path
@@ -47,9 +47,21 @@ You manage the resulting service exactly like any other (it appears under your
 **Staging** list), and if you outgrow the template you can download the rendered
 files and refine them with this SDK.
 
-> Platform templates are a **dashboard** feature; there is no `usvc_seller`
-> command for them. Reach for use #3 below when you want to generate services
-> from local files.
+**From the CLI / CI**, the same flow is available without the dashboard:
+
+```bash
+usvc_seller templates list                        # active platform templates
+usvc_seller templates show openai-compatible-llm  # its parameters
+usvc_seller templates instantiate openai-compatible-llm \
+    -P api_base_url=https://api.example.com/v1 \
+    -P api_key_secret_name=UPSTREAM_API_KEY \
+    -P price=1.00
+```
+
+`instantiate` renders the template, creates the service, and submits it in one
+call — returning the new `form_id` and the ingest `task_id`. Secret-typed
+parameters take the **secret name** (create it first with
+`usvc_seller secrets`), never the key value.
 
 ### 2. Capability pools — opt in with a pool name
 
