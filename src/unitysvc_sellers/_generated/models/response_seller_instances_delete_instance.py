@@ -8,11 +8,11 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="ResponseSellerFormsDeleteForm")
+T = TypeVar("T", bound="ResponseSellerInstancesDeleteInstance")
 
 
 @_attrs_define
-class ResponseSellerFormsDeleteForm:
+class ResponseSellerInstancesDeleteInstance:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -24,10 +24,10 @@ class ResponseSellerFormsDeleteForm:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        response_seller_forms_delete_form = cls()
+        response_seller_instances_delete_instance = cls()
 
-        response_seller_forms_delete_form.additional_properties = d
-        return response_seller_forms_delete_form
+        response_seller_instances_delete_instance.additional_properties = d
+        return response_seller_instances_delete_instance
 
     @property
     def additional_keys(self) -> list[str]:

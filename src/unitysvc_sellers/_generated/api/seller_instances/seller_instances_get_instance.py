@@ -7,12 +7,11 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
-from ...models.response_seller_forms_delete_form import ResponseSellerFormsDeleteForm
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
-    form_id: str,
+    instance_id: str,
     *,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -25,9 +24,9 @@ def _get_kwargs(
         headers["x-role-id"] = x_role_id
 
     _kwargs: dict[str, Any] = {
-        "method": "delete",
-        "url": "/forms/{form_id}".format(
-            form_id=quote(str(form_id), safe=""),
+        "method": "get",
+        "url": "/instances/{instance_id}".format(
+            instance_id=quote(str(instance_id), safe=""),
         ),
     }
 
@@ -35,14 +34,7 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | ResponseSellerFormsDeleteForm | None:
-    if response.status_code == 200:
-        response_200 = ResponseSellerFormsDeleteForm.from_dict(response.json())
-
-        return response_200
-
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | None:
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
 
@@ -54,9 +46,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | ResponseSellerFormsDeleteForm]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -66,18 +56,18 @@ def _build_response(
 
 
 def sync_detailed(
-    form_id: str,
+    instance_id: str,
     *,
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | ResponseSellerFormsDeleteForm]:
-    """Delete Form
+) -> Response[HTTPValidationError]:
+    """Get Instance
 
-     Delete a form. The linked service (if any) is not unpublished.
+     Get one form: parameters, template metadata, linked service status.
 
     Args:
-        form_id (str):
+        instance_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -86,11 +76,11 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | ResponseSellerFormsDeleteForm]
+        Response[HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
-        form_id=form_id,
+        instance_id=instance_id,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -103,18 +93,18 @@ def sync_detailed(
 
 
 def sync(
-    form_id: str,
+    instance_id: str,
     *,
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | ResponseSellerFormsDeleteForm | None:
-    """Delete Form
+) -> HTTPValidationError | None:
+    """Get Instance
 
-     Delete a form. The linked service (if any) is not unpublished.
+     Get one form: parameters, template metadata, linked service status.
 
     Args:
-        form_id (str):
+        instance_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -123,11 +113,11 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | ResponseSellerFormsDeleteForm
+        HTTPValidationError
     """
 
     return sync_detailed(
-        form_id=form_id,
+        instance_id=instance_id,
         client=client,
         authorization=authorization,
         x_role_id=x_role_id,
@@ -135,18 +125,18 @@ def sync(
 
 
 async def asyncio_detailed(
-    form_id: str,
+    instance_id: str,
     *,
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | ResponseSellerFormsDeleteForm]:
-    """Delete Form
+) -> Response[HTTPValidationError]:
+    """Get Instance
 
-     Delete a form. The linked service (if any) is not unpublished.
+     Get one form: parameters, template metadata, linked service status.
 
     Args:
-        form_id (str):
+        instance_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -155,11 +145,11 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | ResponseSellerFormsDeleteForm]
+        Response[HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
-        form_id=form_id,
+        instance_id=instance_id,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -170,18 +160,18 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    form_id: str,
+    instance_id: str,
     *,
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | ResponseSellerFormsDeleteForm | None:
-    """Delete Form
+) -> HTTPValidationError | None:
+    """Get Instance
 
-     Delete a form. The linked service (if any) is not unpublished.
+     Get one form: parameters, template metadata, linked service status.
 
     Args:
-        form_id (str):
+        instance_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -190,12 +180,12 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | ResponseSellerFormsDeleteForm
+        HTTPValidationError
     """
 
     return (
         await asyncio_detailed(
-            form_id=form_id,
+            instance_id=instance_id,
             client=client,
             authorization=authorization,
             x_role_id=x_role_id,

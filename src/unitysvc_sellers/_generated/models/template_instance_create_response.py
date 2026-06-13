@@ -9,21 +9,21 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="ServiceFormInstantiateResponse")
+T = TypeVar("T", bound="TemplateInstanceCreateResponse")
 
 
 @_attrs_define
-class ServiceFormInstantiateResponse:
+class TemplateInstanceCreateResponse:
     """202 response for a one-shot instantiate (form created + submitted)."""
 
-    form_id: UUID
+    instance_id: UUID
     task_id: str
     status: str
     message: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        form_id = str(self.form_id)
+        instance_id = str(self.instance_id)
 
         task_id = self.task_id
 
@@ -35,7 +35,7 @@ class ServiceFormInstantiateResponse:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "form_id": form_id,
+                "instance_id": instance_id,
                 "task_id": task_id,
                 "status": status,
                 "message": message,
@@ -47,7 +47,7 @@ class ServiceFormInstantiateResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        form_id = UUID(d.pop("form_id"))
+        instance_id = UUID(d.pop("instance_id"))
 
         task_id = d.pop("task_id")
 
@@ -55,15 +55,15 @@ class ServiceFormInstantiateResponse:
 
         message = d.pop("message")
 
-        service_form_instantiate_response = cls(
-            form_id=form_id,
+        template_instance_create_response = cls(
+            instance_id=instance_id,
             task_id=task_id,
             status=status,
             message=message,
         )
 
-        service_form_instantiate_response.additional_properties = d
-        return service_form_instantiate_response
+        template_instance_create_response.additional_properties = d
+        return template_instance_create_response
 
     @property
     def additional_keys(self) -> list[str]:

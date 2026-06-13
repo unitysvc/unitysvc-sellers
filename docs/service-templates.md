@@ -29,7 +29,7 @@ the row that matches what you're doing.
 
 | Use | Who authors the template | How you use it | Best for |
 |---|---|---|---|
-| **1. Platform templates** | The platform | Dashboard *Create from template*, or `usvc_seller templates instantiate` | Offering a common service type with zero file authoring |
+| **1. Platform templates** | The platform | Dashboard *Create from template*, or `usvc_seller instances create` | Offering a common service type with zero file authoring |
 | **2. Capability pools** | The platform (template carries a pool name) | Instantiate a pool template (dashboard or CLI); you provide only the upstream URL | Joining a fungible, uniformly-priced commodity pool |
 | **3. Your own templates** | You | Author `.j2` templates + a populator script, then `usvc_seller data populate` | Generating many services programmatically from a source list |
 
@@ -47,40 +47,42 @@ You manage the resulting service exactly like any other (it appears under your
 **Staging** list), and if you outgrow the template you can download the rendered
 files and refine them with this SDK.
 
-**From the CLI / CI**, the same one-shot flow is available without the
-dashboard:
+**From the CLI / CI**, the same flow is available without the dashboard — browse
+the catalog with `templates`, create with `instances`:
 
 ```bash
 usvc_seller templates list                        # active platform templates
 usvc_seller templates show openai-compatible-llm  # its parameters
-usvc_seller templates instantiate openai-compatible-llm \
+usvc_seller instances create openai-compatible-llm \
     -P api_base_url=https://api.example.com/v1 \
     -P api_key_secret_name=UPSTREAM_API_KEY \
-    -P price=1.00
+    -P input_price=1.00
+usvc_seller instances list                        # your instances + service status
 ```
 
-**From the SDK**, `client.templates` does the same:
+**From the SDK**, `client.templates` (catalog) and `client.instances` (create):
 
 ```python
 from unitysvc_sellers import Client
 
 with Client() as client:
-    result = client.templates.instantiate(
+    result = client.instances.create(
         "openai-compatible-llm",
         parameters={
             "api_base_url": "https://api.example.com/v1",
             "api_key_secret_name": "UPSTREAM_API_KEY",
-            "price": 1.00,
+            "input_price": 1.00,
         },
+        # submit=True by default; pass submit=False to leave a reviewable draft.
     )
 ```
 
-`instantiate` renders the template, creates the service, and submits it in one
-call — returning the new `form_id` and the ingest `task_id`. Secret-typed
-parameters take the **secret name** (create it first with
-`usvc_seller secrets`), never the key value. See the
-[SDK Guide → `client.templates`](sdk-guide.md#clienttemplates) for the full
-API.
+`create` renders the template into a service and (by default) submits it for
+review — returning the new `instance_id` and the ingest `task_id`. Pass
+`--no-submit` / `submit=False` to leave it a draft and submit later with
+`usvc_seller services submit`. Secret-typed parameters take the **secret name**
+(create it first with `usvc_seller secrets`), never the key value. See the
+[SDK Guide → `client.instances`](sdk-guide.md#clientinstances) for the full API.
 
 ### 2. Capability pools — opt in with a pool name
 

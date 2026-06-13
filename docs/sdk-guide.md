@@ -92,13 +92,14 @@ asyncio.run(main())
 
 ## Resource namespaces
 
-Both clients expose the same seven resource namespaces as lazy
+Both clients expose the same eight resource namespaces as lazy
 properties:
 
 | Namespace            | Underlying endpoints                                          | Purpose                                                                 |
 | -------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `client.services`    | `/seller/services/*`                                          | List, get, upload, mutate status / routing / pricing, delete services   |
-| `client.templates`   | `/seller/templates/*`, `/seller/forms/instantiate`           | List platform service templates and instantiate one into a service      |
+| `client.templates`   | `/seller/templates/*`                                         | Browse the platform service-template catalog (read-only: list / get)    |
+| `client.instances`   | `/seller/instances/*`                                         | Create a service from a template, and list / get / delete your instances |
 | `client.promotions`  | `/seller/promotions/*`                                        | CRUD on seller-funded promotion codes                                   |
 | `client.groups`      | `/seller/service-groups/*`                                    | CRUD on service groups                                                  |
 | `client.documents`   | `/seller/documents/*`                                         | Fetch document file content, execute (gateway dispatch), update test    |
@@ -231,43 +232,56 @@ calls still work: `client.services.update(service_id, {"status":
 
 ## `client.templates`
 
-Platform-curated **service templates** — the SDK counterpart of the
-dashboard's *Create from template* flow. List the active templates, inspect a
-template's parameter schema, then `instantiate` one to render + create +
-submit a complete service in a single call (the same one-shot path the CLI's
-`usvc_seller templates` and the dashboard use).
+The platform **service-template catalog** (read-only) — discover what you can
+instantiate. `list` the active templates and `get` one's parameter schema.
+Creating a service from a template lives on `client.instances` (below).
 
 Manager methods on `client.templates`:
 
-| Method                                            | Description                                                                              |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `list(skip=, limit=, service_type=)`              | Active templates you can instantiate.                                                    |
-| `get(template_id)`                                | One template's metadata + parameter schema.                                              |
-| `instantiate(template_id, parameters=, name=)`    | Render + create + submit a service; returns a record with `form_id` and ingest `task_id`. |
+| Method                                  | Description                                  |
+| --------------------------------------- | -------------------------------------------- |
+| `list(skip=, limit=, service_type=)`    | Active templates you can instantiate.        |
+| `get(template_id)`                      | One template's metadata + parameter schema.  |
+
+## `client.instances`
+
+**Template instances** — the SDK counterpart of the dashboard's *Create from
+template* flow. `create` renders a template into a service (and, by default,
+submits it for review); `list` / `get` / `delete` manage your instances.
+
+Manager methods on `client.instances`:
+
+| Method                                                  | Description                                                                                  |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `create(template_id, parameters=, name=, submit=True)`  | Render a template into a service; `submit=True` (default) also submits it. Returns `instance_id` + ingest `task_id`. |
+| `list(skip=, limit=)`                                   | Your instances, with derived service status.                                                 |
+| `get(instance_id)`                                      | One instance: parameters, template metadata, linked service.                                 |
+| `delete(instance_id)`                                   | Delete the instance record (the linked service is **not** unpublished).                      |
 
 ```python
 from unitysvc_sellers import Client
 
 with Client() as client:
-    for tpl in client.templates.list():
+    for tpl in client.templates.list():          # discover (catalog)
         print(tpl.name, tpl.version)
 
-    result = client.templates.instantiate(
+    result = client.instances.create(            # create + submit
         "openai-compatible-llm",
         parameters={
             "api_base_url": "https://api.example.com/v1",
             "api_key_secret_name": "UPSTREAM_API_KEY",  # the secret NAME, never the value
-            "price": 1.00,
+            "input_price": 1.00,
         },
         name="my-llm",
+        # submit=False → leave a reviewable draft; submit later via client.services.
     )
     # Poll the ingest task to a verdict with client.tasks if you need to block.
-    print(result["form_id"], result["task_id"])
+    print(result["instance_id"], result["task_id"])
 ```
 
 Secret-typed parameters take the **name** of a secret you created with
 `client.secrets`, never the key value. Capability pools opt in the same way —
-instantiate a pool-named template and the resulting service joins
+`create` from a pool-named template and the resulting service joins
 `/p/<pool>` at the pool's uniform terms.
 
 ## `client.promotions`

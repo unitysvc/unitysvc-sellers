@@ -1,6 +1,8 @@
-"""``async_client.templates`` — async platform service templates.
+"""``async_client.templates`` — async platform service-template catalog.
 
-Async mirror of :mod:`unitysvc_sellers.templates`.
+Async mirror of :mod:`unitysvc_sellers.templates` (read-only). Creating a
+service from a template lives on ``async_client.instances`` (see
+:mod:`unitysvc_sellers.ainstances`).
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ if TYPE_CHECKING:
 
 
 class AsyncTemplates:
-    """Async manager for platform service templates (read + instantiate)."""
+    """Async read-only manager for the platform service-template catalog."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
         self._client = client
@@ -49,23 +51,3 @@ class AsyncTemplates:
         )
 
         return unwrap(await op.asyncio_detailed(str(template_id), client=self._client))
-
-    async def instantiate(
-        self,
-        template_id: str | UUID,
-        *,
-        parameters: dict[str, Any] | None = None,
-        name: str | None = None,
-    ) -> Any:
-        """Create a service from ``template_id`` + ``parameters`` in one call."""
-        from ._generated.api.seller_forms import seller_forms_instantiate_form as op
-        from ._generated.models.parameters import Parameters
-        from ._generated.models.service_form_create import ServiceFormCreate
-        from ._generated.types import UNSET
-
-        body = ServiceFormCreate(
-            template_id=UUID(str(template_id)),
-            name=name if name is not None else UNSET,
-            parameters=Parameters.from_dict(parameters or {}),
-        )
-        return unwrap(await op.asyncio_detailed(client=self._client, body=body))

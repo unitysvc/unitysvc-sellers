@@ -7,13 +7,13 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
+from ...models.response_seller_instances_delete_instance import ResponseSellerInstancesDeleteInstance
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
+    instance_id: str,
     *,
-    skip: int | Unset = 0,
-    limit: int | Unset = 100,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -24,25 +24,25 @@ def _get_kwargs(
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
-    params: dict[str, Any] = {}
-
-    params["skip"] = skip
-
-    params["limit"] = limit
-
-    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
     _kwargs: dict[str, Any] = {
-        "method": "get",
-        "url": "/forms",
-        "params": params,
+        "method": "delete",
+        "url": "/instances/{instance_id}".format(
+            instance_id=quote(str(instance_id), safe=""),
+        ),
     }
 
     _kwargs["headers"] = headers
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> HTTPValidationError | ResponseSellerInstancesDeleteInstance | None:
+    if response.status_code == 200:
+        response_200 = ResponseSellerInstancesDeleteInstance.from_dict(response.json())
+
+        return response_200
+
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
 
@@ -54,7 +54,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[HTTPValidationError | ResponseSellerInstancesDeleteInstance]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -64,20 +66,18 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 def sync_detailed(
+    instance_id: str,
     *,
     client: AuthenticatedClient | Client,
-    skip: int | Unset = 0,
-    limit: int | Unset = 100,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError]:
-    """List Forms
+) -> Response[HTTPValidationError | ResponseSellerInstancesDeleteInstance]:
+    """Delete Instance
 
-     List my forms with derived service status.
+     Delete a form. The linked service (if any) is not unpublished.
 
     Args:
-        skip (int | Unset):  Default: 0.
-        limit (int | Unset):  Default: 100.
+        instance_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -86,12 +86,11 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError]
+        Response[HTTPValidationError | ResponseSellerInstancesDeleteInstance]
     """
 
     kwargs = _get_kwargs(
-        skip=skip,
-        limit=limit,
+        instance_id=instance_id,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -104,20 +103,18 @@ def sync_detailed(
 
 
 def sync(
+    instance_id: str,
     *,
     client: AuthenticatedClient | Client,
-    skip: int | Unset = 0,
-    limit: int | Unset = 100,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | None:
-    """List Forms
+) -> HTTPValidationError | ResponseSellerInstancesDeleteInstance | None:
+    """Delete Instance
 
-     List my forms with derived service status.
+     Delete a form. The linked service (if any) is not unpublished.
 
     Args:
-        skip (int | Unset):  Default: 0.
-        limit (int | Unset):  Default: 100.
+        instance_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -126,33 +123,30 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError
+        HTTPValidationError | ResponseSellerInstancesDeleteInstance
     """
 
     return sync_detailed(
+        instance_id=instance_id,
         client=client,
-        skip=skip,
-        limit=limit,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
 
 
 async def asyncio_detailed(
+    instance_id: str,
     *,
     client: AuthenticatedClient | Client,
-    skip: int | Unset = 0,
-    limit: int | Unset = 100,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError]:
-    """List Forms
+) -> Response[HTTPValidationError | ResponseSellerInstancesDeleteInstance]:
+    """Delete Instance
 
-     List my forms with derived service status.
+     Delete a form. The linked service (if any) is not unpublished.
 
     Args:
-        skip (int | Unset):  Default: 0.
-        limit (int | Unset):  Default: 100.
+        instance_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -161,12 +155,11 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError]
+        Response[HTTPValidationError | ResponseSellerInstancesDeleteInstance]
     """
 
     kwargs = _get_kwargs(
-        skip=skip,
-        limit=limit,
+        instance_id=instance_id,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -177,20 +170,18 @@ async def asyncio_detailed(
 
 
 async def asyncio(
+    instance_id: str,
     *,
     client: AuthenticatedClient | Client,
-    skip: int | Unset = 0,
-    limit: int | Unset = 100,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | None:
-    """List Forms
+) -> HTTPValidationError | ResponseSellerInstancesDeleteInstance | None:
+    """Delete Instance
 
-     List my forms with derived service status.
+     Delete a form. The linked service (if any) is not unpublished.
 
     Args:
-        skip (int | Unset):  Default: 0.
-        limit (int | Unset):  Default: 100.
+        instance_id (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -199,14 +190,13 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError
+        HTTPValidationError | ResponseSellerInstancesDeleteInstance
     """
 
     return (
         await asyncio_detailed(
+            instance_id=instance_id,
             client=client,
-            skip=skip,
-            limit=limit,
             authorization=authorization,
             x_role_id=x_role_id,
         )

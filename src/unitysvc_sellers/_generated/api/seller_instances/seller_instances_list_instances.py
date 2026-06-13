@@ -11,8 +11,9 @@ from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
-    form_id: str,
     *,
+    skip: int | Unset = 0,
+    limit: int | Unset = 100,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -23,11 +24,18 @@ def _get_kwargs(
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
+    params: dict[str, Any] = {}
+
+    params["skip"] = skip
+
+    params["limit"] = limit
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/forms/{form_id}".format(
-            form_id=quote(str(form_id), safe=""),
-        ),
+        "url": "/instances",
+        "params": params,
     }
 
     _kwargs["headers"] = headers
@@ -56,18 +64,20 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 def sync_detailed(
-    form_id: str,
     *,
     client: AuthenticatedClient | Client,
+    skip: int | Unset = 0,
+    limit: int | Unset = 100,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError]:
-    """Get Form
+    """List Instances
 
-     Get one form: parameters, template metadata, linked service status.
+     List my forms with derived service status.
 
     Args:
-        form_id (str):
+        skip (int | Unset):  Default: 0.
+        limit (int | Unset):  Default: 100.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -80,7 +90,8 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        form_id=form_id,
+        skip=skip,
+        limit=limit,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -93,18 +104,20 @@ def sync_detailed(
 
 
 def sync(
-    form_id: str,
     *,
     client: AuthenticatedClient | Client,
+    skip: int | Unset = 0,
+    limit: int | Unset = 100,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> HTTPValidationError | None:
-    """Get Form
+    """List Instances
 
-     Get one form: parameters, template metadata, linked service status.
+     List my forms with derived service status.
 
     Args:
-        form_id (str):
+        skip (int | Unset):  Default: 0.
+        limit (int | Unset):  Default: 100.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -117,26 +130,29 @@ def sync(
     """
 
     return sync_detailed(
-        form_id=form_id,
         client=client,
+        skip=skip,
+        limit=limit,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
 
 
 async def asyncio_detailed(
-    form_id: str,
     *,
     client: AuthenticatedClient | Client,
+    skip: int | Unset = 0,
+    limit: int | Unset = 100,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError]:
-    """Get Form
+    """List Instances
 
-     Get one form: parameters, template metadata, linked service status.
+     List my forms with derived service status.
 
     Args:
-        form_id (str):
+        skip (int | Unset):  Default: 0.
+        limit (int | Unset):  Default: 100.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -149,7 +165,8 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        form_id=form_id,
+        skip=skip,
+        limit=limit,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -160,18 +177,20 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    form_id: str,
     *,
     client: AuthenticatedClient | Client,
+    skip: int | Unset = 0,
+    limit: int | Unset = 100,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> HTTPValidationError | None:
-    """Get Form
+    """List Instances
 
-     Get one form: parameters, template metadata, linked service status.
+     List my forms with derived service status.
 
     Args:
-        form_id (str):
+        skip (int | Unset):  Default: 0.
+        limit (int | Unset):  Default: 100.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -185,8 +204,9 @@ async def asyncio(
 
     return (
         await asyncio_detailed(
-            form_id=form_id,
             client=client,
+            skip=skip,
+            limit=limit,
             authorization=authorization,
             x_role_id=x_role_id,
         )

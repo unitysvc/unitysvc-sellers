@@ -29,7 +29,8 @@ $ usvc_seller [OPTIONS] COMMAND [ARGS]...
 * `promotions`: Remote promotion operations (list, show,...
 * `groups`: Remote service group operations (list,...
 * `secrets`: Remote secret operations (list, show, set,...
-* `templates`: Create services from platform templates...
+* `templates`: Browse the platform service-template...
+* `instances`: Create and manage services from templates...
 
 ## `usvc_seller data`
 
@@ -1150,7 +1151,7 @@ $ usvc_seller secrets delete [OPTIONS] NAME
 
 ## `usvc_seller templates`
 
-Create services from platform templates (list, show, instantiate).
+Browse the platform service-template catalog (list, show).
 
 **Usage**:
 
@@ -1166,7 +1167,6 @@ $ usvc_seller templates [OPTIONS] COMMAND [ARGS]...
 
 * `list`: List the active platform templates you can...
 * `show`: Show a template&#x27;s metadata and its...
-* `instantiate`: Create a service from a template +...
 
 ### `usvc_seller templates list`
 
@@ -1206,28 +1206,107 @@ $ usvc_seller templates show [OPTIONS] NAME_OR_ID
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller templates instantiate`
+## `usvc_seller instances`
 
-Create a service from a template + parameters, and submit it.
-
-Examples:
-    usvc_seller templates instantiate openai-compatible-llm \
-        -P api_base_url=https://ollama.example.com/v1 -P price=1.00
+Create and manage services from templates (create, list, show, delete).
 
 **Usage**:
 
 ```console
-$ usvc_seller templates instantiate [OPTIONS] NAME_OR_ID
+$ usvc_seller instances [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `create`: Create a service from a template +...
+* `list`: List your template instances and their...
+* `show`: Show one instance: parameters, template,...
+* `delete`: Delete an instance record (the linked...
+
+### `usvc_seller instances create`
+
+Create a service from a template + parameters.
+
+Examples:
+    usvc_seller instances create openai-compatible-llm \
+        -P api_base_url=https://ollama.example.com/v1 -P input_price=1.00
+
+**Usage**:
+
+```console
+$ usvc_seller instances create [OPTIONS] TEMPLATE
 ```
 
 **Arguments**:
 
-* `NAME_OR_ID`: Template name or partial UUID.  [required]
+* `TEMPLATE`: Template name or partial UUID.  [required]
 
 **Options**:
 
 * `-P, --param TEXT`: A template parameter as key=value (repeatable). Secret-typed params take the secret NAME, not the value.
-* `--name TEXT`: Optional label for the form (defaults to template).
+* `--name TEXT`: Optional label for the instance (defaults to template).
+* `--submit / --no-submit`: Submit the rendered service for review (default), or leave it a draft.  [default: submit]
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller instances list`
+
+List your template instances and their service status.
+
+**Usage**:
+
+```console
+$ usvc_seller instances list [OPTIONS]
+```
+
+**Options**:
+
+* `-f, --format TEXT`: Output format: table | json.  [default: table]
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller instances show`
+
+Show one instance: parameters, template, and linked service status.
+
+**Usage**:
+
+```console
+$ usvc_seller instances show [OPTIONS] INSTANCE_ID
+```
+
+**Arguments**:
+
+* `INSTANCE_ID`: Instance ID (full or partial UUID).  [required]
+
+**Options**:
+
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller instances delete`
+
+Delete an instance record (the linked service is not unpublished).
+
+**Usage**:
+
+```console
+$ usvc_seller instances delete [OPTIONS] INSTANCE_ID
+```
+
+**Arguments**:
+
+* `INSTANCE_ID`: Instance ID (full or partial UUID).  [required]
+
+**Options**:
+
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.

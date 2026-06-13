@@ -1,13 +1,9 @@
-"""``usvc_seller templates`` — create services from platform templates.
+"""``usvc_seller templates`` — browse the platform service-template catalog.
 
-The CLI counterpart of the dashboard's *Create from template* flow. List the
-active platform templates and their parameter schemas, then ``instantiate`` one
-with a few ``--param key=value`` pairs to create + submit a service in a single
-call. The platform authored the hard parts (pricing shape, upstream config,
-bundled tests); you supply only the documented parameters.
-
-Capability pools opt in the same way: instantiate a pool-named template, and
-the resulting service joins ``/p/<pool>`` at the pool's uniform terms.
+Read-only discovery: ``list`` the active platform templates and ``show`` one's
+parameter schema, so you know what you can instantiate. Creating a service from
+a template lives in ``usvc_seller instances create`` (see
+``commands/instances.py``).
 """
 
 from __future__ import annotations
@@ -31,27 +27,8 @@ from ._helpers import (
 console = Console()
 
 app = typer.Typer(
-    help="Create services from platform templates (list, show, instantiate).",
+    help="Browse the platform service-template catalog (list, show).",
 )
-
-
-def _coerce(value: str) -> Any:
-    """Best-effort scalar coercion for ``--param key=value`` (JSON, else str)."""
-    try:
-        return json.loads(value)
-    except (json.JSONDecodeError, ValueError):
-        return value
-
-
-def _parse_params(params: list[str]) -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    for item in params:
-        if "=" not in item:
-            console.print(f"[red]Error:[/red] --param expects key=value, got '{item}'")
-            raise typer.Exit(code=1)
-        key, value = item.split("=", 1)
-        out[key.strip()] = _coerce(value)
-    return out
 
 
 async def _resolve_template(client, name_or_id: str) -> dict[str, Any]:
@@ -158,40 +135,7 @@ def show_template(
                 prop.get("description", ""),
             )
         console.print(ptable)
-
-
-@app.command("instantiate")
-def instantiate_template(
-    name_or_id: str = typer.Argument(..., help="Template name or partial UUID."),
-    param: list[str] = typer.Option(
-        [],
-        "--param",
-        "-P",
-        help="A template parameter as key=value (repeatable). Secret-typed params take the secret NAME, not the value.",
-    ),
-    name: str | None = typer.Option(None, "--name", help="Optional label for the form (defaults to template)."),
-    api_key: str | None = api_key_option(),
-    base_url: str = base_url_option(),
-) -> None:
-    """Create a service from a template + parameters, and submit it.
-
-    Examples:
-        usvc_seller templates instantiate openai-compatible-llm \\
-            -P api_base_url=https://ollama.example.com/v1 -P price=1.00
-    """
-    parameters = _parse_params(param)
-
-    async def _impl():
-        async with async_client(api_key, base_url) as client:
-            stub = await _resolve_template(client, name_or_id)
-            return model_to_dict(await client.templates.instantiate(stub["id"], parameters=parameters, name=name))
-
-    result = run_async(_impl(), error_prefix="Failed to instantiate template")
-    console.print("[green]✓[/green] Submitted to the publish pipeline")
-    console.print(f"  form_id: {result.get('form_id')}")
-    console.print(f"  task_id: {result.get('task_id')}")
     console.print(
-        "\n[dim]The service will appear under your staging list once ingest "
-        "completes — check the dashboard or [/dim][cyan]usvc_seller services "
-        "list[/cyan][dim].[/dim]"
+        "\n[dim]Create a service from this template with[/dim] "
+        "[cyan]usvc_seller instances create[/cyan][dim].[/dim]"
     )
