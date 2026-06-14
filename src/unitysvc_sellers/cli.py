@@ -6,7 +6,7 @@ import importlib.metadata
 
 import typer
 
-from . import data
+from . import data as specs_group
 from .commands import groups as groups_cmd
 from .commands import params as params_cmd
 from .commands import promotions as promotions_cmd
@@ -29,7 +29,7 @@ def version_callback(value: bool) -> None:
 app = typer.Typer(
     help=(
         "UnitySVC seller CLI — local catalog tools and remote API operations.\n\n"
-        "Local commands live under `usvc_seller data ...`. Remote commands "
+        "Local commands live under `usvc_seller specs ...`. Remote commands "
         "(against the seller backend, via the unitysvc-sellers HTTP SDK) live "
         "under `usvc_seller services|promotions|groups`."
     ),
@@ -50,8 +50,8 @@ def main(
     """UnitySVC seller CLI."""
 
 
-# Local catalog tools
-app.add_typer(data.app, name="data")
+# Local catalog tools (flat specs/ layout)
+app.add_typer(specs_group.app, name="specs")
 
 # Remote API command groups (use AsyncClient under the hood)
 app.add_typer(services_cmd.app, name="services")

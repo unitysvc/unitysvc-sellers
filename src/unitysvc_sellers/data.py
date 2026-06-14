@@ -1,4 +1,4 @@
-"""Data command group - local data file operations."""
+"""specs command group - local operations on the flat specs/ layout."""
 
 import json
 from pathlib import Path
@@ -10,11 +10,11 @@ from rich.syntax import Syntax
 from rich.table import Table
 
 from . import _cli_upload as upload_cmd
-from . import example, format_data, populate, validator
+from . import example, format_data, populate, specs
 from . import list as list_cmd
-from .utils import find_files_by_schema, load_data_file
+from .utils import find_files_by_schema, load_data_file, read_service_id
 
-app = typer.Typer(help="Local data file operations (validate, format, populate, upload, test, etc.)")
+app = typer.Typer(help="Local operations on the flat specs/ layout (validate, format, populate, upload, test, etc.)")
 console = Console()
 
 
@@ -29,9 +29,7 @@ console = Console()
 # ---------------------------------------------------------------------------
 
 
-def _resolve_service_paths(
-    data_dir: Path, service_name: str
-) -> tuple[Path | None, Path | None, Path | None]:
+def _resolve_service_paths(data_dir: Path, service_name: str) -> tuple[Path | None, Path | None, Path | None]:
     """Return ``(provider_file, offering_file, listing_file)`` for *service_name*.
 
     Mirrors ``_list_services_impl``'s resolution order:
@@ -50,14 +48,11 @@ def _resolve_service_paths(
         if resolved != service_name:
             continue
 
+        # In the flat specs/ layout the provider lives beside the listing.
         provider_file: Path | None = None
-        try:
-            provider_dir = listing_file.parent.parent.parent
-            provider_results = find_files_by_schema(provider_dir, "provider_v1")
-            if provider_results:
-                provider_file = provider_results[0][0]
-        except Exception:
-            pass
+        provider_results = find_files_by_schema(listing_file.parent, "provider_v1")
+        if provider_results:
+            provider_file = provider_results[0][0]
 
         return provider_file, offering_file, listing_file
     return None, None, None
@@ -83,15 +78,9 @@ def show_service(
         ...,
         help="Service name (first column of 'usvc_seller data list' output).",
     ),
-    only_provider: bool = typer.Option(
-        False, "--provider", help="Show only provider data."
-    ),
-    only_offering: bool = typer.Option(
-        False, "--offering", help="Show only offering data."
-    ),
-    only_listing: bool = typer.Option(
-        False, "--listing", help="Show only listing data."
-    ),
+    only_provider: bool = typer.Option(False, "--provider", help="Show only provider data."),
+    only_offering: bool = typer.Option(False, "--offering", help="Show only offering data."),
+    only_listing: bool = typer.Option(False, "--listing", help="Show only listing data."),
     data_dir: Path | None = typer.Option(
         None,
         "--data-dir",
@@ -125,9 +114,7 @@ def show_service(
         console.print(f"[red]Data directory not found: {data_dir}[/red]")
         raise typer.Exit(code=1)
 
-    provider_file, offering_file, listing_file = _resolve_service_paths(
-        data_dir, service_name
-    )
+    provider_file, offering_file, listing_file = _resolve_service_paths(data_dir, service_name)
     if listing_file is None:
         console.print(
             f"[red]Service not found: {service_name!r}. "
@@ -165,8 +152,9 @@ def show_service(
     else:
         _render_output({k: sections[k] for k in selected}, output_format)
 
+
 # Register subcommands
-app.command("validate")(validator.validate)
+app.command("validate")(specs.validate)
 app.command("format")(format_data.format_data)
 app.command("populate")(populate.populate)
 app.command("upload")(upload_cmd.upload)
@@ -223,19 +211,14 @@ def _list_services_impl(data_dir: Path | None):
         # Service name: listing name, or offering name if listing name not specified
         service_name = listing_name or offering_name or "unknown"
 
-        # Find provider (parent directory of services)
+        # Provider lives beside the listing in the flat specs/ layout.
         provider_name = ""
         provider_status = ""
-        try:
-            # Structure: data/{provider}/services/{service}/listing.json
-            provider_dir = listing_file.parent.parent.parent
-            provider_results = find_files_by_schema(provider_dir, "provider_v1")
-            if provider_results:
-                _, _fmt, provider_data = provider_results[0]
-                provider_name = provider_data.get("name", "")
-                provider_status = provider_data.get("status", "")
-        except Exception:
-            pass
+        provider_results = find_files_by_schema(listing_file.parent, "provider_v1")
+        if provider_results:
+            _, _fmt, provider_data = provider_results[0]
+            provider_name = provider_data.get("name", "")
+            provider_status = provider_data.get("status", "")
 
         # Compute service status: draft > deprecated > ready
         statuses = [s for s in [provider_status, offering_status, listing_status] if s]
@@ -248,8 +231,8 @@ def _list_services_impl(data_dir: Path | None):
         else:
             service_status = statuses[0] if statuses else ""
 
-        # Get service_id from override file if it exists
-        service_id = listing_data.get("service_id", "")
+        # Get service_id from the folder's service.json if it exists
+        service_id = read_service_id(listing_file.parent) or ""
 
         # Get relative paths
         try:

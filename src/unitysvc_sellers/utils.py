@@ -41,9 +41,7 @@ from unitysvc_core.utils import (  # noqa: F401
     get_file_extension,
     load_data_file,
     mime_type_to_extension,
-    read_override_file,
     write_data_file,
-    write_override_file,
 )
 
 
@@ -88,51 +86,28 @@ def literal_pattern_prefix(pattern: str) -> str | None:
 
 def resolve_provider_name(file_path: Path) -> str | None:
     """
-    Resolve the provider name from the file path.
+    Resolve the provider name for an offering/listing file.
 
-    The provider name is determined by the directory structure:
-    - For service offerings: <provider_name>/services/<service_name>/service.{json,toml}
-    - For service listings: <provider_name>/services/<service_name>/listing-*.{json,toml}
+    In the flat ``specs/`` layout every service folder is self-contained, so
+    ``provider.{json,toml}`` is a sibling of the offering/listing. Return its
+    ``name``.
 
     Args:
         file_path: Path to the service offering or listing file
 
     Returns:
-        Provider name if found in directory structure, None otherwise
+        Provider name if a sibling provider file is found, None otherwise
     """
-    # Check if file is under a "services" directory
-    parts = file_path.parts
-
+    provider_file = file_path.parent / "provider.json"
+    if not provider_file.is_file():
+        provider_file = file_path.parent / "provider.toml"
+    if not provider_file.is_file():
+        return None
     try:
-        # Find the "services" directory in the path
-        services_idx = parts.index("services")
-
-        # Provider name is the directory before "services"
-        if services_idx > 0:
-            provider_dir = parts[services_idx - 1]
-
-            # The provider directory should contain a provider data file
-            # Get the full path to the provider directory
-            provider_path = Path(*parts[:services_idx])
-
-            # Look for provider data file to validate and get the actual provider name
-            for data_file in find_data_files(provider_path):
-                try:
-                    # Only check files in the provider directory itself, not subdirectories
-                    if data_file.parent == provider_path:
-                        data, _file_format = load_data_file(data_file)
-                        if data.get("schema") == "provider_v1":
-                            return data.get("name")
-                except Exception:
-                    continue
-
-            # Fallback to directory name if no provider file found
-            return provider_dir
-    except (ValueError, IndexError):
-        # "services" not in path or invalid structure
-        pass
-
-    return None
+        data, _file_format = load_data_file(provider_file)
+        return data.get("name")
+    except Exception:
+        return None
 
 
 def resolve_service_name_for_listing(listing_file: Path, listing_data: dict[str, Any] | None = None) -> str | None:
@@ -151,17 +126,51 @@ def resolve_service_name_for_listing(listing_file: Path, listing_data: dict[str,
     """
     listing_dir = listing_file.parent
 
-    # Find the service offering file in the same directory
+    # Find the service offering file (by filename) in the same directory.
     for data_file in find_data_files(listing_dir):
+        if data_file.stem != "offering":
+            continue
         try:
             data, _file_format = load_data_file(data_file)
-            if data.get("schema") == "offering_v1":
-                return data.get("name")
+            return data.get("name")
         except Exception:
             continue
 
     # No offering file found
     return None
+
+
+def read_service_id(service_dir: Path) -> str | None:
+    """Return the ``service_id`` recorded in ``<service_dir>/service.json``.
+
+    In the flat ``specs/`` layout the backend-assigned id is provenance kept in
+    service.json beside the spec files, not merged into the listing.
+    """
+    service_file = service_dir / "service.json"
+    if not service_file.is_file():
+        return None
+    try:
+        data = json.loads(service_file.read_text())
+    except Exception:
+        return None
+    sid = data.get("service_id") if isinstance(data, dict) else None
+    return str(sid) if sid else None
+
+
+def write_service_id(service_dir: Path, service_id: str) -> None:
+    """Round-trip a backend-assigned ``service_id`` into ``service.json``
+    (created or updated; any other keys are preserved)."""
+    service_file = service_dir / "service.json"
+    data: dict[str, Any] = {}
+    if service_file.is_file():
+        try:
+            loaded = json.loads(service_file.read_text())
+            if isinstance(loaded, dict):
+                data = loaded
+        except Exception:
+            data = {}
+    data["service_id"] = str(service_id)
+    service_file.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
 def convert_convenience_fields_to_documents(

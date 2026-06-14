@@ -306,23 +306,18 @@ def load_related_data(listing_file: Path) -> dict[str, Any]:
         else:
             console.print(f"[yellow]Warning: No offering_v1 file found in {listing_file.parent}[/yellow]")
 
-        # Find provider file using find_files_by_schema
-        # Structure: data/{provider}/services/{service}/listing.json
-        # Go up to provider directory (2 levels up from listing)
-        provider_dir = listing_file.parent.parent.parent
-        provider_results = find_files_by_schema(provider_dir, "provider_v1")
+        # Provider lives beside the listing in the flat specs/ layout.
+        provider_results = find_files_by_schema(listing_file.parent, "provider_v1")
         if provider_results:
             # Unpack tuple: (file_path, format, data)
             # Data is already loaded by find_files_by_schema
             _file_path, _format, provider_data = provider_results[0]
             result["provider"] = provider_data
         else:
-            console.print(f"[yellow]Warning: No provider_v1 file found in {provider_dir}[/yellow]")
+            console.print(f"[yellow]Warning: No provider file found in {listing_file.parent}[/yellow]")
 
-        # Find seller file using find_files_by_schema (optional - seller files are not always present)
-        # Go up to data directory (3 levels up from listing)
-        data_dir = listing_file.parent.parent.parent.parent
-        seller_results = find_files_by_schema(data_dir, "seller_v1")
+        # Find seller file (optional - seller files are not always present).
+        seller_results = find_files_by_schema(listing_file.parent, "seller_v1")
         if seller_results:
             # Unpack tuple: (file_path, format, data)
             # Data is already loaded by find_files_by_schema
@@ -1149,9 +1144,12 @@ def run_local(
                 result_actual_filename = result["actual_filename"]
                 result_listing_stem = result_listing_file.stem
 
-                # Include interface name for disambiguation
+                # Include interface name for disambiguation. Sanitize the "/" in
+                # namespaced service names (e.g. "unitysvc-demo/llm") so the
+                # artifact lands in cwd instead of a nonexistent subdirectory.
                 safe_iface = iface_name.replace(" ", "_").replace("/", "_")
-                failed_filename = f"failed_{service_name}_{result_listing_stem}_{safe_iface}_{result_actual_filename}"
+                safe_service = service_name.replace(" ", "_").replace("/", "_")
+                failed_filename = f"failed_{safe_service}_{result_listing_stem}_{safe_iface}_{result_actual_filename}"
 
                 # Write failed test script content to current directory (for debugging)
                 try:
