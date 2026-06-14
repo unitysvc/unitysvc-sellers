@@ -1,8 +1,8 @@
 """Tests for ``--local-ids`` / ``--data-dir`` in ``usvc_seller services``.
 
 Covers:
-- ``_read_ids_from_data_dir``: collects service_id from listing_v1 files,
-  including via merged override files; skips listings without a service_id.
+- ``_read_ids_from_data_dir``: collects service_id from each service folder's
+  service.json; skips folders without one.
 - ``_resolve_or_fetch_ids``: mutual exclusivity enforcement; --local-ids path;
   --provider filter in --local-ids mode; explicit-IDs path.
 """
@@ -34,22 +34,31 @@ _UUID_B = "22222222-2222-2222-2222-222222222222"
 
 
 def _write_listing(path: Path, extra: dict | None = None) -> Path:
-    """Write a minimal listing_v1 JSON file, with optional extra fields."""
-    data: dict = {"schema": "listing_v1", "status": "ready"}
-    if extra:
-        data.update(extra)
+    """Write a minimal listing.json. A ``service_id`` in *extra* is recorded in
+    the folder's service.json (flat specs/ layout), not in the listing."""
+    extra = dict(extra or {})
+    sid = extra.pop("service_id", None)
+    prov = extra.pop("provider_name", None)
+    data: dict = {"status": "ready", **extra}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data))
+    if sid is not None:
+        (path.parent / "service.json").write_text(json.dumps({"service_id": sid}))
+    if prov is not None:
+        # Provider is a sibling in the flat layout; the filter reads its name.
+        (path.parent / "provider.json").write_text(json.dumps({"name": prov}))
     return path
 
 
 def _write_override(listing_path: Path, override: dict) -> Path:
-    """Write a <stem>.override.<ext> alongside the listing file."""
-    stem = listing_path.stem
-    suffix = listing_path.suffix
-    override_path = listing_path.with_name(f"{stem}.override{suffix}")
-    override_path.write_text(json.dumps(override))
-    return override_path
+    """Record a service_id (formerly stored in a listing override) into the
+    folder's service.json beside the listing."""
+    service_file = listing_path.parent / "service.json"
+    data = json.loads(service_file.read_text()) if service_file.exists() else {}
+    if override.get("service_id") is not None:
+        data["service_id"] = override["service_id"]
+    service_file.write_text(json.dumps(data))
+    return service_file
 
 
 def _list_page(items: list[dict], *, has_more: bool = False, next_cursor: str | None = None) -> dict:
@@ -78,6 +87,7 @@ def _public_payload(service_id: str, **overrides) -> dict:
 # ---------------------------------------------------------------------------
 # _read_ids_from_data_dir
 # ---------------------------------------------------------------------------
+
 
 class TestReadIdsFromDataDir:
     def test_single_listing_with_inline_service_id(self, tmp_path: Path) -> None:
@@ -115,6 +125,7 @@ class TestReadIdsFromDataDir:
 # ---------------------------------------------------------------------------
 # _resolve_or_fetch_ids — mutual exclusivity
 # ---------------------------------------------------------------------------
+
 
 class TestMutualExclusivity:
     """The four selector modes (positional NAME, --id, --all, --local-ids)
@@ -320,9 +331,7 @@ class TestListLocalIds:
     calls ``GET /services?ids=...`` rather than paging the full catalog."""
 
     @_respx.mock
-    def test_fetches_services_listed_in_data_dir(
-        self, tmp_path: Path, _runner: CliRunner, _env: None
-    ) -> None:
+    def test_fetches_services_listed_in_data_dir(self, tmp_path: Path, _runner: CliRunner, _env: None) -> None:
         _write_listing(
             tmp_path / "acme" / "services" / "svc1" / "listing.json",
             {"service_id": _UUID_A},
@@ -335,10 +344,12 @@ class TestListLocalIds:
         _respx.get(f"{_BASE_URL}/services").mock(
             return_value=_httpx.Response(
                 200,
-                json=_list_page([
-                    _public_payload(_UUID_A, name="alpha"),
-                    _public_payload(_UUID_B, name="beta"),
-                ]),
+                json=_list_page(
+                    [
+                        _public_payload(_UUID_A, name="alpha"),
+                        _public_payload(_UUID_B, name="beta"),
+                    ]
+                ),
             )
         )
 
@@ -348,9 +359,13 @@ class TestListLocalIds:
         result = _runner.invoke(
             _cli_app,
             [
-                "services", "list",
-                "--local-ids", "--data-dir", str(tmp_path),
-                "--format", "json",
+                "services",
+                "list",
+                "--local-ids",
+                "--data-dir",
+                str(tmp_path),
+                "--format",
+                "json",
             ],
         )
 
@@ -361,9 +376,7 @@ class TestListLocalIds:
         assert any("ids=" in str(call.request.url) for call in _respx.calls)
 
     @_respx.mock
-    def test_empty_data_dir_prints_warning_and_exits_zero(
-        self, tmp_path: Path, _runner: CliRunner, _env: None
-    ) -> None:
+    def test_empty_data_dir_prints_warning_and_exits_zero(self, tmp_path: Path, _runner: CliRunner, _env: None) -> None:
         result = _runner.invoke(
             _cli_app,
             ["services", "list", "--local-ids", "--data-dir", str(tmp_path)],
@@ -373,9 +386,7 @@ class TestListLocalIds:
         assert "No service IDs" in result.stdout
 
     @_respx.mock
-    def test_status_filter_sent_to_backend(
-        self, tmp_path: Path, _runner: CliRunner, _env: None
-    ) -> None:
+    def test_status_filter_sent_to_backend(self, tmp_path: Path, _runner: CliRunner, _env: None) -> None:
         """``--status`` is forwarded to the backend as a query param; the list
         endpoint returns only the matching services."""
         _write_listing(
@@ -391,19 +402,26 @@ class TestListLocalIds:
         _respx.get(f"{_BASE_URL}/services").mock(
             return_value=_httpx.Response(
                 200,
-                json=_list_page([
-                    _public_payload(_UUID_A, name="alpha", status="active"),
-                ]),
+                json=_list_page(
+                    [
+                        _public_payload(_UUID_A, name="alpha", status="active"),
+                    ]
+                ),
             )
         )
 
         result = _runner.invoke(
             _cli_app,
             [
-                "services", "list",
-                "--local-ids", "--data-dir", str(tmp_path),
-                "--status", "active",
-                "--format", "json",
+                "services",
+                "list",
+                "--local-ids",
+                "--data-dir",
+                str(tmp_path),
+                "--status",
+                "active",
+                "--format",
+                "json",
             ],
         )
 
@@ -413,9 +431,7 @@ class TestListLocalIds:
         assert any("status=active" in str(call.request.url) for call in _respx.calls)
 
     @_respx.mock
-    def test_nonexistent_service_is_omitted_silently(
-        self, tmp_path: Path, _runner: CliRunner, _env: None
-    ) -> None:
+    def test_nonexistent_service_is_omitted_silently(self, tmp_path: Path, _runner: CliRunner, _env: None) -> None:
         """A service id in the data dir that no longer exists on the backend
         is simply absent from the list response — no error or warning needed
         because the backend silently omits IDs it doesn't know about."""
@@ -432,18 +448,24 @@ class TestListLocalIds:
         _respx.get(f"{_BASE_URL}/services").mock(
             return_value=_httpx.Response(
                 200,
-                json=_list_page([
-                    _public_payload(_UUID_A, name="alpha"),
-                ]),
+                json=_list_page(
+                    [
+                        _public_payload(_UUID_A, name="alpha"),
+                    ]
+                ),
             )
         )
 
         result = _runner.invoke(
             _cli_app,
             [
-                "services", "list",
-                "--local-ids", "--data-dir", str(tmp_path),
-                "--format", "json",
+                "services",
+                "list",
+                "--local-ids",
+                "--data-dir",
+                str(tmp_path),
+                "--format",
+                "json",
             ],
         )
 

@@ -3,25 +3,23 @@
 Walks a seller's local catalog directory and ships the contents to the
 backend by composing the lower-level resource methods exposed on
 :class:`unitysvc_sellers.Client`. The directory layout it expects is the
-seller convention from ``unitysvc-services-*`` data repositories::
+flat ``specs/`` layout (unitysvc#1263) — one self-contained folder per
+service, named by the (namespaced) service name::
 
-    <data_dir>/
-    ├── <provider-name>/
-    │   ├── provider.{json,toml}        (provider_v1 schema)
-    │   └── services/
-    │       └── <service-name>/
-    │           ├── offering.{json,toml}    (offering_v1 schema)
-    │           └── listing.{json,toml}     (listing_v1 schema)
-    ├── promotion-*.{json,toml}              (promotion_v1 schema)
-    └── service-group-*.{json,toml}          (service_group_v1 schema)
+    <specs_dir>/
+    └── <provider>/<service-name...>/
+        ├── provider.{json,toml}
+        ├── offering.{json,toml}
+        ├── listing.{json,toml}
+        └── service.json              (optional: backend service_id)
+    promotion.{json,toml} / service_group.{json,toml} may live anywhere.
 
-For each listing file the uploader pairs it with the offering in the
-same directory and the provider in the parent ``services/..``,
-optionally expands convenience fields (``logo``, ``terms_of_service``)
-into ``DocumentData``, and POSTs the bundle to
-``/v1/seller/services``. The backend's returned ``service_id`` is
-written back to a ``listing.override.{json,toml}`` file so subsequent
-uploads update the same service in place.
+For each listing file the uploader pairs it with the offering and provider
+in the *same folder*, optionally expands convenience fields (``logo``,
+``terms_of_service``) into ``DocumentData``, and POSTs the bundle to
+``/v1/seller/services``. The backend's returned ``service_id`` is written
+to that folder's ``service.json`` so subsequent uploads update the same
+service in place.
 
 Promotions and service groups are uploaded via PUT (idempotent upsert
 keyed on the ``name`` field).
@@ -45,10 +43,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from unitysvc_core.utils import find_files_by_schema, write_override_file
+from unitysvc_core.utils import find_files_by_schema
 
 from .exceptions import APIError
-from .utils import convert_convenience_fields_to_documents, service_name_matches
+from .utils import (
+    convert_convenience_fields_to_documents,
+    read_service_id,
+    service_name_matches,
+    write_service_id,
+)
 
 if TYPE_CHECKING:
     from .client import Client
@@ -80,14 +83,6 @@ class UploadResult:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _strip_schema(payload: dict[str, Any]) -> dict[str, Any]:
-    """Drop the ``schema`` discriminator field from a v1 file payload.
-
-    The seller file schemas (``provider_v1``, ``offering_v1``, ...) carry a
-    ``schema`` field for local validation, but the API models don't accept
-    it. We pop it before sending.
-    """
-    return {k: v for k, v in payload.items() if k != "schema"}
 
 
 def _format_polling_error(exc: APIError) -> str:
@@ -280,44 +275,36 @@ def _build_service_payload(
 
     listing_data, _ = load_data_file(listing_file)
 
-    parts = listing_file.parts
-    try:
-        services_idx = parts.index("services")
-        provider_dir = Path(*parts[:services_idx])
-    except (ValueError, IndexError) as exc:
-        raise ValueError(
-            f"Cannot extract provider directory from path: {listing_file}. "
-            f"Expected the path to contain '.../<provider>/services/<service>/'."
-        ) from exc
+    # Flat specs/ layout: provider.json, offering.json and listing.json are all
+    # siblings in the one self-contained service folder.
+    service_dir = listing_file.parent
 
-    # Find the offering file in the same directory as the listing.
-    offering_files = find_files_by_schema(listing_file.parent, "offering_v1")
+    offering_files = find_files_by_schema(service_dir, "offering_v1")
     if not offering_files:
         raise ValueError(
-            f"No offering_v1 file found in {listing_file.parent}. "
-            f"Each service directory must contain exactly one offering file."
+            f"No offering file found in {service_dir}. "
+            f"Each service folder must contain exactly one offering.{{json,toml}}."
         )
     if len(offering_files) > 1:
-        names = [d.get("name", "?") for _, _, d in offering_files]
-        raise ValueError(
-            f"Multiple offering_v1 files in {listing_file.parent}: {', '.join(names)}. "
-            f"Each service directory must contain exactly one offering file."
-        )
+        names = [str(p) for p, _, _ in offering_files]
+        raise ValueError(f"Multiple offering files in {service_dir}: {', '.join(names)}. Keep exactly one.")
     offering_path, _, offering_data = offering_files[0]
 
-    # Default offering name to the directory name (per seller convention).
-    if not offering_data.get("name"):
-        offering_data["name"] = parts[services_idx + 1]
     if not listing_data.get("name"):
-        listing_data["name"] = offering_data["name"]
+        listing_data["name"] = offering_data.get("name")
 
-    # Find the provider file in the parent directory.
-    provider_files = find_files_by_schema(provider_dir, "provider_v1")
+    provider_files = find_files_by_schema(service_dir, "provider_v1")
     if not provider_files:
-        raise ValueError(
-            f"No provider_v1 file found in {provider_dir}. A provider file must exist in the parent of services/."
-        )
+        raise ValueError(f"No provider file found in {service_dir}. Each service folder must contain a provider file.")
     provider_path, _, provider_data = provider_files[0]
+
+    # Carry the backend-assigned service_id (stored in service.json) into the
+    # listing payload so the backend treats the upload as an update, not a new
+    # service. (Replaces the old listing.override.json round-trip.)
+    if not listing_data.get("service_id"):
+        service_id = read_service_id(service_dir)
+        if service_id:
+            listing_data["service_id"] = service_id
 
     # Convenience-field expansion (logo: "./foo.png" -> DocumentData entry).
     provider_data = convert_convenience_fields_to_documents(
@@ -364,7 +351,7 @@ def _build_service_payload(
         provider=provider_data,
     )
 
-    return _strip_schema(provider_data), _strip_schema(offering_data), _strip_schema(listing_data)
+    return provider_data, offering_data, listing_data
 
 
 # ---------------------------------------------------------------------------
@@ -421,7 +408,7 @@ def upload_directory(
 
     # Map task_id -> (listing_file, listing_data) so we can populate
     # per-service results after polling the batch-status endpoint and
-    # so we can still write override files with the right listing path.
+    # write service.json back into the right service folder.
     pending_tasks: dict[str, tuple[Path, dict[str, Any]]] = {}
 
     def _emit(kind: str, status: str, name: str, detail: str = "") -> None:
@@ -474,12 +461,12 @@ def upload_directory(
             if not task_id:
                 # Defensive: if the backend somehow returned 200 with a
                 # fully-resolved service (old shape), count it as done
-                # and write the override immediately.
+                # and write service.json immediately.
                 result.services.success += 1
                 _emit("service", "ok", name)
                 service_id = getattr(response, "service_id", None) or getattr(response, "id", None)
                 if service_id:
-                    write_override_file(listing_file, {"service_id": str(service_id)})
+                    write_service_id(listing_file.parent, str(service_id))
                 continue
 
             pending_tasks[str(task_id)] = (listing_file, listing_data)
@@ -547,8 +534,8 @@ def upload_directory(
                     result.services.success += 1
                     # Pull service_id (and the backend-derived service name) out
                     # of the task result up front so the success line surfaces
-                    # the id sellers actually act on, and the override file
-                    # below pins the same value.  The ingest task returns
+                    # the id sellers actually act on, and service.json below pins
+                    # the same value. The ingest task returns
                     # {"service": {"id": "...", "name": "..."}, ...}.
                     task_result = status_dict.get("result") or {}
                     service_id = None
@@ -561,7 +548,7 @@ def upload_directory(
                     if revision_of:
                         # A revision of an active service was created (service_id
                         # is the new revision; revision_of is the canonical id).
-                        # The override file already holds the canonical id — don't
+                        # service.json already holds the canonical id — don't
                         # overwrite it with the revision's id.
                         detail = f"revision_created, service_id={revision_of} (revision={service_id})"
                         _emit("service", "ok", name, detail)
@@ -571,9 +558,9 @@ def upload_directory(
                         if service_id:
                             # Only service_id needs to round-trip — it's the
                             # backend-assigned identity. service_name = listing.name
-                            # (#1138), already in the source file, so it's no longer
-                            # written back to the override.
-                            write_override_file(listing_file, {"service_id": str(service_id)})
+                            # (#1138), already in the source file. Stored in the
+                            # folder's service.json (flat specs/ layout).
+                            write_service_id(listing_file.parent, str(service_id))
                 else:
                     result.services.failed += 1
                     error_msg = (
@@ -599,7 +586,7 @@ def upload_directory(
 
         for promo_path, _fmt, promo_data in promo_files:
             try:
-                payload = _strip_schema(promo_data)
+                payload = promo_data
                 name = str(payload.get("name", "?"))
                 client.promotions.upsert(payload)
                 result.promotions.success += 1
@@ -620,7 +607,7 @@ def upload_directory(
 
         for group_path, _fmt, group_data in group_files:
             try:
-                payload = _strip_schema(group_data)
+                payload = group_data
                 name = str(payload.get("name", "?"))
                 client.groups.upsert(payload)
                 result.groups.success += 1

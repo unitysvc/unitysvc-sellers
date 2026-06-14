@@ -47,13 +47,18 @@ from ._helpers import (
 )
 
 _LOCAL_IDS_OPTION = typer.Option(
-    False, "--local-ids", "-l",
+    False,
+    "--local-ids",
+    "-l",
     help="Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.",
 )
 _DATA_DIR_OPTION = typer.Option(
-    Path("."), "--data-dir",
+    Path("."),
+    "--data-dir",
     help="Data directory for --local-ids (default: current directory).",
-    exists=True, file_okay=False, dir_okay=True,
+    exists=True,
+    file_okay=False,
+    dir_okay=True,
 )
 # The positional NAME argument used by every bulk and single-target services
 # command — fnmatch on ``service_name`` (= listing.name, #1138).  A literal name
@@ -71,7 +76,8 @@ _NAME_ARGUMENT = typer.Argument(
 # multiple rows (e.g. active + pending revision) and the operator needs to
 # pin one specific row.
 _ID_OPTION = typer.Option(
-    None, "--id",
+    None,
+    "--id",
     help=(
         "Service ID (full or partial, ≥8 chars).  Use this when a name matches "
         "multiple rows and you need to pin one specific row.  Mutually exclusive "
@@ -488,14 +494,16 @@ def _bulk_visibility_change(
 
 
 def _read_ids_from_data_dir(data_dir: Path) -> list[str]:
-    """Collect service_ids from all listing_v1 files (with overrides merged) under data_dir."""
+    """Collect service_ids from every service folder's service.json under data_dir."""
     from unitysvc_core.utils import find_files_by_schema
 
+    from ..utils import read_service_id
+
     ids: list[str] = []
-    for _path, _fmt, data in find_files_by_schema(data_dir, "listing_v1"):
-        sid = data.get("service_id")
+    for listing_path, _fmt, _data in find_files_by_schema(data_dir, "listing_v1"):
+        sid = read_service_id(listing_path.parent)
         if sid:
-            ids.append(str(sid))
+            ids.append(sid)
     return ids
 
 
@@ -605,13 +613,12 @@ def _resolve_or_fetch_ids(
     # --- strict mutual exclusivity ---
     modes = sum([name is not None, service_id is not None, use_all, use_local_ids])
     if modes != 1:
-        console.print(
-            "[red]Error:[/red] provide exactly one of: positional NAME, --id, --all, --local-ids."
-        )
+        console.print("[red]Error:[/red] provide exactly one of: positional NAME, --id, --all, --local-ids.")
         raise typer.Exit(code=1)
 
     # --- --id: single row via prefix match, no status filter ---
     if service_id is not None:
+
         async def _resolve_one() -> list[str]:
             async with async_client(api_key, base_url) as client:
                 full_id = await resolve_service_id(client, service_id)
@@ -634,16 +641,15 @@ def _resolve_or_fetch_ids(
             cursor: str | None = None
             async with async_client(api_key, base_url) as client:
                 while True:
-                    response = await client.services.list(
-                        name=name, limit=200, cursor=cursor, provider=provider
-                    )
+                    response = await client.services.list(name=name, limit=200, cursor=cursor, provider=provider)
                     for svc in model_list(response):
                         row = svc if isinstance(svc, dict) else model_to_dict(svc)
                         if (str(row.get("status") or "") or None) not in statuses_when_all:
                             continue
-                        if visibilities_when_all and (
-                            str(row.get("visibility") or "") or None
-                        ) not in visibilities_when_all:
+                        if (
+                            visibilities_when_all
+                            and (str(row.get("visibility") or "") or None) not in visibilities_when_all
+                        ):
                             continue
                         if row.get("id"):
                             matched.append(str(row["id"]))
@@ -656,9 +662,7 @@ def _resolve_or_fetch_ids(
 
         ids = run_async(_fetch_by_name(), error_prefix="Failed to fetch services by name")
         if not ids:
-            console.print(
-                f"[yellow]No services matching '{name}' match the required state for this action.[/yellow]"
-            )
+            console.print(f"[yellow]No services matching '{name}' match the required state for this action.[/yellow]")
             raise typer.Exit(code=0)
         console.print(f"[green]Found {len(ids)} service(s) matching '{name}'[/green]\n")
         return ids
@@ -669,13 +673,19 @@ def _resolve_or_fetch_ids(
         if provider:
             from unitysvc_core.utils import find_files_by_schema
 
+            from ..utils import read_service_id
+
             provider_lower = provider.lower()
-            allowed = {
-                str(data["service_id"])
-                for _, _, data in find_files_by_schema(data_dir, "listing_v1")
-                if provider_lower in (data.get("provider_name") or "").lower()
-                and data.get("service_id")
-            }
+            allowed: set[str] = set()
+            for listing_path, _, _ in find_files_by_schema(data_dir, "listing_v1"):
+                sid = read_service_id(listing_path.parent)
+                if not sid:
+                    continue
+                # The provider lives beside the listing in the flat layout.
+                prov = find_files_by_schema(listing_path.parent, "provider_v1")
+                prov_name = (prov[0][2].get("name") or "") if prov else ""
+                if provider_lower in prov_name.lower():
+                    allowed.add(sid)
             ids = [i for i in ids if i in allowed]
         if not ids:
             console.print("[yellow]No service IDs found in listing_v1 files under the given directory.[/yellow]")
@@ -906,8 +916,7 @@ def _set_visibility_impl(
     and the deprecated ``publish`` / ``unlist`` / ``hide`` aliases."""
     if visibility not in _VISIBILITIES:
         console.print(
-            f"[red]✗[/red] Invalid visibility {visibility!r}. "
-            f"Use one of: {', '.join(_VISIBILITIES)}.",
+            f"[red]✗[/red] Invalid visibility {visibility!r}. Use one of: {', '.join(_VISIBILITIES)}.",
             style="bold red",
         )
         raise typer.Exit(code=2)
@@ -994,8 +1003,6 @@ def set_visibility(
         api_key=api_key,
         base_url=base_url,
     )
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -1151,7 +1158,8 @@ def update_service(
     service_id: str | None = _ID_OPTION,
     visibility: str | None = typer.Option(
         None,
-        "--visibility", "-v",
+        "--visibility",
+        "-v",
         help="Set catalog visibility: public, unlisted, or private.",
     ),
     set_routing_var: list[str] = typer.Option(

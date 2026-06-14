@@ -200,29 +200,23 @@ class TestResolveFileReferencesIntegration:
 
     @respx.mock
     def test_upload_inlines_rendered_template_into_request_body(self, tmp_path: Path) -> None:
-        # Build a catalog with a .j2 code example shared across services.
-        # Layout mirrors the real unitysvc-services-* repos:
+        # Flat specs/ layout — one self-contained service folder, with a shared
+        # .j2 code example one level up under the provider's docs/:
         #
-        #     provider/
-        #     ├── docs/
-        #     │   └── code_example.js.j2
-        #     ├── provider.json
-        #     └── services/
-        #         └── svc1/
-        #             ├── listing.json
-        #             └── offering.json
+        #     acme/
+        #     ├── docs/code_example.js.j2
+        #     └── svc1/{provider,offering,listing}.json
         provider_dir = tmp_path / "acme"
         docs_dir = provider_dir / "docs"
         docs_dir.mkdir(parents=True)
         (docs_dir / "code_example.js.j2").write_text("const svc = '{{ offering.name }}';\n")
 
-        service_dir = provider_dir / "services" / "svc1"
+        service_dir = provider_dir / "svc1"
         service_dir.mkdir(parents=True)
 
-        (provider_dir / "provider.json").write_text(
+        (service_dir / "provider.json").write_text(
             json.dumps(
                 {
-                    "schema": "provider_v1",
                     "name": "acme",
                     "display_name": "Acme",
                     "contact_email": "ops@acme.example",
@@ -234,7 +228,6 @@ class TestResolveFileReferencesIntegration:
         (service_dir / "offering.json").write_text(
             json.dumps(
                 {
-                    "schema": "offering_v1",
                     "name": "svc1",
                     "display_name": "Service 1",
                     "service_type": "llm",
@@ -251,14 +244,13 @@ class TestResolveFileReferencesIntegration:
         (service_dir / "listing.json").write_text(
             json.dumps(
                 {
-                    "schema": "listing_v1",
                     "name": "svc1",
                     "display_name": "Service 1",
                     "status": "ready",
                     "list_price": {"type": "constant", "price": "1.00"},
                     "documents": {
                         "JS Example": {
-                            "file_path": "../../docs/code_example.js.j2",
+                            "file_path": "../docs/code_example.js.j2",
                             "mime_type": "javascript",
                             "category": "code_example",
                         }
@@ -310,32 +302,28 @@ class TestResolveFileReferencesIntegration:
         # Code-example documents ship as raw templates (the backend renders
         # them per consumption context). The ``.j2`` suffix and the
         # ``{{ offering.name }}`` placeholder are preserved verbatim.
-        assert doc["file_path"] == "../../docs/code_example.js.j2"
+        assert doc["file_path"] == "../docs/code_example.js.j2"
         assert doc["file_content"] == "const svc = '{{ offering.name }}';\n"
 
 
 def _write_service(provider_dir: Path, svc: str, listing_name: str) -> None:
-    """Write a minimal provider + offering + listing bundle for ``svc``."""
-    provider_dir.mkdir(parents=True, exist_ok=True)
-    if not (provider_dir / "provider.json").exists():
-        (provider_dir / "provider.json").write_text(
-            json.dumps(
-                {
-                    "schema": "provider_v1",
-                    "name": provider_dir.name,
-                    "display_name": "Acme",
-                    "contact_email": "ops@acme.example",
-                    "homepage": "https://acme.example",
-                    "status": "ready",
-                }
-            )
+    """Write a minimal self-contained service folder (flat specs/ layout)."""
+    service_dir = provider_dir / svc
+    service_dir.mkdir(parents=True, exist_ok=True)
+    (service_dir / "provider.json").write_text(
+        json.dumps(
+            {
+                "name": provider_dir.name,
+                "display_name": "Acme",
+                "contact_email": "ops@acme.example",
+                "homepage": "https://acme.example",
+                "status": "ready",
+            }
         )
-    service_dir = provider_dir / "services" / svc
-    service_dir.mkdir(parents=True)
+    )
     (service_dir / "offering.json").write_text(
         json.dumps(
             {
-                "schema": "offering_v1",
                 "name": svc,
                 "display_name": svc,
                 "service_type": "llm",
@@ -349,7 +337,6 @@ def _write_service(provider_dir: Path, svc: str, listing_name: str) -> None:
     (service_dir / "listing.json").write_text(
         json.dumps(
             {
-                "schema": "listing_v1",
                 "name": listing_name,
                 "display_name": svc,
                 "status": "ready",

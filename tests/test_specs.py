@@ -33,11 +33,11 @@ def specs_repo(tmp_path: Path) -> Path:
     folder = tmp_path / "specs" / "provider2" / "service2"
     folder.mkdir(parents=True)
 
-    src = EXAMPLE_DATA / "provider2" / "services" / "service2"
+    # The flat example fixture is already a self-contained service folder.
+    src = EXAMPLE_DATA / "provider2" / "service2"
     for f in src.iterdir():
         if f.is_file():
             shutil.copy2(f, folder / f.name)
-    shutil.copy2(EXAMPLE_DATA / "provider2" / "provider.json", folder / "provider.json")
 
     for name in ("provider.json", "offering.json", "listing.json"):
         _strip_schema(folder / name)

@@ -297,34 +297,6 @@ def test_load_data_file_json_no_override(tmp_path: Path) -> None:
     assert data == base_data
 
 
-def test_load_data_file_json_with_override(tmp_path: Path) -> None:
-    """Test loading JSON file with override."""
-    import json
-
-    # Create base JSON file
-    base_file = tmp_path / "offering.json"
-    base_data = {"schema": "offering_v1", "name": "my-service", "status": "draft", "version": 1}
-    with open(base_file, "w", encoding="utf-8") as f:
-        json.dump(base_data, f)
-
-    # Create override JSON file
-    override_file = tmp_path / "offering.override.json"
-    override_data = {"status": "active", "logo_url": "https://example.com/logo.png"}
-    with open(override_file, "w", encoding="utf-8") as f:
-        json.dump(override_data, f)
-
-    data, file_format = load_data_file(base_file)
-
-    assert file_format == "json"
-    assert data == {
-        "schema": "offering_v1",
-        "name": "my-service",
-        "status": "active",  # overridden
-        "version": 1,
-        "logo_url": "https://example.com/logo.png",  # added from override
-    }
-
-
 def test_load_data_file_toml_no_override(tmp_path: Path) -> None:
     """Test loading TOML file without override."""
     import tomli_w
@@ -341,67 +313,6 @@ def test_load_data_file_toml_no_override(tmp_path: Path) -> None:
     assert data == base_data
 
 
-def test_load_data_file_toml_with_override(tmp_path: Path) -> None:
-    """Test loading TOML file with override."""
-    import tomli_w
-
-    # Create base TOML file
-    base_file = tmp_path / "provider.toml"
-    base_data = {"schema": "provider_v1", "name": "my-provider", "tier": "free"}
-    with open(base_file, "wb") as f:
-        tomli_w.dump(base_data, f)
-
-    # Create override TOML file
-    override_file = tmp_path / "provider.override.toml"
-    override_data = {"tier": "premium", "featured": True}
-    with open(override_file, "wb") as f:
-        tomli_w.dump(override_data, f)
-
-    data, file_format = load_data_file(base_file)
-
-    assert file_format == "toml"
-    assert data == {
-        "schema": "provider_v1",
-        "name": "my-provider",
-        "tier": "premium",  # overridden
-        "featured": True,  # added from override
-    }
-
-
-def test_load_data_file_with_nested_override(tmp_path: Path) -> None:
-    """Test loading file with nested dictionary override."""
-    import json
-
-    # Create base file with nested config
-    base_file = tmp_path / "config.json"
-    base_data = {
-        "schema": "config_v1",
-        "database": {"host": "localhost", "port": 5432, "name": "testdb"},
-        "cache": {"enabled": False},
-    }
-    with open(base_file, "w", encoding="utf-8") as f:
-        json.dump(base_data, f)
-
-    # Create override file with partial nested override
-    override_file = tmp_path / "config.override.json"
-    override_data = {"database": {"port": 3306, "ssl": True}, "cache": {"enabled": True}}
-    with open(override_file, "w", encoding="utf-8") as f:
-        json.dump(override_data, f)
-
-    data, file_format = load_data_file(base_file)
-
-    assert data == {
-        "schema": "config_v1",
-        "database": {
-            "host": "localhost",  # preserved from base
-            "port": 3306,  # overridden
-            "name": "testdb",  # preserved from base
-            "ssl": True,  # added from override
-        },
-        "cache": {"enabled": True},  # overridden
-    }
-
-
 # =============================================================================
 # render_template_file tests
 # =============================================================================
@@ -412,9 +323,7 @@ def test_render_template_file_basic(tmp_path: Path) -> None:
     template_file = tmp_path / "hello.txt.j2"
     template_file.write_text("Hello, {{ offering.name }}!")
 
-    content, filename = render_template_file(
-        template_file, offering={"name": "my-service"}
-    )
+    content, filename = render_template_file(template_file, offering={"name": "my-service"})
 
     assert content == "Hello, my-service!"
     assert filename == "hello.txt"
@@ -467,9 +376,7 @@ def test_render_template_file_tojson_filter(tmp_path: Path) -> None:
     template_file = tmp_path / "body.json.j2"
     template_file.write_text("{{ offering.params | tojson }}")
 
-    content, _filename = render_template_file(
-        template_file, offering={"params": {"a": 1, "b": "two"}}
-    )
+    content, _filename = render_template_file(template_file, offering={"params": {"a": 1, "b": "two"}})
 
     parsed = json.loads(content)
     assert parsed == {"a": 1, "b": "two"}
@@ -480,9 +387,7 @@ def test_render_template_file_non_template(tmp_path: Path) -> None:
     plain_file = tmp_path / "script.py"
     plain_file.write_text("print('{{ not a template }}')")
 
-    content, filename = render_template_file(
-        plain_file, offering={"name": "ignored"}
-    )
+    content, filename = render_template_file(plain_file, offering={"name": "ignored"})
 
     assert content == "print('{{ not a template }}')"
     assert filename == "script.py"
@@ -499,8 +404,7 @@ def test_render_template_file_extra_context(tmp_path: Path) -> None:
     """
     template_file = tmp_path / "call.py.j2"
     template_file.write_text(
-        'requests.post("{{ service_base_url }}/v1/chat", '
-        'json={"model": "{{ routing_key.model }}"})'
+        'requests.post("{{ service_base_url }}/v1/chat", json={"model": "{{ routing_key.model }}"})'
     )
 
     content, _filename = render_template_file(
@@ -509,10 +413,7 @@ def test_render_template_file_extra_context(tmp_path: Path) -> None:
         routing_key={"model": "gpt-4o"},
     )
 
-    assert content == (
-        'requests.post("https://api.example.com/v1/chat", '
-        'json={"model": "gpt-4o"})'
-    )
+    assert content == ('requests.post("https://api.example.com/v1/chat", json={"model": "gpt-4o"})')
 
 
 class TestServiceNameMatches:
