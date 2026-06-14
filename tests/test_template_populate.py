@@ -111,6 +111,50 @@ def test_deprecates_missing_nested_service(tmp_path: Path) -> None:
     assert json.loads((specs / "acme" / "foo" / "offering.json").read_text())["status"] == "ready"
 
 
+LISTING_TPL_DOCS = """{
+  "name": "{{ name }}",
+  "status": "ready",
+  "documents": {
+    "Example": {"file_path": "../../docs/example-{{ kind }}.py.j2"}
+  }
+}
+"""
+
+
+def test_localizes_escaping_doc_refs(tmp_path: Path) -> None:
+    tpl = _setup_templates(tmp_path)
+    (tpl / "listing.json.j2").write_text(LISTING_TPL_DOCS)
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "example-flux.py.j2").write_text("print('flux')\n")
+    specs = tmp_path / "specs"
+
+    m = _model("acme/foo")
+    m["kind"] = "flux"
+    populate_from_iterator(iter([m]), tpl, specs)  # docs_dir auto-resolves to ../docs
+
+    foo = specs / "acme" / "foo"
+    # source copied in as a basename sibling
+    assert (foo / "example-flux.py.j2").read_text() == "print('flux')\n"
+    # file_path rewritten to the basename (self-contained)
+    doc = json.loads((foo / "listing.json").read_text())["documents"]["Example"]
+    assert doc["file_path"] == "example-flux.py.j2"
+
+
+def test_missing_doc_source_left_untouched(tmp_path: Path) -> None:
+    tpl = _setup_templates(tmp_path)
+    (tpl / "listing.json.j2").write_text(LISTING_TPL_DOCS)
+    (tmp_path / "docs").mkdir()  # empty -> source missing
+    specs = tmp_path / "specs"
+
+    m = _model("acme/foo")
+    m["kind"] = "missing"
+    populate_from_iterator(iter([m]), tpl, specs)
+
+    doc = json.loads((specs / "acme" / "foo" / "listing.json").read_text())["documents"]["Example"]
+    assert doc["file_path"] == "../../docs/example-missing.py.j2"  # untouched
+
+
 def test_no_provider_template_is_graceful(tmp_path: Path) -> None:
     _setup_templates(tmp_path, with_provider=False)
     specs = tmp_path / "specs"
