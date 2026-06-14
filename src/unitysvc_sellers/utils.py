@@ -173,6 +173,35 @@ def write_service_id(service_dir: Path, service_id: str) -> None:
     service_file.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
+def read_local_service_ids(data_dir: Path, provider: str | None = None) -> list[str]:
+    """Collect backend ``service_id``s for the local services under ``data_dir``.
+
+    The shared ``-l`` / ``--local-ids`` resolution used across the ``services``
+    command family: walk every ``listing_v1`` file beneath ``data_dir`` and read
+    the backend-assigned id from the sibling ``service.json`` (the flat
+    ``specs/`` layout keeps the id as provenance beside the spec files). Folders
+    without a recorded id are skipped.
+
+    With ``provider`` set, keep only services whose sibling ``provider_v1``
+    ``name`` contains the given substring (case-insensitive) — matching the
+    filter the bulk ``services`` commands apply in ``--local-ids`` mode.
+    """
+    provider_lower = provider.lower() if provider else None
+    ids: list[str] = []
+    for listing_path, _fmt, _data in find_files_by_schema(data_dir, "listing_v1"):
+        sid = read_service_id(listing_path.parent)
+        if not sid:
+            continue
+        if provider_lower is not None:
+            # The provider lives beside the listing in the flat layout.
+            prov = find_files_by_schema(listing_path.parent, "provider_v1")
+            prov_name = (prov[0][2].get("name") or "") if prov else ""
+            if provider_lower not in prov_name.lower():
+                continue
+        ids.append(sid)
+    return ids
+
+
 def convert_convenience_fields_to_documents(
     data: dict[str, Any],
     base_path: Path,

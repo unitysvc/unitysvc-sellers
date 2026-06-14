@@ -494,17 +494,14 @@ def _bulk_visibility_change(
 
 
 def _read_ids_from_data_dir(data_dir: Path) -> list[str]:
-    """Collect service_ids from every service folder's service.json under data_dir."""
-    from unitysvc_core.utils import find_files_by_schema
+    """Collect service_ids from every service folder's service.json under data_dir.
 
-    from ..utils import read_service_id
+    Thin wrapper over the shared :func:`unitysvc_sellers.utils.read_local_service_ids`
+    utility (kept for the module-internal callers and existing tests).
+    """
+    from ..utils import read_local_service_ids
 
-    ids: list[str] = []
-    for listing_path, _fmt, _data in find_files_by_schema(data_dir, "listing_v1"):
-        sid = read_service_id(listing_path.parent)
-        if sid:
-            ids.append(sid)
-    return ids
+    return read_local_service_ids(data_dir)
 
 
 async def _filter_ids_by_state(
@@ -669,24 +666,9 @@ def _resolve_or_fetch_ids(
 
     # --- --local-ids: local listing_v1 files ---
     if use_local_ids:
-        ids = _read_ids_from_data_dir(data_dir)
-        if provider:
-            from unitysvc_core.utils import find_files_by_schema
+        from ..utils import read_local_service_ids
 
-            from ..utils import read_service_id
-
-            provider_lower = provider.lower()
-            allowed: set[str] = set()
-            for listing_path, _, _ in find_files_by_schema(data_dir, "listing_v1"):
-                sid = read_service_id(listing_path.parent)
-                if not sid:
-                    continue
-                # The provider lives beside the listing in the flat layout.
-                prov = find_files_by_schema(listing_path.parent, "provider_v1")
-                prov_name = (prov[0][2].get("name") or "") if prov else ""
-                if provider_lower in prov_name.lower():
-                    allowed.add(sid)
-            ids = [i for i in ids if i in allowed]
+        ids = read_local_service_ids(data_dir, provider)
         if not ids:
             console.print("[yellow]No service IDs found in listing_v1 files under the given directory.[/yellow]")
             raise typer.Exit(code=0)

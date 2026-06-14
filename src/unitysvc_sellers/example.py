@@ -25,6 +25,7 @@ from .utils import (
     find_files_by_schema,
     load_data_file,
     render_template_file,
+    resolve_provider_name,
     service_name_matches,
 )
 
@@ -224,15 +225,16 @@ def discover_code_examples(
     results: list[tuple[dict[str, Any], str]] = []
 
     for listing_file, _format, listing_data in listing_results:
-        # Determine provider from directory structure
-        parts = listing_file.parts
-        prov_name = "unknown"
-        try:
-            services_idx = parts.index("services")
-            if services_idx > 0:
-                prov_name = parts[services_idx - 1]
-        except (ValueError, IndexError):
-            pass
+        # Resolve provider from the sibling provider file (flat specs/ layout).
+        # Fall back to the legacy data/<provider>/services/... directory shape.
+        prov_name = resolve_provider_name(listing_file)
+        if not prov_name:
+            parts = listing_file.parts
+            try:
+                services_idx = parts.index("services")
+                prov_name = parts[services_idx - 1] if services_idx > 0 else "unknown"
+            except (ValueError, IndexError):
+                prov_name = "unknown"
 
         # Filter by provider
         if provider_name and prov_name != provider_name:
@@ -1259,7 +1261,6 @@ def run_local(
     console.print(f"\n[green]✓ Passed: {passed}/{total_tests}[/green]")
     if skipped > 0:
         console.print(f"[yellow]⊘ Skipped: {skipped}/{total_tests}[/yellow]")
-    console.print(f"[red]✗ Failed: {failed}/{total_tests}[/red]")
-
     if failed > 0:
+        console.print(f"[red]✗ Failed: {failed}/{total_tests}[/red]")
         raise typer.Exit(code=1)

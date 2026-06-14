@@ -18,6 +18,7 @@ keeps working.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -26,6 +27,7 @@ from rich.table import Table
 
 from .._http import unwrap as _unwrap_response
 from ..exceptions import NotFoundError
+from ..utils import read_local_service_ids
 from ._helpers import (
     api_key_option,
     async_client,
@@ -125,6 +127,7 @@ def list_tests(
     # Single-target semantics — multi-match name errors with a --id hint.
     if name is not None or service_id is not None:
         from .services import _resolve_single_target_id
+
         service_id = _resolve_single_target_id(api_key, base_url, name=name, service_id=service_id)
 
     async def _impl() -> list[dict[str, Any]]:
@@ -382,6 +385,24 @@ def run_tests(
             "need to pin one specific row."
         ),
     ),
+    local_ids: bool = typer.Option(
+        False,
+        "--local-ids",
+        "-l",
+        help=(
+            "Run tests for every service whose backend id is recorded in a "
+            "service.json under --data-dir (the local specs/ catalog). Mutually "
+            "exclusive with NAME and --id."
+        ),
+    ),
+    data_dir: Path = typer.Option(
+        Path("."),
+        "--data-dir",
+        help="Data directory for --local-ids (default: current directory).",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+    ),
     document_id: str | None = typer.Option(
         None,
         "--document-id",
@@ -427,8 +448,9 @@ def run_tests(
         usvc_seller services run-tests 'cohere/*' --force
         usvc_seller services run-tests --id 6c55d6d9          # disambiguate
     """
-    if (name is None) == (service_id is None):
-        console.print("[red]Error:[/red] provide exactly one of a positional NAME or ``--id``.")
+    modes = sum([name is not None, service_id is not None, local_ids])
+    if modes != 1:
+        console.print("[red]Error:[/red] provide exactly one of: positional NAME, ``--id``, or ``--local-ids``.")
         raise typer.Exit(code=1)
 
     if name is not None:
@@ -440,6 +462,16 @@ def run_tests(
             console.print(f"[yellow]No services match '{name}'.[/yellow]")
             raise typer.Exit(code=0)
         console.print(f"[green]Found {len(targets)} service(s) matching '{name}'[/green]\n")
+    elif local_ids:
+        # Read backend ids from the local specs/ catalog; the diagnostic runs
+        # per id with no status filter (mirrors ``--id`` — the operator pointed
+        # at these services explicitly).
+        ids = read_local_service_ids(data_dir)
+        if not ids:
+            console.print("[yellow]No service IDs found in service.json files under the given directory.[/yellow]")
+            raise typer.Exit(code=0)
+        console.print(f"[cyan]Found {len(ids)} service ID(s) from {data_dir}[/cyan]\n")
+        targets = [(sid, None) for sid in ids]
     else:
         # service_id is non-None — the mutex check above guarantees it.
         assert service_id is not None
