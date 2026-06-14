@@ -68,6 +68,13 @@ async def _iter_all_services(client: Any) -> list[dict[str, Any]]:
 console = Console()
 
 
+def _truncate_for_display(text: str, limit: int = 2000) -> str:
+    """Cap long script/output text so the terminal doesn't drown."""
+    if len(text) <= limit:
+        return text
+    return text[:limit] + f"\n... [dim]({len(text) - limit} more chars truncated)[/dim]"
+
+
 # Document categories that the backend treats as executable tests.
 EXECUTABLE_CATEGORIES = {"code_example", "connectivity_test"}
 
@@ -301,17 +308,15 @@ def show_test(
                     v = iface_data.get(k)
                     if v not in (None, ""):
                         console.print(f"      {k}: {v}")
-
-    # Script source — useful when the failure is "can't find file" or
-    # an env-var interpolation bug. Truncate long files so the terminal
-    # doesn't drown.
-    file_content = doc.get("file_content")
-    if file_content:
-        console.print("\n[bold]file_content:[/bold]")
-        text = str(file_content)
-        if len(text) > 2000:
-            text = text[:2000] + f"\n... [dim]({len(file_content) - 2000} more chars truncated)[/dim]"
-        console.print(text)
+                # The rendered script that actually executed on this interface (#1268).
+                rendered = iface_data.get("rendered_script")
+                if rendered:
+                    console.print("      [bold]rendered script (executed):[/bold]")
+                    console.print(_truncate_for_display(str(rendered)))
+        elif test.get("rendered_script"):
+            # Single-doc result: the rendered script lives at the top level.
+            console.print("\n[bold]rendered script (executed):[/bold]")
+            console.print(_truncate_for_display(str(test["rendered_script"])))
 
     console.print()
 
