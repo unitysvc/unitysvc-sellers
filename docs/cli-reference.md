@@ -80,7 +80,7 @@ $ usvc_seller specs show [OPTIONS] SERVICE_NAME
 
 **Arguments**:
 
-* `SERVICE_NAME`: Service name (first column of &#x27;usvc_seller data list&#x27; output).  [required]
+* `SERVICE_NAME`: Service name (first column of &#x27;usvc_seller specs list services&#x27; output).  [required]
 
 **Options**:
 
@@ -203,16 +203,16 @@ Useful for exploring available examples before running tests.
 
 Examples:
     # List all code examples
-    usvc data list-tests
+    usvc_seller specs list-tests
 
     # List for a whole provider (fnmatch pattern on listing.name)
-    usvc data list-tests &#x27;fireworks/*&#x27;
+    usvc_seller specs list-tests &#x27;fireworks/*&#x27;
 
     # List for one service (literal listing.name)
-    usvc data list-tests fireworks.ai/llama-3-1-405b-instruct
+    usvc_seller specs list-tests fireworks/llama-3-1-405b-instruct
 
     # List as JSON
-    usvc data list-tests --format json
+    usvc_seller specs list-tests --format json
 
 **Usage**:
 
@@ -244,26 +244,26 @@ This command:
 
 Examples:
     # Run all code examples in the current directory
-    usvc data run-tests
+    usvc_seller specs run-tests
 
     # Run for a whole provider (fnmatch pattern on listing.name)
-    usvc data run-tests &#x27;fireworks/*&#x27;
+    usvc_seller specs run-tests &#x27;fireworks/*&#x27;
 
     # Run a single service (literal listing.name)
-    usvc data run-tests fireworks.ai/llama-3-1-405b-instruct
-    usvc data run-tests &#x27;cohere/command-r-*&#x27;
+    usvc_seller specs run-tests fireworks/llama-3-1-405b-instruct
+    usvc_seller specs run-tests &#x27;cohere/command-r-*&#x27;
 
     # Run specific file
-    usvc data run-tests --test-file &quot;code-example.py.j2&quot;
+    usvc_seller specs run-tests --test-file &quot;code-example.py.j2&quot;
 
     # Show detailed output
-    usvc data run-tests --verbose
+    usvc_seller specs run-tests --verbose
 
     # Force rerun all tests (ignore existing results)
-    usvc data run-tests --force
+    usvc_seller specs run-tests --force
 
     # Stop on first failure
-    usvc data run-tests --fail-fast
+    usvc_seller specs run-tests --fail-fast
 
 **Usage**:
 
@@ -291,8 +291,8 @@ Displays the status (.status), stdout (.out), and stderr (.err) files
 for previously executed tests.
 
 Examples:
-    usvc data test show llama-3-1-405b-instruct
-    usvc data test show llama-3-1-405b-instruct --title &quot;Quick Start&quot;
+    usvc_seller specs show-test llama-3-1-405b-instruct
+    usvc_seller specs show-test llama-3-1-405b-instruct --title &quot;Quick Start&quot;
 
 **Usage**:
 

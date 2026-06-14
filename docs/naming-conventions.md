@@ -9,7 +9,7 @@ async fan-out, etc.) without breaking existing seller catalogs.
 
 The validator that enforces these rules lives in
 [`unitysvc-core`](https://pypi.org/project/unitysvc-core/) and runs on
-every `usvc_seller data validate` invocation. CI / upload pipelines
+every `usvc_seller specs validate` invocation. CI / upload pipelines
 reject non-conformant catalogs before they reach the platform.
 
 ## `service_name` = `listing.name`
@@ -21,8 +21,8 @@ truth. It is:
 
 - **Required.** Every `listing.{json,toml}` must declare `name`.
 - **The routable, customer-facing identifier** — the value the gateway
-  routes by, the value `usvc_seller … --name` selects on, and the value
-  `{{ service_name }}` renders to in a `base_url`.
+  routes by, the value the CLI's positional `NAME` argument selects on,
+  and the value `{{ service_name }}` renders to in a `base_url`.
 
 ### `listing.name` vs `offering.name`
 
@@ -57,7 +57,7 @@ the name part contain a `/`?**
   so you cannot register `otherprovider/…` under your own provider.
 - **No `/` ⇒ top-level** (`ntfy`, `http-relay`): a request that an
   **admin must accept** (reserved-name allowlist). Sellers cannot
-  self-register top-level names; `usvc_seller data validate` accepts the
+  self-register top-level names; `usvc_seller specs validate` accepts the
   grammar locally, but the backend gates the name at registration.
 
 ```toml
@@ -184,23 +184,24 @@ for the common case — a stable, sticky service — use
 
 ## Selecting services by name on the CLI
 
-The CLI selects services by `service_name` (= `listing.name`). The
-**`--name`** option is an **fnmatch pattern**: a literal name matches one
-service, while wildcards (`cohere/*`, `*llama*`) match a set. `*` spans
-`/`, and matching is case-sensitive.
+The CLI selects services by `service_name` (= `listing.name`), passed as a
+positional **`NAME`** argument that is an **fnmatch pattern**: a literal name
+matches one service, while wildcards (`cohere/*`, `*llama*`) match a set. `*`
+spans `/`, and matching is case-sensitive. Omit `NAME` to act on every service
+in the repo (local) or every service you own (remote).
 
 ```bash
-# Local data commands — exact name (one service) or a pattern (a set)
-usvc_seller data run-tests  --name cohere/command-r-plus
-usvc_seller data list-tests --name 'cohere/*'
-usvc_seller data upload     --name 'cohere/*'
-usvc_seller data show-test  cohere/command-r-plus
+# Local specs commands — exact name (one service) or a pattern (a set)
+usvc_seller specs run-tests  cohere/command-r-plus
+usvc_seller specs list-tests 'cohere/*'
+usvc_seller specs upload     'cohere/*'
+usvc_seller specs show-test  cohere/command-r-plus
 
 # Remote service commands — every backend row whose service_name matches
 # (a name can also map to several rows, e.g. an active service + its
 # pending revision)
-usvc_seller services submit        --name 'cohere/*'
-usvc_seller services set-visibility public --name cohere/command-r-plus
+usvc_seller services submit                'cohere/*'
+usvc_seller services set-visibility public cohere/command-r-plus
 ```
 
 `--provider` remains a separate axis: it scopes by the provider slug and
@@ -213,12 +214,12 @@ pattern can't reach them).
 Before uploading, run:
 
 ```bash
-usvc_seller data validate          # schema + naming validation
-usvc_seller data format --check    # CI-style formatting check
+usvc_seller specs validate          # schema + naming validation
+usvc_seller specs format --check    # CI-style formatting check
 ```
 
 Both run the same validators the platform uses on upload; catching
-issues locally avoids a round-trip through `usvc_seller data upload` just
+issues locally avoids a round-trip through `usvc_seller specs upload` just
 to see the rejection.
 
 ## Related

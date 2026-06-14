@@ -4,9 +4,9 @@ This package provides:
 
 - The :class:`Client` HTTP SDK targeting the seller-tagged
   ``/v1/seller/*`` endpoints (services, promotions, groups, documents).
-- The ``usvc_seller`` CLI with ``usvc_seller data *`` commands for
+- The ``usvc_seller`` CLI with ``usvc_seller specs *`` commands for
   organizing local seller catalogs (validate, format, populate, show,
-  list, run test scripts) and ``usvc_seller data upload`` for pushing
+  list, run test scripts) and ``usvc_seller specs upload`` for pushing
   a catalog to the backend.
 
 Quick start::

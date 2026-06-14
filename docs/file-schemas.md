@@ -4,13 +4,14 @@ Complete reference for all data file schemas used in the UnitySVC Services SDK.
 
 ## Overview
 
-All data files must include a `schema` field identifying their type and version. The SDK currently supports these schemas:
+A service is described by three files in its `specs/<provider>/<service>/`
+folder. A file's **type is its filename** — there is no `schema` field inside
+the data. The schemas (with their historical version names) are:
 
-- `provider_v1` - Provider metadata and upstream access configuration
-- `seller_v1` - Seller/marketplace information
-- `offering_v1` - Service offering details (upstream provider perspective)
-- `listing_v1` - Service listing (user-facing marketplace perspective)
-- `service_group_v1` - Service group definitions for organizing services
+- `provider.json` (`provider_v1`) - Provider metadata and upstream access configuration
+- `offering.json` (`offering_v1`) - Service offering details (upstream provider perspective)
+- `listing.json` (`listing_v1`) - Service listing (user-facing marketplace perspective)
+- `service_group.json` (`service_group_v1`) - Service group definitions for organizing services
 
 ## Schema: provider_v1
 
@@ -20,7 +21,6 @@ Provider files define the service provider's metadata and access configuration f
 
 | Field           | Type                | Description                                                               |
 | --------------- | ------------------- | ------------------------------------------------------------------------- |
-| `schema`        | string              | Must be `"provider_v1"`                                                   |
 | `name`          | string              | Provider identifier (URL-friendly: lowercase, hyphens, underscores, dots) |
 | `homepage`      | string (URL)        | Provider website URL                                                      |
 | `contact_email` | string (email)      | Contact email address                                                     |
@@ -41,11 +41,11 @@ Provider files define the service provider's metadata and access configuration f
 
 ### services_populator Object
 
-Configuration for automatically populating service data using `usvc_seller data populate`.
+Configuration for automatically populating service data, declared in **`templates/config.json`** (not in `provider.json`) and run by `usvc_seller specs populate`.
 
 | Field          | Type                   | Description                                                                               |
 | -------------- | ---------------------- | ----------------------------------------------------------------------------------------- |
-| `command`      | string or list[string] | Command to execute (string or list of arguments). Relative to provider directory.         |
+| `command`      | string or list[string] | Command to execute (string or list of arguments). Relative to the repo root.         |
 | `requirements` | array of strings       | Python packages to install before executing (e.g., `["httpx", "any-llm-sdk[anthropic]"]`) |
 | `envs`         | object                 | Environment variables to set when executing the command (values converted to strings)     |
 
@@ -58,7 +58,6 @@ Configuration for automatically populating service data using `usvc_seller data 
 ### Example (TOML)
 
 ```toml
-schema = "provider_v1"
 name = "openai"
 display_name = "OpenAI"
 description = "Leading AI research laboratory"
@@ -80,7 +79,6 @@ SERVICE_BASE_URL = "https://api.openai.com/v1"
 
 ```json
 {
-    "schema": "provider_v1",
     "name": "openai",
     "display_name": "OpenAI",
     "description": "Leading AI research laboratory",
@@ -99,52 +97,6 @@ SERVICE_BASE_URL = "https://api.openai.com/v1"
 }
 ```
 
-## Schema: seller_v1
-
-Seller files define the marketplace or reseller information. **Only one seller file per repository.**
-
-### Required Fields
-
-| Field           | Type                | Description                                   |
-| --------------- | ------------------- | --------------------------------------------- |
-| `schema`        | string              | Must be `"seller_v1"`                         |
-| `name`          | string              | Seller identifier (URL-friendly, 2-100 chars) |
-| `contact_email` | string (email)      | Primary contact email                         |
-| `time_created`  | datetime (ISO 8601) | Timestamp when seller was created             |
-
-### Optional Fields
-
-| Field                     | Type                 | Description                                                                       |
-| ------------------------- | -------------------- | --------------------------------------------------------------------------------- |
-| `display_name`            | string               | Human-readable seller name (max 200 chars)                                        |
-| `seller_type`             | enum                 | Seller type: `individual` (default), `organization`, `partnership`, `corporation` |
-| `description`             | string               | Seller description (max 1000 chars)                                               |
-| `homepage`                | string (URL)         | Seller website URL                                                                |
-| `secondary_contact_email` | string (email)       | Secondary contact email                                                           |
-| `account_manager`         | string               | Email/username of account manager (max 100 chars)                                 |
-| `business_registration`   | string               | Business registration number (max 100 chars)                                      |
-| `tax_id`                  | string               | Tax ID (EIN, VAT, etc., max 100 chars)                                            |
-| `stripe_connect_id`       | string               | Stripe Connect account ID (max 255 chars)                                         |
-| `logo`                    | string/URL           | Path to logo file or URL (converted to document)                                  |
-| `documents`               | dict of DocumentData | Documents keyed by title (business registration, tax docs, etc.)                  |
-| `status`                  | enum                 | Seller status: `draft` (default), `ready`, or `deprecated`                        |
-| `is_verified`             | boolean              | KYC/business verification status (default: false)                                 |
-
-### Example (TOML)
-
-```toml
-schema = "seller_v1"
-name = "acme-corp"
-display_name = "ACME Corporation"
-seller_type = "corporation"
-description = "Premium AI services marketplace"
-contact_email = "business@acme.com"
-homepage = "https://acme.com"
-time_created = "2024-01-10T12:00:00Z"
-status = "ready"
-is_verified = true
-```
-
 ## Schema: offering_v1
 
 Service files define the service offering from the upstream provider's perspective.
@@ -153,7 +105,6 @@ Service files define the service offering from the upstream provider's perspecti
 
 | Field                        | Type                        | Description                                                                                                                                                                       |
 | ---------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema`                     | string                      | Must be `"offering_v1"`                                                                                                                                                           |
 | `name`                       | string                      | Service identifier (must match directory name, allows slashes for hierarchy)                                                                                                      |
 | `service_type`               | enum                        | Service category (see [ServiceTypeEnum values](#servicetype-enum-values))                                                                                                         |
 | `upstream_access_config` | dict of AccessInterfaceData | How to access upstream services, keyed by interface name. Supports Jinja2 templates (e.g. `{{ enrollment.code }}`); expanded at gateway routing time using enrollment context. |
@@ -211,7 +162,6 @@ Capabilities are free-form strings. Well-known values include all `ServiceTypeEn
 ### Example (TOML)
 
 ```toml
-schema = "offering_v1"
 name = "gpt-4"
 display_name = "GPT-4"
 description = "Most capable GPT-4 model for complex reasoning tasks"
@@ -249,7 +199,6 @@ Listing files define how a seller presents/sells a service to end users.
 
 | Field                    | Type                        | Description                                 |
 | ------------------------ | --------------------------- | ------------------------------------------- |
-| `schema`                 | string                      | Must be `"listing_v1"`                      |
 | `user_access_interfaces` | dict of AccessInterfaceData | How users access the service, keyed by name |
 | `time_created`           | datetime (ISO 8601)         | Timestamp when listing was created          |
 
@@ -357,11 +306,9 @@ Use the placeholder that matches the `access_method` of your service. Most servi
 ### Example (TOML)
 
 ```toml
-# File: data/openai/services/gpt-4/listing-premium.toml
+# File: specs/openai/gpt-4/listing-premium.toml
 # This listing automatically belongs to the gpt-4 offering in the same directory
 # and the openai provider in the parent directory.
-
-schema = "listing_v1"
 name = "listing-premium"
 display_name = "GPT-4 Premium Access"
 status = "ready"
@@ -499,7 +446,6 @@ A service with user-configurable parameters (model, token limits, streaming):
 
 ```json
 {
-    "schema": "listing_v1",
     "display_name": "Custom AI Service",
     "status": "ready",
     "user_parameters_schema": {
@@ -551,7 +497,7 @@ A service with user-configurable parameters (model, token limits, streaming):
 
 ### Validation Rules
 
-The SDK validates user parameters during `usvc_seller data validate`:
+The SDK validates user parameters during `usvc_seller specs validate`:
 
 1. All parameters in `user_parameters_schema.required` must have either a `default` in the schema or a value in `ops_testing_parameters`
 2. If required parameters exist without defaults, `service_options.ops_testing_parameters` must be defined
@@ -565,93 +511,70 @@ The SDK validates user parameters during `usvc_seller data validate`:
 - [react-jsonschema-form Documentation](https://rjsf-team.github.io/react-jsonschema-form/)
 - [JSON Schema Specification](https://json-schema.org/)
 
+## Secrets: seller-owned vs customer-owned
+
+API keys never appear as literal values in a spec — they're **secret
+references**, and the **namespace declares who owns the secret**:
+
+| Reference | Owner | Stored in | Used for |
+|-----------|-------|-----------|----------|
+| `${ secrets.NAME }` | **Seller** | the seller's secret store | Managed services (seller pays the upstream) |
+| `${ customer_secrets.NAME }` | **Customer** | the customer's secret store | BYOK (customer brings their own key) |
+| `${ customer_secrets.{{ param }} }` | **Customer** | the customer's secret store | BYOE (key name resolved per-enrollment) |
+
+A reference is valid in any `api_key` field — typically
+`upstream_access_config.*.api_key` (the upstream call), but also
+`service_options.ops_testing_parameters` and `request_transformer` values. The
+**namespace**, not the location, is what determines ownership.
+
 ## BYOK Services (Bring Your Own Key)
 
-BYOK services require the customer to provide their own API key for the upstream provider. Unlike user parameters, API keys are handled through **secrets** — they are stored in the customer's secret store, not on an enrollment record.
-
-### How it works
-
-1. The `user_access_interfaces` entry includes an `api_key` field referencing a secret
-2. The system auto-detects customer-required secrets by scanning `user_access_interfaces` for `${ secrets.XXX }` references
-3. Services with only secret references (no `user_parameters_schema`) **do not require enrollment** — customers can use the service immediately after storing their secret
-4. If the secret is missing at request time, the platform returns an error indicating which secret is needed
-
-### BYOK listing example (JSON)
+A BYOK service calls the upstream with the **customer's own key**. You reference
+it from the offering's `upstream_access_config` using the `customer_secrets`
+namespace:
 
 ```json
+// specs/cohere/command-r/offering.json
 {
-    "schema": "listing_v1",
-    "display_name": "Groq LLaMA 3.3 70B (BYOK)",
-    "status": "ready",
-    "user_access_interfaces": {
-        "provider_api": {
+    "name": "command-r",
+    "service_type": "llm",
+    "upstream_access_config": {
+        "Cohere API": {
             "access_method": "http",
-            "base_url": "${API_GATEWAY_BASE_URL}/p/groq",
-            "api_key": "${ secrets.GROQ_API_KEY }",
-            "routing_key": { "model": "llama-3.3-70b-versatile" }
+            "base_url": "https://api.cohere.com/v2",
+            "api_key": "${ customer_secrets.COHERE_API_KEY }",
+            "routing_key": { "model": "command-r" }
         }
     }
 }
 ```
 
-That's it — no `user_parameters_schema`, no `user_parameters_ui_schema`, no `ops_testing_parameters` for the API key. The `${ secrets.GROQ_API_KEY }` reference in `user_access_interfaces` tells the platform:
+That's it — no `user_parameters_schema` for the key. The
+`${ customer_secrets.COHERE_API_KEY }` reference **is** the declaration: the
+platform auto-detects that the customer must store a secret named
+`COHERE_API_KEY`, shows a "Bring your own key" badge, resolves the secret from
+the customer's store at routing time, and returns a clear error if it's missing.
+Because the customer just stores a secret (no enrollment record), a BYOK service
+needs **no enrollment** unless it *also* has a `user_parameters_schema`.
 
-- The customer needs a secret named `GROQ_API_KEY`
-- The marketplace can show a "Bring your own key" badge
-- At routing time, the secret is resolved from the customer's secret store
-
-### BYOK with additional parameters
-
-A BYOK service can also have user parameters (e.g., model selection). In this case, **both** enrollment and a secret are required:
-
-```json
-{
-    "user_access_interfaces": {
-        "provider_api": {
-            "base_url": "${API_GATEWAY_BASE_URL}/p/openai",
-            "api_key": "${ secrets.OPENAI_API_KEY }",
-            "routing_key": { "model": "gpt-4" }
-        }
-    },
-    "user_parameters_schema": {
-        "type": "object",
-        "properties": {
-            "model": {
-                "type": "string",
-                "enum": ["gpt-4", "gpt-4-turbo"],
-                "default": "gpt-4"
-            }
-        },
-        "required": ["model"]
-    }
-}
-```
-
-### Seller-managed vs customer secrets
-
-The `${ secrets.XXX }` syntax is used in both seller and customer contexts. The **location** determines who provides the secret:
-
-| Location | Who provides | Example |
-|----------|-------------|---------|
-| `user_access_interfaces.*.api_key` | **Customer** (BYOK) | `${ secrets.GROQ_API_KEY }` |
-| `upstream_access_config.*.api_key` | **Seller** | `${ secrets.PROVIDER_KEY }` |
-| `service_options.ops_testing_parameters` | **Seller** (for testing) | `${ secrets.TEST_KEY }` |
-| `request_transformer` values | **Seller** | `${ secrets.AUTH_TOKEN }` |
+A **Managed** service is identical except it uses the seller's own key —
+`"api_key": "${ secrets.COHERE_API_KEY }"` — so the seller, not the customer,
+provides the credential.
 
 ### Local testing
 
-During `usvc_seller data run-tests`, secret references are expanded from **environment variables**:
+During `usvc_seller specs run-tests`, secret references (either namespace) are
+resolved from **environment variables**:
 
 ```bash
-export GROQ_API_KEY="gsk_your_actual_key"
-usvc_seller data run-tests data/groq/services/llama-3.3-70b-versatile-byok
+export COHERE_API_KEY="…your key…"
+usvc_seller specs run-tests cohere/command-r
 ```
 
-The test runner resolves `${ secrets.GROQ_API_KEY }` → looks up `GROQ_API_KEY` in the shell environment. This works for secrets in all locations (access interfaces, ops_testing_parameters, request transformers).
-
-### Auto-detection
-
-The system automatically extracts customer-required secrets by scanning `user_access_interfaces` for `${ secrets.XXX }` patterns. No separate declaration is needed — the secret references in the spec **are** the declaration. This avoids inconsistencies between declared and actual secret usage.
+The test runner resolves `${ customer_secrets.COHERE_API_KEY }` (or
+`${ secrets.… }`) by looking up `COHERE_API_KEY` in the shell environment — for
+secrets in any location (access interfaces, `ops_testing_parameters`, request
+transformers).
 
 ## Data Types
 
@@ -996,12 +919,11 @@ This approach ensures that:
 
 The SDK enforces these validation rules:
 
-1. **Schema field required**: All files must have `schema` field
-2. **Schema version**: Only supported schema versions allowed
-3. **Required fields**: All required fields must be present
-4. **Name format**: Names must be URL-friendly (lowercase, hyphens, underscores, dots)
-    - Provider/Seller: No slashes allowed
-    - Service/Listing: Slashes allowed for hierarchical names
+1. **File role by name**: each service folder must hold `provider`, `offering`, and `listing` files (type determined by filename — no `schema` field)
+2. **Required fields**: all required fields must be present
+3. **Name format**: names must be URL-friendly (lowercase, hyphens, underscores, dots)
+    - Provider: no slashes allowed
+    - Service/Listing: slashes allowed for hierarchical names
 5. **Time created**: Must be valid ISO 8601 datetime
 6. **Email validation**: Email fields must be valid email addresses
 7. **URL validation**: URL fields must be valid URLs
@@ -1033,8 +955,8 @@ The SDK preserves the original format when updating files.
 - [User Parameters](#user-parameters) - Define and collect subscription configuration
 - [Service Groups](#schema-service_group_v1) - Organize services with rule-based membership
 - [Pricing Specification](pricing.md) - Complete pricing documentation
-- [Data Structure](data-structure.md) - File organization rules
-- [CLI Reference](cli-reference.md#usvc_seller-data-validate) - Validation command
+- [Author & Upload Specs](guides/author-specs.md) - File organization & upload
+- [CLI Reference](cli-reference.md) - Command reference
 - [Getting Started](getting-started.md) - Create your first files
 
 ---
@@ -1046,7 +968,7 @@ promotion targeting. Groups use rule-based membership to automatically
 include/exclude services based on their properties.
 
 > **Note:** Seller-defined service groups are currently used primarily for
-> promotion targeting (see [Promotions](cli-guide.md#promotion-file-format)).
+> promotion targeting (see [Promotions, Groups & Secrets](guides/catalog-extras.md#promotions)).
 > Groups created by sellers are nested under an auto-created root group
 > (`seller:{seller_name}`).
 
@@ -1054,7 +976,6 @@ include/exclude services based on their properties.
 
 | Field          | Type   | Description                                                      |
 | -------------- | ------ | ---------------------------------------------------------------- |
-| `schema`       | string | Must be `"service_group_v1"`                                     |
 | `name`         | string | URL-friendly slug (max 100 chars, lowercase with hyphens/colons) |
 | `display_name` | string | Human-readable name (max 200 chars)                              |
 
@@ -1123,7 +1044,6 @@ The `expression` field is a Python expression evaluated against each service.
 **Basic group with membership rules:**
 ```json
 {
-    "schema": "service_group_v1",
     "name": "my-llm-services",
     "display_name": "My LLM Services",
     "description": "All LLM services for targeted promotions",
@@ -1137,7 +1057,6 @@ The `expression` field is a Python expression evaluated against each service.
 **Group targeting a specific provider:**
 ```json
 {
-    "schema": "service_group_v1",
     "name": "openai-models",
     "display_name": "OpenAI Models",
     "description": "All services from OpenAI",
@@ -1153,18 +1072,18 @@ The `expression` field is a Python expression evaluated against each service.
 **Upload groups:**
 ```bash
 # Upload all group files in directory
-usvc_seller data upload --type groups
+usvc_seller specs upload --type groups
 
 # Upload a specific file
-usvc_seller data upload data/groups/my-llm-services.json
+usvc_seller specs upload specs/groups/my-llm-services.json
 
 # Dry run (validate without uploading)
-usvc_seller data upload --type groups --dryrun
+usvc_seller specs upload --type groups --dryrun
 ```
 
 **Validate groups:**
 ```bash
-usvc_seller data validate data/groups/
+usvc_seller specs validate specs/groups/
 ```
 
 ### File Organization
@@ -1191,7 +1110,6 @@ Groups are referenced in promotion scope to target services:
 
 ```json
 {
-    "schema": "promotion_v1",
     "name": "LLM Discount",
     "pricing": {"type": "multiply", "factor": "0.80"},
     "scope": {

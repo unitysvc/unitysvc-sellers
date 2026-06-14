@@ -1,4 +1,4 @@
-"""``usvc_seller data upload`` — push a local seller catalog to the backend.
+"""``usvc_seller specs upload`` — push a local seller catalog to the backend.
 
 Thin Typer wrapper over :meth:`unitysvc_sellers.Client.upload`. Reads
 credentials from the environment::

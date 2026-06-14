@@ -76,7 +76,7 @@ def _render_output(payload: Any, output_format: str) -> None:
 def show_service(
     service_name: str = typer.Argument(
         ...,
-        help="Service name (first column of 'usvc_seller data list' output).",
+        help="Service name (first column of 'usvc_seller specs list services' output).",
     ),
     only_provider: bool = typer.Option(False, "--provider", help="Show only provider data."),
     only_offering: bool = typer.Option(False, "--offering", help="Show only offering data."),
@@ -118,7 +118,7 @@ def show_service(
     if listing_file is None:
         console.print(
             f"[red]Service not found: {service_name!r}. "
-            f"Run 'usvc_seller data list' to see available service names.[/red]"
+            f"Run 'usvc_seller specs list services' to see available service names.[/red]"
         )
         raise typer.Exit(code=1)
 

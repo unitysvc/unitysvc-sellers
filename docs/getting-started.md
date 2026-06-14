@@ -1,255 +1,146 @@
-# Getting Started
+# Quick Start
 
-This guide will help you get started with managing your UnitySVC seller service data.
+This guide takes you from an empty machine to a published service in a few
+minutes. For the bigger picture of what the package manages, see the
+[Overview](index.md); for the service model, see [Services](services.md).
 
-## Two Ways to Manage Service Data
+## 1. Install
 
-UnitySVC provides two complementary approaches:
-
-### 1. Web Interface (Recommended for Getting Started)
-
-The [UnitySVC web platform](https://unitysvc.com) provides a user-friendly interface to:
-
-- Create, edit, and manage providers, offerings, and listings
-- **Create a service from a platform template** in a few clicks — the fastest
-  way to offer a common service type (see [Service Templates](service-templates.md))
-- Validate data with instant feedback
-- Preview how services appear to customers
-- Export data for use with the SDK
-
-### 2. SDK (This Package)
-
-The SDK enables a **local-first, version-controlled workflow** with key advantages:
-
-- **Version Control** - Track all changes in git, review diffs, roll back mistakes
-- **Script-Based Generation** - Programmatically generate services from provider APIs
-- **CI/CD Automation** - Automatically upload updates and manage service lifecycle via GitHub Actions
-- **Offline Work** - Edit locally, validate without network, upload when ready
-- **Code Review** - Use pull requests to review service changes before uploading
-- **Service Lifecycle** - Submit services for review, deprecate outdated services, withdraw services from marketplace
-
-**Recommended workflow**: Start with the web interface to create initial data, then use the SDK for ongoing management and automation.
-
-## Installation
-
-### Requirements
-
-- Python 3.11 or later
-- pip or uv package manager
-
-### Install from PyPI
+Requires **Python 3.11+**.
 
 ```bash
-pip install unitysvc-sellers
+pip install unitysvc-sellers      # or: uv pip install unitysvc-sellers
+usvc_seller --version
 ```
 
-### Verify Installation
+The CLI is `usvc_seller` (a shorter alias for `unitysvc_sellers`). All examples
+use `usvc_seller`.
+
+## 2. Create a seller account & API key
+
+Uploading needs a **seller role** on the platform:
+
+1. Sign up at [unitysvc.com](https://unitysvc.com).
+2. **Add a role → Become a seller** and wait for approval.
+3. Generate a **seller API key** (Settings → API Keys). Your seller identity is
+   encoded in the key — the platform associates everything you upload with it.
+
+## 3. Authenticate
+
+Both the CLI and the SDK read the same two environment variables:
 
 ```bash
-usvc_seller --help
-# Or using the full command name:
-unitysvc_sellers --help
+export UNITYSVC_SELLER_API_KEY="svcpass_…"                  # your seller key
+export UNITYSVC_SELLER_API_URL="https://seller.unitysvc.com/v1"   # default; override for staging
 ```
 
-You should see the command-line interface help output.
+## CLI or SDK?
 
-**Note:** The command `unitysvc_sellers` can be invoked using the shorter alias `usvc_seller`. All examples below use the shorter `usvc_seller` alias.
+Everything here works from either front-end (they share one HTTP API). Reach for
+the **CLI** for day-to-day, file-based authoring; reach for the **[SDK](sdk-guide.md)**
+to embed catalog operations in your own scripts, applications, or CI/CD.
 
-## Prerequisites: Create Your Seller Account
+| You want to… | Use |
+|---|---|
+| Author a catalog in local files and upload it | CLI |
+| Run connectivity tests against your services | CLI |
+| Inspect, promote, or deprecate services | either |
+| Embed "upload catalog" into a build script | SDK |
+| Bulk-generate services from an external source | SDK |
 
-Before uploading services, you need a seller role on the UnitySVC platform:
+## 4. Publish your first service
 
-1. **Sign up** at [https://unitysvc.com](https://unitysvc.com)
-2. **Add a seller role** - go to "Add a role", select "Become a seller", and wait for approval
-3. **Generate a seller API key** - this key contains your seller identity
+There are two routes to a published service — pick the one that fits. (Both are
+explained in depth under [Services → Two ways to create a service](services.md#two-ways-to-create-a-service).)
 
-The seller API key is used for all upload and service management operations. The platform automatically associates your providers, offerings, and listings with your seller account.
+### Route A — author specs and upload
 
-## Understanding the Service Data Model
-
-Before creating your first service, understand how UnitySVC structures service data:
-
-```mermaid
-flowchart TB
-    subgraph Service["Uploaded Together"]
-        P["<b>Provider Data</b><br/>WHO provides<br/><i>provider_v1</i>"]
-        O["<b>Offering Data</b><br/>WHAT is provided<br/><i>offering_v1</i>"]
-        L["<b>Listing Data</b><br/>HOW it's sold<br/><i>listing_v1</i>"]
-    end
-
-    P --> O --> L
-
-    style P fill:#e3f2fd
-    style O fill:#fff3e0
-    style L fill:#e8f5e9
-```
-
-These three parts are **organized separately** for reusability but **uploaded together** as a unified service:
-
-| Component         | Purpose                                             | Reusability                                 |
-| ----------------- | --------------------------------------------------- | ------------------------------------------- |
-| **Provider Data** | Identity, contact info, terms of service            | One per provider, shared by all offerings   |
-| **Offering Data** | Service definition, API endpoints, upstream pricing | One per service, can have multiple listings |
-| **Listing Data**  | Customer-facing info, documentation, pricing        | One per pricing tier or marketplace         |
-
-## Quick Start: Your First Service
-
-```mermaid
-flowchart TD
-    subgraph local["Local (usvc_seller data ...)"]
-        S1["1. Create repo"]
-        S2["2. Define service data"]
-        S3["3. Validate & format"]
-        S4["4. Run local tests"]
-        S5["5. Upload"]
-        S1 --> S2 --> S3 --> S4 --> S5
-    end
-
-    S5 --> S6
-
-    subgraph remote["Remote (usvc_seller services ...)"]
-        S6["6. Run remote tests"]
-        S7["7. Submit for review"]
-        S6 --> S7
-    end
-
-    S7 -. "rejected / failed" .-> S2
-
-    style local fill:#e3f2fd,stroke:#1565c0
-    style remote fill:#e8f5e9,stroke:#2e7d32
-```
-
-### Step 1: Create a Local Repository
-
-Create a new repository from the [unitysvc-sellers-template](https://github.com/unitysvc/unitysvc-sellers-template), which provides the directory structure, CI/CD workflows, and example files. Alternatively, fork any of the publicly available service repositories under the [unitysvc GitHub organization](https://github.com/unitysvc) (e.g., `unitysvc-sellers-openai`, `unitysvc-sellers-groq`) and adapt them to your provider.
-
-Your repository should follow this structure:
+Create a minimal `specs/` repo. Each service is a self-contained folder holding
+its three parts; the folder path under `specs/` is the service name.
 
 ```
-data/
+specs/
 └── my-provider/
-    ├── provider.toml          # Provider Data
-    └── services/
-        └── my-service/
-            ├── offering.toml  # Offering Data
-            └── listing.toml   # Listing Data
+    └── my-service/
+        ├── provider.json    # who provides it
+        ├── offering.json    # what it is (upstream endpoint, type, details)
+        └── listing.json     # how it's sold (name, docs, price)
 ```
 
-### Step 2: Define Your Service Data
+The fastest way to a correct skeleton is to start from the
+[unitysvc-sellers-template](https://github.com/unitysvc/unitysvc-sellers-template)
+or copy an existing public provider repo under the
+[unitysvc-labs org](https://github.com/unitysvc-labs). Fill in the fields by hand
+([File Schemas](file-schemas.md)), export them from the dashboard, or have an AI
+assistant draft them (see the [Claude Code Skill](claude-code-skill.md)).
 
-There are several ways to create and edit your provider, offering, and listing files:
-
-1. **Manually** — follow the [File Schemas](file-schemas.md) reference and existing examples in the template or forked repository
-2. **Web interface** — use the [UnitySVC web platform](https://unitysvc.com) to fill in forms for your provider, offering, and listing, then export as JSON/TOML files
-3. **AI-assisted** — ask Claude Code or another AI assistant to familiarize itself with the [unitysvc-sellers documentation](https://unitysvc-sellers.readthedocs.io) (or even the SDK source code), then have it prepare the data files for you
-
-### Step 3: Validate and Format
+Then validate, test, and upload:
 
 ```bash
-# Validate your data against schemas
-usvc_seller data validate
-
-# Optional: auto-format for consistent style (helps with cleaner git diffs)
-usvc_seller data format
+usvc_seller specs validate          # schema + layout checks
+usvc_seller specs format            # canonical formatting (cleaner git diffs)
+usvc_seller specs run-tests         # run code-example / connectivity tests vs your upstream
+usvc_seller specs upload            # upload every service in the repo
 ```
 
-Fix any validation errors before proceeding.
+`run-tests` may need upstream credentials in the environment (e.g.
+`export GROQ_API_KEY=…`). On the **first** upload of a folder a new service is
+created and its id is written to `service.json` — commit that file so later
+uploads update the same service.
 
-### Step 4: Run Local Tests (Required)
+### Route B — instantiate a platform template
+
+If the platform publishes a template for your service type, you author **no
+files** — you supply parameters and it renders the service for you:
 
 ```bash
-usvc_seller data run-tests
+usvc_seller templates list                          # what's available
+usvc_seller templates show openai-compatible-llm    # its parameters
+usvc_seller params instantiate openai-compatible-llm \
+    -P api_base_url=https://api.example.com/v1 \
+    -P api_key_secret_name=UPSTREAM_API_KEY \
+    -P input_price=1.00
 ```
 
-Local tests run your code examples and connectivity checks against real upstream endpoints. Provide any required secrets as environment variables:
+Secret-typed parameters take a **secret name** (create it first with
+`usvc_seller secrets set …`), never the raw value. See
+[Service Templates](service-templates.md) for platform templates, capability
+pools, and authoring your own.
+
+## 5. Submit for review
+
+Uploaded/instantiated services start as drafts. Confirm and submit:
 
 ```bash
-# For managed services
-export PROVIDER_API_KEY="sk-..."
-usvc_seller data run-tests
-
-# For BYOK services
-export GROQ_API_KEY="gsk_..."
-usvc_seller data run-tests data/groq/services/llama-3.3-70b-versatile-byok
+usvc_seller services list                   # find your service by name
+usvc_seller services submit my-provider/my-service
 ```
 
-All tests must pass before uploading.
-
-### Step 5: Upload to UnitySVC Platform
-
-Set your credentials using your **seller API key**:
-
-```bash
-export UNITYSVC_API_URL="https://api.unitysvc.com/v1"
-export UNITYSVC_SELLER_API_KEY="svcpass_your_seller_api_key"
-```
-
-Upload your services:
-
-```bash
-usvc_seller data upload
-
-# Or specify path
-usvc_seller data upload --data-path ./data
-
-# Or upload a single listing
-usvc_seller data upload --data-path ./data/my-provider/services/my-service/listing.toml
-```
-
-### Step 6: Run Remote Tests (Required)
-
-```bash
-usvc_seller services run-tests <service-id>
-```
-
-Remote tests run against the live platform, verifying that the service works end-to-end through the gateway. Tests must pass (or be explicitly skipped) before submission.
-
-### Step 7: Submit for Review
-
-```bash
-usvc_seller services submit <service-id>
-```
-
-This submits your service for platform review. Once approved, the service goes live on the marketplace.
+Services are targeted by **`service_name`** (= `listing.name`, e.g.
+`my-provider/my-service`); a pattern like `'my-provider/*'` targets a whole
+provider. After review and approval the service goes live; set it public with
+`usvc_seller services set-visibility`. What happens next — marketplace listing,
+billing, payouts — is covered in [After You Publish](seller-lifecycle.md).
 
 !!! tip "Iterate until approved"
-    If any step fails or the submission is rejected, fix the issues and repeat from the relevant step. The typical cycle is: edit → validate → test locally → upload → test remotely → submit.
+    Typical cycle: edit → `specs validate` → `specs run-tests` → `specs upload`
+    → `services run-tests` → `services submit`. Fix and repeat from the relevant
+    step if anything fails.
 
-## Next Steps
+## Next steps
 
-- **[Data Structure](data-structure.md)** - Learn about the Service Data model and file organization
-- **[Workflows](workflows.md)** - Explore manual and automated workflows
-- **[CLI Reference](cli-reference.md)** - Browse all available commands
+- [Services](services.md) — the service model, the two routes, the status lifecycle
+- [Author & Upload Specs](guides/author-specs.md) — the `specs/` repo in depth
+- [Operate Live Services](guides/operate-services.md) — status, visibility, updates
+- [CLI Reference](cli-reference.md) — every command and option
 
 ## Troubleshooting
 
-### Validation Errors
+**Validation errors** — run `usvc_seller specs validate`; check that each service
+folder has all three files and that the folder path matches `listing.name`.
 
-- Check that directory names match normalized field values
-- Ensure all required fields are present
-- Verify file paths are correct (relative paths)
+**Upload errors** — verify `UNITYSVC_SELLER_API_KEY` / `UNITYSVC_SELLER_API_URL`
+are set; confirm you're in (or pointing at) the `specs/` repo.
 
-### Upload Errors
-
-- Verify API credentials are set correctly
-- Ensure backend URL is accessible
-- Check that listing files have corresponding offering and provider files
-- Check that you're running from the correct directory or using `--data-path`
-
-### "Provider not found" Errors
-
-This typically means:
-
-- The provider file is missing or not in the expected location (parent of `services/`)
-- The provider file has `status: draft` (draft providers are skipped)
-
-### Format Issues
-
-- Run `usvc_seller data format --check` to see what would change
-- Use `usvc_seller data format` to auto-fix formatting
-
-## Getting Help
-
-- Check the [CLI Reference](cli-reference.md) for command details
-- Review [Data Structure](data-structure.md) for file organization rules
-- Open an issue on [GitHub](https://github.com/unitysvc/unitysvc-sellers/issues)
+**Format drift in CI** — run `usvc_seller specs format` locally (it rewrites
+files); `specs format --check` reports what would change without writing.

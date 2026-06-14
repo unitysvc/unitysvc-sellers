@@ -72,26 +72,32 @@ markdown_extensions:
   - attr_list
   - md_in_html
 
+# Structure per DOCS_REORG_PLAN.md. Phases 1–2 (Home, Concepts, Guides) are
+# rewritten; Phase 3 (Reference de-stale) is in progress.
 nav:
   - Home: index.md
-  - Getting Started:
-      - Usage Overview: usage.md
-      - Installation & Quick Start: getting-started.md
+  - Get Started:
+      - Quick Start: getting-started.md
+  - Concepts:
+      - Services: services.md
       - Service Types: service-types.md
       - Service Templates: service-templates.md
-      - Data Structure: data-structure.md
-      - Workflows: workflows.md
-      - Seller Lifecycle: seller-lifecycle.md
+      - Pricing: pricing.md
+      - Names & Routing: naming-conventions.md
+      - After You Publish: seller-lifecycle.md
+  - Guides:
+      - Author & Upload Specs: guides/author-specs.md
+      - Create from a Template: guides/create-from-template.md
+      - Generate a Catalog: guides/generate-catalog.md
+      - Document Services: documenting-services.md
+      - Test Services: code-examples.md
+      - Operate Live Services: guides/operate-services.md
+      - Promotions, Groups & Secrets: guides/catalog-extras.md
   - Reference:
       - CLI Reference: cli-reference.md
-      - CLI Guide: cli-guide.md
-      - SDK Reference: sdk-reference.md
       - SDK Guide: sdk-guide.md
+      - SDK Reference: sdk-reference.md
       - File Schemas: file-schemas.md
-      - Naming Conventions: naming-conventions.md
-      - Pricing: pricing.md
-      - Code Examples: code-examples.md
-      - Documenting Services: documenting-services.md
   - Advanced:
       - User Access Interface Templates: tech-notes/user-access-interface-template.md
       - Claude Code Skill: claude-code-skill.md
