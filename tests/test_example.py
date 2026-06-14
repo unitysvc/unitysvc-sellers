@@ -5,7 +5,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from unitysvc_sellers.example import build_upstream_template_context, execute_code_example, expand_template_strings
+from unitysvc_sellers.example import (
+    build_upstream_template_context,
+    discover_code_examples,
+    execute_code_example,
+    expand_template_strings,
+)
+
+EXAMPLE_DATA = Path(__file__).parent / "example_data"
 
 
 def test_build_upstream_template_context_renames_base_url() -> None:
@@ -20,9 +27,7 @@ def test_build_upstream_template_context_drops_api_key() -> None:
     Templates read ``UNITYSVC_API_KEY`` from the environment instead, so the
     key must not leak into the Jinja2 namespace.
     """
-    ctx = build_upstream_template_context(
-        {"base_url": "https://api.example.com", "api_key": "sk-secret"}
-    )
+    ctx = build_upstream_template_context({"base_url": "https://api.example.com", "api_key": "sk-secret"})
     assert "api_key" not in ctx
     assert ctx == {"service_base_url": "https://api.example.com"}
 
@@ -55,6 +60,7 @@ def test_build_upstream_template_context_empty() -> None:
 # ---------------------------------------------------------------------------
 # expand_template_strings
 # ---------------------------------------------------------------------------
+
 
 def test_expand_template_strings_expands_top_level_strings() -> None:
     result = expand_template_strings(
@@ -174,3 +180,13 @@ def test_execute_code_example_uses_resolved_credentials_for_template_context(
     # Sanity: the script ran cleanly and printed the resolved URL.
     assert result["exit_code"] == 0, result.get("stderr")
     assert "URL=https://upstream.test" in (result.get("stdout") or "")
+
+
+def test_discover_code_examples_resolves_provider_from_sibling_file() -> None:
+    """Provider comes from the sibling provider_v1 file (flat ``specs/`` layout),
+    not the directory name — regression for the ``unknown`` provider column when
+    there is no ``services/`` path component."""
+    results = discover_code_examples(EXAMPLE_DATA)
+    providers = {prov_name for _example, prov_name in results}
+    assert providers == {"provider1", "provider2"}
+    assert "unknown" not in providers
