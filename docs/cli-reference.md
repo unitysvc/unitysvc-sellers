@@ -51,7 +51,7 @@ $ usvc_seller specs [OPTIONS] COMMAND [ARGS]...
 * `show`: Show expanded data for a service.
 * `validate`: Validate a repository in the flat...
 * `format`: Format data files (JSON, TOML, MD) to...
-* `populate`: Populate services by executing...
+* `populate`: Populate services by executing the repo&#x27;s...
 * `upload`: Upload a seller catalog (services +...
 * `list-tests`: List available code examples without...
 * `run-tests`: Run code examples locally with upstream...
@@ -144,13 +144,16 @@ $ usvc_seller specs format [OPTIONS] [DATA_DIR]
 
 ### `usvc_seller specs populate`
 
-Populate services by executing provider-specific update scripts.
+Populate services by executing the repo&#x27;s populator script.
 
-This command scans provider files for &#x27;services_populator&#x27; configuration and executes
-the specified commands with environment variables from &#x27;services_populator.envs&#x27;.
+Reads the ``services_populator`` config from ``templates/config.json`` (or a
+top-level ``config.json``) and runs its command from the repo root, so a
+command like ``[&quot;scripts/update_specs.py&quot;]`` resolves naturally. Legacy
+provider files carrying ``services_populator`` are still supported as a
+fallback.
 
-After successful execution, automatically runs formatting on all generated files to
-ensure they conform to the format specification (equivalent to running &#x27;usvc format&#x27;).
+After successful execution, automatically runs formatting on all generated
+files (equivalent to ``usvc_seller specs format``).
 
 **Usage**:
 
