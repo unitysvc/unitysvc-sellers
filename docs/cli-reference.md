@@ -7,7 +7,7 @@
 
 UnitySVC seller CLI — local catalog tools and remote API operations.
 
-Local commands live under `usvc_seller data ...`. Remote commands (against the seller backend, via the unitysvc-sellers HTTP SDK) live under `usvc_seller services|promotions|groups`.
+Local commands live under `usvc_seller specs ...`. Remote commands (against the seller backend, via the unitysvc-sellers HTTP SDK) live under `usvc_seller services|promotions|groups`.
 
 **Usage**:
 
@@ -24,7 +24,7 @@ $ usvc_seller [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `data`: Local data file operations (validate,...
+* `specs`: Local operations on the flat specs/ layout...
 * `services`: Remote service operations (list, show,...
 * `promotions`: Remote promotion operations (list, show,...
 * `groups`: Remote service group operations (list,...
@@ -32,14 +32,14 @@ $ usvc_seller [OPTIONS] COMMAND [ARGS]...
 * `templates`: Browse the platform service-template...
 * `params`: Create services from templates +...
 
-## `usvc_seller data`
+## `usvc_seller specs`
 
-Local data file operations (validate, format, populate, upload, test, etc.)
+Local operations on the flat specs/ layout (validate, format, populate, upload, test, etc.)
 
 **Usage**:
 
 ```console
-$ usvc_seller data [OPTIONS] COMMAND [ARGS]...
+$ usvc_seller specs [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -49,7 +49,7 @@ $ usvc_seller data [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `show`: Show expanded data for a service.
-* `validate`: Validate data consistency in service and...
+* `validate`: Validate a repository in the flat...
 * `format`: Format data files (JSON, TOML, MD) to...
 * `populate`: Populate services by executing...
 * `upload`: Upload a seller catalog (services +...
@@ -58,7 +58,7 @@ $ usvc_seller data [OPTIONS] COMMAND [ARGS]...
 * `show-test`: Show test results for a service&#x27;s code...
 * `list`: List local data files
 
-### `usvc_seller data show`
+### `usvc_seller specs show`
 
 Show expanded data for a service.
 
@@ -75,7 +75,7 @@ replaced with the expanded records from ``unitysvc-data``.
 **Usage**:
 
 ```console
-$ usvc_seller data show [OPTIONS] SERVICE_NAME
+$ usvc_seller specs show [OPTIONS] SERVICE_NAME
 ```
 
 **Arguments**:
@@ -91,30 +91,33 @@ $ usvc_seller data show [OPTIONS] SERVICE_NAME
 * `-f, --format TEXT`: Output format: json (syntax-highlighted) or text (plain).  [default: json]
 * `--help`: Show this message and exit.
 
-### `usvc_seller data validate`
+### `usvc_seller specs validate`
 
-Validate data consistency in service and listing files.
+Validate a repository in the flat ``specs/`` layout.
 
-Checks:
-1. Each service directory has exactly one offering_v1 file
-2. Listing files exist in directories with a valid offering file
+For every service folder (one containing a ``listing.{json,toml}``):
+
+1. the three spec files (provider, offering, listing) are present, one
+   format each, and carry no ``schema`` field;
+2. each validates against its core schema (routed by filename);
+3. ``listing.name`` equals the folder&#x27;s path relative to ``specs/``.
 
 **Usage**:
 
 ```console
-$ usvc_seller data validate [OPTIONS] [DATA_DIR]
+$ usvc_seller specs validate [OPTIONS] [SPECS_DIR]
 ```
 
 **Arguments**:
 
-* `[DATA_DIR]`: Directory containing data files to validate (default: current directory)
+* `[SPECS_DIR]`: Repo root or specs/ directory to validate (default: current directory)
 
 **Options**:
 
-* `--has-service-id`: Require service_id field in listing files (from override or data file)
+* `--has-service-id`: Also require each service folder to have a service.json with a service_id
 * `--help`: Show this message and exit.
 
-### `usvc_seller data format`
+### `usvc_seller specs format`
 
 Format data files (JSON, TOML, MD) to match pre-commit requirements.
 
@@ -127,7 +130,7 @@ This command:
 **Usage**:
 
 ```console
-$ usvc_seller data format [OPTIONS] [DATA_DIR]
+$ usvc_seller specs format [OPTIONS] [DATA_DIR]
 ```
 
 **Arguments**:
@@ -139,7 +142,7 @@ $ usvc_seller data format [OPTIONS] [DATA_DIR]
 * `--check`: Check if files are formatted without modifying them
 * `--help`: Show this message and exit.
 
-### `usvc_seller data populate`
+### `usvc_seller specs populate`
 
 Populate services by executing provider-specific update scripts.
 
@@ -152,7 +155,7 @@ ensure they conform to the format specification (equivalent to running &#x27;usv
 **Usage**:
 
 ```console
-$ usvc_seller data populate [OPTIONS] [DATA_DIR]
+$ usvc_seller specs populate [OPTIONS] [DATA_DIR]
 ```
 
 **Arguments**:
@@ -165,14 +168,14 @@ $ usvc_seller data populate [OPTIONS] [DATA_DIR]
 * `--dry-run`: Show what would be executed without actually running commands
 * `--help`: Show this message and exit.
 
-### `usvc_seller data upload`
+### `usvc_seller specs upload`
 
 Upload a seller catalog (services + promotions + service groups) to UnitySVC.
 
 **Usage**:
 
 ```console
-$ usvc_seller data upload [OPTIONS] [NAME]
+$ usvc_seller specs upload [OPTIONS] [NAME]
 ```
 
 **Arguments**:
@@ -186,7 +189,7 @@ $ usvc_seller data upload [OPTIONS] [NAME]
 * `-t, --type TEXT`: Upload only one resource: services / promotions / groups. Default: upload all three.
 * `--help`: Show this message and exit.
 
-### `usvc_seller data list-tests`
+### `usvc_seller specs list-tests`
 
 List available code examples without running them.
 
@@ -211,7 +214,7 @@ Examples:
 **Usage**:
 
 ```console
-$ usvc_seller data list-tests [OPTIONS] [NAME]
+$ usvc_seller specs list-tests [OPTIONS] [NAME]
 ```
 
 **Arguments**:
@@ -223,7 +226,7 @@ $ usvc_seller data list-tests [OPTIONS] [NAME]
 * `-f, --format TEXT`: Output format: json, table, tsv, csv  [default: table]
 * `--help`: Show this message and exit.
 
-### `usvc_seller data run-tests`
+### `usvc_seller specs run-tests`
 
 Run code examples locally with upstream API credentials.
 
@@ -262,7 +265,7 @@ Examples:
 **Usage**:
 
 ```console
-$ usvc_seller data run-tests [OPTIONS] [NAME]
+$ usvc_seller specs run-tests [OPTIONS] [NAME]
 ```
 
 **Arguments**:
@@ -277,7 +280,7 @@ $ usvc_seller data run-tests [OPTIONS] [NAME]
 * `-x, --fail-fast`: Stop testing on first failure
 * `--help`: Show this message and exit.
 
-### `usvc_seller data show-test`
+### `usvc_seller specs show-test`
 
 Show test results for a service&#x27;s code examples.
 
@@ -291,7 +294,7 @@ Examples:
 **Usage**:
 
 ```console
-$ usvc_seller data show-test [OPTIONS] SERVICE
+$ usvc_seller specs show-test [OPTIONS] SERVICE
 ```
 
 **Arguments**:
@@ -304,14 +307,14 @@ $ usvc_seller data show-test [OPTIONS] SERVICE
 * `-d, --data-dir PATH`: Directory containing provider data files (default: current directory)
 * `--help`: Show this message and exit.
 
-### `usvc_seller data list`
+### `usvc_seller specs list`
 
 List local data files
 
 **Usage**:
 
 ```console
-$ usvc_seller data list [OPTIONS] COMMAND [ARGS]...
+$ usvc_seller specs list [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -327,14 +330,14 @@ $ usvc_seller data list [OPTIONS] COMMAND [ARGS]...
 * `offerings`: List all service offering files found in...
 * `listings`: List all service listing files found in...
 
-#### `usvc_seller data list services`
+#### `usvc_seller specs list services`
 
 List all services with their provider, offering, and listing files.
 
 **Usage**:
 
 ```console
-$ usvc_seller data list services [OPTIONS] [DATA_DIR]
+$ usvc_seller specs list services [OPTIONS] [DATA_DIR]
 ```
 
 **Arguments**:
@@ -345,14 +348,14 @@ $ usvc_seller data list services [OPTIONS] [DATA_DIR]
 
 * `--help`: Show this message and exit.
 
-#### `usvc_seller data list providers`
+#### `usvc_seller specs list providers`
 
 List all provider files found in the data directory.
 
 **Usage**:
 
 ```console
-$ usvc_seller data list providers [OPTIONS] [DATA_DIR]
+$ usvc_seller specs list providers [OPTIONS] [DATA_DIR]
 ```
 
 **Arguments**:
@@ -363,14 +366,14 @@ $ usvc_seller data list providers [OPTIONS] [DATA_DIR]
 
 * `--help`: Show this message and exit.
 
-#### `usvc_seller data list sellers`
+#### `usvc_seller specs list sellers`
 
 List all seller files found in the data directory.
 
 **Usage**:
 
 ```console
-$ usvc_seller data list sellers [OPTIONS] [DATA_DIR]
+$ usvc_seller specs list sellers [OPTIONS] [DATA_DIR]
 ```
 
 **Arguments**:
@@ -381,14 +384,14 @@ $ usvc_seller data list sellers [OPTIONS] [DATA_DIR]
 
 * `--help`: Show this message and exit.
 
-#### `usvc_seller data list offerings`
+#### `usvc_seller specs list offerings`
 
 List all service offering files found in the data directory.
 
 **Usage**:
 
 ```console
-$ usvc_seller data list offerings [OPTIONS] [DATA_DIR]
+$ usvc_seller specs list offerings [OPTIONS] [DATA_DIR]
 ```
 
 **Arguments**:
@@ -399,14 +402,14 @@ $ usvc_seller data list offerings [OPTIONS] [DATA_DIR]
 
 * `--help`: Show this message and exit.
 
-#### `usvc_seller data list listings`
+#### `usvc_seller specs list listings`
 
 List all service listing files found in the data directory.
 
 **Usage**:
 
 ```console
-$ usvc_seller data list listings [OPTIONS] [DATA_DIR]
+$ usvc_seller specs list listings [OPTIONS] [DATA_DIR]
 ```
 
 **Arguments**:
