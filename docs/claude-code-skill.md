@@ -2,7 +2,7 @@
 
 This repository ships a [Claude Code](https://claude.com/claude-code) **skill** that teaches Claude how to author UnitySVC services correctly: file organization, naming conventions, the iterator+template pattern, mandatory connectivity tests, the validate → format → data-tests → gateway-tests → upload pipeline, and the staging-env conventions.
 
-When the skill is installed, Claude consults it automatically any time you ask it to add, modify, regenerate, or troubleshoot a service in a `unitysvc-services-*` repo (or anything that sounds like that — BYOK / BYOE, gateway base URL, `usvc_seller data` / `services` commands, etc.). You don't need to invoke it by name.
+When the skill is installed, Claude consults it automatically any time you ask it to add, modify, regenerate, or troubleshoot a service in a `unitysvc-services-*` repo (or anything that sounds like that — BYOK / BYOE, gateway base URL, `usvc_seller specs` / `services` commands, etc.). You don't need to invoke it by name.
 
 ## Source of truth
 
@@ -76,14 +76,14 @@ You do **not** need to say "use the writing-unitysvc-services skill." Mentioning
 
 The skill is "rigid" about two things, by design:
 
-1. **The verification pipeline runs in order, all four steps.** `usvc_seller data validate` → `usvc_seller data format` → `usvc_seller data run-tests --name <name>` → `usvc_seller services run-tests --name <name>`. A service is not "ready" until all four return green. Claude will not declare a task done if any of them is skipped.
+1. **The verification pipeline runs in order, all four steps.** `usvc_seller specs validate` → `usvc_seller specs format` → `usvc_seller specs run-tests <name>` → `usvc_seller services run-tests <name>`. A service is not "ready" until all four return green. Claude will not declare a task done if any of them is skipped.
 2. **Every service must have at least one connectivity test.** Claude will add one (preset or local Jinja file) if you forget.
 
 If you don't want those rails (e.g. quick prototyping), say so explicitly: *"Just generate the listing.json — skip the verification pipeline for now."*
 
 ## Staging environment
 
-Anything that talks to the staging backend (`usvc_seller data upload`, `usvc_seller services list/show/run-tests`, manual `curl https://api.staging.svcpass.com/…`) needs the seller API key and URL in env. The recommended setup is to put both in `~/.zshrc`:
+Anything that talks to the staging backend (`usvc_seller specs upload`, `usvc_seller services list/show/run-tests`, manual `curl https://api.staging.svcpass.com/…`) needs the seller API key and URL in env. The recommended setup is to put both in `~/.zshrc`:
 
 ```bash
 # in ~/.zshrc
@@ -117,14 +117,14 @@ If Claude does something wrong via this skill — wrong pricing block, missed na
 - The user prompt you gave Claude.
 - The output Claude produced.
 - What you expected instead.
-- Any error messages from `usvc_seller data validate` / `run-tests`.
+- Any error messages from `usvc_seller specs validate` / `run-tests`.
 
 Skill changes ship with the next release of the `unitysvc-sellers` package, and per-repo installs pick them up on the next `cp -r`.
 
 ## See also
 
-- [Data Structure](data-structure.md) — the underlying file model the skill operates on.
+- [Services](services.md) — the service model and `specs/` layout the skill operates on.
 - [Naming Conventions](naming-conventions.md) — full grammar reference.
 - [File Schemas](file-schemas.md) — every field on `provider_v1`, `offering_v1`, `listing_v1`.
-- [CLI Guide](cli-guide.md) — the `usvc_seller` commands the skill drives.
-- [Workflows](workflows.md) — how this all fits into a CI/CD pipeline.
+- [Author & Upload Specs](guides/author-specs.md) — the `usvc_seller specs` commands the skill drives.
+- [Generate a Catalog](guides/generate-catalog.md) — how this fits into a CI/CD pipeline.

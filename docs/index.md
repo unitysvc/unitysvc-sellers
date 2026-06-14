@@ -1,114 +1,117 @@
-# UnitySVC Seller SDK Documentation
+# UnitySVC Seller SDK
 
-Welcome to the UnitySVC Seller SDK documentation. The
-`unitysvc-sellers` package gives digital service providers two
-complementary ways to manage their catalog on the UnitySVC platform:
+`unitysvc-sellers` is the toolkit digital-service providers use to manage their
+presence on the **UnitySVC platform** — from authoring a service on your laptop
+to operating it live in production. It talks to the seller API so you don't have
+to: you describe *what* you offer and *how* it's sold, and the platform handles
+enrollment, gateway routing, usage metering, billing, and payouts.
 
--   The **`usvc_seller` CLI** — a local-first, version-controlled
-    workflow for authoring, validating, uploading, and testing
-    seller catalogs from the command line.
--   The **Python SDK** (`unitysvc_sellers.Client` / `AsyncClient`) — a
-    typed HTTP client that powers the CLI and can be embedded in
-    your own scripts, CI/CD jobs, or applications.
+## What the package manages
 
-Both talk to the same `/v1/seller/*` HTTP API, so you can mix and
-match freely.
+The package is organized around the **kinds of data a seller works with**. Each
+kind has its own command group and SDK namespace.
 
-## Quick Links
+| Data type | Where it lives | What it is | Typical actions |
+|---|---|---|---|
+| **specs** | local repo | Your **service data** as files — `provider` + `offering` + `listing` per service, in a flat `specs/` layout | create, validate, format, test, **upload** |
+| **params** | local / inline | **Parameters that fill in a platform template** to produce a service, with no files to author | browse templates, **instantiate** (render + create) |
+| **services** | remote | Your **live and in-review services** on the platform | list, show, submit, withdraw, deprecate, set visibility, **update** (patch routing / price) |
+| **groups** | remote | **Service groups** that bundle related services | list, show, delete |
+| **promotions** | remote | **Price rules** that discount your services for customers | list, show, activate, pause, delete |
+| **secrets** | remote | Named **secret values** (upstream API keys) referenced by specs and params | list, show, set, delete |
+| **templates** | remote | The platform's **catalog of service templates** you can instantiate | list, show |
 
--   **[Getting Started](getting-started.md)** - Installation and first steps
--   **[Data Structure](data-structure.md)** - Understanding the Service Data model
--   **[CLI Guide](cli-guide.md)** / **[CLI Reference](cli-reference.md)** - Command-line workflows and complete option listing
--   **[SDK Guide](sdk-guide.md)** / **[SDK Reference](sdk-reference.md)** - Python SDK usage and auto-generated class docs
--   **[Workflows](workflows.md)** - Common usage patterns and best practices
--   **[Claude Code Skill](claude-code-skill.md)** - Install the bundled Claude Code skill so Claude authors services to platform conventions automatically
+The two **local** kinds — `specs` and `params` — are two routes to the same
+destination: *a service on the platform*. Author full spec files and
+[`specs upload`](services.md#path-a-author-specs-and-upload) them, **or** pick a
+platform template and supply [`params`](services.md#path-b-instantiate-a-template-with-params)
+to instantiate it. Everything else (`services`, `groups`, `promotions`,
+`secrets`, `templates`) operates on data that already lives on the platform.
 
-## What the package gives you
+→ See **[Services](services.md)** for what a service spec consists of, the two
+upload routes, and how a service moves through its status lifecycle.
 
--   **Define** service offerings and listings using schema-validated files
--   **Manage** service data locally in version-controlled repositories
--   **Validate** data against JSON schemas before uploading
--   **Upload** services to the UnitySVC platform (CLI or SDK)
--   **Manage Lifecycle** - Submit services for review, deprecate, or withdraw
--   **Automate** — embed catalog operations into your own scripts via
-    the typed Python SDK
+## One package, two front-ends: CLI and SDK
 
-## Types of Services
+Every data type and action above is available through **both** front-ends, which
+talk to the same `/v1/seller/*` HTTP API — mix and match freely:
 
-The UnitySVC platform can route a wide variety of digital services, such as AI/ML APIs, email delivery, file/media content, compute environments, database access, monitoring, and scheduled tasks — across HTTP, S3, SMTP, and SSH protocols. See [Service Types](service-types.md) for full specification and examples.
+-   **`usvc_seller` CLI** — a local-first, version-controlled workflow for
+    authoring, validating, uploading, testing, and operating your catalog from
+    the command line. *Local* commands live under `usvc_seller specs …`; *remote*
+    commands under `usvc_seller services | params | groups | promotions | secrets | templates …`.
+-   **Python SDK** — `unitysvc_sellers.Client` / `AsyncClient`, a typed HTTP
+    client (the CLI is built on it) for embedding catalog operations in your own
+    scripts, CI/CD jobs, or applications.
 
-| Type | Description | Enrollment? | Examples |
-|------|-------------|:-----------:|---------|
-| **Managed** | Seller provides upstream credentials | No | LLM inference (OpenAI, Anthropic), embedding APIs, image generation, translation |
-| **BYOK** (Bring Your Own Key) | Customer provides their own API key for a cloud provider | No | Groq, Together AI, Fireworks with customer's own account |
-| **BYOE** (Bring Your Own Endpoint) | Customer provides the URL of their self-hosted instance | Yes | Self-hosted Ollama/vLLM, on-premise inference, private deployments |
-| **With User Parameters** | Customer provides configuration during enrollment; combinable with any type above | Yes | Model preferences, region selection, custom labels |
-| **Recurrent** | Scheduled execution at configured intervals; combinable with any type above | Yes | Uptime monitoring, daily ETL sync, weekly report generation |
+```bash
+# CLI: validate local specs, then upload them
+usvc_seller specs validate
+usvc_seller specs upload
 
-Services can be **stateless** (each request independent — most inference APIs) or **stateful** (maintaining history across requests — e.g., recommendation models, conversation context, analytics). In all cases, **no customer credentials or identity are passed to the upstream provider** — the gateway authenticates the customer separately and forwards only the request payload and upstream credentials.
+# CLI: or create a service from a platform template, no files needed
+usvc_seller params instantiate openai-compatible-llm \
+    -P api_base_url=https://api.example.com/v1 -P input_price=1.00
+```
 
-UnitySVC handles **enrollment**, **service delivery via the API gateway**, and **billing** so that service providers can focus entirely on building and operating their digital services. Sellers do not need to build authentication, payment processing, usage metering, or customer management — the platform provides all of this. Sellers define their service endpoints, pricing, and parameters; UnitySVC takes care of routing requests, tracking usage, generating invoices, and processing payouts.
+```python
+# SDK: the same operations, embeddable in your own code
+from unitysvc_sellers import Client
 
-UnitySVC supports flexible seller business models, including **metered payouts** (sellers earn based on actual usage), **proportional payouts** (a percentage of what customers pay), **promotions** (reducing customer pricing via price rules), and **seller-funded incentives** (sellers pay the platform to offer free or discounted access for service testing and customer acquisition).
+with Client() as client:
+    services = client.services.list()
+    client.instances.create("openai-compatible-llm",
+                            parameters={"api_base_url": "https://api.example.com/v1"})
+```
 
-## The Service Data Model
+## What you can do
 
-Sellers provide services through UnitySVC by uploading service specifications using this SDK. A service specification consists of three complementary data components that work together:
+**Author & publish services**
 
-| Component | Schema | Purpose | Reusability |
-|-----------|--------|---------|-------------|
-| **Provider Data** | `provider_v1` | WHO provides the service | One per provider, shared by all offerings |
-| **Offering Data** | `offering_v1` | WHAT is being provided | One per service, can have multiple listings |
-| **Listing Data** | `listing_v1` | HOW it's sold to customers | One per pricing tier/marketplace |
+-   Define services as schema-validated `specs/` files, version-controlled in git
+-   Validate and format locally before anything leaves your machine
+-   Run upstream connectivity / code-example tests against your endpoints
+-   Upload authored specs, or instantiate a platform template with parameters
+-   Generate a whole catalog of services from a source list with a populator
 
-These three parts are **organized separately** in the file system for reusability, but are **uploaded together** as a unified service to the UnitySVC platform.
+**Operate live services**
 
-### Why This Structure?
+-   Move services through review: submit, withdraw, deprecate
+-   Control marketplace visibility (public / unlisted)
+-   Update a live service's routing variables and list price
+-   Run server-side diagnostics and manage which documents are tested
 
--   **Provider Data** contains identity, contact info, and terms of service - defined once and reused
--   **Offering Data** defines the service itself, API endpoints, and upstream pricing
--   **Listing Data** defines customer-facing presentation, documentation, and pricing
+**Manage the surrounding catalog**
 
-This enables scenarios like:
-- One provider with multiple service offerings
-- One offering with multiple listings (e.g., basic/premium tiers)
-- Shared documentation across services
+-   Discount services for customers with promotions (price rules)
+-   Bundle related services into service groups
+-   Store upstream credentials as named secrets, referenced by name (never by value)
+-   Browse the platform template catalog before instantiating
 
-## Service Templates
+**Automate everything**
 
-A **service template** is a *parameterized* version of the service data above —
-the variable parts replaced by parameters, plus the logic to fill them. Render
-it and you get back complete, schema-valid service data. Templates make it easy
-to **offer a common service** (the platform authored the hard parts; you supply
-a few values) and to **populate a whole group of services** from a source list.
-See [Service Templates](service-templates.md) for the three ways to use them —
-platform templates, capability pools, and your own `usvc_seller data populate`
-generators.
+-   Drive all of the above from the typed Python SDK in scripts and CI/CD
 
-## Key Features
+## Where to go next
 
--   **Unified Upload** — Provider, offering, and listing uploaded together atomically
--   **Service Lifecycle** — Submit for review, deprecate, or withdraw services
--   **Typed SDK** — `Client` / `AsyncClient` with fully typed request/response models generated from the seller OpenAPI spec
--   **Data Validation** — Comprehensive schema validation before upload
--   **Local-First CLI** — Work offline, commit to git, upload when ready
--   **Automation** — Script-based service generation and CI/CD integration
--   **Multiple Formats** — Support for JSON and TOML catalog files
--   **Smart Routing** — Request routing based on routing keys (e.g., model-specific endpoints)
+-   **[Installation & Quick Start](getting-started.md)** — install the package and publish your first service
+-   **[Services](services.md)** — service specs, the two upload routes, and the status lifecycle
+-   **[Service Templates](service-templates.md)** — platform templates, capability pools, and your own populators
+-   **[CLI Reference](cli-reference.md)** — the complete command listing
+-   **[SDK Guide](sdk-guide.md)** / **[SDK Reference](sdk-reference.md)** — usage patterns and generated class docs
+-   **[Service Types](service-types.md)** — Managed, BYOK, BYOE, recurrent, and parameterized services
+-   **[Seller Lifecycle](seller-lifecycle.md)** — what happens after upload: review, billing, payouts
+-   **[Claude Code Skill](claude-code-skill.md)** — let Claude author services to platform conventions automatically
 
-## Documentation Overview
+## Authentication
 
-### For New Users
+Both front-ends authenticate with a seller API key from the UnitySVC dashboard
+(**Settings → API Keys**). The seller context is encoded entirely in the key:
 
-1. [**Getting Started**](getting-started.md) - Install the package, create your first service, and upload it
-2. [**Data Structure**](data-structure.md) - Learn about the Service Data model and file organization
-3. [**Workflows**](workflows.md) - Manual, web-assisted, and automated catalog-authoring patterns
-
-### For Reference
-
--   [**CLI Guide**](cli-guide.md) / [**CLI Reference**](cli-reference.md) - Workflows and complete command listing
--   [**SDK Guide**](sdk-guide.md) / [**SDK Reference**](sdk-reference.md) - Usage patterns and auto-generated class docs
--   [**File Schemas**](file-schemas.md) - Detailed schema specifications for provider / offering / listing files
+```bash
+export UNITYSVC_SELLER_API_KEY="svcpass_..."
+export UNITYSVC_SELLER_API_URL="https://seller.unitysvc.com/v1"
+```
 
 ## Community & Support
 
@@ -116,6 +119,4 @@ generators.
 -   **Issues**: [Report bugs or request features](https://github.com/unitysvc/unitysvc-sellers/issues)
 -   **PyPI**: [unitysvc-sellers](https://pypi.org/project/unitysvc-sellers/)
 
-## License
-
-This project is licensed under the MIT License.
+Licensed under the MIT License.

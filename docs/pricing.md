@@ -956,7 +956,6 @@ Composite pricing types can be nested for complex scenarios:
 
 ```json
 {
-    "schema": "offering_v1",
     "name": "gpt-4-turbo",
     "display_name": "GPT-4 Turbo",
     "description": "OpenAI's most advanced model",
@@ -1035,7 +1034,6 @@ description = "Premium access with priority support"
 
 ```json
 {
-    "schema": "offering_v1",
     "name": "flux-pro",
     "display_name": "FLUX Pro",
     "description": "High-quality image generation",
@@ -1106,7 +1104,7 @@ description = "Premium access with priority support"
 
 ## Validation
 
-When you run `usvc_seller data validate`, the pricing structure is validated:
+When you run `usvc_seller specs validate`, the pricing structure is validated:
 
 1. **JSON Schema Validation**: Ensures the structure matches the expected format
 2. **Pydantic Model Validation**: Enforces business rules:
@@ -1186,5 +1184,5 @@ The backend calculates costs using these formulas:
 ## See Also
 
 - [File Schemas](file-schemas.md) - Complete schema reference
-- [Data Structure](data-structure.md) - File organization
-- [CLI Reference](cli-reference.md#usvc_seller-data-validate) - Validation command
+- [Services](services.md) - The service model & specs layout
+- [CLI Reference](cli-reference.md) - Command reference

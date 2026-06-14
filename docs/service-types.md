@@ -67,57 +67,81 @@ Orthogonal to the service category, each service uses one of these delivery patt
 
 The seller provides upstream credentials. All customers share the same upstream endpoint. No enrollment required.
 
-```toml
-# Offering — seller's upstream credentials
-[upstream_access_config."OpenAI API"]
-base_url = "https://api.openai.com/v1"
-api_key = "${ secrets.OPENAI_API_KEY }"
+```json
+// specs/openai/gpt-4/offering.json — seller's upstream credentials
+{
+    "upstream_access_config": {
+        "OpenAI API": {
+            "access_method": "http",
+            "base_url": "https://api.openai.com/v1",
+            "api_key": "${ secrets.OPENAI_API_KEY }"
+        }
+    }
+}
+```
 
-# Listing — customer-facing gateway path
-[user_access_interfaces."OpenAI API Access"]
-access_method = "http"
-base_url = "${API_GATEWAY_BASE_URL}/p/openai"
-
-[user_access_interfaces."OpenAI API Access".routing_key]
-model = "gpt-4"
+```json
+// specs/openai/gpt-4/listing.json — customer-facing gateway path
+{
+    "user_access_interfaces": {
+        "OpenAI API Access": {
+            "access_method": "http",
+            "base_url": "${API_GATEWAY_BASE_URL}/p/openai",
+            "routing_key": { "model": "gpt-4" }
+        }
+    }
+}
 ```
 
 Request flow: `Customer → API key → Gateway → seller's upstream creds → Provider`
 
 ### BYOK (Bring Your Own Key)
 
-The customer provides their own API key. No enrollment required — the key is stored in the customer's secret store.
+The customer provides their own upstream API key. No enrollment required — the key lives in the customer's secret store. A BYOK offering references it with the **`customer_secrets`** namespace in `upstream_access_config`:
 
-```toml
-# Offering — references customer's secret
-[upstream_access_config."Groq API"]
-base_url = "https://api.groq.com/openai/v1"
-api_key = "${ customer_secrets.GROQ_API_KEY }"
+```json
+// specs/groq/llama-3.3-70b/offering.json
+{
+    "upstream_access_config": {
+        "Groq API": {
+            "access_method": "http",
+            "base_url": "https://api.groq.com/openai/v1",
+            "api_key": "${ customer_secrets.GROQ_API_KEY }",
+            "routing_key": { "model": "llama-3.3-70b-versatile" }
+        }
+    }
+}
 ```
 
-The `${ ... }` pattern distinguishes secret ownership:
+The **namespace** of the reference — not its location — declares who owns the secret:
 
-| Pattern | Owner | Resolved from |
-|---------|-------|---------------|
+| Reference | Owner | Resolved from |
+|-----------|-------|---------------|
 | `${ secrets.NAME }` | Seller | Seller's secret store |
-| `${ customer_secrets.NAME }` | Customer | Customer's secret store |
+| `${ customer_secrets.NAME }` | Customer (BYOK) | Customer's secret store |
 
-Customer secrets are auto-detected by scanning `upstream_access_config` for `${ customer_secrets.XXX }` patterns. No separate declaration needed.
+A `${ customer_secrets.X }` reference is also its own declaration — the platform auto-detects the customer-required secret by scanning for it; no separate `user_parameters_schema` entry is needed. See [File Schemas](file-schemas.md) for the full BYOK model.
 
 ### BYOE (Bring Your Own Endpoint)
 
-The customer provides the URL of their own service instance (e.g., self-hosted Ollama). Enrollment required.
+The customer provides the URL of their own service instance (e.g., self-hosted Ollama). Enrollment required. The key name is supplied per-enrollment via Jinja indirection inside the `customer_secrets` namespace:
 
-```toml
-# Offering — templates resolve from enrollment parameters
-[upstream_access_config."Ollama API"]
-base_url = "{{ base_url }}"
-api_key = "${ customer_secrets.{{ api_key_secret }} }"
+```json
+// specs/ollama/byoe/offering.json — templates resolve from enrollment parameters
+{
+    "upstream_access_config": {
+        "Ollama API": {
+            "access_method": "http",
+            "base_url": "{{ base_url }}",
+            "api_key": "${ customer_secrets.{{ api_key_secret }} }"
+        }
+    }
+}
 ```
 
 Two-phase resolution:
-1. **Jinja rendering**: `{{ base_url }}` → `http://my-server:11434`
-2. **Secret resolution**: `${ customer_secrets.MY_KEY }` → actual key value
+1. **Jinja rendering** (enrollment parameters): `{{ base_url }}` → `http://my-server:11434`, `{{ api_key_secret }}` → `MY_KEY`
+2. **Secret resolution**: `${ customer_secrets.MY_KEY }` → the actual key value from the customer's secret store
 
 ### Recurrent services
 
@@ -158,17 +182,18 @@ base_url = "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment.code }}"
 time. The same enrollment is also reachable directly at `/e/CEFF` regardless of `base_url`.
 
 > If the code is used as the discriminator in a **shared upstream namespace** (e.g. an ntfy
-> topic shared across customers), set `service_options.enrollment.scope = "global"` so the
+> topic shared across customers), set `service_options.scope = "global"` so the
 > code is globally unique rather than only per-customer. See
 > [file-schemas.md](file-schemas.md#service-options).
 
-See [User Access Interface Templates](tech-notes/user-access-interface-template.md) for details.
+See [file-schemas.md](file-schemas.md#jinja2-template-values) for the full templating model, and
+[service-templates.md](service-templates.md) for instantiating these patterns from a template.
 
 ## Comparison Table
 
 | Aspect | Managed | BYOK | BYOE | Recurrent | Subscription |
 |--------|---------|------|------|-----------|-------------|
-| **upstream api_key** | `${ secrets.X }` | `${ customer_secrets.X }` | `${ customer_secrets.{{ param }} }` | Same as base | Same as base |
+| **api_key reference** | `${ secrets.X }` (seller) | `${ customer_secrets.X }` (customer) | `${ customer_secrets.{{ param }} }` | Same as base | Same as base |
 | **upstream base_url** | Static URL | Static URL | `{{ base_url }}` | Same as base | Same as base |
 | **Enrollment?** | No | No | Yes | Yes | Yes |
 | **Customer provides** | Nothing | API key | Endpoint URL | Schedule | Nothing |
@@ -187,13 +212,13 @@ Conditions that do **not** require enrollment:
 
 | Condition | Why |
 |-----------|-----|
-| BYOK (`${ customer_secrets.X }`) | Resolved from secret store at routing time |
+| BYOK (`${ customer_secrets.X }`) | Resolved from the customer's secret store at routing time |
 | Seller secrets (`${ secrets.X }`) | Seller-level, resolved at routing time |
 | Shared access interfaces | Same URL for all customers |
 
 ## Service Groups
 
-Services can be organized into [service groups](data-structure.md) for unified routing. A customer sends a request to a group path (e.g., `/g/llm/v1/chat/completions`), and the platform routes to the best available service using weighted selection.
+Services can be organized into [service groups](services.md) for unified routing. A customer sends a request to a group path (e.g., `/g/llm/v1/chat/completions`), and the platform routes to the best available service using weighted selection.
 
 Groups can contain a mix of delivery patterns:
 
@@ -207,6 +232,6 @@ This enables fallback patterns: route to the customer's BYOK key first, fall bac
 
 A **capability pool** (`/p/<capability>`) is a special kind of service group for a *commodity* capability — a model and contract fixed by the platform, offered by many providers at a **single, uniform price**. A customer sends a request to the pool path (e.g., `/p/llama3-2-1b/v1/chat/completions`) and the gateway load-balances across all verified providers of that capability. Because price and terms are identical across members, every provider is fungible, so the pool routes by **performance** (latency / quality / health) rather than cost.
 
-You don't author a pool service by hand. Membership comes **only** from instantiating a pool-named [service template](service-templates.md) — `usvc_seller data upload` of a hand-written spec always produces a plain standalone service, never a pool member. Opting in is deliberately simple: instantiate the pool template (dashboard or `usvc_seller templates instantiate`) and supply just your upstream URL (and a key secret, if your upstream needs one).
+You don't author a pool service by hand. Membership comes **only** from instantiating a pool-named [service template](service-templates.md) — `usvc_seller specs upload` of a hand-written spec always produces a plain standalone service, never a pool member. Opting in is deliberately simple: instantiate the pool template (dashboard or `usvc_seller params instantiate`) and supply just your upstream URL (and a key secret, if your upstream needs one).
 
 Pool membership is **opt-in and non-exclusive** — if you want to offer the same capability at your own price, publish it as a separate standalone service; joining a pool doesn't stop you.

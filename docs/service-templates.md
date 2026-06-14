@@ -31,7 +31,7 @@ the row that matches what you're doing.
 |---|---|---|---|
 | **1. Platform templates** | The platform | Dashboard *Create from template*, or `usvc_seller params instantiate` | Offering a common service type with zero file authoring |
 | **2. Capability pools** | The platform (template carries a pool name) | Instantiate a pool template (dashboard or CLI); you provide only the upstream URL | Joining a fungible, uniformly-priced commodity pool |
-| **3. Your own templates** | You | Author `.j2` templates + a populator script, then `usvc_seller data populate` | Generating many services programmatically from a source list |
+| **3. Your own templates** | You | Author `.j2` templates + a populator script, then `usvc_seller specs populate` | Generating many services programmatically from a source list |
 
 ### 1. Platform service templates — the easy path
 
@@ -102,11 +102,11 @@ A few consequences worth knowing:
   capability as a **separate, standalone service** at your own price; pool
   membership doesn't stop you.
 - **Membership comes only from a pool template.** A pool service can be created
-  *only* by instantiating a pool-named template — `usvc_seller data upload` of a
+  *only* by instantiating a pool-named template — `usvc_seller specs upload` of a
   hand-authored spec always produces a plain standalone service, never a pool
   member.
 
-### 3. Your own service templates — `usvc_seller data populate`
+### 3. Your own service templates — `usvc_seller specs populate`
 
 When you offer *many* similar services — every model your upstream serves, a
 region per endpoint, a tier per plan — author the template **yourself** and let
@@ -114,26 +114,44 @@ the SDK generate the catalog. This is the populator pattern, and it's the
 SDK-native way to **populate a group of services**:
 
 1. Author `offering.json.j2` / `listing.json.j2` (and any doc/test templates)
-   under `data/<provider>/templates/`, replacing the per-service values with
+   under `templates/` at the repo root, replacing the per-service values with
    `{{ placeholders }}`.
-2. Write a **populator script** that yields one parameter dict per service
-   (typically by reading your upstream's model list).
-3. Declare it in `provider.toml` under `[services_populator]`.
+2. Write a **populator script** (commonly `scripts/update_specs.py`) that yields
+   one parameter dict per service — typically by reading your upstream's model
+   list. SDK-based scripts can lean on
+   `unitysvc_sellers.template_populate.populate_from_iterator`, which renders the
+   flat nested layout, copies `provider.json` into each service folder, and
+   localizes documentation references for you.
+3. Declare it in `templates/config.json` under a `services_populator` object:
+
+   ```json
+   {
+     "services_populator": {
+       "command": ["scripts/update_specs.py"],
+       "requirements": ["..."]
+     }
+   }
+   ```
+
+   (Your `provider.json` stays a pure provider definition — the populator
+   declaration lives in `templates/config.json`, not in `provider.json`.)
 4. Run it:
 
    ```bash
-   usvc_seller data populate           # render every service from the template
-   usvc_seller data populate --dry-run # preview without writing files
+   usvc_seller specs populate           # render every service from the template
+   usvc_seller specs populate --dry-run # preview without writing files
    ```
 
-   The generated `services/<name>/offering.json` + `listing.json` are normal
-   service data — validate, test, and upload them like anything else. Re-running
-   `populate` keeps the catalog in sync with the source list (services that
-   disappear upstream are marked `deprecated`).
+   The generated `specs/<provider>/<service>/` folders — each self-contained with
+   `provider.json`, `offering.json`, and `listing.json` — are normal service
+   data: validate, test, and upload them like anything else. Re-running
+   `populate` keeps the catalog in sync with the source list: services that
+   disappear upstream are marked `deprecated`, and unchanged services don't churn
+   because their `time_created` is preserved.
 
 The full, step-by-step guide — converting a working service into templates,
 writing the populator, filtering, and CI automation — lives in
-[Workflows → Automated Workflow (Template-Based)](workflows.md#automated-workflow-template-based).
+[Generate a Catalog](guides/generate-catalog.md).
 
 ## Which one should I use?
 

@@ -4,7 +4,7 @@ Net-new command group (no equivalent in ``unitysvc-services``). Mirrors
 the structure of ``promotions``: name lookup with partial-id fallback,
 list / show / delete / refresh. Group create/update is intentionally
 not exposed here — sellers manage group definitions as files committed
-to their catalog directory and pushed via ``usvc_seller data upload``,
+to their catalog directory and pushed via ``usvc_seller specs upload``,
 which is the same flow promotions use.
 """
 

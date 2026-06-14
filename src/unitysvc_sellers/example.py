@@ -710,16 +710,16 @@ def list_code_examples(
 
     Examples:
         # List all code examples
-        usvc data list-tests
+        usvc_seller specs list-tests
 
         # List for a whole provider (fnmatch pattern on listing.name)
-        usvc data list-tests 'fireworks/*'
+        usvc_seller specs list-tests 'fireworks/*'
 
         # List for one service (literal listing.name)
-        usvc data list-tests fireworks.ai/llama-3-1-405b-instruct
+        usvc_seller specs list-tests fireworks/llama-3-1-405b-instruct
 
         # List as JSON
-        usvc data list-tests --format json
+        usvc_seller specs list-tests --format json
     """
     # Always operate on the current working directory — cd into your data
     # repo before running.  Keeps the CLI surface minimal; there's no
@@ -801,8 +801,8 @@ def show_test(
     for previously executed tests.
 
     Examples:
-        usvc data test show llama-3-1-405b-instruct
-        usvc data test show llama-3-1-405b-instruct --title "Quick Start"
+        usvc_seller specs show-test llama-3-1-405b-instruct
+        usvc_seller specs show-test llama-3-1-405b-instruct --title "Quick Start"
     """
     # Set data directory
     if data_dir is None:
@@ -913,26 +913,26 @@ def run_local(
 
     Examples:
         # Run all code examples in the current directory
-        usvc data run-tests
+        usvc_seller specs run-tests
 
         # Run for a whole provider (fnmatch pattern on listing.name)
-        usvc data run-tests 'fireworks/*'
+        usvc_seller specs run-tests 'fireworks/*'
 
         # Run a single service (literal listing.name)
-        usvc data run-tests fireworks.ai/llama-3-1-405b-instruct
-        usvc data run-tests 'cohere/command-r-*'
+        usvc_seller specs run-tests fireworks/llama-3-1-405b-instruct
+        usvc_seller specs run-tests 'cohere/command-r-*'
 
         # Run specific file
-        usvc data run-tests --test-file "code-example.py.j2"
+        usvc_seller specs run-tests --test-file "code-example.py.j2"
 
         # Show detailed output
-        usvc data run-tests --verbose
+        usvc_seller specs run-tests --verbose
 
         # Force rerun all tests (ignore existing results)
-        usvc data run-tests --force
+        usvc_seller specs run-tests --force
 
         # Stop on first failure
-        usvc data run-tests --fail-fast
+        usvc_seller specs run-tests --fail-fast
     """
     # Always operate on the current working directory — cd into your data
     # repo before running.  Keeps the CLI surface minimal; there's no

@@ -91,7 +91,6 @@ Documents are defined in your listing files at the top level. The listing automa
 
 ```json
 {
-    "schema": "listing_v1",
     "name": "listing-default",
     "user_access_interfaces": {
         "API Interface": {
@@ -614,7 +613,7 @@ Use the validate command to check document references and template syntax:
 
 ```bash
 # Validate all files including documents
-usvc_seller data validate
+usvc_seller specs validate
 
 # Expected output:
 # ✓ All files validated successfully
@@ -698,8 +697,8 @@ Set `is_public: true` for user-facing documentation:
 Always validate documents before uploading:
 
 ```bash
-usvc_seller data validate
-usvc_seller data upload
+usvc_seller specs validate
+usvc_seller specs upload
 ```
 
 ## Next Steps

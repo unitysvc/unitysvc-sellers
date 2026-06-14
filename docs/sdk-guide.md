@@ -517,10 +517,10 @@ with Client() as client:
 ## `upload_directory` — full catalog upload helper
 
 For the common case of "upload a whole seller catalog directory,
-wait for every task, write `.override.json` files so the next run
-knows what already exists", use the `upload_directory` helper from
+wait for every task, write each folder's `service.json` so the next
+run knows what already exists", use the `upload_directory` helper from
 `unitysvc_sellers.upload`. This is the same code path the
-`usvc_seller data upload` CLI command uses.
+`usvc_seller specs upload` CLI command uses.
 
 ```python
 from pathlib import Path
@@ -530,7 +530,7 @@ from unitysvc_sellers.upload import upload_directory
 with Client() as client:
     result = upload_directory(
         client,
-        data_dir=Path("./data"),
+        data_dir=Path("./specs"),
         dryrun=False,
         task_wait_timeout=600.0,
         task_poll_interval=2.0,
@@ -694,7 +694,7 @@ from unitysvc_sellers.upload import upload_directory
 
 
 def main() -> int:
-    data_dir = Path("./data").resolve()
+    data_dir = Path("./specs").resolve()
 
     def progress(kind: str, status: str, name: str, detail: str = "") -> None:
         icon = {"queued": "·", "ok": "✓", "error": "✗", "dryrun": "→"}.get(status, "?")
@@ -742,9 +742,8 @@ CI secrets, and call it from a GitHub Actions workflow:
     documentation from source docstrings.
 -   [Getting Started](getting-started.md) — install, configure, and
     upload your first catalog.
--   [CLI Guide](cli-guide.md) / [CLI Reference](cli-reference.md) —
-    command-line workflows and complete option listing.
--   [Workflows](workflows.md) — higher-level patterns for manual,
-    web-assisted, and automated catalog authoring.
+-   [CLI Reference](cli-reference.md) — the complete command and option listing.
+-   [Operate Live Services](guides/operate-services.md) and
+    [Generate a Catalog](guides/generate-catalog.md) — higher-level catalog patterns.
 -   [File Schemas](file-schemas.md) — the provider / offering /
     listing payload shapes the SDK accepts.

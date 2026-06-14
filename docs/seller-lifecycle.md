@@ -49,7 +49,7 @@ flowchart TD
 
 ## 1. Upload & Approval
 
-When you run `usvc_seller data upload`, you submit:
+When you run `usvc_seller specs upload`, you submit:
 
 | Data Type           | Purpose                    | Key Fields                                    |
 | ------------------- | -------------------------- | --------------------------------------------- |
@@ -109,15 +109,15 @@ This means there are two valid publishing patterns:
 **Pattern A — soft launch (set visibility after activation).** The default visibility on activation is `unlisted`, so a freshly approved service is live and routable but not in the public catalog.  Use this period to verify billing, share with beta customers via the direct URL, and finalise docs.  Then explicitly switch to public when you're ready:
 
 ```bash
-usvc_seller services set-visibility public <service-id>
+usvc_seller services set-visibility public <service_name>
 ```
 
-**Pattern B — declarative (set visibility before submission).** Set `visibility=public` while the service is still a draft, then submit for review.  When admin activates the service it becomes public immediately — no second step required.  This is what the CI-driven upload workflow does (see [Workflows → upload pipeline](workflows.md#typical-cicd-upload-and-submit-pattern)):
+**Pattern B — declarative (set visibility before submission).** Set `visibility=public` while the service is still a draft, then submit for review.  When admin activates the service it becomes public immediately — no second step required.  This is what the CI-driven upload workflow does (see [Operate Live Services](guides/operate-services.md)):
 
 ```bash
-usvc_seller data upload
-usvc_seller services set-visibility public --local-ids --data-dir data --yes
-usvc_seller services submit --local-ids --data-dir data --yes
+usvc_seller specs upload
+usvc_seller services set-visibility public --local-ids --data-dir specs --yes
+usvc_seller services submit --local-ids --data-dir specs --yes
 ```
 
 ### Switching visibility
@@ -126,16 +126,16 @@ usvc_seller services submit --local-ids --data-dir data --yes
 
 ```bash
 # Single service
-usvc_seller services set-visibility public <service-id>
+usvc_seller services set-visibility public <service_name>
 
 # All active services that aren't already public
 usvc_seller services set-visibility public --all --yes
 
 # Take a service back off the public catalog without breaking enrollments
-usvc_seller services set-visibility unlisted <service-id>
+usvc_seller services set-visibility unlisted <service_name>
 
 # Hide entirely (also keeps it out of internal listings)
-usvc_seller services set-visibility private <service-id>
+usvc_seller services set-visibility private <service_name>
 ```
 
 **SDK:**

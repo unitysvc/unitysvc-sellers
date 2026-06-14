@@ -73,13 +73,13 @@ With your seller credentials (`UNITYSVC_SELLER_API_KEY` and `UNITYSVC_API_URL`) 
 
 ```bash
 # Run all tests for a service
-usvc_seller services run-tests <service_id>
+usvc_seller services run-tests <service_name>
 
 # Run a single document instead of every executable doc
-usvc_seller services run-tests <service_id> --document-id <doc_id>
+usvc_seller services run-tests <service_name> --document-id <doc_id>
 
 # Force re-execute documents whose previous result was 'success'
-usvc_seller services run-tests <service_id> --force
+usvc_seller services run-tests <service_name> --force
 ```
 
 The diagnostic runs **server-side** inside the cluster — the gateway probe exercises the same network path customers hit. On any iface-level gateway failure it falls back to an upstream-mode probe and attributes the fault as `platform_fault` or `upstream_fault` so you can tell whether the gateway or your upstream is the problem.
@@ -104,9 +104,9 @@ The diagnostic runs **server-side** inside the cluster — the gateway probe exe
 
 ### Recommended Workflow
 
-1. **Development**: Iterate locally with `usvc_seller data run-tests` (validates the rendered script against the upstream)
-2. **Pre-submission validation**: Run `usvc_seller services run-tests <service_id>` to confirm the in-cluster gateway path works
-3. **Submit**: `usvc_seller services submit <service_id>` triggers the same diagnostic on the backend's submission flow
+1. **Development**: Iterate locally with `usvc_seller specs run-tests` (validates the rendered script against the upstream)
+2. **Pre-submission validation**: Run `usvc_seller services run-tests <service_name>` to confirm the in-cluster gateway path works
+3. **Submit**: `usvc_seller services submit <service_name>` triggers the same diagnostic on the backend's submission flow
 
 ## Test Environment Variables
 
@@ -124,7 +124,7 @@ Tests run through the UnitySVC gateway. Only these variables are available:
 
 **No other variables are available.** Customer code examples should only use these variables since they represent what real customers see.
 
-### Local/Upstream Testing (`usvc_seller data run-tests`)
+### Local/Upstream Testing (`usvc_seller specs run-tests`)
 
 Tests run directly against the upstream service (no gateway). All fields from `upstream_access_config` are available as uppercased environment variables, with two special mappings:
 
@@ -140,7 +140,7 @@ Secret references (`${ customer_secrets.NAME }`, `${ secrets.NAME }`) are resolv
 ```bash
 export SMTP_HOST=smtp.gmail.com
 export SMTP_PORT=587
-usvc_seller data run-tests
+usvc_seller specs run-tests
 ```
 
 ### Writing Tests for Both Contexts
@@ -240,7 +240,6 @@ Code examples are referenced in your `listing.json` or `listing.toml` file under
 
 ```json
 {
-    "schema": "listing_v1",
     "name": "listing-default",
     "user_access_interfaces": [
         {
@@ -289,9 +288,9 @@ Code examples are referenced in your `listing.json` or `listing.toml` file under
 **System-Maintained Fields (in `meta` object):**
 
 -   **`meta.output`**: _(System-maintained)_ Actual output from successful test execution
-    -   Automatically populated by `usvc_seller test run` when a test passes
+    -   Automatically populated by `usvc_seller specs run-tests` when a test passes
     -   Contains the stdout from the last successful test run
-    -   Included in your service listing during `usvc_seller data upload`
+    -   Included in your service listing during `usvc_seller specs upload`
     -   Displayed alongside code examples for documentation
 
 ### 4. Use Relative Paths
@@ -316,7 +315,7 @@ data/
 
 ```json
 {
-    "file_path": "/data/fireworks/docs/example.py.j2" // ✗ BAD: Absolute path
+    "file_path": "/specs/fireworks/docs/example.py.j2" // ✗ BAD: Absolute path
 }
 ```
 
@@ -346,7 +345,7 @@ print(response.json())
 **Multiple Listings Reference the Same Template:**
 
 ```
-data/fireworks/
+specs/fireworks/
 ├── docs/
 │   └── example.py.j2              # One template
 └── services/
@@ -379,7 +378,7 @@ Presets travel with `unitysvc-sellers`, so keep it on the latest release to get 
 pip install unitysvc-sellers -U
 ```
 
-The `usvc_data` CLI (shipped by `unitysvc-data`, pulled in as a dependency) and the `$doc_preset` / `$file_preset` sentinel support in `usvc_seller data validate` / `usvc_seller data upload` both rely on the installed version — an old install means stale preset content.
+The `usvc_data` CLI (shipped by `unitysvc-data`, pulled in as a dependency) and the `$doc_preset` / `$file_preset` sentinel support in `usvc_seller specs validate` / `usvc_seller specs upload` both rely on the installed version — an old install means stale preset content.
 
 ### Browse available presets with `usvc_data`
 
@@ -422,11 +421,10 @@ Aliases (`smtp_connectivity`) always resolve to the latest version; versioned na
 
 ### Reference a preset from `listing.json`
 
-Replace a hand-written `documents` entry with a `$doc_preset` sentinel. On `usvc_seller data validate` / `upload`, the SDK expands the sentinel into a full document record — inlining the bundled file content, rendering any Jinja2 constructs with your listing / offering / provider context, and passing the result through the same upload pipeline as hand-written examples:
+Replace a hand-written `documents` entry with a `$doc_preset` sentinel. On `usvc_seller specs validate` / `upload`, the SDK expands the sentinel into a full document record — inlining the bundled file content, rendering any Jinja2 constructs with your listing / offering / provider context, and passing the result through the same upload pipeline as hand-written examples:
 
 ```json
 {
-    "schema": "listing_v1",
     "name": "listing-default",
     "documents": {
         "Python code example": { "$doc_preset": "s3_code_example_v1" },
@@ -460,7 +458,7 @@ The [`unitysvc-services-template`](https://github.com/unitysvc-labs/unitysvc-ser
 - How to wire up preset code examples via `$doc_preset` — including when to use an alias vs. a versioned name, and how to override `meta` fields
 - How to mix preset-based documents with hand-written `.j2` templates in the same listing
 
-Clone it and run `usvc_seller data validate` / `usvc_seller test list` against the sample catalog to see the full pipeline end-to-end before adapting it to your own services.
+Clone it and run `usvc_seller specs validate` / `usvc_seller specs list-tests` against the sample catalog to see the full pipeline end-to-end before adapting it to your own services.
 
 ## Test Command
 
@@ -470,14 +468,14 @@ The `test` command helps validate code examples against upstream APIs before pub
 
 ```bash
 # List all available code examples
-usvc_seller data list-tests
+usvc_seller specs list-tests
 
 # List examples for a specific provider
-usvc_seller data list-tests --provider fireworks
+usvc_seller specs list-tests 'fireworks/*'
 
 # List examples for one service or a pattern
-# (--name is an fnmatch pattern on service_name = listing.name)
-usvc_seller data list-tests --name "fireworks.ai/llama*"
+# (NAME is a positional fnmatch pattern on service_name = listing.name)
+usvc_seller specs list-tests 'fireworks/llama*'
 ```
 
 The output shows:
@@ -486,32 +484,32 @@ The output shows:
 -   Provider name
 -   Example title
 -   File type (.py, .js, .sh, etc.)
--   Relative file path from data directory
+-   Relative file path from the specs directory
 
 ### Running Tests
 
 ```bash
 # Run all code examples
-usvc_seller data run-tests
+usvc_seller specs run-tests
 
 # Run tests for a specific provider
-usvc_seller data run-tests --provider fireworks
+usvc_seller specs run-tests 'fireworks/*'
 
 # Run tests for one service or a pattern
-# (--name is an fnmatch pattern on service_name = listing.name)
-usvc_seller data run-tests --name "fireworks.ai/code-llama-*"
+# (NAME is a positional fnmatch pattern on service_name = listing.name)
+usvc_seller specs run-tests 'fireworks/code-llama-*'
 
 # Show verbose output including stdout/stderr
-usvc_seller data run-tests --verbose
+usvc_seller specs run-tests --verbose
 
 # Force rerun all tests (ignore cached results)
-usvc_seller test run --force
+usvc_seller specs run-tests --force
 
 # Stop on first failure (useful for quick feedback during development)
-usvc_seller test run --fail-fast
+usvc_seller specs run-tests --fail-fast
 
 # Combine options
-usvc_seller test run --force --fail-fast --verbose
+usvc_seller specs run-tests --force --fail-fast --verbose
 ```
 
 **How tests work:**
@@ -676,7 +674,6 @@ Reference the code example in your `listing.json` file at the listing level (not
 
 ```json
 {
-    "schema": "listing_v1",
     "name": "listing-default",
     "user_access_interfaces": [
         {
@@ -719,10 +716,10 @@ Reference the code example in your `listing.json` file at the listing level (not
             -   `"\"choices\""` - Check for JSON field in API response
             -   `"Status: 200"` - Check for HTTP status
         -   Without this field, tests only check exit code (0 = pass, non-zero = fail), which is unreliable
-    -   `output`: _(System-maintained)_ Automatically populated by `usvc_seller test run`
+    -   `output`: _(System-maintained)_ Automatically populated by `usvc_seller specs run-tests`
         -   Contains stdout from the last successful test execution
         -   Saved to `{listing_stem}_{code_filename}.out` file during test run
-        -   Embedded into `meta.output` during `usvc_seller data upload`
+        -   Embedded into `meta.output` during `usvc_seller specs upload`
         -   Displayed alongside code examples in your service listing
 
 ### Step 5: Validate and Test Before Uploading
@@ -733,7 +730,7 @@ Run the validation and testing commands to ensure everything works correctly.
 
 ```bash
 # Validate all files including Jinja2 syntax
-usvc_seller data validate
+usvc_seller specs validate
 
 # Expected output:
 # ✓ All files validated successfully
@@ -743,7 +740,7 @@ usvc_seller data validate
 
 ```bash
 # Verify your code example is detected
-usvc_seller test list
+usvc_seller specs list-tests
 
 # Should show:
 # Service: llama-3-1-405b-instruct
@@ -759,10 +756,10 @@ pass option `--name` (an fnmatch pattern on service_name = listing.name) to limi
 
 ```bash
 # Test your specific provider
-usvc_seller data run-tests --provider fireworks
+usvc_seller specs run-tests 'fireworks/*'
 
 # Or test a pattern of services
-usvc_seller data run-tests --name "fireworks.ai/llama*"
+usvc_seller specs run-tests 'fireworks/llama*'
 
 # Expected output:
 # Testing: llama-3-1-405b-instruct - Python code example
@@ -792,7 +789,7 @@ cat failed_llama-3-1-405b_Python_code_example.py
 
 ```bash
 # Only upload after all tests pass
-usvc_seller data upload
+usvc_seller specs upload
 ```
 
 ## Common Patterns
@@ -1048,9 +1045,9 @@ vim test.py.j2  # Replace with {{ offering.name }}, etc.
 vim listing.json  # Add document entry with meta.requirements and meta.expect
 
 # 5. Validate and test
-usvc_seller data validate
-usvc_seller data list-tests
-usvc_seller data run-tests --provider your-provider
+usvc_seller specs validate
+usvc_seller specs list-tests
+usvc_seller specs run-tests 'your-provider/*'
 # ✓ Successful tests create .out and .err files (e.g., servicename_listing_test.py.out)
 # ✓ Subsequent runs skip tests with existing results (use --force to rerun)
 # ✓ Use --fail-fast to stop on first failure for quick feedback
@@ -1060,7 +1057,7 @@ cat failed_*  # Check saved test files (in current directory)
 cat services/*/listing_*.out  # Review successful test outputs (in listing directories)
 
 # 7. Upload - embeds .out files into meta.output
-usvc_seller data upload
+usvc_seller specs upload
 # ✓ Reads .out files from listing directories and adds content to meta.output
 # ✓ Output will appear alongside code examples in your service listing
 ```
@@ -1069,12 +1066,12 @@ usvc_seller data upload
 
 The `meta.output` field follows an automated workflow from test execution to publication:
 
-### 1. Testing Phase: `usvc_seller test run`
+### 1. Testing Phase: `usvc_seller specs run-tests`
 
 When you run tests, successful executions generate `.out` files:
 
 ```bash
-$ usvc_seller test run --provider fireworks
+$ usvc_seller specs run-tests 'fireworks/*'
 
 Testing: llama-3-1-405b - Python code example
   ✓ Success (exit code: 0)
@@ -1089,7 +1086,7 @@ Testing: llama-3-1-405b - Python code example
 
 **File location:** Same directory as the listing file that references the code example
 
-### 2. Upload Phase: `usvc_seller data upload`
+### 2. Upload Phase: `usvc_seller specs upload`
 
 During upload, the SDK automatically:
 
@@ -1124,10 +1121,10 @@ After uploading, the output will automatically appear alongside the code example
 -   **`.out` files location**: Saved in the **same directory as the listing file**, making them easy to find and version control
 -   **`.out` file naming**: Format is `{listing_stem}_{code_filename}.out` to clearly associate output with both listing and code
 -   **Version control**: You **can** commit `.out` files to version control since they're co-located with listings
--   **Upload is flexible**: `usvc_seller data upload` works even if `.out` files are missing (gracefully skips)
+-   **Upload is flexible**: `usvc_seller specs upload` works even if `.out` files are missing (gracefully skips)
 -   **User vs System fields**:
     -   `meta.requirements` and `meta.expect` are **user-maintained** (you write these)
-    -   `meta.output` is **system-maintained** (auto-generated by `usvc_seller data run-tests` and `usvc_seller data upload`)
+    -   `meta.output` is **system-maintained** (auto-generated by `usvc_seller specs run-tests` and `usvc_seller specs upload`)
 
 ## Interpreter Detection
 
@@ -1172,7 +1169,7 @@ If the required interpreter is not found, the test will fail with a clear error 
 
 -   Check that you're using environment variables (UNITYSVC_API_KEY, SERVICE_BASE_URL)
 -   Verify template variables are correct
--   Run `usvc_seller test run --verbose` to see full output
+-   Run `usvc_seller specs run-tests --verbose` to see full output
 
 **Problem:** Exit code is 0 but test still fails
 
@@ -1180,7 +1177,7 @@ If the required interpreter is not found, the test will fail with a clear error 
 
 ### Validation Errors
 
-**Problem:** `usvc_seller data validate` reports Jinja2 syntax errors
+**Problem:** `usvc_seller specs validate` reports Jinja2 syntax errors
 
 **Solution:**
 
@@ -1188,10 +1185,10 @@ If the required interpreter is not found, the test will fail with a clear error 
 -   Common issues: missing `}`, incorrect variable names
 -   Use a Jinja2 linter or IDE plugin
 
-**Problem:** Code example not found by `usvc_seller data list-tests`
+**Problem:** Code example not found by `usvc_seller specs list-tests`
 
 **Solution:**
 
 -   Verify `category` is set to `"code_examples"` in document object
 -   Check that `file_path` is correct relative to listing file
--   Run `usvc_seller data validate` to check for schema errors
+-   Run `usvc_seller specs validate` to check for schema errors
