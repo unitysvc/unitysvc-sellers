@@ -3,7 +3,6 @@
 import os
 import shutil
 import subprocess
-import tomllib
 from pathlib import Path
 
 import json5
@@ -53,6 +52,43 @@ def _install_requirements(requirements: list[str]) -> tuple[bool, str]:
     return False, "Neither 'uv pip' nor 'pip' is available"
 
 
+def _populator_sources(data_dir: Path, provider_filter: str | None) -> list[tuple[dict, Path, str]]:
+    """Return ``[(services_populator, cwd, label)]`` for the repo's populator(s).
+
+    Prefers a dedicated populator config — ``templates/config.json`` then a
+    top-level ``config.json`` — holding ``{"services_populator": {...}}``, run
+    from the repo root (so ``command: ["scripts/update_specs.py"]`` resolves
+    naturally). This keeps ``provider.json`` a pure provider definition that the
+    populator copies into each service folder verbatim.
+
+    Falls back to legacy provider files carrying ``services_populator`` (run
+    from the provider file's directory).
+    """
+    for rel in ("templates/config.json", "config.json"):
+        cfg = data_dir / rel
+        if not cfg.is_file():
+            continue
+        try:
+            with open(cfg) as f:
+                data = json5.load(f)
+        except Exception:
+            continue
+        sp = data.get("services_populator") if isinstance(data, dict) else None
+        if sp:
+            return [(sp, data_dir, rel)]
+
+    # Legacy: provider files (provider.json/toml) carrying services_populator.
+    sources: list[tuple[dict, Path, str]] = []
+    for provider_file, _fmt, pdata in find_files_by_schema(data_dir, "provider_v1"):
+        name = pdata.get("name", "unknown")
+        if provider_filter and name != provider_filter:
+            continue
+        sp = pdata.get("services_populator")
+        if sp:
+            sources.append((sp, provider_file.parent, name))
+    return sources
+
+
 @app.command()
 def populate(
     data_dir: Path | None = typer.Argument(
@@ -72,13 +108,16 @@ def populate(
     ),
 ):
     """
-    Populate services by executing provider-specific update scripts.
+    Populate services by executing the repo's populator script.
 
-    This command scans provider files for 'services_populator' configuration and executes
-    the specified commands with environment variables from 'services_populator.envs'.
+    Reads the ``services_populator`` config from ``templates/config.json`` (or a
+    top-level ``config.json``) and runs its command from the repo root, so a
+    command like ``["scripts/update_specs.py"]`` resolves naturally. Legacy
+    provider files carrying ``services_populator`` are still supported as a
+    fallback.
 
-    After successful execution, automatically runs formatting on all generated files to
-    ensure they conform to the format specification (equivalent to running 'usvc format').
+    After successful execution, automatically runs formatting on all generated
+    files (equivalent to ``usvc_seller specs format``).
     """
     # Set data directory
     if data_dir is None:
@@ -91,57 +130,29 @@ def populate(
         console.print(f"[red]✗[/red] Data directory not found: {data_dir}", style="bold red")
         raise typer.Exit(code=1)
 
-    console.print(f"[blue]Scanning for provider configurations in:[/blue] {data_dir}\n")
+    console.print(f"[blue]Looking for populator config in:[/blue] {data_dir}\n")
 
-    # Find all provider files by schema
-    provider_results = find_files_by_schema(data_dir, "provider_v1")
-    provider_files = [file_path for file_path, _, _ in provider_results]
-
-    if not provider_files:
-        console.print("[yellow]No provider files found.[/yellow]")
+    sources = _populator_sources(data_dir, provider_name)
+    if not sources:
+        console.print(
+            "[yellow]No populator config found "
+            "(templates/config.json, config.json, or a provider file with services_populator).[/yellow]"
+        )
         raise typer.Exit(code=0)
 
-    console.print(f"[cyan]Found {len(provider_files)} provider file(s)[/cyan]\n")
-
-    # Process each provider
     total_executed = 0
     total_skipped = 0
     total_failed = 0
 
-    for provider_file in provider_files:
+    for services_populator, cwd, label in sources:
         try:
-            # Load provider configuration
-            if provider_file.suffix == ".toml":
-                with open(provider_file, "rb") as f:
-                    provider_config = tomllib.load(f)
-            else:
-                with open(provider_file) as f:
-                    provider_config = json5.load(f)
-
-            provider_name_in_file = provider_config.get("name", "unknown")
-
-            # Skip if provider filter is set and doesn't match
-            if provider_name and provider_name_in_file != provider_name:
-                console.print(f"[dim]Skipping provider: {provider_name_in_file} (filter: {provider_name})[/dim]")
-                total_skipped += 1
-                continue
-
-            # Check if services_populator is configured
-            services_populator = provider_config.get("services_populator")
-            if not services_populator:
-                console.print(f"[yellow]⏭️  Skipping {provider_name_in_file}: No services_populator configured[/yellow]")
-                total_skipped += 1
-                continue
-
             command = services_populator.get("command")
             if not command:
-                console.print(
-                    f"[yellow]⏭️  Skipping {provider_name_in_file}: No command specified in services_populator[/yellow]"
-                )
+                console.print(f"[yellow]⏭️  Skipping {label}: no command in services_populator[/yellow]")
                 total_skipped += 1
                 continue
 
-            console.print(f"[bold cyan]Processing provider:[/bold cyan] {provider_name_in_file}")
+            console.print(f"[bold cyan]Populating from:[/bold cyan] {label}")
 
             # Install requirements if specified
             requirements = services_populator.get("requirements", [])
@@ -153,7 +164,7 @@ def populate(
                     success, error_msg = _install_requirements(requirements)
                     if not success:
                         console.print(
-                            f"[red]✗[/red] Failed to install requirements for {provider_name_in_file}: {error_msg}",
+                            f"[red]✗[/red] Failed to install requirements for {label}: {error_msg}",
                             style="bold red",
                         )
                         total_failed += 1
@@ -165,21 +176,13 @@ def populate(
             if populator_envs:
                 for key, value in populator_envs.items():
                     env[key] = str(value)
-                console.print(
-                    f"[dim]  Set {len(populator_envs)} environment variable(s) from services_populator.envs[/dim]"
-                )
-
-            # Get the provider directory (parent of provider file)
-            provider_dir = provider_file.parent
+                console.print(f"[dim]  Set {len(populator_envs)} env var(s) from services_populator.envs[/dim]")
 
             # Build command - handle both string and list formats
-            if isinstance(command, str):
-                cmd_parts = command.split()
-            else:
-                cmd_parts = command
+            cmd_parts = command.split() if isinstance(command, str) else list(command)
 
-            # Resolve script path relative to provider directory
-            script_path = provider_dir / cmd_parts[0]
+            # Resolve script path relative to the working directory (repo root)
+            script_path = cwd / cmd_parts[0]
             if script_path.exists():
                 cmd_parts[0] = str(script_path)
 
@@ -188,58 +191,42 @@ def populate(
             if dry_run:
                 console.print("[yellow]  [DRY-RUN] Would execute command[/yellow]")
                 console.print(f"[yellow]    {' '.join(full_command)}[/yellow]")
-                console.print(f"[yellow]  under  {provider_dir}[/yellow]")
+                console.print(f"[yellow]  under  {cwd}[/yellow]")
                 if populator_envs:
                     console.print("[yellow]  with environment variables:[/yellow]")
                     for key, value in populator_envs.items():
-                        # Mask sensitive values
                         display_value = value if len(str(value)) < 8 else str(value)[:4] + "..."
                         console.print(f"[yellow]    {key}={display_value}[/yellow]")
                 console.print()
                 total_skipped += 1
                 continue
-            else:
-                console.print(f"[blue]  Command:[/blue] {' '.join(full_command)}")
-                console.print(f"[blue]  Working directory:[/blue] {provider_dir}")
 
-            # Execute the command
+            console.print(f"[blue]  Command:[/blue] {' '.join(full_command)}")
+            console.print(f"[blue]  Working directory:[/blue] {cwd}")
+
             try:
-                result = subprocess.run(
-                    full_command,
-                    cwd=provider_dir,
-                    env=env,
-                    capture_output=False,
-                    text=True,
-                )
-
+                result = subprocess.run(full_command, cwd=cwd, env=env, capture_output=False, text=True)
                 if result.returncode == 0:
-                    console.print(f"[green]✓[/green] Successfully populated services for {provider_name_in_file}\n")
+                    console.print(f"[green]✓[/green] Successfully populated from {label}\n")
                     total_executed += 1
                 else:
                     console.print(
-                        f"[red]✗[/red] Command failed for {provider_name_in_file} (exit code: {result.returncode})\n",
+                        f"[red]✗[/red] Command failed for {label} (exit code: {result.returncode})\n",
                         style="bold red",
                     )
                     total_failed += 1
-
             except subprocess.SubprocessError as e:
-                console.print(
-                    f"[red]✗[/red] Failed to execute command for {provider_name_in_file}: {e}\n",
-                    style="bold red",
-                )
+                console.print(f"[red]✗[/red] Failed to execute command for {label}: {e}\n", style="bold red")
                 total_failed += 1
 
         except Exception as e:
-            console.print(
-                f"[red]✗[/red] Error processing {provider_file}: {e}\n",
-                style="bold red",
-            )
+            console.print(f"[red]✗[/red] Error processing {label}: {e}\n", style="bold red")
             total_failed += 1
 
     # Print summary
     console.print("\n" + "=" * 50)
     console.print("[bold]Populate Services Summary:[/bold]")
-    console.print(f"  Total providers found: {len(provider_files)}")
+    console.print(f"  Populators run: {len(sources)}")
     console.print(f"  [green]✓ Successfully executed: {total_executed}[/green]")
     console.print(f"  [yellow]⏭️  Skipped: {total_skipped}[/yellow]")
     console.print(f"  [red]✗ Failed: {total_failed}[/red]")
