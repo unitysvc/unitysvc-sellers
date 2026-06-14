@@ -8,6 +8,7 @@ instead of the DataBuilder APIs. This approach separates data from structure.
 from __future__ import annotations
 
 import json
+import shutil
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,6 +31,7 @@ def populate_from_iterator(
     dry_run: bool = False,
     deprecate_missing: bool = True,
     provider_template: str = "provider.json",
+    docs_dir: str | Path | None = None,
 ) -> dict:
     """
     Populate services from an iterator of model dictionaries.
@@ -59,6 +61,12 @@ def populate_from_iterator(
             are no longer in the iterator as deprecated (sets status="deprecated").
         provider_template: Filename of the static provider definition copied into
             each service folder (default: provider.json). Skipped if absent.
+        docs_dir: Directory holding shared document templates referenced by a
+            listing's ``documents[*].file_path``. Any rendered file_path that is
+            not a bare basename (i.e. escapes the service folder) is localized:
+            the source ``docs_dir/<basename>`` is copied into the folder and the
+            file_path rewritten to the basename, so each folder is self-contained.
+            Defaults to ``output_dir/../docs`` when that directory exists.
 
     Returns:
         Stats dict: {"total": N, "written": N, "skipped": N, "filtered": N, "errors": N, "deprecated": N}
@@ -71,6 +79,13 @@ def populate_from_iterator(
     """
     templates_dir = Path(templates_dir)
     output_dir = Path(output_dir)
+
+    # Resolve the shared docs directory (default: <repo>/docs next to specs/).
+    if docs_dir is not None:
+        docs_dir = Path(docs_dir)
+    else:
+        default_docs = output_dir.parent / "docs"
+        docs_dir = default_docs if default_docs.is_dir() else None
 
     # Load the static provider definition once (copied into every folder so each
     # service folder is self-contained). Absent -> skip provider writes.
@@ -145,6 +160,10 @@ def populate_from_iterator(
             # Create directory
             service_dir.mkdir(parents=True, exist_ok=True)
 
+            # Localize externally-referenced doc templates into the folder
+            # (copies sources in, rewrites file_path to basename in listing_data).
+            _localize_docs(listing_data, service_dir, docs_dir)
+
             # Smart write (skip if unchanged, preserve time_created)
             offering_written = _smart_write_json(
                 service_dir / "offering.json",
@@ -186,6 +205,35 @@ def populate_from_iterator(
     )
 
     return stats
+
+
+def _localize_docs(listing_data: dict, service_dir: Path, docs_dir: Path | None) -> None:
+    """Make a listing's document references self-contained.
+
+    For every ``documents[*].file_path`` that is not already a bare basename
+    (i.e. it escapes the service folder with ``/`` or ``..``), copy the source
+    ``docs_dir/<basename>`` into the folder and rewrite the file_path to the
+    basename. No-op when ``docs_dir`` is None or the source is missing — the
+    file_path is left untouched so the caller can spot a dangling reference.
+    """
+    if docs_dir is None:
+        return
+    documents = listing_data.get("documents")
+    if not isinstance(documents, dict):
+        return
+    for doc in documents.values():
+        if not isinstance(doc, dict):
+            continue
+        file_path = doc.get("file_path")
+        if not isinstance(file_path, str) or "/" not in file_path:
+            continue
+        basename = Path(file_path).name
+        src = docs_dir / basename
+        if not src.is_file():
+            print(f"  Warning: doc source not found, leaving reference as-is: {file_path}")
+            continue
+        shutil.copyfile(src, service_dir / basename)
+        doc["file_path"] = basename
 
 
 def _sanitize_dirname(name: str) -> str:
