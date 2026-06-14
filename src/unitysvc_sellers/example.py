@@ -1144,9 +1144,12 @@ def run_local(
                 result_actual_filename = result["actual_filename"]
                 result_listing_stem = result_listing_file.stem
 
-                # Include interface name for disambiguation
+                # Include interface name for disambiguation. Sanitize the "/" in
+                # namespaced service names (e.g. "unitysvc-demo/llm") so the
+                # artifact lands in cwd instead of a nonexistent subdirectory.
                 safe_iface = iface_name.replace(" ", "_").replace("/", "_")
-                failed_filename = f"failed_{service_name}_{result_listing_stem}_{safe_iface}_{result_actual_filename}"
+                safe_service = service_name.replace(" ", "_").replace("/", "_")
+                failed_filename = f"failed_{safe_service}_{result_listing_stem}_{safe_iface}_{result_actual_filename}"
 
                 # Write failed test script content to current directory (for debugging)
                 try:
