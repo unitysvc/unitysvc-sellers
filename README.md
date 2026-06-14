@@ -26,16 +26,18 @@ has a CLI command group and an SDK namespace.
 | **specs** | local | Service data as files — `provider` + `offering` + `listing` per service, in a flat `specs/` layout | validate · format · test · **upload** |
 | **params** | local / inline | Parameters that fill a platform **template** to create a service, with no files to author | browse templates · **instantiate** |
 | **services** | remote | Your live and in-review services | list · show · submit · withdraw · deprecate · set-visibility · **update** |
-| **groups** | remote | Service groups that bundle related services | list · show · delete |
-| **promotions** | remote | Price rules that discount your services for customers | list · show · activate · pause · delete |
+| **groups** | local + remote | Service groups *you* author and upload to bundle related services | **author + upload** · list · show · delete |
+| **promotions** | local + remote | Price rules *you* author and upload to discount your services for customers | **author + upload** · list · show · activate · pause · delete |
 | **secrets** | remote | Named secret values (upstream API keys), referenced by name | list · show · set · delete |
 | **templates** | remote | The platform's catalog of service templates you can instantiate | list · show |
 
-The two **local** domains are two routes to the same destination — a service on
-the platform: author full **specs** and `specs upload` them, **or** pick a
-**template** and supply **params** to instantiate it. Everything else operates on
-data that already lives on the platform. Both the `usvc_seller` CLI and the
-Python SDK cover every domain.
+There are two routes to a service on the platform: author full **specs** and
+`specs upload` them, **or** pick a **template** and supply **params** to
+instantiate it. `specs upload` also carries any **groups** and **promotions** you
+author alongside them (`service_group.*` / `promotion.*` files, upserted by
+name) — so those, too, are seller-authored, not platform-only. **services**,
+**secrets**, and the **templates** catalog are managed directly on the platform.
+Both the `usvc_seller` CLI and the Python SDK cover every domain.
 
 → Full docs: [Services](https://unitysvc-sellers.readthedocs.io/en/latest/services/)
 (the spec model + the two routes + status lifecycle) ·
