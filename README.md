@@ -14,31 +14,35 @@ API (`https://seller.unitysvc.com/v1`). This package provides:
 |-|-------|-----------|
 | **Upstream API** | | [Swagger UI](https://seller.unitysvc.com/docs) · [ReDoc](https://seller.unitysvc.com/redoc) |
 | **Python SDK** | [SDK Guide](https://unitysvc-sellers.readthedocs.io/en/latest/sdk-guide/) | [SDK Reference](https://unitysvc-sellers.readthedocs.io/en/latest/sdk-reference/) (auto-generated from docstrings) |
-| **CLI** | [CLI Guide](https://unitysvc-sellers.readthedocs.io/en/latest/cli-guide/) | [CLI Reference](https://unitysvc-sellers.readthedocs.io/en/latest/cli-reference/) (auto-generated from `typer`) |
+| **CLI** | [Quick Start](https://unitysvc-sellers.readthedocs.io/en/latest/getting-started/) | [CLI Reference](https://unitysvc-sellers.readthedocs.io/en/latest/cli-reference/) (auto-generated from `typer`) |
 
-## Service templates
+## What this package manages
 
-A **service template** is a *parameterized* version of service data — the
-`offering.json` / `listing.json` you'd otherwise write by hand, with the parts
-that vary replaced by parameters plus the logic to fill them. Render it and you
-get back complete, schema-valid service data. Templates are the easy way to
-**offer a common service** and the scalable way to **populate a group of
-services**. There are three ways to use them:
+The package is organized around the **kinds of data a seller works with**. Each
+has a CLI command group and an SDK namespace.
 
-1. **Platform templates** *(easiest)* — the platform authors a template for a
-   common service type; pick it in the dashboard's *Create from template* flow
-   or from the CLI (`usvc_seller templates list`/`show` + `usvc_seller params instantiate`), fill
-   a short set of parameters, and it renders + uploads with its own bundled tests.
-2. **Capability pools** — a platform template carrying a *pool name*;
-   instantiating it joins `/p/<pool>` at the pool's uniform terms and price. You
-   provide only the upstream URL. (Opt-in; `usvc_seller data upload` cannot
-   create a pool service — only a pool template can.)
-3. **Your own templates** — author `.j2` templates + a populator script, then
-   `usvc_seller data populate` to generate many services from a source list.
+| Domain | Where | What it is | Key actions |
+|---|---|---|---|
+| **specs** | local | Service data as files — `provider` + `offering` + `listing` per service, in a flat `specs/` layout | validate · format · test · **upload** |
+| **params** | local / inline | Parameters that fill a platform **template** to create a service, with no files to author | browse templates · **instantiate** |
+| **services** | remote | Your live and in-review services | list · show · submit · withdraw · deprecate · set-visibility · **update** |
+| **groups** | remote | Service groups that bundle related services | list · show · delete |
+| **promotions** | remote | Price rules that discount your services for customers | list · show · activate · pause · delete |
+| **secrets** | remote | Named secret values (upstream API keys), referenced by name | list · show · set · delete |
+| **templates** | remote | The platform's catalog of service templates you can instantiate | list · show |
 
-See **[Service Templates](https://unitysvc-sellers.readthedocs.io/en/latest/service-templates/)**
-for the full guide, and [Workflows → Automated Workflow](https://unitysvc-sellers.readthedocs.io/en/latest/workflows/#automated-workflow-template-based)
-for the populator walkthrough.
+The two **local** domains are two routes to the same destination — a service on
+the platform: author full **specs** and `specs upload` them, **or** pick a
+**template** and supply **params** to instantiate it. Everything else operates on
+data that already lives on the platform. Both the `usvc_seller` CLI and the
+Python SDK cover every domain.
+
+→ Full docs: [Services](https://unitysvc-sellers.readthedocs.io/en/latest/services/)
+(the spec model + the two routes + status lifecycle) ·
+[Service Templates](https://unitysvc-sellers.readthedocs.io/en/latest/service-templates/)
+(platform templates, capability pools, your own populators) ·
+[File Schemas](https://unitysvc-sellers.readthedocs.io/en/latest/file-schemas/)
+(every field and option).
 
 ## Install
 
@@ -241,55 +245,63 @@ Each carries `status_code`, `detail` (parsed body if JSON), and
 
 The CLI has two sets of commands:
 
-- `usvc_seller data ...` — **local** seller catalog operations (no network)
-- `usvc_seller services|promotions|groups ...` — **remote** operations
-  against the seller backend, all using the SDK's `AsyncClient` under
-  the hood
+- `usvc_seller specs ...` — **local** operations on a `specs/` repo (no network)
+- `usvc_seller services|params|templates|promotions|groups|secrets ...` —
+  **remote** operations against the seller backend, all using the SDK's
+  `AsyncClient` under the hood
 
-### Local commands
+### Local commands (`specs`)
 
 ```
-usvc_seller data validate [DATA_DIR]            # schema + catalog-layout validation
-usvc_seller data format   [DATA_DIR]            # normalize JSON/TOML/MD files
-usvc_seller data populate [DATA_DIR]            # run provider populate scripts
-usvc_seller data show     provider|offering|listing|service NAME
-usvc_seller data list     providers|sellers|offerings|listings|services [DATA_DIR]
-usvc_seller data list-tests                     # list local code-example / connectivity tests
-usvc_seller data run-tests                      # run them locally
-usvc_seller data show-test SERVICE              # show last local test result
-usvc_seller data upload   [DATA_DIR]            # upload services + promotions + groups
-        [--api-key svcpass_...]                 #   defaults to $UNITYSVC_SELLER_API_KEY
-        [--base-url https://...]                #   defaults to $UNITYSVC_SELLER_API_URL or staging
-        [--type services|promotions|groups]     #   restrict to one resource kind
-        [--dryrun]                              #   validate against backend without persisting
+usvc_seller specs validate [SPECS_DIR]           # schema + catalog-layout validation
+usvc_seller specs format   [SPECS_DIR]           # normalize JSON/TOML/MD files
+usvc_seller specs populate [SPECS_DIR]           # run the repo's populator (templates/config.json)
+usvc_seller specs show     SERVICE_NAME          # expanded data for one service
+usvc_seller specs list     services|providers|offerings|listings|sellers [SPECS_DIR]
+usvc_seller specs list-tests [NAME]              # list local code-example / connectivity tests
+usvc_seller specs run-tests  [NAME]              # run them locally
+usvc_seller specs show-test  SERVICE             # show last local test result
+usvc_seller specs upload     [NAME]              # upload services + promotions + groups
+        [--api-key svcpass_...]                  #   defaults to $UNITYSVC_SELLER_API_KEY
+        [--base-url https://...]                 #   defaults to $UNITYSVC_SELLER_API_URL or staging
+        [--type services|promotions|groups]      #   restrict to one resource kind
 ```
+
+`NAME` is a `service_name` (= `listing.name`) — a literal or an fnmatch pattern
+(`'cohere/*'`); omit it to act on the whole repo.
 
 ### Remote commands (require `$UNITYSVC_SELLER_API_KEY` or `--api-key`)
 
 ```
-# Services
-usvc_seller services list [--status STATUS] [--name NAME] [--provider NAME]
+# Services — NAME is a service_name (= listing.name), literal or fnmatch pattern
+usvc_seller services list [NAME] [--status STATUS] [--provider NAME]
                           [--fields id,name,...] [--format table|json]
-usvc_seller services show SERVICE_ID [--format table|json]
-usvc_seller services submit    SERVICE_IDS... | --all [--provider NAME] [--yes]
-usvc_seller services withdraw  SERVICE_IDS... | --all [--provider NAME] [--yes]
-usvc_seller services deprecate SERVICE_IDS... | --all [--provider NAME] [--yes]
-usvc_seller services delete    SERVICE_IDS... | --all [--status STATUS]
-                              [--provider NAME] [--dryrun] [--yes]
-usvc_seller services update SERVICE_ID
+usvc_seller services show           [NAME] [--format table|json]
+usvc_seller services submit         [NAME] | --all [--provider NAME] [--yes]
+usvc_seller services withdraw       [NAME] | --all [--provider NAME] [--yes]
+usvc_seller services deprecate      [NAME] | --all [--provider NAME] [--yes]
+usvc_seller services set-visibility VISIBILITY [NAME] | --all   # public|unlisted|private
+usvc_seller services delete         [NAME] | --all [--status STATUS] [--yes]
+usvc_seller services update [NAME]
+        [--visibility public|unlisted|private]
         [--set-routing-var key=value | '{json}']        (repeatable)
         [--remove-routing-var key]                       (repeatable)
         [--load-routing-vars path/to.json]
         [--set-price key=value | '{json}' | NUMBER]      (repeatable)
         [--remove-price-field key]                       (repeatable)
 
-# Document tests (registered under services for parity with the legacy CLI)
-usvc_seller services list-tests   [SERVICE_ID] [--all] [--status STATUS]
-                                  [--format table|json]
-usvc_seller services show-test    DOCUMENT_ID [--format table|json]
-usvc_seller services run-tests    SERVICE_ID [--document-id DOC_ID] [--force]
+# Document tests (registered under services; NAME selects services, doc ids select docs)
+usvc_seller services list-tests   [NAME] [--all] [--format table|json]
+usvc_seller services show-test    [DOCUMENT_ID] [--format table|json]
+usvc_seller services run-tests    [NAME] [--document-id DOC_ID] [--force]
 usvc_seller services skip-test    DOCUMENT_ID
 usvc_seller services unskip-test  DOCUMENT_ID
+
+# Templates + params — create a service from a platform template
+usvc_seller templates list
+usvc_seller templates show NAME_OR_ID
+usvc_seller params instantiate TEMPLATE [-P key=value ...] [--name NAME]
+                               [--submit | --no-submit]
 
 # Promotions
 usvc_seller promotions list   [--format table|json]
@@ -306,8 +318,7 @@ usvc_seller groups delete  NAME_OR_ID [--force]
 # Secrets
 usvc_seller secrets list   [--format table|json]
 usvc_seller secrets show   NAME [--format table|json]
-usvc_seller secrets create NAME [--value VALUE | --value-file PATH | --value-stdin]
-usvc_seller secrets rotate NAME [--value VALUE | --value-file PATH | --value-stdin]
+usvc_seller secrets set    NAME [--value VALUE | --value-file PATH | --value-stdin]   # create or rotate
 usvc_seller secrets delete NAME [--force]
 ```
 
@@ -330,7 +341,7 @@ This repository ships a [Claude Code](https://claude.com/claude-code)
 skill at `skills/writing-unitysvc-services/SKILL.md`. Installed
 into `<your-repo>/.claude/skills/` or `~/.claude/skills/`, it teaches
 Claude the platform's file-organization rules, naming conventions, and
-the validate → format → data-tests → gateway-tests → upload pipeline,
+the validate → format → local-tests → gateway-tests → upload pipeline,
 so Claude can author services to spec without you having to thread
 every rule into the prompt each time. See [Claude Code
 Skill](https://unitysvc-sellers.readthedocs.io/en/latest/claude-code-skill/)
@@ -367,16 +378,19 @@ src/unitysvc_sellers/
 │   │                    #     resolve_promotion, resolve_service_id, ...
 │   ├── services.py      #   `usvc_seller services {list,show,submit,...}`
 │   ├── tests.py         #   `usvc_seller services {list,show,run,skip,unskip}-test`
+│   ├── templates.py     #   `usvc_seller templates {list,show}`
+│   ├── params.py        #   `usvc_seller params instantiate`
 │   ├── promotions.py    #   `usvc_seller promotions {list,show,activate,pause,delete}`
-│   └── groups.py        #   `usvc_seller groups {list,show,delete}`
+│   ├── groups.py        #   `usvc_seller groups {list,show,delete}`
+│   └── secrets.py       #   `usvc_seller secrets {list,show,set,delete}`
 ├── cli.py               # `usvc_seller` Typer entry point
-├── data.py              # `usvc_seller data` command group (local)
-├── _cli_upload.py       # `usvc_seller data upload` Typer wrapper
+├── data.py              # `usvc_seller specs` command group (local)
+├── _cli_upload.py       # `usvc_seller specs upload` Typer wrapper
 ├── validator.py         # seller DataValidator (extends unitysvc_core.validator)
-├── format_data.py       # `usvc_seller data format`
-├── populate.py          # `usvc_seller data populate`
-├── example.py           # `usvc_seller data {list,run,show}-test` (local)
-├── list.py              # `usvc_seller data list *`
+├── format_data.py       # `usvc_seller specs format`
+├── populate.py          # `usvc_seller specs populate`
+├── example.py           # `usvc_seller specs {list,run,show}-test` (local)
+├── list.py              # `usvc_seller specs list *`
 ├── output.py            # shared Rich output helpers
 └── utils.py             # seller-only helpers + re-exports from unitysvc_core.utils
 ```
