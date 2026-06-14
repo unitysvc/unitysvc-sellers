@@ -172,3 +172,67 @@ def test_name_with_no_matches_exits_zero(env):
     assert result.exit_code == 0, result.output
     services.run_tests.assert_not_awaited()
     assert "No services match" in result.output
+
+
+# ---------------------------------------------------------------------------
+# --local-ids / -l selector
+# ---------------------------------------------------------------------------
+
+
+def _write_local_service(data_dir, sid: str, name: str = "svc") -> None:
+    """Create a flat-layout service folder carrying ``sid`` in service.json."""
+    import json
+    from pathlib import Path
+
+    folder = Path(data_dir) / name
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "listing.json").write_text(json.dumps({"schema": "listing_v1", "name": name, "status": "ready"}))
+    (folder / "service.json").write_text(json.dumps({"service_id": sid}))
+
+
+def test_local_ids_runs_tests_for_each_local_service(env, tmp_path):
+    """``run-tests -l`` resolves every service_id under --data-dir and runs the
+    diagnostic once per id — no positional NAME, no backend list call."""
+    _write_local_service(tmp_path, SID_A, "svc-a")
+    _write_local_service(tmp_path, SID_B, "svc-b")
+    services, factory = _mock_clients(
+        list_returns=_services_page([]),
+        run_tests_returns=[_diag_ok(), _diag_ok()],
+    )
+
+    with patch("unitysvc_sellers.commands.tests.async_client", factory):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli_app,
+            ["services", "run-tests", "-l", "--data-dir", str(tmp_path)],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert services.run_tests.await_count == 2
+    called_ids = sorted(call.args[0] for call in services.run_tests.await_args_list)
+    assert called_ids == sorted([SID_A, SID_B])
+    services.list.assert_not_awaited()
+
+
+def test_local_ids_with_no_local_services_exits_zero(env, tmp_path):
+    """An empty data dir → graceful exit 0, nothing dispatched."""
+    services, factory = _mock_clients(list_returns=_services_page([]), run_tests_returns=[])
+    with patch("unitysvc_sellers.commands.tests.async_client", factory):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli_app,
+            ["services", "run-tests", "-l", "--data-dir", str(tmp_path)],
+        )
+    assert result.exit_code == 0, result.output
+    services.run_tests.assert_not_awaited()
+
+
+def test_local_ids_mutually_exclusive_with_name(env, tmp_path):
+    """``run-tests <NAME> -l`` is an error — exactly one selector."""
+    _write_local_service(tmp_path, SID_A, "svc-a")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_app,
+        ["services", "run-tests", "cohere/x", "-l", "--data-dir", str(tmp_path)],
+    )
+    assert result.exit_code != 0

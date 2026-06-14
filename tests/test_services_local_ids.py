@@ -21,6 +21,7 @@ from typer.testing import CliRunner
 
 from unitysvc_sellers.cli import app as _cli_app
 from unitysvc_sellers.commands.services import _read_ids_from_data_dir, _resolve_or_fetch_ids
+from unitysvc_sellers.utils import read_local_service_ids
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -472,3 +473,33 @@ class TestListLocalIds:
         assert result.exit_code == 0, result.stdout
         rendered = _json.loads(result.stdout)
         assert {svc["name"] for svc in rendered} == {"alpha"}
+
+
+# ---------------------------------------------------------------------------
+# read_local_service_ids — the shared -l / --local-ids resolution utility
+# ---------------------------------------------------------------------------
+
+
+def test_read_local_service_ids_collects_from_service_json(tmp_path: Path) -> None:
+    _write_listing(tmp_path / "a" / "listing.json", {"service_id": _UUID_A})
+    _write_listing(tmp_path / "b" / "listing.json", {"service_id": _UUID_B})
+    _write_listing(tmp_path / "c" / "listing.json")  # no service.json → skipped
+
+    ids = read_local_service_ids(tmp_path)
+    assert sorted(ids) == sorted([_UUID_A, _UUID_B])
+
+
+def test_read_local_service_ids_filters_by_provider(tmp_path: Path) -> None:
+    _write_listing(tmp_path / "a" / "listing.json", {"service_id": _UUID_A, "provider_name": "acme"})
+    _write_listing(tmp_path / "b" / "listing.json", {"service_id": _UUID_B, "provider_name": "globex"})
+
+    assert read_local_service_ids(tmp_path, provider="acme") == [_UUID_A]
+    assert read_local_service_ids(tmp_path, provider="globex") == [_UUID_B]
+    # Substring, case-insensitive — mirrors the existing services-command filter.
+    assert sorted(read_local_service_ids(tmp_path, provider="")) == sorted([_UUID_A, _UUID_B])
+
+
+def test_read_ids_from_data_dir_delegates_to_utility(tmp_path: Path) -> None:
+    """The private services-module reader stays as a thin wrapper."""
+    _write_listing(tmp_path / "a" / "listing.json", {"service_id": _UUID_A})
+    assert _read_ids_from_data_dir(tmp_path) == [_UUID_A]
