@@ -29,50 +29,66 @@ def populate_from_iterator(
     filter_func: Callable[[dict], bool] | None = None,
     dry_run: bool = False,
     deprecate_missing: bool = True,
+    provider_template: str = "provider.json",
 ) -> dict:
     """
     Populate services from an iterator of model dictionaries.
 
-    This function renders Jinja2 templates with each dictionary from the iterator
-    and writes the resulting offering.json and listing.json files.
+    Renders Jinja2 templates with each dictionary from the iterator and writes
+    the resulting ``offering.json`` + ``listing.json`` into a self-contained
+    service folder under the flat ``specs/`` layout (#1263). When the templates
+    directory holds a static ``provider.json`` it is copied into every folder
+    too, so each service folder is independently valid.
+
+    The folder path is the service name verbatim — ``/`` is preserved, so a
+    name like ``deepseek/some-model`` nests as ``output_dir/deepseek/some-model``
+    and matches the service's ``listing.name``. Only filesystem-hostile
+    characters (``:``) are sanitised.
 
     Args:
         iterator: Yields dicts with template variables. Must include `name_field`.
-        templates_dir: Directory containing .j2 templates.
-        output_dir: Directory to write services (creates {name}/ subdirs).
+        templates_dir: Directory containing .j2 templates (and optional provider.json).
+        output_dir: Directory to write services (creates {name}/ subdirs, nested).
         offering_template: Filename of offering template (default: offering.json.j2).
         listing_template: Filename of listing template (default: listing.json.j2).
-        name_field: Dict key to use for directory name (default: "name").
+        name_field: Dict key to use for the folder path (default: "name").
         filter_func: Optional function that takes a model dict and returns True to
             include it, False to skip. Useful for filtering without modifying iterator.
         dry_run: If True, don't write files, just report what would happen.
         deprecate_missing: If True (default), mark services that exist locally but
             are no longer in the iterator as deprecated (sets status="deprecated").
+        provider_template: Filename of the static provider definition copied into
+            each service folder (default: provider.json). Skipped if absent.
 
     Returns:
         Stats dict: {"total": N, "written": N, "skipped": N, "filtered": N, "errors": N, "deprecated": N}
 
     Example:
         >>> def iter_models():
-        ...     yield {"name": "model-1", "service_type": "llm", ...}
-        ...     yield {"name": "model-2", "service_type": "llm", ...}
-        >>> populate_from_iterator(iter_models(), "templates", "services")
-
-        # With filter - only include LLM models
-        >>> populate_from_iterator(
-        ...     iter_models(),
-        ...     "templates",
-        ...     "services",
-        ...     filter_func=lambda m: m.get("service_type") == "llm"
-        ... )
+        ...     yield {"name": "acme/model-1", "service_type": "llm", ...}
+        ...     yield {"name": "acme/model-2", "service_type": "llm", ...}
+        >>> populate_from_iterator(iter_models(), "templates", "specs")
     """
     templates_dir = Path(templates_dir)
     output_dir = Path(output_dir)
 
-    # Track existing services before iteration (for deprecation)
+    # Load the static provider definition once (copied into every folder so each
+    # service folder is self-contained). Absent -> skip provider writes.
+    provider_data: dict | None = None
+    provider_path = templates_dir / provider_template
+    if provider_path.exists():
+        try:
+            provider_data = json.loads(provider_path.read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"  Warning: could not read {provider_path.name}: {e}")
+
+    # Track existing services before iteration (for deprecation). Folders nest
+    # arbitrarily deep, so key each by its path relative to output_dir.
     existing_services: set[str] = set()
     if deprecate_missing and output_dir.exists():
-        existing_services = {d.name for d in output_dir.iterdir() if d.is_dir() and (d / "offering.json").exists()}
+        existing_services = {
+            offering.parent.relative_to(output_dir).as_posix() for offering in output_dir.rglob("offering.json")
+        }
 
     updated_services: set[str] = set()
 
@@ -105,7 +121,7 @@ def populate_from_iterator(
             stats["filtered"] += 1
             continue
 
-        # Sanitize directory name
+        # Folder path = sanitised service name (nesting preserved)
         dir_name = _sanitize_dirname(service_name)
         service_dir = output_dir / dir_name
 
@@ -138,6 +154,9 @@ def populate_from_iterator(
                 service_dir / "listing.json",
                 listing_data,
             )
+            # Copy the static provider definition in (own time_created preserved).
+            if provider_data is not None:
+                _smart_write_json(service_dir / "provider.json", dict(provider_data))
 
             if offering_written or listing_written:
                 stats["written"] += 1
@@ -170,8 +189,13 @@ def populate_from_iterator(
 
 
 def _sanitize_dirname(name: str) -> str:
-    """Convert model name to valid directory name."""
-    return name.replace(":", "_").replace("/", "_")
+    """Convert a service name to a folder path, preserving ``/`` nesting.
+
+    Only filesystem-hostile characters are replaced; ``/`` is kept so
+    ``org/model`` names nest naturally and the folder path equals the
+    service's ``listing.name``.
+    """
+    return name.strip("/").replace(":", "_")
 
 
 def _smart_write_json(path: Path, data: dict) -> bool:
@@ -216,32 +240,28 @@ def _smart_write_json(path: Path, data: dict) -> bool:
 
 def _deprecate_service(service_dir: Path) -> bool:
     """
-    Mark a service as deprecated by updating its offering.json.
-
-    Sets status="deprecated" if not already deprecated.
+    Mark a service as deprecated by setting ``status="deprecated"`` on both its
+    ``offering.json`` and ``listing.json`` (whichever exist).
 
     Args:
         service_dir: Path to the service directory.
 
     Returns:
-        True if the service was newly deprecated, False if already deprecated or error.
+        True if any file was newly deprecated, False if already deprecated or error.
     """
-    offering_path = service_dir / "offering.json"
-    if not offering_path.exists():
-        return False
-
-    try:
-        data = json.loads(offering_path.read_text())
-
-        # Skip if already deprecated
+    changed = False
+    for fname in ("offering.json", "listing.json"):
+        path = service_dir / fname
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
         if data.get("status") == "deprecated":
-            return False
-
-        # Mark as deprecated
+            continue
         data["status"] = "deprecated"
+        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        changed = True
 
-        offering_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
-        return True
-
-    except (json.JSONDecodeError, OSError):
-        return False
+    return changed
