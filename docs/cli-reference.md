@@ -794,6 +794,8 @@ $ usvc_seller services run-tests [OPTIONS] [NAME]
 **Options**:
 
 * `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows (e.g. an active service plus its pending revision) and you need to pin one specific row.
+* `-l, --local-ids`: Run tests for every service whose backend id is recorded in a service.json under --data-dir (the local specs/ catalog). Mutually exclusive with NAME and --id.
+* `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `-d, --document-id TEXT`: Run a single document instead of every executable doc on the service.
 * `--force`: Re-execute documents whose previous per-iface result was &#x27;success&#x27;.
 * `--poll-interval FLOAT`: Seconds between task-status polls while waiting for the diagnostic.  [default: 2.0]
