@@ -30,7 +30,7 @@ $ usvc_seller [OPTIONS] COMMAND [ARGS]...
 * `groups`: Remote service group operations (list,...
 * `secrets`: Remote secret operations (list, show, set,...
 * `templates`: Browse the platform service-template...
-* `params`: Create services from templates +...
+* `params`: System-template param files under params/...
 
 ## `usvc_seller specs`
 
@@ -1216,7 +1216,7 @@ $ usvc_seller templates show [OPTIONS] NAME_OR_ID
 
 ## `usvc_seller params`
 
-Create services from templates + parameters (instantiate).
+System-template param files under params/ (list, show, instantiate).
 
 **Usage**:
 
@@ -1230,32 +1230,75 @@ $ usvc_seller params [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `instantiate`: Instantiate a template + parameters into a...
+* `list`: List the system-template param files under...
+* `show`: Show one param file&#x27;s template,...
+* `instantiate`: Instantiate system-template param files...
 
-### `usvc_seller params instantiate`
+### `usvc_seller params list`
 
-Instantiate a template + parameters into a service (the params-kind
-analog of ``specs upload``).
-
-Examples:
-    usvc_seller params instantiate openai-compatible-llm \
-        -P api_base_url=https://ollama.example.com/v1 -P input_price=1.00
+List the system-template param files under ``params/`` (offline).
 
 **Usage**:
 
 ```console
-$ usvc_seller params instantiate [OPTIONS] TEMPLATE
+$ usvc_seller params list [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `TEMPLATE`: Template name or partial UUID.  [required]
+* `[NAME]`: Filter by name (fnmatch, e.g. &#x27;acme/*&#x27; or &#x27;acme/%&#x27;).
 
 **Options**:
 
-* `-P, --param TEXT`: A template parameter as key=value (repeatable). Secret-typed params take the secret NAME, not the value.
-* `--name TEXT`: Optional label for the service (defaults to template).
-* `--submit / --no-submit`: Submit the rendered service for review (default), or leave it a draft.  [default: submit]
+* `-d, --data-dir PATH`: Repo root or params/ directory (default: current directory).
+* `-f, --format TEXT`: Output format: table | json.  [default: table]
+* `--help`: Show this message and exit.
+
+### `usvc_seller params show`
+
+Show one param file&#x27;s template, parameters, and recorded service_id.
+
+**Usage**:
+
+```console
+$ usvc_seller params show [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Service name of the param file (first column of `params list`).  [required]
+
+**Options**:
+
+* `-d, --data-dir PATH`: Repo root or params/ directory (default: current directory).
+* `-f, --format TEXT`: Output format: table | json.  [default: table]
+* `--help`: Show this message and exit.
+
+### `usvc_seller params instantiate`
+
+Instantiate system-template param files into services — all, or those
+matching ``NAME``.
+
+Each param file&#x27;s ``template`` (a system template — see ``usvc_seller
+templates``) is rendered with its ``parameters`` into a backend service. The
+returned ``service_id`` is written to a committed ``&lt;name&gt;.service.json``
+sidecar; an entry that already has one is skipped (re-instantiating to update
+the same service needs backend support, unitysvc/unitysvc#1273).
+
+**Usage**:
+
+```console
+$ usvc_seller params instantiate [OPTIONS] [NAME]
+```
+
+**Arguments**:
+
+* `[NAME]`: Param-file selector (fnmatch; omit = all under params/).
+
+**Options**:
+
+* `--submit / --no-submit`: Submit each rendered service for review (default), or leave a draft.  [default: submit]
+* `-d, --data-dir PATH`: Repo root or params/ directory (default: current directory).
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
