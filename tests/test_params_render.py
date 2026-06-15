@@ -11,7 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from unitysvc_sellers.params_render import ParamRenderError, materialized_param_specs
+from unitysvc_sellers.params_render import (
+    ParamRenderError,
+    materialized_param_specs,
+    write_params_from_iterator,
+)
 
 PROVIDER = json.dumps(
     {
@@ -128,6 +132,53 @@ def test_folder_and_param_file_conflict_raises(tmp_path: Path) -> None:
     with pytest.raises(ParamRenderError, match="a service is one or the other"):
         with materialized_param_specs(root):
             pass
+
+
+def test_write_params_replaces_expanded_folders(tmp_path: Path) -> None:
+    """write_params_from_iterator turns rendered folders into param files,
+    preserves service_id via the sidecar, and prunes models the iterator drops."""
+    specs = tmp_path / "specs"
+    # An existing expanded render with an identity record (to be replaced).
+    old = specs / "cohere" / "command-r"
+    old.mkdir(parents=True)
+    (old / "offering.json").write_text(json.dumps({"name": "command-r"}) + "\n")
+    (old / "service.json").write_text(json.dumps({"service_id": "keep-me"}) + "\n")
+    # A stale model the live iterator no longer yields.
+    stale = specs / "cohere" / "gone"
+    stale.mkdir(parents=True)
+    (stale / "offering.json").write_text(json.dumps({"name": "gone"}) + "\n")
+
+    def it():
+        yield {
+            "name": "cohere/command-r",
+            "provider_name": "cohere",  # path-derived — must be stripped
+            "offering_name": "command-r",
+            "service_type": "llm",
+        }
+
+    stats = write_params_from_iterator(it(), specs)
+
+    # Default keeps stale services (never lose a service_id).
+    assert stats == {"total": 1, "written": 1, "errors": 0, "pruned": 0, "kept": 1}
+    # Expanded folder replaced by a param file.
+    assert not old.exists()
+    param = specs / "cohere" / "command-r.json"
+    payload = json.loads(param.read_text())
+    assert "template" not in payload  # default templates/ root
+    assert payload["parameters"] == {"offering_name": "command-r", "service_type": "llm"}
+    assert "name" not in payload["parameters"] and "provider_name" not in payload["parameters"]
+    # service_id lifted into the committed sidecar.
+    sidecar = specs / "cohere" / "command-r.service.json"
+    assert json.loads(sidecar.read_text())["service_id"] == "keep-me"
+    # Stale model kept (curated / off-API) by default.
+    assert stale.exists()
+    # Keys are sorted with a trailing newline (format-clean).
+    assert param.read_text().endswith("}\n")
+
+    # Opt-in pruning deletes the stale folder.
+    pruned = write_params_from_iterator(it(), specs, prune_missing=True)
+    assert pruned["pruned"] == 1
+    assert not stale.exists()
 
 
 def test_validate_command_accepts_param_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
