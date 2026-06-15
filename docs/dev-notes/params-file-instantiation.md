@@ -27,12 +27,26 @@ in **three values** — an HTTP `status`, a `label` ("OK", "Service Unavailable"
 | It is… | a genuine **instantiate** | **`specs upload` with a renderer in front** |
 
 Putting both behind one verb hides that a local template never reaches the
-backend *as* a template. So:
+backend *as* a template. So we split by **command**, not by a hidden branch:
 
-- **`params`** (the command) handles **remote system templates** only.
-- **Local template + value files** is a **`specs` generation mode** — it renders
-  and uploads through the normal `specs` path, reusing all of its machinery
-  (validate, run-tests, `service.json`, revisions).
+- **`specs`** is the single command for **all local authoring**. A repo's
+  services may be defined as committed spec folders, as param files whose
+  `template` is a **local directory** (rendered ephemerally), or a **mix** —
+  `specs validate / run-tests / upload / list [NAME]` handle all of them through
+  one path (param-defined services are simply rendered in memory first). "Params
+  + template" is thus just a *compact way to author specs*.
+- **`params instantiate`** handles **remote system templates** only — the one
+  case that is a genuine server-side operation.
+
+| You have… | Command |
+|---|---|
+| spec folders, and/or param files with a **local** `template` | `usvc_seller specs …` |
+| a **remote** system template + values | `usvc_seller params instantiate` |
+
+If `specs` meets a param file whose `template` is not a local directory, it
+errors and points to `params instantiate` — the boundary is explicit. The
+`params/` *directory* is one of `specs`' input forms; the `params` *command* is
+unambiguously the remote operation.
 
 ## A. `params` — remote system templates
 
@@ -134,10 +148,11 @@ existing `specs upload [NAME]`. Identity round-trips through the per-value
 `*.service.json` exactly as committed spec folders round-trip through
 `service.json`.
 
-> Naming note: the `params` **command** (remote) and the `params/` **directory**
-> (local value files consumed by `specs`) share a word but are different things —
-> "params" = the parameter-values concept; the mechanism that realizes them
-> differs. Flagged for a possible rename if it reads as confusing.
+> Naming: the `params/` **directory** is one of `specs`' local input forms; the
+> `params` **command** is the remote operation. They share the word "params"
+> (the parameter-values concept) but the boundary is explicit — `specs` handles
+> param files with a local `template`, and errors toward `params instantiate` for
+> a remote one.
 
 ### resp `offering.json.j2` (representative)
 
