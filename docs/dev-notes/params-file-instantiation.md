@@ -43,20 +43,27 @@ backend *as* a template. So we split by **command**, not by a hidden branch:
 | spec folders, and/or param files with a **local** `template` | `usvc_seller specs …` |
 | a **remote** system template + values | `usvc_seller params instantiate` |
 
-If `specs` meets a param file whose `template` is not a local directory, it
-errors and points to `params instantiate` — the boundary is explicit. The
-`params/` *directory* is one of `specs`' input forms; the `params` *command* is
-unambiguously the remote operation.
+**One shared `params/` folder serves both commands.** A param file is the same
+shape regardless; its `template` routes it: a **local directory** → handled by
+`specs`, a **remote name** → handled by `params instantiate`. Each command
+auto-selects the files it owns from `params/` (and errors if you target a file of
+the other kind), and the `<name>.service.json` sidecar is identical for both
+(each holds a `service_id`). So a repo may hold a mixed `params/`; the only
+consequence is that fully publishing it means running both commands — each picks
+up its own files.
 
 ## A. `params` — remote system templates
 
-Unchanged from today: instantiate a platform-published template server-side.
+Instantiate a platform-published template server-side. Two input forms:
 
 ```bash
-usvc_seller params instantiate <system-template> -P key=value …
+usvc_seller params instantiate <system-template> -P key=value …   # inline (one-off)
+usvc_seller params instantiate [NAME]                             # from params/*.json with a remote template
 ```
 
-The backend renders the template, creates the service, and returns a
+The file form reads the same `params/` folder as `specs`, processing only the
+files whose `template` is a remote name (fnmatch on `NAME`, omit = all such
+files). The backend renders the template, creates the service, and returns a
 `service_id`. We persist it (in a `*.service.json` sidecar); on re-run we submit
 with that `service_id` and the backend applies the **same revision semantics as
 `specs upload`** — update in place if draft/pending, create a `revision_to` if
