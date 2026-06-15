@@ -4,7 +4,7 @@ When you offer *many* similar services — every model your upstream serves, a
 region per endpoint, a tier per plan — don't author them by hand. Write a
 **populator**: a small template + script that the SDK runs to generate the whole
 `specs/` catalog and keep it in sync with the source. This is pattern #3 from
-[Service Templates](../service-templates.md#3-your-own-service-templates--usvc_seller-specs-populate).
+[Service Templates](../service-templates.md#4-your-own-templates-usvc_seller-specs-populate).
 
 ## The pieces
 

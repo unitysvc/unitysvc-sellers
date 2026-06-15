@@ -87,6 +87,7 @@ nav:
       - After You Publish: seller-lifecycle.md
   - Guides:
       - Author & Upload Specs: guides/author-specs.md
+      - Compact Specs with Param Files: guides/param-files.md
       - Create from a Template: guides/create-from-template.md
       - Generate a Catalog: guides/generate-catalog.md
       - Document Services: documenting-services.md
