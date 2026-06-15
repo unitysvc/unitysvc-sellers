@@ -62,6 +62,7 @@ from .seller_promotion_create_scope_type_0 import SellerPromotionCreateScopeType
 from .seller_promotion_update import SellerPromotionUpdate
 from .seller_promotion_update_pricing_type_0 import SellerPromotionUpdatePricingType0
 from .service_constraints import ServiceConstraints
+from .service_data import ServiceData
 from .service_data_input import ServiceDataInput
 from .service_delete_response import ServiceDeleteResponse
 from .service_detail_response import ServiceDetailResponse
@@ -185,6 +186,7 @@ __all__ = (
     "SellerPromotionUpdate",
     "SellerPromotionUpdatePricingType0",
     "ServiceConstraints",
+    "ServiceData",
     "ServiceDataInput",
     "ServiceDeleteResponse",
     "ServiceDetailResponse",

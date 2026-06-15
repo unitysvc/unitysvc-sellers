@@ -4306,7 +4306,7 @@
           "homepage"
         ],
         "title": "ProviderData",
-        "description": "Base data structure for provider information.\n\nThis model contains the core fields needed to describe a provider,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `ProviderV1` in unitysvc-core (with additional\n   schema_version, time_created, and services_populator fields for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_provider()\n   - Publish operations from CLI\n\nKey characteristics:\n- Uses string identifiers that match database requirements\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)"
+        "description": "Base data structure for provider information.\n\nThis model contains the core fields needed to describe a provider,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `ProviderV1` in unitysvc-core (with additional\n   time_created and services_populator fields for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_provider()\n   - Publish operations from CLI\n\nKey characteristics:\n- Uses string identifiers that match database requirements\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)"
       },
       "ProviderStatusEnum": {
         "type": "string",
@@ -4995,6 +4995,88 @@
         "type": "object",
         "title": "ServiceConstraints"
       },
+      "ServiceData": {
+        "properties": {
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Id",
+            "description": "Backend-assigned service id from a previous publish. When present on upload, the request targets the existing service (revise/replace) instead of creating a new one."
+          },
+          "revision_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Of",
+            "description": "Set when this record describes a revision: the canonical service id the revision derives from. ``service_id`` is then the revision's own id."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "Service identity status as resolved by the last ingest."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Backend-derived service name (from listing/offering)."
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name",
+            "description": "Backend-derived human-readable service name."
+          },
+          "time_created": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Created",
+            "description": "When the service was first created (informational provenance)."
+          }
+        },
+        "type": "object",
+        "title": "ServiceData",
+        "description": "Backend-assigned service identity record (the ``service.json`` file).\n\nA service's ``provider_data`` / ``offering_data`` / ``listing_data`` are\nauthored by the seller; this is the *other* half \u2014 the record the backend\nmaterializes once a service exists. It is the **round-trip** structure:\nthe ingest task returns it, the seller stores it in ``service.json`` beside\nthe spec files, and it travels back as the top-level ``service_data`` field\non the next upload/revision so the backend can match the upload to the\nexisting service.\n\nOf these fields, only ``service_id`` is consumed on the way *in* (it\ntargets revise/replace vs create); the rest are populated on the way *out*\nand are informational provenance for the seller. ``extra=\"ignore\"`` keeps\nunknown keys from breaking either direction."
+      },
       "ServiceDataInput": {
         "properties": {
           "provider_data": {
@@ -5008,6 +5090,17 @@
           "listing_data": {
             "$ref": "#/components/schemas/ServiceListingData",
             "description": "Service listing configuration data"
+          },
+          "service_data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceData"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Backend-assigned service identity record (the seller's service.json). Distinct from the authored provider/offering/listing content, so it travels as its own field. Of its fields only service_id is read here \u2014 it targets an existing service (create-vs-revise-vs-replace); the rest is provenance the seller carries. Returned by ingest_service and replayed on the next upload."
           }
         },
         "type": "object",
@@ -5594,19 +5687,6 @@
       },
       "ServiceListingData": {
         "properties": {
-          "service_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Service Id",
-            "description": "Service ID from previous publish. If provided, updates existing service. Stored in override file (e.g., listing.override.json) by SDK after first publish."
-          },
           "name": {
             "anyOf": [
               {
@@ -5730,7 +5810,7 @@
         },
         "type": "object",
         "title": "ServiceListingData",
-        "description": "Base data structure for service listing information.\n\nThis model contains the core fields needed to describe a service listing,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `ListingV1` in unitysvc-core (with additional\n   schema_version and time_created fields for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_service_listing()\n   - Publish operations from CLI\n\nKey characteristics:\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)\n- Uses dict types for nested structures to maintain flexibility between\n  file definitions and database operations\n- Service/provider relationships are determined by file location (SDK mode) or\n  by being published together in a single API call (API mode)"
+        "description": "Base data structure for service listing information.\n\nThis model contains the core fields needed to describe a service listing,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `ListingV1` in unitysvc-core (with additional\n   time_created field for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_service_listing()\n   - Publish operations from CLI\n\nKey characteristics:\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)\n- Uses dict types for nested structures to maintain flexibility between\n  file definitions and database operations\n- Service/provider relationships are determined by file location (SDK mode) or\n  by being published together in a single API call (API mode)"
       },
       "ServiceOfferingData": {
         "properties": {
@@ -5879,7 +5959,7 @@
           "name"
         ],
         "title": "ServiceOfferingData",
-        "description": "Base data structure for service offering information.\n\nThis model contains the core fields needed to describe a service offering,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `OfferingV1` in unitysvc-core (with additional\n   schema_version and time_created fields for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_service_offering()\n   - Publish operations from CLI\n\nKey characteristics:\n- status maps to database 'status' field\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)\n- Provider relationship is determined by file location (SDK mode) or\n  by being published together in a single API call (API mode)"
+        "description": "Base data structure for service offering information.\n\nThis model contains the core fields needed to describe a service offering,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `OfferingV1` in unitysvc-core (with additional\n   time_created field for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_service_offering()\n   - Publish operations from CLI\n\nKey characteristics:\n- status maps to database 'status' field\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)\n- Provider relationship is determined by file location (SDK mode) or\n  by being published together in a single API call (API mode)"
       },
       "ServicePublic": {
         "properties": {

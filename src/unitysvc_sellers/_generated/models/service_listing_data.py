@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
-from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -33,7 +32,7 @@ class ServiceListingData:
     without file-specific validation fields. It serves as:
 
     1. The base class for `ListingV1` in unitysvc-core (with additional
-       schema_version and time_created fields for file validation)
+       time_created field for file validation)
 
     2. The data structure imported by unitysvc backend for:
        - API payload validation
@@ -50,9 +49,6 @@ class ServiceListingData:
 
     """
 
-    service_id: None | Unset | UUID = UNSET
-    """ Service ID from previous publish. If provided, updates existing service. Stored in override file (e.g.,
-    listing.override.json) by SDK after first publish. """
     name: None | str | Unset = UNSET
     """ Name identifier for the service listing (defaults to offering name if not provided) """
     display_name: None | str | Unset = UNSET
@@ -98,14 +94,6 @@ class ServiceListingData:
         from ..models.service_listing_data_user_parameters_ui_schema_type_0 import (
             ServiceListingDataUserParametersUiSchemaType0,
         )
-
-        service_id: None | str | Unset
-        if isinstance(self.service_id, Unset):
-            service_id = UNSET
-        elif isinstance(self.service_id, UUID):
-            service_id = str(self.service_id)
-        else:
-            service_id = self.service_id
 
         name: None | str | Unset
         if isinstance(self.name, Unset):
@@ -178,8 +166,6 @@ class ServiceListingData:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
-        if service_id is not UNSET:
-            field_dict["service_id"] = service_id
         if name is not UNSET:
             field_dict["name"] = name
         if display_name is not UNSET:
@@ -219,23 +205,6 @@ class ServiceListingData:
         )
 
         d = dict(src_dict)
-
-        def _parse_service_id(data: object) -> None | Unset | UUID:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                service_id_type_0 = UUID(data)
-
-                return service_id_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(None | Unset | UUID, data)
-
-        service_id = _parse_service_id(d.pop("service_id", UNSET))
 
         def _parse_name(data: object) -> None | str | Unset:
             if data is None:
@@ -374,7 +343,6 @@ class ServiceListingData:
         service_options = _parse_service_options(d.pop("service_options", UNSET))
 
         service_listing_data = cls(
-            service_id=service_id,
             name=name,
             display_name=display_name,
             status=status,
