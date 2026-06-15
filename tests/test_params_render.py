@@ -97,6 +97,39 @@ def test_renders_self_contained_folder_then_cleans_up(tmp_path: Path) -> None:
     assert (root / "specs" / "unitysvc" / "resp200.json").exists()
 
 
+def test_top_level_name_omits_provider_name(tmp_path: Path) -> None:
+    """A bare top-level name (directly under ``specs/``) renders a bare
+    ``service_name`` and does NOT inject ``provider_name`` (= the whole name);
+    a namespaced name still derives ``provider_name`` from the first segment.
+    """
+    tdir = tmp_path / "templates" / "t"
+    tdir.mkdir(parents=True)
+    (tdir / "provider.json").write_text(PROVIDER + "\n")
+    # Echo provider_name into the offering (materialized_param_specs does not
+    # validate, so an extra field is fine for the assertion).
+    (tdir / "offering.json.j2").write_text(
+        '{"name": "{{ service_name }}", "x_provider": "{{ provider_name | default(\'<none>\') }}"}\n'
+    )
+    (tdir / "listing.json.j2").write_text('{"name": "{{ service_name }}"}\n')
+
+    specs = tmp_path / "specs"
+    (specs / "labs").mkdir(parents=True)
+    (specs / "resp200.json").write_text(  # bare, top-level
+        json.dumps({"template": "t", "parameters": {}}) + "\n"
+    )
+    (specs / "labs" / "svc.json").write_text(  # namespaced
+        json.dumps({"template": "t", "parameters": {}}) + "\n"
+    )
+
+    with materialized_param_specs(tmp_path):
+        bare = json.loads((specs / "resp200" / "offering.json").read_text())
+        namespaced = json.loads((specs / "labs" / "svc" / "offering.json").read_text())
+        assert bare["name"] == "resp200"
+        assert bare["x_provider"] == "<none>"  # provider_name not set for a bare name
+        assert namespaced["name"] == "labs/svc"
+        assert namespaced["x_provider"] == "labs"  # first segment
+
+
 def test_service_id_sidecar_roundtrip(tmp_path: Path) -> None:
     root = _make_repo(tmp_path)
     sidecar = root / "specs" / "unitysvc" / "resp200.service.json"

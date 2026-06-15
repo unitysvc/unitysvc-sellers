@@ -167,12 +167,17 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                     f"'{_service_name_for(pf)}' — a service is one or the other."
                 )
             service_name = _service_name_for(pf)
-            ctx = {
+            ctx: dict[str, Any] = {
                 "name": service_name,  # name_field → folder path under output_dir
                 "service_name": service_name,
-                "provider_name": service_name.split("/")[0],
-                **(data.get("parameters") or {}),
             }
+            # provider_name only applies to a namespaced (provider/service)
+            # name; a top-level service (a bare name like ``resp200``) has no
+            # provider segment, so it's omitted rather than set to the whole
+            # name. Templates for top-level services hardcode their provider.
+            if "/" in service_name:
+                ctx["provider_name"] = service_name.split("/")[0]
+            ctx.update(data.get("parameters") or {})
             groups.setdefault(tdir, []).append((pf, ctx))
 
         for tdir, items in groups.items():
