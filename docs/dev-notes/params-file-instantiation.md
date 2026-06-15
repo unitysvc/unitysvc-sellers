@@ -1,159 +1,145 @@
-# Design: file-based `params` instantiation
+# Design: parameterized services — remote `params` vs local ephemeral specs
 
-Status: **proposed**. Captures the design agreed for turning `params` into a
-file-authored, batchable workflow (the params-kind analog of `specs`), using
-`unitysvc-services-resp` as the first test bed.
+Status: **proposed**. Supersedes the earlier "one command, branch on the
+`template` field" sketch — that conflated two genuinely different mechanisms.
+First test bed: `unitysvc-services-resp`.
 
 ## Motivation
 
 `unitysvc-services-resp` ships six services (`resp200` … `resp503`) that differ
-in **three values** — an HTTP `status`, a human `label` ("OK", "Service
-Unavailable", …), and a one-line `blurb` — and are otherwise byte-identical
-(`service_type: gateway`, capability `http_relay`, the same connectivity test,
-`price: 0`, the same `base_url` shape). Six hand-written `offering.json` +
-`listing.json` pairs is six copies of the same thing.
+in **three values** — an HTTP `status`, a `label` ("OK", "Service Unavailable",
+…), and a one-line `blurb` — and are otherwise identical. Six hand-written
+`offering.json` + `listing.json` pairs is six copies of one shape. We want
+*one template + six tiny value files*.
 
-The `params` domain already exists as a CLI group, but only as **inline,
-one-at-a-time** instantiation:
+## Two different mechanisms — keep them separate
+
+"Template + parameter values → a service" can be realized two ways, and they are
+**not** the same operation:
+
+| | **Remote / system template** | **Local template** |
+|---|---|---|
+| Renders | **server-side** (backend owns the template) | **client-side** (the SDK renders `.j2`) |
+| Backend receives | a template id + params | finished `offering`/`listing` specs |
+| Backend object | a **TemplateInstance** → Service (binding kept) | a plain **Service** |
+| Local `validate` / `run-tests` first | no (render is server-side) | **yes** (full spec known client-side) |
+| Generated specs on disk | n/a | **ephemeral** — rendered at upload, never committed |
+| It is… | a genuine **instantiate** | **`specs upload` with a renderer in front** |
+
+Putting both behind one verb hides that a local template never reaches the
+backend *as* a template. So:
+
+- **`params`** (the command) handles **remote system templates** only.
+- **Local template + value files** is a **`specs` generation mode** — it renders
+  and uploads through the normal `specs` path, reusing all of its machinery
+  (validate, run-tests, `service.json`, revisions).
+
+## A. `params` — remote system templates
+
+Unchanged from today: instantiate a platform-published template server-side.
 
 ```bash
-usvc_seller params instantiate <template> -P key=value …
+usvc_seller params instantiate <system-template> -P key=value …
 ```
 
-This design makes `params` **file-authored and batchable**, so the resp repo
-becomes *one template + six ten-line param files*. It mirrors how `specs` works:
-author files in a directory, then a single command processes them all.
+The backend renders the template, creates the service, and returns a
+`service_id`. We persist it (in a `*.service.json` sidecar); on re-run we submit
+with that `service_id` and the backend applies the **same revision semantics as
+`specs upload`** — update in place if draft/pending, create a `revision_to` if
+the service is active. Sellers cannot author platform templates (admin action),
+and the staging catalog is currently empty — so `params` has no test bed yet.
+See the backend dependency below.
 
-## Concepts
+## B. Local template + value files — ephemeral specs
 
-- **Param file** — a small JSON file naming a **template** and a set of
-  **parameters**. Inert until instantiated. One param file = one service.
-- **Template** — either a **local** template directory in the repo, or a
-  **remote** platform-template name. The `template` field selects which.
-- **Sidecar** — a `*.service.json` companion that records the backend identity
-  (so re-instantiation updates rather than duplicates). Written by the tool,
-  committed, never hand-edited — exactly like `specs`' `service.json`.
+This is the resp test bed and the part we build first. **The committed source of
+truth is the template + the value files; the generated specs are never written
+to git** — they're rendered in memory at upload time. This is the key difference
+from the populator (`specs populate` / `update_specs.py`), which *materializes*
+specs into the repo.
 
-## File formats
+### Repo layout
 
-### Param file — `params/<name>.json`
+```
+templates/resp/                 # a local template directory
+├── provider.json               # static
+├── offering.json.j2            # {{ status }} {{ label }} {{ blurb }}
+├── listing.json.j2             # {{ status }} {{ label }} → references connectivity.sh.j2
+└── connectivity.sh.j2          # extra file, bundled into the rendered service
+params/                         # one value file per service (flat)
+├── resp200.json
+├── resp200.service.json        # identity sidecar (service_id) — written on upload, committed
+├── resp400.json   resp404.json   resp429.json   resp500.json   resp503.json
+└── …
+```
+
+No `specs/` directory — that's the point.
+
+### Value file — `params/<name>.json`
 
 ```jsonc
 {
-  "template": "templates/resp",        // local dir path, OR a bare remote template name
+  "template": "templates/resp",        // a local template directory (repo-root-relative)
   "name": "unitysvc/resp200",          // the service name (= listing.name)
-  "parameters": {                      // values fed to the template
-    "status": 200,
-    "label": "OK",
-    "blurb": "success sink — close the request loop with a 200 and no upstream"
-  }
+  "parameters": { "status": 200, "label": "OK",
+                  "blurb": "success sink — close the request loop with a 200 and no upstream" }
 }
 ```
 
-Param files are **flat** (`params/resp200.json`, not `params/resp200/param.json`)
-because a param is a single values dict — the template owns the structure, docs,
-and tests. They can be hand-written or generated by an `update_params.py` script.
+Flat files (not `params/resp200/param.json`) because a value file is a single
+dict — the template owns the structure, docs, and tests. They can be
+hand-written or produced by an `update_params.py` script (the script writes
+*params*, not specs).
 
 ### Identity sidecar — `params/<name>.service.json`
 
 ```jsonc
-{
-  "name": "unitysvc/resp200",
-  "service_id": "…",        // present for both paths once ingest resolves it
-  "instance_id": "…"        // present only for the remote-template path (TemplateInstance)
-}
+{ "name": "unitysvc/resp200", "service_id": "…" }
 ```
 
-Kept **separate** from the param file so a regenerated param file never clobbers
-identity. Commit it; on the next instantiate the tool reads it to update the same
-service. Delete it to re-create as new.
+Separate from the value file so a regenerated value file never clobbers
+identity — exactly the `specs` `service.json` philosophy. Committed; read on the
+next upload to update the same service; delete to re-create as new.
 
-## Template organization
+### Template organization
 
-A `template` value resolves to a **local template directory** if that path
-exists (relative to the repo root); otherwise it's treated as a **remote
-platform-template name**.
+A `template` value resolves to a **local template directory** under the repo.
+Two layouts (your choice per repo):
 
-Two local layouts are supported:
+1. **Single default** — enough for most repos:
+   `templates/{provider.json, offering.json.j2, listing.json.j2}`; reference as
+   `"template": "templates"`.
+2. **Multiple named** — `templates/<name>/…`; reference the directory,
+   `"template": "templates/resp"`.
 
-1. **Single default template per repo** — sufficient for the majority of cases:
+A local template directory may carry **extra files** (connectivity tests, code
+examples, docs) that the rendered listing references by relative path; they're
+bundled with the rendered service, same as a hand-authored spec folder.
 
-   ```
-   templates/
-   ├── provider.json
-   ├── offering.json.j2
-   └── listing.json.j2
-   ```
-   Param files reference it as `"template": "templates"`.
+> The populator also uses `templates/`. A repo that runs both should use **named**
+> subdirectories here to avoid sharing one ambiguous `templates/*.j2` set.
 
-2. **Multiple named templates** — when a repo hosts more than one shape:
-
-   ```
-   templates/
-   ├── resp/
-   │   ├── provider.json
-   │   ├── offering.json.j2
-   │   ├── listing.json.j2
-   │   └── connectivity.sh.j2     ← extra files (docs/tests) bundled into the service
-   └── another/
-       └── …
-   ```
-   Param files reference the directory: `"template": "templates/resp"`.
-
-A local template directory holds `offering.json.j2`, `listing.json.j2`, a static
-`provider.json`, and **any extra files** (connectivity tests, code examples,
-docs) that the rendered listing references by relative path. Those extra files
-are bundled with the rendered service — the same mechanism as a hand-authored
-spec folder.
-
-> Note: the **populator** (`specs populate`) also uses `templates/` (with
-> `templates/config.json` + `*.j2`). A repo that uses both should prefer **named**
-> subdirectories for params templates (`templates/resp/`) to keep the two
-> consumers from sharing one ambiguous `templates/*.j2` set.
-
-## Two instantiation paths — and where idempotency comes from
-
-`params instantiate` dispatches on the resolved `template`:
-
-| `template` resolves to | What `instantiate` does | Backend object | Idempotent today? |
-|---|---|---|---|
-| **a local directory** | render `offering.json.j2` + `listing.json.j2` with `parameters`, bundle extra files + `provider.json`, then upload like `specs` | a plain **Service** (`service_id`) | **Yes** — rides the existing `service_id` round-trip (the sidecar is the `service.json` analog) |
-| **a remote name** | `client.instances.create(template_id, parameters)` | a **TemplateInstance** (`instance_id`) → service derived server-side | **No** — needs a backend instance-update endpoint (see Dependency) |
-
-Key consequence: **the resp test bed (local template) needs zero backend
-changes** — re-instantiating reads `service_id` from the sidecar and updates the
-same service, exactly as `specs upload` does. The backend dependency only blocks
-the **remote** path.
-
-## CLI
-
-Mirror the `specs` surface so the two domains feel the same:
+### Commands — the `specs` path renders on the fly
 
 ```bash
-usvc_seller params instantiate [NAME]   # NAME fnmatches params/*.json; omit = all
-usvc_seller params validate  [NAME]     # param file + template resolve + render to valid specs
-usvc_seller params format    [NAME]     # canonical JSON for param files + sidecars
+usvc_seller specs validate  [NAME]   # render params/<NAME> × its template → validate the specs
+usvc_seller specs run-tests [NAME]   # render → run the connectivity / code-example tests
+usvc_seller specs upload    [NAME]   # render → upload via the normal path; read/write service.json
 ```
 
-`params instantiate` (no NAME) walks `params/*.json`, and because each file is
-self-describing (carries its own `template`), one directory can mix local and
-remote templates. Each instantiation reads its sidecar id and updates in place.
+`specs` learns that a repo with `params/` + `templates/` (and no `specs/`)
+renders each value file through its template in memory, then validates / tests /
+uploads the result. `NAME` fnmatches `params/*.json` (omit = all), mirroring the
+existing `specs upload [NAME]`. Identity round-trips through the per-value
+`*.service.json` exactly as committed spec folders round-trip through
+`service.json`.
 
-## Worked example — resp
+> Naming note: the `params` **command** (remote) and the `params/` **directory**
+> (local value files consumed by `specs`) share a word but are different things —
+> "params" = the parameter-values concept; the mechanism that realizes them
+> differs. Flagged for a possible rename if it reads as confusing.
 
-```
-templates/resp/
-├── provider.json
-├── offering.json.j2          # {{ status }} {{ label }} {{ blurb }} → base_url "resp://{{ status }}"
-├── listing.json.j2           # {{ status }} {{ label }} → references connectivity.sh.j2
-└── connectivity.sh.j2        # the shared, service-agnostic connectivity test
-params/
-├── resp200.json   resp200.service.json
-├── resp400.json   resp404.json   resp429.json   resp500.json   resp503.json
-└── … (+ .service.json sidecars, written on first instantiate)
-```
-
-`offering.json.j2` (representative):
+### resp `offering.json.j2` (representative)
 
 ```jinja
 {
@@ -169,45 +155,31 @@ params/
 }
 ```
 
-`params/resp200.json`:
+Six value files replace six `offering.json` + `listing.json` pairs; the template
+and the single shared `connectivity.sh.j2` carry everything common — and nothing
+generated is committed.
 
-```json
-{
-  "template": "templates/resp",
-  "name": "unitysvc/resp200",
-  "parameters": { "status": 200, "label": "OK",
-                  "blurb": "success sink — close the request loop with a 200 and no upstream" }
-}
-```
+## Backend dependency (path A only)
 
-Six param files replace six `offering.json` + `listing.json` pairs; the template
-and the single shared `connectivity.sh.j2` carry everything common.
-
-## Backend dependency
-
-The **remote** path needs an idempotent update for a `TemplateInstance`. Today
-`seller_instances` exposes only `create` / `get` / `list` / `delete` — no update —
-so re-instantiating a remote template would duplicate. Tracked separately:
-
-- **[unitysvc/unitysvc#1273](https://github.com/unitysvc/unitysvc/issues/1273)**:
-  add `PUT /v1/seller/instances/{id}` (or make `create` an upsert keyed on a
-  caller-supplied idempotency key) so `params instantiate` can update the
-  instance recorded in the sidecar.
-
-The **local** path has no such dependency and can ship first.
+The **remote** path needs the instantiate endpoint to accept an **existing
+`service_id`** and apply `specs`-style revision semantics (update if
+draft/pending, `revision_to` if active), so re-instantiation from the sidecar
+updates the same service instead of duplicating. Tracked in
+**[unitysvc/unitysvc#1273](https://github.com/unitysvc/unitysvc/issues/1273)**.
+The **local** path (B) needs none of this — it rides the existing
+`specs upload` + `service_id` round-trip.
 
 ## Phasing
 
-1. **Local-template path** (no backend work): param-file + sidecar formats,
-   `template` resolution, local render → upload via the existing `service_id`
-   round-trip, `params instantiate/validate/format [NAME]` batching. Convert
+1. **Path B (local, ephemeral)** — build now, no backend work: value-file +
+   sidecar formats, local-template resolution, render-on-the-fly in
+   `specs validate/run-tests/upload`, `[NAME]` batching. Convert
    `unitysvc-services-resp` to it end-to-end as the proof.
-2. **Remote-template path**: once the backend instance-update lands, dispatch
-   remote `template` names through `instances.create`/update + record
-   `instance_id` in the sidecar.
+2. **Path A (remote)** — once #1273 lands: `params instantiate` records
+   `service_id` in the sidecar and re-submits to revise on re-run.
 
 ## Out of scope
 
-- Authoring **platform** templates (sellers can't; that's an admin action).
-- Changing the populator (`specs populate`) — params and populators are distinct
-  consumers of `templates/`; this design only adds the params consumer.
+- Authoring **platform** templates (admin-only).
+- Changing the populator (`specs populate`) — it *materializes* specs by design;
+  path B deliberately does not.
