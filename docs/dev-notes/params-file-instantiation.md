@@ -108,17 +108,30 @@ hand-authoring.
 
 ### Param file — `specs/<provider>/<name>.json`
 
+Two keys, both about as small as it gets: an optional `template` and a
+`parameters` object.
+
 ```jsonc
-{
-  "template": "templates/resp",        // a local template directory (repo-root-relative)
-  "parameters": { "status": 200, "label": "OK",
-                  "blurb": "success sink — close the request loop with a 200 and no upstream" }
-}
+// named template (templates/resp/)
+{ "template": "resp", "parameters": { "status": 200, "label": "OK",
+                                      "blurb": "success sink — close the request loop with a 200 and no upstream" } }
+
+// single default template (templates/) — no template key
+{ "parameters": { "status": 200, "label": "OK", "blurb": "…" } }
 ```
 
-The service name comes from the **path** (`specs/unitysvc/resp200.json` →
-`unitysvc/resp200`), same as a spec folder — no `name` field needed. A single
-dict (not a folder) because the template owns the structure, docs, and tests.
+- **`template`** is a **bare name resolved under `templates/`**, and is
+  **optional**: omit it for the single default template `templates/`; set
+  `"resp"` for `templates/resp/`. (No path prefix.) A name resolves to a **local**
+  template if `templates/<name>/` exists, otherwise it's a **remote** platform
+  template — see routing below.
+- **`parameters`** holds the values, nested (not spread at top level) so a value
+  may safely be named `template`/`name`/etc., matching the SDK's
+  `instances.create(parameters={…})` shape and leaving room for future control
+  keys beside `template`.
+- **No `name` field** — the service name comes from the **path**
+  (`specs/unitysvc/resp200.json` → `unitysvc/resp200`), same as a spec folder.
+
 Param files can be hand-written or produced by an `update_params.py` script (the
 script writes *params*, not specs).
 
@@ -134,14 +147,19 @@ next upload to update the same service; delete to re-create as new.
 
 ### Template organization
 
-A `template` value resolves to a **local template directory** under the repo.
-Two layouts (your choice per repo):
+A `template` value is a **bare name resolved under `templates/`**. Two layouts
+(your choice per repo):
 
 1. **Single default** — enough for most repos:
-   `templates/{provider.json, offering.json.j2, listing.json.j2}`; reference as
-   `"template": "templates"`.
-2. **Multiple named** — `templates/<name>/…`; reference the directory,
-   `"template": "templates/resp"`.
+   `templates/{provider.json, offering.json.j2, listing.json.j2}`; param files
+   **omit** `template`.
+2. **Multiple named** — `templates/<name>/…`; param files set `"template":
+   "<name>"` (e.g. `"resp"` → `templates/resp/`).
+
+Resolution (and local-vs-remote routing): `template` omitted → local
+`templates/`; `template: "<name>"` → local `templates/<name>/` if that directory
+exists, otherwise a **remote** platform template named `<name>` (handled by
+`params instantiate`, not `specs`).
 
 A local template directory may carry **extra files** (connectivity tests, code
 examples, docs) that the rendered listing references by relative path; they're
