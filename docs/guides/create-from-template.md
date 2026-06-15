@@ -1,53 +1,109 @@
 # Create from a Template
 
-The fastest way to publish a common service type is to **instantiate a platform
-template** — you author no files at all. You provide a handful of parameters and
-the platform renders the complete service, runs the template's bundled test, and
-submits it. This is the `params` route from
-[Services → Two ways to create a service](../services.md#two-ways-to-create-a-service);
-for the bigger picture (capability pools, authoring your own templates) see the
+The fastest way to publish a common service type is to **instantiate a system
+template** — a template the platform publishes (e.g. an OpenAI-compatible LLM
+endpoint). You author no spec files: you pick a template, supply a handful of
+parameters in a small **param file** under `params/`, and the platform renders
+the complete service, runs the template's bundled test, and submits it.
+
+This is the `params` route — the system-template mirror of `specs/`. Two
+commands work together:
+
+| Command | Role |
+|---|---|
+| **`usvc_seller templates`** | **Browse** the catalog — `list` the system templates, `show` one's parameters. Read-only. |
+| **`usvc_seller params`** | **Use** them — author `params/` files, `list` / `show` them, and `instantiate` them into services. |
+
+For the bigger picture (capability pools, authoring your *own* templates) see the
 [Service Templates](../service-templates.md) concept page.
 
-## Browse the catalog
+## 1. Browse the catalog — `templates`
 
 ```bash
-usvc_seller templates list                        # active platform templates
-usvc_seller templates show openai-compatible-llm  # parameters, types, and which are required
+usvc_seller templates list                        # active system templates
+usvc_seller templates show openai-compatible-llm  # its parameters: name, type, required?
 ```
 
 `templates show` lists each parameter's name, type, and whether it's required —
-your checklist for the next step.
+your checklist for the param file you write next.
 
-## Instantiate
+## 2. Author a param file under `params/`
 
-`params instantiate` is the template analog of `specs upload`: it renders the
-template into a service and (by default) submits it for review.
+A param file is `params/<name>.json` = `{ "template", "parameters" }`: the
+**system template name** (from `templates list`) plus the values to render it
+with. Its path under `params/` becomes the service name.
+
+```
+params/
+└── acme/
+    ├── gpt.json            # { template, parameters }
+    └── gpt.service.json    # identity sidecar (service_id) — written on instantiate, committed
+```
+
+```jsonc
+// params/acme/gpt.json
+{
+  "template": "openai-compatible-llm",
+  "parameters": {
+    "api_base_url": "https://api.acme.ai/v1",
+    "api_key_secret_name": "UPSTREAM_API_KEY",
+    "input_price": 1.00
+  }
+}
+```
+
+> **`params/` (system templates) vs `specs/` (local).** A param file under
+> `params/` names a **system** template, rendered server-side by `instantiate`.
+> A param file under `specs/` whose `template` is a **local** `templates/`
+> directory is instead rendered on your machine by the `specs` commands. Same
+> file shape, different folder, different command — see
+> [Service Templates](../service-templates.md).
+
+## 3. Inspect what you've authored — `params list` / `show`
+
+Offline, no API call:
 
 ```bash
-usvc_seller params instantiate openai-compatible-llm \
-    -P api_base_url=https://api.example.com/v1 \
-    -P api_key_secret_name=UPSTREAM_API_KEY \
-    -P input_price=1.00
+usvc_seller params list                 # every param file under params/ (Service · Template · Service ID)
+usvc_seller params show acme/gpt        # one file's template, parameters, and recorded service_id
+```
+
+## 4. Instantiate — `params instantiate`
+
+`params instantiate` is the params-kind analog of `specs upload`: it renders each
+param file's system template with its parameters into a backend service and (by
+default) submits it for review.
+
+```bash
+usvc_seller params instantiate           # all param files under params/
+usvc_seller params instantiate acme/gpt  # just this one (NAME is an fnmatch selector)
+usvc_seller params instantiate 'acme/*'  # everything under acme/
 ```
 
 | Option | Meaning |
 |---|---|
-| `-P key=value` | A template parameter (repeatable) |
-| `--name` | Optional label for the service (defaults to the template name) |
-| `--submit` / `--no-submit` | Submit for review (default), or leave a draft to submit later |
+| `[NAME]` | Param-file selector (fnmatch); omit = all under `params/` |
+| `--submit` / `--no-submit` | Submit each for review (default), or leave a draft |
 
-With `--no-submit` you get a reviewable draft; submit it later with
-`usvc_seller services submit <service_name>`.
+**Identity round-trips through the sidecar.** On a successful instantiate the
+backend-assigned `service_id` is written to `params/<name>.service.json` (commit
+it). An entry that already has a `service_id` is skipped — re-instantiating to
+*update* the same service needs backend support
+([unitysvc/unitysvc#1273](https://github.com/unitysvc/unitysvc/issues/1273)).
 
 ## Secret-typed parameters
 
 A secret-typed parameter (e.g. an upstream API key) takes the **name of a
-secret**, never the raw value. Create the secret first, then reference it by
-name:
+secret**, never the raw value. Create the secret first, then reference it by name
+in the param file:
 
 ```bash
-usvc_seller secrets set UPSTREAM_API_KEY            # stores the value securely
-usvc_seller params instantiate openai-compatible-llm -P api_key_secret_name=UPSTREAM_API_KEY …
+usvc_seller secrets set UPSTREAM_API_KEY   # stores the value securely
+```
+
+```jsonc
+// then in the param file:
+"parameters": { "api_key_secret_name": "UPSTREAM_API_KEY", … }
 ```
 
 See [Promotions, Groups & Secrets](catalog-extras.md#secrets) for managing
@@ -61,11 +117,11 @@ secrets.
 from unitysvc_sellers import Client
 
 with Client() as client:
-    client.templates.list()                       # available templates
+    client.templates.list()                       # available system templates
     result = client.instances.create(
         "openai-compatible-llm",
         parameters={
-            "api_base_url": "https://api.example.com/v1",
+            "api_base_url": "https://api.acme.ai/v1",
             "api_key_secret_name": "UPSTREAM_API_KEY",
             "input_price": 1.00,
         },
