@@ -102,6 +102,10 @@ nav:
       - User Access Interface Templates: tech-notes/user-access-interface-template.md
       - Claude Code Skill: claude-code-skill.md
 
+# Design notes — versioned with the code, not part of the published site.
+not_in_nav: |
+  /dev-notes/*.md
+
 extra:
   social:
     - icon: fontawesome/brands/github
