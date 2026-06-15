@@ -65,7 +65,7 @@ usvc_seller groups delete llm
 Key fields: `group_type`, `membership_rules` (which services join),
 `parent_group_name`, `access_interface_data_template`, `sort_order`. See
 [File Schemas](../file-schemas.md). A **capability pool** (`/p/<capability>`) is a
-platform-managed group — see [Service Templates](../service-templates.md#2-capability-pools--opt-in-with-a-pool-name).
+platform-managed group — see [Service Templates](../service-templates.md#2-capability-pools-opt-in-with-a-pool-name).
 
 ## Secrets
 

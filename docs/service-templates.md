@@ -22,16 +22,17 @@ two jobs:
    list (your upstream's model catalog, a spreadsheet, an API) and generate one
    service per item, consistently.
 
-## Three ways to use service templates
+## Ways to use service templates
 
-The three uses sit on a spectrum from *least effort* to *most control*. Pick
-the row that matches what you're doing.
+The uses sit on a spectrum from *least effort* to *most control*. Pick the row
+that matches what you're doing.
 
 | Use | Who authors the template | How you use it | Best for |
 |---|---|---|---|
 | **1. Platform templates** | The platform | Dashboard *Create from template*, or `usvc_seller params instantiate` | Offering a common service type with zero file authoring |
 | **2. Capability pools** | The platform (template carries a pool name) | Instantiate a pool template (dashboard or CLI); you provide only the upstream URL | Joining a fungible, uniformly-priced commodity pool |
-| **3. Your own templates** | You | Author `.j2` templates + a populator script, then `usvc_seller specs populate` | Generating many services programmatically from a source list |
+| **3. Your own template + param files** | You | A tiny param file per service + `usvc_seller specs upload` (rendered ephemerally) | A **few** services that share one shape, authored by hand |
+| **4. Your own templates + populate** | You | Author `.j2` templates + a populator script, then `usvc_seller specs populate` (materializes specs) | Generating **many** services programmatically from a source list |
 
 ### 1. Platform service templates — the easy path
 
@@ -106,7 +107,30 @@ A few consequences worth knowing:
   hand-authored spec always produces a plain standalone service, never a pool
   member.
 
-### 3. Your own service templates — `usvc_seller specs populate`
+### 3. Your own template + param files — compact, ephemeral
+
+When a *handful* of services share one shape, you don't need a populator. Author
+**one local template** under `templates/` and a tiny **param file** per service —
+`{ template, parameters }` — under `specs/`. The `specs` commands render the full
+specs **in memory** at validate / test / upload time; nothing generated is
+committed. The source of truth is the template plus the small param files.
+
+```jsonc
+// specs/unitysvc/resp200.json
+{ "template": "resp", "parameters": { "status": 200, "label": "OK", "blurb": "…" } }
+```
+
+```bash
+usvc_seller specs validate   # render param files × template → validate
+usvc_seller specs upload      # render → upload (identity round-trips via *.service.json)
+```
+
+This is your *own* template rendered on your machine — distinct from #1, where the
+platform owns and renders the template. The full how-to (param-file format,
+template resolution, identity sidecar, generating param files in bulk) is in
+[Compact Specs with Param Files](guides/param-files.md).
+
+### 4. Your own templates — `usvc_seller specs populate`
 
 When you offer *many* similar services — every model your upstream serves, a
 region per endpoint, a tier per plan — author the template **yourself** and let
@@ -158,10 +182,16 @@ writing the populator, filtering, and CI automation — lives in
 - **One common service, fastest path?** → Platform template (use #1).
 - **Joining a commodity pool at the platform's price?** → Capability pool
   (use #2).
+- **A few services that share one shape, authored by hand?** → Your own template
+  + [param files](guides/param-files.md) (use #3).
 - **Generating a catalog of many services from a source list?** → Your own
-  templates + `populate` (use #3).
+  templates + [`populate`](guides/generate-catalog.md) (use #4).
 
 Uses #1 and #2 are about **ease** (the platform did the hard authoring for you);
-use #3 is about **scale** (you author once, generate many). They compose freely
-— a seller might join a capability pool for a commodity model *and* run a
-populator for their long tail of specialty endpoints.
+uses #3 and #4 are about **reuse of your own template** — #3 stays compact and
+ephemeral for a handful, #4 *materializes* a whole catalog at scale. They compose
+freely — a seller might join a capability pool for a commodity model, keep a few
+hand-tuned endpoints as param files, *and* run a populator for their long tail.
+
+For the purely hand-authored, no-template case, see
+[Author & Upload Specs](guides/author-specs.md).

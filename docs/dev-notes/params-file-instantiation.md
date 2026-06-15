@@ -1,8 +1,12 @@
 # Design: parameterized services — remote `params` vs local ephemeral specs
 
-Status: **proposed**. Supersedes the earlier "one command, branch on the
-`template` field" sketch — that conflated two genuinely different mechanisms.
-First test bed: `unitysvc-services-resp`.
+Status: **path B implemented** (local template + param files, `unitysvc-sellers`
+≥ 0.2.4; first test bed `unitysvc-services-resp`); path A (remote) pending
+[unitysvc/unitysvc#1273](https://github.com/unitysvc/unitysvc/issues/1273). This
+is the design record — the **user-facing guide** for path B is
+[Compact Specs with Param Files](../guides/param-files.md). Supersedes the
+earlier "one command, branch on the `template` field" sketch, which conflated two
+genuinely different mechanisms.
 
 ## Motivation
 
