@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from unitysvc_sellers.specs import app
+from unitysvc_sellers.specs_layout import app
 
 EXAMPLE_DATA = Path(__file__).parent / "example_data"
 runner = CliRunner()

@@ -1,206 +1,331 @@
-"""``specs`` command group — local operations on the flat ``specs/`` layout.
+"""specs command group - local operations on the flat specs/ layout."""
 
-The flat layout (unitysvc#1263) replaces the nested
-``data/<provider>/services/<svc>/`` tree with one self-contained folder per
-Service, named by the (namespaced) service name::
-
-    specs/<provider>/<name...>/
-        provider.json      # the provider that owns this service
-        offering.json      # (or offering.toml) — the offering
-        listing.json       # (or listing.toml)  — the single listing
-        service.json       # optional: service_id + upload provenance
-
-Key differences from the legacy ``data/`` layout, all enforced here:
-
-- **No ``schema`` field.** The *filename* is the type discriminator, so spec
-  files must not carry a ``schema`` key.
-- **No directory traversal for information.** Every folder is self-contained;
-  the provider lives beside the offering and listing rather than two levels up.
-- **The folder path is the service name.** ``listing.name`` must equal the
-  folder's path relative to ``specs/`` (e.g. ``parasail/deepseek-ai/DeepSeek``).
-- **Three required files** per folder: ``provider``, ``offering``, ``listing``
-  (``.json`` or ``.toml``). ``service.json`` is optional provenance written by
-  ``upload``.
-"""
-
-from __future__ import annotations
-
+import json
 from pathlib import Path
+from typing import Any
 
 import typer
-import unitysvc_core
 from rich.console import Console
-from unitysvc_core.validator import DataValidator
+from rich.syntax import Syntax
+from rich.table import Table
 
-app = typer.Typer(help="Local operations on the flat specs/ layout")
+from . import _cli_upload as upload_cmd
+from . import example, format_data, populate, specs_layout
+from . import list as list_cmd
+from .params_render import ParamRenderError, materialized_param_specs
+from .utils import find_files_by_schema, load_data_file, read_service_id
+
+app = typer.Typer(help="Local operations on the flat specs/ layout (validate, format, populate, upload, test, etc.)")
 console = Console()
 
-# Filename stem → core schema name. The filename is the discriminator now.
-FILENAME_TO_SCHEMA: dict[str, str] = {
-    "provider": "provider_v1",
-    "offering": "offering_v1",
-    "listing": "listing_v1",
-}
 
-# Spec files that must exist in every service folder (service.json is optional).
-REQUIRED_KINDS: tuple[str, ...] = ("provider", "offering", "listing")
+@app.callback()
+def _expand_params(ctx: typer.Context) -> None:
+    """Reading service files is the same whether they're written directly or
+    expanded from a template.
 
-_DATA_SUFFIXES = (".json", ".toml")
-
-
-def resolve_specs_root(start: Path) -> Path:
-    """Resolve the ``specs/`` root from a user-supplied path.
-
-    Accepts the repo root (with a ``specs/`` subdir), the ``specs/`` dir
-    itself, or any subtree of it.
+    Before any *read* command runs, render the repo's local param files
+    (``specs/<name>.json`` → ``{ template, parameters }``) into ephemeral service
+    folders so the rest of the pipeline treats them exactly like hand-authored
+    folders. The folders are removed — and any backend-assigned ``service_id``
+    synced to the committed ``<name>.service.json`` sidecar — when the command
+    finishes. ``format`` and ``populate`` are skipped: they operate on the
+    committed files themselves, not the expanded view.
     """
-    candidate = start / "specs"
-    if candidate.is_dir():
-        return candidate
-    return start
+    sub = ctx.invoked_subcommand
+    if not sub or sub in {"format", "populate"}:
+        return
+    try:
+        ctx.with_resource(materialized_param_specs(Path.cwd()))
+    except ParamRenderError as exc:
+        console.print(f"[red]✗[/red] Param render error: {exc}")
+        raise typer.Exit(1) from exc
 
 
-def _find_kind_file(folder: Path, kind: str) -> tuple[Path | None, list[Path]]:
-    """Return ``(the single <kind>.{json,toml}, all_matches)`` in *folder*."""
-    matches = [folder / f"{kind}{suffix}" for suffix in _DATA_SUFFIXES]
-    present = [p for p in matches if p.is_file()]
-    return (present[0] if len(present) == 1 else None), present
+# ---------------------------------------------------------------------------
+# show — locate the three files belonging to a service and print their
+# fully-expanded payload (provider + offering + listing). ``service_name``
+# matches the first column of ``data list`` output; see ``_list_services_impl``
+# below for the resolution algorithm it mirrors. Data is loaded through the
+# seller's ``load_data_file`` wrapper so $preset sentinels are replaced with
+# their expanded records before display — the CLI shows the same shape the
+# upload / validate pipeline sees.
+# ---------------------------------------------------------------------------
 
 
-def find_service_folders(root: Path) -> list[Path]:
-    """Every folder under *root* that contains a ``listing.{json,toml}``."""
-    folders: set[Path] = set()
-    for suffix in _DATA_SUFFIXES:
-        for listing in root.rglob(f"listing{suffix}"):
-            if any(part.startswith(".") for part in listing.parts):
-                continue
-            folders.add(listing.parent)
-    return sorted(folders)
+def _resolve_service_paths(data_dir: Path, service_name: str) -> tuple[Path | None, Path | None, Path | None]:
+    """Return ``(provider_file, offering_file, listing_file)`` for *service_name*.
 
+    Mirrors ``_list_services_impl``'s resolution order:
+    listing.name → offering.name → provider at <listing_dir>/../../.
+    Any slot may be ``None`` if the corresponding file is missing.
+    """
+    for listing_file, _fmt, listing_data in find_files_by_schema(data_dir, "listing_v1"):
+        offering_file: Path | None = None
+        offering_name = ""
+        offering_results = find_files_by_schema(listing_file.parent, "offering_v1")
+        if offering_results:
+            offering_file, _, offering_data = offering_results[0]
+            offering_name = offering_data.get("name", "")
 
-def validate_service_folder(validator: DataValidator, root: Path, folder: Path) -> list[str]:
-    """Validate a single ``specs/`` service folder; return error strings."""
-    errors: list[str] = []
-    rel_folder = folder.relative_to(root).as_posix()
-
-    # Stale override files were folded into service.json by the migration.
-    for override in sorted(folder.glob("*.override.*")):
-        errors.append(
-            f"{override.relative_to(root)}: legacy override file — fold it into "
-            f"service.json (the flat layout stores service_id there)"
-        )
-
-    # Required spec files present, exactly one format each.
-    kind_files: dict[str, Path] = {}
-    for kind in REQUIRED_KINDS:
-        single, present = _find_kind_file(folder, kind)
-        if not present:
-            errors.append(f"{rel_folder}: missing required {kind} file ({kind}.json or {kind}.toml)")
-        elif len(present) > 1:
-            names = ", ".join(p.name for p in present)
-            errors.append(f"{rel_folder}: multiple {kind} files ({names}) — keep exactly one")
-        else:
-            kind_files[kind] = single  # type: ignore[assignment]
-
-    # Per-file validation, keyed by filename rather than a ``schema`` field.
-    for kind, path in kind_files.items():
-        data, load_errors = validator.load_data_file(path)
-        if load_errors or data is None:
-            errors.extend(f"{path.relative_to(root)}: {e}" for e in (load_errors or ["failed to load"]))
+        resolved = listing_data.get("name") or offering_name
+        if resolved != service_name:
             continue
-        if "schema" in data:
-            errors.append(
-                f"{path.relative_to(root)}: remove the 'schema' field — the filename is the "
-                f"discriminator in the specs/ layout"
-            )
-        try:
-            ok, file_errors = validator.validate_data_file(
-                path, schema_name=FILENAME_TO_SCHEMA[kind], check_name_consistency=False
-            )
-        except Exception as exc:  # noqa: BLE001 — surface, don't crash the run
-            ok, file_errors = False, [f"validation raised {type(exc).__name__}: {exc}"]
-        if not ok:
-            errors.extend(f"{path.relative_to(root)}: {e}" for e in file_errors)
 
-    # The folder path under specs/ must equal the listing (service) name.
-    if "listing" in kind_files:
-        data, load_errors = validator.load_data_file(kind_files["listing"])
-        if not load_errors and isinstance(data, dict):
-            listing_name = data.get("name")
-            if listing_name != rel_folder:
-                errors.append(
-                    f"{rel_folder}: listing name {listing_name!r} does not match the folder path "
-                    f"{rel_folder!r} — the folder under specs/ must be the service name"
-                )
+        # In the flat specs/ layout the provider lives beside the listing.
+        provider_file: Path | None = None
+        provider_results = find_files_by_schema(listing_file.parent, "provider_v1")
+        if provider_results:
+            provider_file = provider_results[0][0]
 
-    # Optional service.json: if present, must be a JSON object.
-    service_file = folder / "service.json"
-    if service_file.is_file():
-        data, load_errors = validator.load_data_file(service_file)
-        if load_errors or not isinstance(data, dict):
-            errors.append(f"{service_file.relative_to(root)}: not a valid JSON object")
-        elif "schema" in data:
-            errors.append(f"{service_file.relative_to(root)}: remove the 'schema' field")
-
-    return errors
+        return provider_file, offering_file, listing_file
+    return None, None, None
 
 
-@app.command()
-def validate(
-    specs_dir: Path | None = typer.Argument(
-        None,
-        help="Repo root or specs/ directory to validate (default: current directory)",
+def _render_output(payload: Any, output_format: str) -> None:
+    """Emit *payload* on stdout. ``json`` gets rich syntax highlighting;
+    ``text`` prints plain JSON without colour (better for piping).
+    """
+    text = json.dumps(payload, indent=2, default=str, ensure_ascii=False)
+    if output_format == "json":
+        console.print(Syntax(text, "json", theme="monokai", line_numbers=False))
+    elif output_format == "text":
+        print(text)
+    else:
+        console.print(f"[red]Unknown format: {output_format!r}. Use 'json' or 'text'.[/red]")
+        raise typer.Exit(code=1)
+
+
+@app.command("show")
+def show_service(
+    service_name: str = typer.Argument(
+        ...,
+        help="Service name (first column of 'usvc_seller specs list services' output).",
     ),
-    has_service_id: bool = typer.Option(
-        False,
-        "--has-service-id",
-        help="Also require each service folder to have a service.json with a service_id",
+    only_provider: bool = typer.Option(False, "--provider", help="Show only provider data."),
+    only_offering: bool = typer.Option(False, "--offering", help="Show only offering data."),
+    only_listing: bool = typer.Option(False, "--listing", help="Show only listing data."),
+    data_dir: Path | None = typer.Option(
+        None,
+        "--data-dir",
+        "-d",
+        help="Directory containing data files (default: current directory).",
+    ),
+    output_format: str = typer.Option(
+        "json",
+        "--format",
+        "-f",
+        help="Output format: json (syntax-highlighted) or text (plain).",
     ),
 ) -> None:
-    """Validate a repository in the flat ``specs/`` layout.
+    """Show expanded data for a service.
 
-    For every service folder (one containing a ``listing.{json,toml}``):
+    By default prints provider + offering + listing as a single JSON
+    object keyed by section. Pass one or more of ``--provider``,
+    ``--offering``, ``--listing`` to restrict the output — with exactly
+    one flag set, the selected section is emitted unwrapped for easy
+    piping into ``jq``.
 
-    1. the three spec files (provider, offering, listing) are present, one
-       format each, and carry no ``schema`` field;
-    2. each validates against its core schema (routed by filename);
-    3. ``listing.name`` equals the folder's path relative to ``specs/``.
+    Data is loaded through the seller's preset-aware loader, so any
+    ``$doc_preset`` / ``$file_preset`` sentinels have already been
+    replaced with the expanded records from ``unitysvc-data``.
     """
-    start = (specs_dir or Path.cwd()).resolve()
-    if not start.exists():
-        console.print(f"[red]✗[/red] Path not found: {start}")
-        raise typer.Exit(1)
+    if data_dir is None:
+        data_dir = Path.cwd()
+    if not data_dir.is_absolute():
+        data_dir = Path.cwd() / data_dir
+    if not data_dir.exists():
+        console.print(f"[red]Data directory not found: {data_dir}[/red]")
+        raise typer.Exit(code=1)
 
-    root = resolve_specs_root(start)
-    console.print(f"[cyan]Validating specs in:[/cyan] {root}")
-    console.print()
+    provider_file, offering_file, listing_file = _resolve_service_paths(data_dir, service_name)
+    if listing_file is None:
+        console.print(
+            f"[red]Service not found: {service_name!r}. "
+            f"Run 'usvc_seller specs list services' to see available service names.[/red]"
+        )
+        raise typer.Exit(code=1)
 
-    schema_dir = Path(unitysvc_core.__file__).parent / "schema"
-    validator = DataValidator(root, schema_dir)
+    def _load(path: Path | None) -> dict[str, Any]:
+        if path is None:
+            return {}
+        data, _ = load_data_file(path)
+        return data
 
-    folders = find_service_folders(root)
-    if not folders:
-        console.print(f"[red]✗[/red] No service folders (containing a listing.json) found under {root}")
-        raise typer.Exit(1)
+    provider_data = _load(provider_file)
+    offering_data = _load(offering_file)
+    listing_data = _load(listing_file)
 
-    validation_errors: list[str] = []
-    for folder in folders:
-        validation_errors.extend(validate_service_folder(validator, root, folder))
+    flags = {
+        "provider": only_provider,
+        "offering": only_offering,
+        "listing": only_listing,
+    }
+    selected = [name for name, on in flags.items() if on]
+    sections = {
+        "provider": provider_data,
+        "offering": offering_data,
+        "listing": listing_data,
+    }
 
-        if has_service_id:
-            service_file = folder / "service.json"
-            data, _ = validator.load_data_file(service_file) if service_file.is_file() else (None, [])
-            if not isinstance(data, dict) or not data.get("service_id"):
-                rel = folder.relative_to(root).as_posix()
-                validation_errors.append(
-                    f"{rel}: missing service_id in service.json (run 'usvc_seller specs upload' first)"
-                )
+    if not selected:
+        _render_output(sections, output_format)
+    elif len(selected) == 1:
+        # Unwrapped for single-section — more jq-friendly.
+        _render_output(sections[selected[0]], output_format)
+    else:
+        _render_output({k: sections[k] for k in selected}, output_format)
 
-    if validation_errors:
-        console.print(f"[red]✗ Validation failed with {len(validation_errors)} error(s):[/red]")
-        console.print()
-        for i, error in enumerate(validation_errors, 1):
-            console.print(f"[red]{i}.[/red] {error}")
-        raise typer.Exit(1)
 
-    console.print(f"[green]✓ All {len(folders)} service folder(s) are valid![/green]")
+# Register subcommands
+app.command("validate")(specs_layout.validate)
+app.command("format")(format_data.format_data)
+app.command("populate")(populate.populate)
+app.command("upload")(upload_cmd.upload)
+
+# Test commands - hyphenated for clarity (verb-noun)
+app.command("list-tests")(example.list_code_examples)
+app.command("run-tests")(example.run_local)
+app.command("show-test")(example.show_test)
+
+# Create combined list subgroup
+list_app = typer.Typer(help="List local data files")
+
+
+def _list_services_impl(data_dir: Path | None):
+    """Implementation of services listing."""
+    # Set data directory
+    if data_dir is None:
+        data_dir = Path.cwd()
+
+    if not data_dir.is_absolute():
+        data_dir = Path.cwd() / data_dir
+
+    if not data_dir.exists():
+        console.print(f"[red]Data directory not found: {data_dir}[/red]")
+        raise typer.Exit(code=1)
+
+    console.print(f"[blue]Scanning for services in:[/blue] {data_dir}\n")
+
+    # Find all listing files
+    listing_results = find_files_by_schema(data_dir, "listing_v1")
+
+    if not listing_results:
+        console.print("[yellow]No services found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    # Build service information
+    services = []
+
+    for listing_file, _format, listing_data in listing_results:
+        # Get listing name and status
+        listing_name = listing_data.get("name", "")
+        listing_status = listing_data.get("status", "")
+
+        # Find corresponding offering file (same directory)
+        offering_results = find_files_by_schema(listing_file.parent, "offering_v1")
+        offering_name = ""
+        offering_status = ""
+        offering_data: dict[str, Any] = {}
+        if offering_results:
+            _, _fmt, offering_data = offering_results[0]
+            offering_name = offering_data.get("name", "")
+            offering_status = offering_data.get("status", "")
+
+        # Service name: listing name, or offering name if listing name not specified
+        service_name = listing_name or offering_name or "unknown"
+
+        # Provider lives beside the listing in the flat specs/ layout.
+        provider_name = ""
+        provider_status = ""
+        provider_results = find_files_by_schema(listing_file.parent, "provider_v1")
+        if provider_results:
+            _, _fmt, provider_data = provider_results[0]
+            provider_name = provider_data.get("name", "")
+            provider_status = provider_data.get("status", "")
+
+        # Compute service status: draft > deprecated > ready
+        statuses = [s for s in [provider_status, offering_status, listing_status] if s]
+        if "draft" in statuses:
+            service_status = "draft"
+        elif "deprecated" in statuses:
+            service_status = "deprecated"
+        elif statuses and all(s == "ready" for s in statuses):
+            service_status = "ready"
+        else:
+            service_status = statuses[0] if statuses else ""
+
+        # Get service_id from the folder's service.json if it exists
+        service_id = read_service_id(listing_file.parent) or ""
+
+        # Get relative paths
+        try:
+            listing_rel = listing_file.relative_to(data_dir)
+        except ValueError:
+            listing_rel = listing_file
+
+        services.append(
+            {
+                "service_name": service_name,
+                "provider_name": provider_name,
+                "status": service_status,
+                "listing_file": str(listing_rel),
+                "service_id": service_id,
+            }
+        )
+
+    # Display results in table
+    table = Table(title="Services")
+    table.add_column("Name", style="cyan")
+    table.add_column("Provider", style="blue")
+    table.add_column("Status", style="magenta")
+    table.add_column("Service ID", style="yellow")
+    table.add_column("File", style="dim")
+
+    for svc in services:
+        service_id = svc["service_id"][:8] + "..." if svc["service_id"] else "-"
+        table.add_row(
+            svc["service_name"],
+            svc["provider_name"] or "-",
+            svc["status"] or "-",
+            service_id,
+            svc["listing_file"],
+        )
+
+    console.print(table)
+    console.print(f"\n[green]Total:[/green] {len(services)} service(s)")
+
+
+@list_app.callback(invoke_without_command=True)
+def list_callback(
+    ctx: typer.Context,
+    data_dir: Path = typer.Option(
+        None,
+        "--data-dir",
+        "-d",
+        help="Directory containing data files (default: current directory)",
+    ),
+):
+    """List local data files. Without a subcommand, lists all services."""
+    if ctx.invoked_subcommand is None:
+        _list_services_impl(data_dir)
+
+
+@list_app.command("services")
+def list_services_cmd(
+    data_dir: Path | None = typer.Argument(
+        None,
+        help="Directory containing data files (default: current directory)",
+    ),
+):
+    """List all services with their provider, offering, and listing files."""
+    _list_services_impl(data_dir)
+
+
+# Add existing list commands from list.py
+list_app.command("providers")(list_cmd.list_providers)
+list_app.command("sellers")(list_cmd.list_sellers)
+list_app.command("offerings")(list_cmd.list_offerings)
+list_app.command("listings")(list_cmd.list_listings)
+
+app.add_typer(list_app, name="list")

@@ -6,7 +6,7 @@ import importlib.metadata
 
 import typer
 
-from . import data as specs_group
+from . import specs as specs_group
 from .commands import groups as groups_cmd
 from .commands import params as params_cmd
 from .commands import promotions as promotions_cmd
