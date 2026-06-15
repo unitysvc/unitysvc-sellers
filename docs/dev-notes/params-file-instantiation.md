@@ -10,7 +10,7 @@ First test bed: `unitysvc-services-resp`.
 in **three values** — an HTTP `status`, a `label` ("OK", "Service Unavailable",
 …), and a one-line `blurb` — and are otherwise identical. Six hand-written
 `offering.json` + `listing.json` pairs is six copies of one shape. We want
-*one template + six tiny value files*.
+*one template + six tiny param files*.
 
 ## Two different mechanisms — keep them separate
 
@@ -43,14 +43,22 @@ backend *as* a template. So we split by **command**, not by a hidden branch:
 | spec folders, and/or param files with a **local** `template` | `usvc_seller specs …` |
 | a **remote** system template + values | `usvc_seller params instantiate` |
 
-**One shared `params/` folder serves both commands.** A param file is the same
-shape regardless; its `template` routes it: a **local directory** → handled by
-`specs`, a **remote name** → handled by `params instantiate`. Each command
-auto-selects the files it owns from `params/` (and errors if you target a file of
-the other kind), and the `<name>.service.json` sidecar is identical for both
-(each holds a `service_id`). So a repo may hold a mixed `params/`; the only
-consequence is that fully publishing it means running both commands — each picks
-up its own files.
+**Everything lives under `specs/` — no separate `params/` directory.** A service
+at `<provider>/<name>` is defined by exactly one of:
+
+```
+specs/<provider>/<name>/          ← explicit spec folder (offering + listing(s) + provider)
+specs/<provider>/<name>.json      ← param file ({ template, parameters })
+specs/<provider>/<name>.service.json   ← identity sidecar (sibling), holds service_id
+```
+
+The path → service_name mapping is uniform (folder or file). A param file's
+`template` routes it: a **local directory** → realized by `specs` (rendered +
+uploaded), a **remote name** → realized by `params instantiate`. Both commands
+walk `specs/` and auto-select their own entries (and error if you target the
+other kind); the `*.service.json` sidecar is identical for both. So `specs/` is
+the single home for all service definitions; a folder and a `.json` file at the
+same path is an error.
 
 ## A. `params` — remote system templates
 
@@ -58,23 +66,23 @@ Instantiate a platform-published template server-side. Two input forms:
 
 ```bash
 usvc_seller params instantiate <system-template> -P key=value …   # inline (one-off)
-usvc_seller params instantiate [NAME]                             # from params/*.json with a remote template
+usvc_seller params instantiate [NAME]                             # from specs/<name>.json with a remote template
 ```
 
-The file form reads the same `params/` folder as `specs`, processing only the
-files whose `template` is a remote name (fnmatch on `NAME`, omit = all such
-files). The backend renders the template, creates the service, and returns a
-`service_id`. We persist it (in a `*.service.json` sidecar); on re-run we submit
+The file form reads the same `specs/` tree as `specs`, processing only the
+`<name>.json` param files whose `template` is a remote name (fnmatch on `NAME`,
+omit = all such files). The backend renders the template, creates the service,
+and returns a `service_id`. We persist it (in a `*.service.json` sidecar); on re-run we submit
 with that `service_id` and the backend applies the **same revision semantics as
 `specs upload`** — update in place if draft/pending, create a `revision_to` if
 the service is active. Sellers cannot author platform templates (admin action),
 and the staging catalog is currently empty — so `params` has no test bed yet.
 See the backend dependency below.
 
-## B. Local template + value files — ephemeral specs
+## B. Local template + param files — ephemeral specs
 
 This is the resp test bed and the part we build first. **The committed source of
-truth is the template + the value files; the generated specs are never written
+truth is the template + the param files; the generated specs are never written
 to git** — they're rendered in memory at upload time. This is the key difference
 from the populator (`specs populate` / `update_specs.py`), which *materializes*
 specs into the repo.
@@ -87,38 +95,40 @@ templates/resp/                 # a local template directory
 ├── offering.json.j2            # {{ status }} {{ label }} {{ blurb }}
 ├── listing.json.j2             # {{ status }} {{ label }} → references connectivity.sh.j2
 └── connectivity.sh.j2          # extra file, bundled into the rendered service
-params/                         # one value file per service (flat)
+specs/unitysvc/                 # one param file per service, beside any explicit folders
 ├── resp200.json
 ├── resp200.service.json        # identity sidecar (service_id) — written on upload, committed
 ├── resp400.json   resp404.json   resp429.json   resp500.json   resp503.json
 └── …
 ```
 
-No `specs/` directory — that's the point.
+For resp every service is a param file, so there are no spec *folders* — but
+they could sit right here alongside the `.json` files if some service needed
+hand-authoring.
 
-### Value file — `params/<name>.json`
+### Param file — `specs/<provider>/<name>.json`
 
 ```jsonc
 {
   "template": "templates/resp",        // a local template directory (repo-root-relative)
-  "name": "unitysvc/resp200",          // the service name (= listing.name)
   "parameters": { "status": 200, "label": "OK",
                   "blurb": "success sink — close the request loop with a 200 and no upstream" }
 }
 ```
 
-Flat files (not `params/resp200/param.json`) because a value file is a single
-dict — the template owns the structure, docs, and tests. They can be
-hand-written or produced by an `update_params.py` script (the script writes
-*params*, not specs).
+The service name comes from the **path** (`specs/unitysvc/resp200.json` →
+`unitysvc/resp200`), same as a spec folder — no `name` field needed. A single
+dict (not a folder) because the template owns the structure, docs, and tests.
+Param files can be hand-written or produced by an `update_params.py` script (the
+script writes *params*, not specs).
 
-### Identity sidecar — `params/<name>.service.json`
+### Identity sidecar — `specs/<provider>/<name>.service.json`
 
 ```jsonc
 { "name": "unitysvc/resp200", "service_id": "…" }
 ```
 
-Separate from the value file so a regenerated value file never clobbers
+Separate from the param file so a regenerated param file never clobbers
 identity — exactly the `specs` `service.json` philosophy. Committed; read on the
 next upload to update the same service; delete to re-create as new.
 
@@ -137,29 +147,29 @@ A local template directory may carry **extra files** (connectivity tests, code
 examples, docs) that the rendered listing references by relative path; they're
 bundled with the rendered service, same as a hand-authored spec folder.
 
+**Render context** = the file's `parameters` plus the path-derived
+`service_name` / `provider_name` (so `specs/unitysvc/resp200.json` injects
+`service_name = "unitysvc/resp200"`, `provider_name = "unitysvc"`). The template
+sets `listing.name` from `{{ service_name }}`, keeping the rendered name bound to
+the path exactly as a spec folder's path binds its `listing.name`.
+
 > The populator also uses `templates/`. A repo that runs both should use **named**
 > subdirectories here to avoid sharing one ambiguous `templates/*.j2` set.
 
 ### Commands — the `specs` path renders on the fly
 
 ```bash
-usvc_seller specs validate  [NAME]   # render params/<NAME> × its template → validate the specs
+usvc_seller specs validate  [NAME]   # render specs/<NAME>.json × its template → validate
 usvc_seller specs run-tests [NAME]   # render → run the connectivity / code-example tests
-usvc_seller specs upload    [NAME]   # render → upload via the normal path; read/write service.json
+usvc_seller specs upload    [NAME]   # render → upload via the normal path; read/write *.service.json
 ```
 
-`specs` learns that a repo with `params/` + `templates/` (and no `specs/`)
-renders each value file through its template in memory, then validates / tests /
-uploads the result. `NAME` fnmatches `params/*.json` (omit = all), mirroring the
-existing `specs upload [NAME]`. Identity round-trips through the per-value
-`*.service.json` exactly as committed spec folders round-trip through
+`specs` walks `specs/`, treating each `<name>/` as an explicit spec folder and
+each `<name>.json` (with a local `template`) as a param file rendered in memory,
+then validates / tests / uploads the result. `NAME` fnmatches the service name
+(omit = all), exactly as today's `specs upload [NAME]`. Identity round-trips
+through the `<name>.service.json` sidecar just as a folder round-trips through its
 `service.json`.
-
-> Naming: the `params/` **directory** is one of `specs`' local input forms; the
-> `params` **command** is the remote operation. They share the word "params"
-> (the parameter-values concept) but the boundary is explicit — `specs` handles
-> param files with a local `template`, and errors toward `params instantiate` for
-> a remote one.
 
 ### resp `offering.json.j2` (representative)
 
@@ -177,7 +187,7 @@ existing `specs upload [NAME]`. Identity round-trips through the per-value
 }
 ```
 
-Six value files replace six `offering.json` + `listing.json` pairs; the template
+Six param files replace six `offering.json` + `listing.json` pairs; the template
 and the single shared `connectivity.sh.j2` carry everything common — and nothing
 generated is committed.
 
