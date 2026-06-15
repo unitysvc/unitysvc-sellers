@@ -540,17 +540,14 @@ def upload_directory(
 
                 if status_value == "completed":
                     result.services.success += 1
-                    # The ingest task returns the service-identity record (a
-                    # ServiceData) under "service": {"service_id", "revision_of",
-                    # "status", "name", "display_name", "time_created"}. Persist
-                    # the whole record to service.json so it round-trips on the
-                    # next upload.
+                    # The ingest task result IS the service-identity record (a
+                    # ServiceData): {"service_id", "revision_of", "status",
+                    # "name", "display_name", "time_created"}. Persist the whole
+                    # record to service.json so it round-trips on the next upload.
                     task_result = status_dict.get("result") or {}
-                    service_record: dict[str, Any] = {}
-                    if isinstance(task_result, dict):
-                        candidate = task_result.get("service") or {}
-                        if isinstance(candidate, dict):
-                            service_record = candidate
+                    service_record: dict[str, Any] = (
+                        task_result if isinstance(task_result, dict) else {}
+                    )
                     service_id = service_record.get("service_id")
                     revision_of = service_record.get("revision_of")
                     if revision_of:
