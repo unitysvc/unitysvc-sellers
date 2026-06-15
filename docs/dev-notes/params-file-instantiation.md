@@ -189,9 +189,10 @@ The **remote** path needs an idempotent update for a `TemplateInstance`. Today
 `seller_instances` exposes only `create` / `get` / `list` / `delete` — no update —
 so re-instantiating a remote template would duplicate. Tracked separately:
 
-- **unitysvc/unitysvc** issue: add `PUT /v1/seller/instances/{id}` (or make
-  `create` an upsert keyed on a caller-supplied idempotency key) so
-  `params instantiate` can update the instance recorded in the sidecar.
+- **[unitysvc/unitysvc#1273](https://github.com/unitysvc/unitysvc/issues/1273)**:
+  add `PUT /v1/seller/instances/{id}` (or make `create` an upsert keyed on a
+  caller-supplied idempotency key) so `params instantiate` can update the
+  instance recorded in the sidecar.
 
 The **local** path has no such dependency and can ship first.
 
