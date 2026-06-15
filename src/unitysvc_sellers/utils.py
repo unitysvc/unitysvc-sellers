@@ -34,7 +34,6 @@ from unitysvc_core.utils import (  # noqa: F401
     compute_file_hash,
     deep_merge_dicts,
     find_data_files,
-    find_file_by_schema_and_name,
     find_files_by_schema,
     generate_content_based_key,
     get_basename,
