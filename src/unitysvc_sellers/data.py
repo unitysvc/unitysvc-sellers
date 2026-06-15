@@ -12,10 +12,34 @@ from rich.table import Table
 from . import _cli_upload as upload_cmd
 from . import example, format_data, populate, specs
 from . import list as list_cmd
+from .params_render import ParamRenderError, materialized_param_specs
 from .utils import find_files_by_schema, load_data_file, read_service_id
 
 app = typer.Typer(help="Local operations on the flat specs/ layout (validate, format, populate, upload, test, etc.)")
 console = Console()
+
+
+@app.callback()
+def _expand_params(ctx: typer.Context) -> None:
+    """Reading service files is the same whether they're written directly or
+    expanded from a template.
+
+    Before any *read* command runs, render the repo's local param files
+    (``specs/<name>.json`` → ``{ template, parameters }``) into ephemeral service
+    folders so the rest of the pipeline treats them exactly like hand-authored
+    folders. The folders are removed — and any backend-assigned ``service_id``
+    synced to the committed ``<name>.service.json`` sidecar — when the command
+    finishes. ``format`` and ``populate`` are skipped: they operate on the
+    committed files themselves, not the expanded view.
+    """
+    sub = ctx.invoked_subcommand
+    if not sub or sub in {"format", "populate"}:
+        return
+    try:
+        ctx.with_resource(materialized_param_specs(Path.cwd()))
+    except ParamRenderError as exc:
+        console.print(f"[red]✗[/red] Param render error: {exc}")
+        raise typer.Exit(1) from exc
 
 
 # ---------------------------------------------------------------------------
