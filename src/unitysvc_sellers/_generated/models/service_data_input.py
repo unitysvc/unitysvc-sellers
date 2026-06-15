@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.provider_data import ProviderData
+    from ..models.service_data import ServiceData
     from ..models.service_listing_data import ServiceListingData
     from ..models.service_offering_data import ServiceOfferingData
 
@@ -34,7 +35,7 @@ class ServiceDataInput:
     without file-specific validation fields. It serves as:
 
     1. The base class for `ProviderV1` in unitysvc-core (with additional
-       schema_version, time_created, and services_populator fields for file validation)
+       time_created and services_populator fields for file validation)
 
     2. The data structure imported by unitysvc backend for:
        - API payload validation
@@ -52,7 +53,7 @@ class ServiceDataInput:
     without file-specific validation fields. It serves as:
 
     1. The base class for `OfferingV1` in unitysvc-core (with additional
-       schema_version and time_created fields for file validation)
+       time_created field for file validation)
 
     2. The data structure imported by unitysvc backend for:
        - API payload validation
@@ -72,7 +73,7 @@ class ServiceDataInput:
     without file-specific validation fields. It serves as:
 
     1. The base class for `ListingV1` in unitysvc-core (with additional
-       schema_version and time_created fields for file validation)
+       time_created field for file validation)
 
     2. The data structure imported by unitysvc backend for:
        - API payload validation
@@ -86,10 +87,16 @@ class ServiceDataInput:
       file definitions and database operations
     - Service/provider relationships are determined by file location (SDK mode) or
       by being published together in a single API call (API mode) """
+    service_data: None | ServiceData | Unset = UNSET
+    """ Backend-assigned service identity record (the seller's service.json). Distinct from the authored
+    provider/offering/listing content, so it travels as its own field. Of its fields only service_id is read here —
+    it targets an existing service (create-vs-revise-vs-replace); the rest is provenance the seller carries.
+    Returned by ingest_service and replayed on the next upload. """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.provider_data import ProviderData
+        from ..models.service_data import ServiceData
         from ..models.service_listing_data import ServiceListingData
         from ..models.service_offering_data import ServiceOfferingData
 
@@ -98,6 +105,14 @@ class ServiceDataInput:
         offering_data = self.offering_data.to_dict()
 
         listing_data = self.listing_data.to_dict()
+
+        service_data: dict[str, Any] | None | Unset
+        if isinstance(self.service_data, Unset):
+            service_data = UNSET
+        elif isinstance(self.service_data, ServiceData):
+            service_data = self.service_data.to_dict()
+        else:
+            service_data = self.service_data
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -108,12 +123,15 @@ class ServiceDataInput:
                 "listing_data": listing_data,
             }
         )
+        if service_data is not UNSET:
+            field_dict["service_data"] = service_data
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.provider_data import ProviderData
+        from ..models.service_data import ServiceData
         from ..models.service_listing_data import ServiceListingData
         from ..models.service_offering_data import ServiceOfferingData
 
@@ -124,10 +142,28 @@ class ServiceDataInput:
 
         listing_data = ServiceListingData.from_dict(d.pop("listing_data"))
 
+        def _parse_service_data(data: object) -> None | ServiceData | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                service_data_type_0 = ServiceData.from_dict(data)
+
+                return service_data_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | ServiceData | Unset, data)
+
+        service_data = _parse_service_data(d.pop("service_data", UNSET))
+
         service_data_input = cls(
             provider_data=provider_data,
             offering_data=offering_data,
             listing_data=listing_data,
+            service_data=service_data,
         )
 
         service_data_input.additional_properties = d

@@ -139,11 +139,13 @@ def resolve_service_name_for_listing(listing_file: Path, listing_data: dict[str,
     return None
 
 
-def read_service_id(service_dir: Path) -> str | None:
-    """Return the ``service_id`` recorded in ``<service_dir>/service.json``.
+def read_service_data(service_dir: Path) -> dict[str, Any] | None:
+    """Return the full identity record in ``<service_dir>/service.json``.
 
-    In the flat ``specs/`` layout the backend-assigned id is provenance kept in
-    service.json beside the spec files, not merged into the listing.
+    This is the ServiceData structure the backend returns from ingest and the
+    seller replays as the ``service_data`` upload field — the *other half* of a
+    service's data, kept beside the spec files rather than merged into the
+    listing. Returns ``None`` when the file is absent or unreadable.
     """
     service_file = service_dir / "service.json"
     if not service_file.is_file():
@@ -152,13 +154,23 @@ def read_service_id(service_dir: Path) -> str | None:
         data = json.loads(service_file.read_text())
     except Exception:
         return None
-    sid = data.get("service_id") if isinstance(data, dict) else None
+    return data if isinstance(data, dict) else None
+
+
+def read_service_id(service_dir: Path) -> str | None:
+    """Return just the ``service_id`` from ``<service_dir>/service.json``."""
+    data = read_service_data(service_dir)
+    sid = data.get("service_id") if data else None
     return str(sid) if sid else None
 
 
-def write_service_id(service_dir: Path, service_id: str) -> None:
-    """Round-trip a backend-assigned ``service_id`` into ``service.json``
-    (created or updated; any other keys are preserved)."""
+def write_service_data(service_dir: Path, record: dict[str, Any]) -> None:
+    """Persist the backend's returned identity record into ``service.json``.
+
+    Merges onto any existing file (keys in ``record`` win, others preserved)
+    so re-uploads keep prior provenance. ``None`` values in ``record`` are
+    dropped so the file stays lean.
+    """
     service_file = service_dir / "service.json"
     data: dict[str, Any] = {}
     if service_file.is_file():
@@ -168,8 +180,13 @@ def write_service_id(service_dir: Path, service_id: str) -> None:
                 data = loaded
         except Exception:
             data = {}
-    data["service_id"] = str(service_id)
+    data.update({k: v for k, v in record.items() if v is not None})
     service_file.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
+def write_service_id(service_dir: Path, service_id: str) -> None:
+    """Round-trip just a ``service_id`` into ``service.json`` (other keys kept)."""
+    write_service_data(service_dir, {"service_id": str(service_id)})
 
 
 def read_local_service_ids(data_dir: Path, provider: str | None = None) -> list[str]:

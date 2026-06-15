@@ -31,7 +31,7 @@ class ServiceOfferingData:
     without file-specific validation fields. It serves as:
 
     1. The base class for `OfferingV1` in unitysvc-core (with additional
-       schema_version and time_created fields for file validation)
+       time_created field for file validation)
 
     2. The data structure imported by unitysvc backend for:
        - API payload validation

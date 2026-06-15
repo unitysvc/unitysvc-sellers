@@ -48,9 +48,9 @@ from unitysvc_core.utils import find_files_by_schema
 from .exceptions import APIError
 from .utils import (
     convert_convenience_fields_to_documents,
-    read_service_id,
+    read_service_data,
     service_name_matches,
-    write_service_id,
+    write_service_data,
 )
 
 if TYPE_CHECKING:
@@ -265,11 +265,14 @@ def _resolve_file_references(
 
 def _build_service_payload(
     listing_file: Path, *, client: Any | None = None
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any] | None]:
     """Locate the offering and provider files for a listing and load all three.
 
-    Returns ``(provider_data, offering_data, listing_data)`` as plain
-    dicts ready to drop into ``ServiceDataInput``.
+    Returns ``(provider_data, offering_data, listing_data, service_data)`` ready
+    to drop into ``ServiceDataInput``. ``service_data`` is the backend-assigned
+    identity record (from ``service.json``), not listing content, so it is
+    returned separately and travels as the top-level ``ServiceDataInput.
+    service_data`` field — never embedded in ``listing_data``.
     """
     from .utils import load_data_file
 
@@ -298,13 +301,12 @@ def _build_service_payload(
         raise ValueError(f"No provider file found in {service_dir}. Each service folder must contain a provider file.")
     provider_path, _, provider_data = provider_files[0]
 
-    # Carry the backend-assigned service_id (stored in service.json) into the
-    # listing payload so the backend treats the upload as an update, not a new
-    # service. (Replaces the old listing.override.json round-trip.)
-    if not listing_data.get("service_id"):
-        service_id = read_service_id(service_dir)
-        if service_id:
-            listing_data["service_id"] = service_id
+    # Backend-assigned identity record (service.json) — returned as a separate
+    # value so the caller can set the top-level ServiceDataInput.service_data,
+    # which tells the backend to treat the upload as an update/revision rather
+    # than a new service. It is identity, not listing content, so it is never
+    # merged into listing_data.
+    service_data = read_service_data(service_dir)
 
     # Convenience-field expansion (logo: "./foo.png" -> DocumentData entry).
     provider_data = convert_convenience_fields_to_documents(
@@ -351,7 +353,7 @@ def _build_service_payload(
         provider=provider_data,
     )
 
-    return provider_data, offering_data, listing_data
+    return provider_data, offering_data, listing_data, service_data
 
 
 # ---------------------------------------------------------------------------
@@ -434,18 +436,24 @@ def upload_directory(
 
         for listing_file in listing_files:
             try:
-                provider_data, offering_data, listing_data = _build_service_payload(listing_file, client=client)
+                provider_data, offering_data, listing_data, service_data = _build_service_payload(
+                    listing_file, client=client
+                )
             except Exception as exc:
                 result.services.failed += 1
                 result.services.errors.append({"file": str(listing_file), "error": str(exc)})
                 _emit("service", "error", listing_file.name, str(exc))
                 continue
 
-            payload = {
+            payload: dict[str, Any] = {
                 "provider_data": provider_data,
                 "offering_data": offering_data,
                 "listing_data": listing_data,
             }
+            # service_data is identity, not listing content: send the whole
+            # service.json record at the payload top level when one exists.
+            if service_data:
+                payload["service_data"] = service_data
 
             try:
                 response = client.services.upload(payload)
@@ -466,7 +474,7 @@ def upload_directory(
                 _emit("service", "ok", name)
                 service_id = getattr(response, "service_id", None) or getattr(response, "id", None)
                 if service_id:
-                    write_service_id(listing_file.parent, str(service_id))
+                    write_service_data(listing_file.parent, {"service_id": str(service_id)})
                 continue
 
             pending_tasks[str(task_id)] = (listing_file, listing_data)
@@ -532,35 +540,30 @@ def upload_directory(
 
                 if status_value == "completed":
                     result.services.success += 1
-                    # Pull service_id (and the backend-derived service name) out
-                    # of the task result up front so the success line surfaces
-                    # the id sellers actually act on, and service.json below pins
-                    # the same value. The ingest task returns
-                    # {"service": {"id": "...", "name": "..."}, ...}.
+                    # The ingest task result IS the service-identity record (a
+                    # ServiceData): {"service_id", "revision_of", "status",
+                    # "name", "display_name", "time_created"}. Persist the whole
+                    # record to service.json so it round-trips on the next upload.
                     task_result = status_dict.get("result") or {}
-                    service_id = None
-                    revision_of = None
-                    if isinstance(task_result, dict):
-                        service_data = task_result.get("service") or {}
-                        if isinstance(service_data, dict):
-                            service_id = service_data.get("id")
-                            revision_of = service_data.get("revision_of")
+                    service_record: dict[str, Any] = (
+                        task_result if isinstance(task_result, dict) else {}
+                    )
+                    service_id = service_record.get("service_id")
+                    revision_of = service_record.get("revision_of")
                     if revision_of:
                         # A revision of an active service was created (service_id
                         # is the new revision; revision_of is the canonical id).
-                        # service.json already holds the canonical id — don't
+                        # service.json already holds the canonical record — don't
                         # overwrite it with the revision's id.
                         detail = f"revision_created, service_id={revision_of} (revision={service_id})"
                         _emit("service", "ok", name, detail)
                     else:
                         detail = f"service_id={service_id}" if service_id else f"task_id={task_id}"
                         _emit("service", "ok", name, detail)
-                        if service_id:
-                            # Only service_id needs to round-trip — it's the
-                            # backend-assigned identity. service_name = listing.name
-                            # (#1138), already in the source file. Stored in the
-                            # folder's service.json (flat specs/ layout).
-                            write_service_id(listing_file.parent, str(service_id))
+                        if service_record:
+                            # Round-trip the backend-assigned identity record
+                            # into the folder's service.json (flat specs/ layout).
+                            write_service_data(listing_file.parent, service_record)
                 else:
                     result.services.failed += 1
                     error_msg = (

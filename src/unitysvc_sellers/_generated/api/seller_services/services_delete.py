@@ -98,8 +98,8 @@ def sync_detailed(
 
     A service can only be deleted if:
     1. It belongs to the current seller.
-    2. It has never been active (no archived history in ServiceData).
-       Services that have been active are kept for audit trail.
+    2. It has never been active (current status is not active/suspended/
+       deprecated). Services that have been active are kept for audit trail.
 
     When ``dryrun=true``, the deletion is not performed — only the
     eligibility check runs and the result is returned in the response
@@ -160,8 +160,8 @@ def sync(
 
     A service can only be deleted if:
     1. It belongs to the current seller.
-    2. It has never been active (no archived history in ServiceData).
-       Services that have been active are kept for audit trail.
+    2. It has never been active (current status is not active/suspended/
+       deprecated). Services that have been active are kept for audit trail.
 
     When ``dryrun=true``, the deletion is not performed — only the
     eligibility check runs and the result is returned in the response
@@ -217,8 +217,8 @@ async def asyncio_detailed(
 
     A service can only be deleted if:
     1. It belongs to the current seller.
-    2. It has never been active (no archived history in ServiceData).
-       Services that have been active are kept for audit trail.
+    2. It has never been active (current status is not active/suspended/
+       deprecated). Services that have been active are kept for audit trail.
 
     When ``dryrun=true``, the deletion is not performed — only the
     eligibility check runs and the result is returned in the response
@@ -277,8 +277,8 @@ async def asyncio(
 
     A service can only be deleted if:
     1. It belongs to the current seller.
-    2. It has never been active (no archived history in ServiceData).
-       Services that have been active are kept for audit trail.
+    2. It has never been active (current status is not active/suspended/
+       deprecated). Services that have been active are kept for audit trail.
 
     When ``dryrun=true``, the deletion is not performed — only the
     eligibility check runs and the result is returned in the response

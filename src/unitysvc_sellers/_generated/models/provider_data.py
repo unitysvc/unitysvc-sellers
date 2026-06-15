@@ -24,7 +24,7 @@ class ProviderData:
     without file-specific validation fields. It serves as:
 
     1. The base class for `ProviderV1` in unitysvc-core (with additional
-       schema_version, time_created, and services_populator fields for file validation)
+       time_created and services_populator fields for file validation)
 
     2. The data structure imported by unitysvc backend for:
        - API payload validation
