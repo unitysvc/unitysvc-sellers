@@ -31,7 +31,7 @@ from typing import Any
 
 import json5
 
-from .template_populate import populate_from_iterator
+from .template_populate import _sanitize_dirname, populate_from_iterator
 
 
 class ParamRenderError(ValueError):
@@ -217,3 +217,113 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                 if sid:
                     _write_service_id(sidecar, str(sid))
             shutil.rmtree(folder, ignore_errors=True)
+
+
+# Keys that ``materialized_param_specs`` injects from the param file's path, so
+# they must NOT be baked into the param file's ``parameters`` (they'd shadow the
+# path-derived values and drift if the file is ever moved/renamed).
+_PATH_DERIVED_KEYS = ("name", "service_name", "provider_name")
+
+
+def _expanded_service_folders(root: Path) -> list[Path]:
+    """Every expanded service folder under ``root`` (a dir holding offering.json
+    or service.json), keyed deepest-first so nested ones remove cleanly."""
+    seen: dict[Path, None] = {}
+    for marker in ("offering.json", "service.json"):
+        for f in root.rglob(marker):
+            seen[f.parent] = None
+    return sorted(seen, key=lambda p: len(p.parts), reverse=True)
+
+
+def write_params_from_iterator(
+    iterator: Iterator[dict[str, Any]],
+    output_dir: str | Path,
+    *,
+    template: str | None = None,
+    name_field: str = "name",
+    prune_missing: bool = False,
+) -> dict[str, int]:
+    """Write one **param file** per yielded var-dict (the params mirror of
+    :func:`populate_from_iterator`).
+
+    Where ``populate_from_iterator`` renders each model dict into an expanded
+    ``<name>/`` service folder, this writes the *inputs* instead: a compact
+    ``output_dir/<name>.json`` = ``{template?, parameters}`` that the ``specs``
+    pipeline re-renders ephemerally at validate / upload / run-tests time (see
+    :func:`materialized_param_specs`). The expanded folder for each rendered
+    service is removed, so a repo flips from "committed renders" to "committed
+    inputs" in one pass.
+
+    Identity is preserved: a ``service_id`` found in the soon-to-be-removed
+    ``<name>/service.json`` (or an existing ``<name>.service.json`` sidecar) is
+    written to the committed ``<name>.service.json`` sidecar.
+
+    Args:
+        iterator: Yields template-variable dicts; each must carry ``name_field``
+            (e.g. ``"cohere/command-r"``). The ``parameters`` written are the dict
+            minus the path-derived keys (``name``/``service_name``/``provider_name``).
+        output_dir: The ``specs/`` directory to write param files into.
+        template: Optional local-template name recorded in each param file. ``None``
+            (default) means the repo's ``templates/`` root renders the params.
+        name_field: Dict key holding the service name / path (default ``"name"``).
+        prune_missing: How to treat expanded service folders the iterator did NOT
+            yield (committed locally but not in the live source — e.g. a curated
+            off-API model). Default False mirrors ``populate_from_iterator``'s
+            non-destructive intent: the folder is **kept** (and logged) so its
+            ``service_id`` is never lost. Set True to delete them instead.
+
+    Returns:
+        Stats dict: ``{"total", "written", "errors", "pruned", "kept"}``.
+    """
+    output_dir = Path(output_dir)
+    stats = {"total": 0, "written": 0, "errors": 0, "pruned": 0, "kept": 0}
+    seen: set[str] = set()
+
+    for model_data in iterator:
+        stats["total"] += 1
+        name = model_data.get(name_field)
+        if not name:
+            print(f"  Warning: missing '{name_field}' field, skipping")
+            stats["errors"] += 1
+            continue
+
+        rel = _sanitize_dirname(name)
+        seen.add(rel)
+        param_path = output_dir / f"{rel}.json"
+        param_path.parent.mkdir(parents=True, exist_ok=True)
+
+        parameters = {k: v for k, v in model_data.items() if k not in _PATH_DERIVED_KEYS}
+        payload: dict[str, Any] = {}
+        if template is not None:
+            payload["template"] = template
+        payload["parameters"] = parameters
+        param_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+        # Preserve identity: prefer an existing sidecar, else lift the id out of
+        # the expanded folder we're about to delete.
+        sidecar = output_dir / f"{rel}.service.json"
+        sid = _read_service_id(sidecar) or _read_service_id(output_dir / rel / "service.json")
+        if sid:
+            _write_service_id(sidecar, sid)
+
+        # Replace the expanded render with the param file.
+        old_folder = output_dir / rel
+        if old_folder.is_dir():
+            shutil.rmtree(old_folder, ignore_errors=True)
+
+        stats["written"] += 1
+        print(f"  wrote {param_path.relative_to(output_dir)}" + (f"  (service_id {sid[:8]}…)" if sid else ""))
+
+    for folder in _expanded_service_folders(output_dir):
+        rel = folder.relative_to(output_dir).as_posix()
+        if rel in seen:
+            continue
+        if prune_missing:
+            print(f"  pruned (no live match): {rel}/")
+            shutil.rmtree(folder, ignore_errors=True)
+            stats["pruned"] += 1
+        else:
+            print(f"  kept (curated; not in live source): {rel}/")
+            stats["kept"] += 1
+
+    return stats
