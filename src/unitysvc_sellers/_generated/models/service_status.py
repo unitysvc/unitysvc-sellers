@@ -11,25 +11,26 @@ from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="ServiceData")
+T = TypeVar("T", bound="ServiceStatus")
 
 
 @_attrs_define
-class ServiceData:
-    """Backend-assigned service identity record (the ``service.json`` file).
+class ServiceStatus:
+    """Backend-assigned service **status / identity sidecar** (the ``service.json``
+    file) — *not* the authored service data.
 
-    A service's ``provider_data`` / ``offering_data`` / ``listing_data`` are
-    authored by the seller; this is the *other* half — the record the backend
-    materializes once a service exists. It is the **round-trip** structure:
-    the ingest task returns it, the seller stores it in ``service.json`` beside
-    the spec files, and it travels back as the top-level ``service_data`` field
-    on the next upload/revision so the backend can match the upload to the
-    existing service.
+    A service's ``provider_data`` / ``offering_data`` / ``listing_data`` are the
+    authored service data; this is the *other*, backend-owned half — the status
+    record the backend materializes once a service exists. It is the
+    **round-trip** sidecar: the ingest task returns it, the seller stores it in
+    ``service.json`` beside the spec files, and replays it on the next
+    upload/revision so the backend can match the upload to the existing service.
 
-    Of these fields, only ``service_id`` is consumed on the way *in* (it
-    targets revise/replace vs create); the rest are populated on the way *out*
-    and are informational provenance for the seller. ``extra="ignore"`` keeps
-    unknown keys from breaking either direction.
+    Of these fields, ``service_id`` and ``template_instance_id`` are consumed on
+    the way *in* (they declare which service / which template the publish
+    targets); the rest are populated on the way *out* as informational status /
+    provenance for the seller. ``extra="ignore"`` keeps unknown keys from
+    breaking either direction.
 
     """
 
@@ -47,6 +48,12 @@ class ServiceData:
     """ Backend-derived human-readable service name. """
     time_created: datetime.datetime | None | Unset = UNSET
     """ When the service was first created (informational provenance). """
+    template_instance_id: None | Unset | UUID = UNSET
+    """ Set when the service was published from a seller TemplateInstance (the seller-instances flow). Like
+    ``service_id`` it is consumed on the way *in* to declare the operation — with no ``service_id`` it creates a
+    service from the template (the backend pins the form's service_id); with one it updates an existing template-
+    generated service — and echoed on the way *out* so ``service.json`` records the template association. Absent for
+    plain (non-template) services. """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -92,6 +99,14 @@ class ServiceData:
         else:
             time_created = self.time_created
 
+        template_instance_id: None | str | Unset
+        if isinstance(self.template_instance_id, Unset):
+            template_instance_id = UNSET
+        elif isinstance(self.template_instance_id, UUID):
+            template_instance_id = str(self.template_instance_id)
+        else:
+            template_instance_id = self.template_instance_id
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -107,6 +122,8 @@ class ServiceData:
             field_dict["display_name"] = display_name
         if time_created is not UNSET:
             field_dict["time_created"] = time_created
+        if template_instance_id is not UNSET:
+            field_dict["template_instance_id"] = template_instance_id
 
         return field_dict
 
@@ -192,17 +209,35 @@ class ServiceData:
 
         time_created = _parse_time_created(d.pop("time_created", UNSET))
 
-        service_data = cls(
+        def _parse_template_instance_id(data: object) -> None | Unset | UUID:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                template_instance_id_type_0 = UUID(data)
+
+                return template_instance_id_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | Unset | UUID, data)
+
+        template_instance_id = _parse_template_instance_id(d.pop("template_instance_id", UNSET))
+
+        service_status = cls(
             service_id=service_id,
             revision_of=revision_of,
             status=status,
             name=name,
             display_name=display_name,
             time_created=time_created,
+            template_instance_id=template_instance_id,
         )
 
-        service_data.additional_properties = d
-        return service_data
+        service_status.additional_properties = d
+        return service_status
 
     @property
     def additional_keys(self) -> list[str]:

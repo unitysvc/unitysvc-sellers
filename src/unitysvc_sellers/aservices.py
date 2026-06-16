@@ -16,7 +16,7 @@ from .services import RunTestsResult, _parse_run_tests_payload
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
-    from ._generated.models.service_data_input import ServiceDataInput
+    from ._generated.models.body_services_upload import BodyServicesUpload
     from ._generated.models.service_delete_response import ServiceDeleteResponse
     from ._generated.models.service_detail_response import ServiceDetailResponse
     from ._generated.models.service_public import ServicePublic
@@ -270,13 +270,13 @@ class AsyncServices:
 
     async def upload(
         self,
-        body: ServiceDataInput | dict[str, Any],
+        body: BodyServicesUpload | dict[str, Any],
     ) -> TaskQueuedResponse:
         from ._generated.api.seller_services import services_upload
-        from ._generated.models.service_data_input import ServiceDataInput
+        from ._generated.models.body_services_upload import BodyServicesUpload
 
         if isinstance(body, dict):
-            body = ServiceDataInput.from_dict(body)
+            body = BodyServicesUpload.from_dict(body)
 
         return unwrap(
             await services_upload.asyncio_detailed(

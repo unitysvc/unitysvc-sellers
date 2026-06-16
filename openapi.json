@@ -950,7 +950,7 @@
           "seller-instances"
         ],
         "summary": "Create Instance",
-        "description": "Create a service from a template + parameters.\n\nThe single path to a service from a template (dashboard, CLI, and CI all\nuse it). Creates the backing ``TemplateInstance`` (the durable provenance\nhandle, and the basis for capability-pool membership) and renders it into a\n**draft** service via the canonical ingest pipeline. With\n``auto_submit=True`` (the dashboard's one-click \"create & submit\") the draft\nis also submitted for review in the same async chain; otherwise it stays a\nreviewable draft. The template must be **active**. Returns 202 with the new\n``instance_id`` and the ingest ``task_id``.",
+        "description": "Create a service from a template + parameters.\n\nThe single path to a service from a template (dashboard, CLI, and CI all\nuse it). Creates the backing ``TemplateInstance`` (the durable provenance\nhandle, and the basis for capability-pool membership) and renders it into a\n**draft** service via the canonical ingest pipeline. With\n``auto_submit=True`` (the dashboard's one-click \"create & submit\") the draft\nis also submitted for review in the same async chain; otherwise it stays a\nreviewable draft. For new creates (no ``service_id``) the template must be\n**active**; revisions (``service_id`` supplied) are allowed on any status.\nReturns 202 with the new ``instance_id`` and the ingest ``task_id``.",
         "operationId": "seller-instances-create_instance",
         "parameters": [
           {
@@ -2269,6 +2269,18 @@
         "operationId": "services_upload",
         "parameters": [
           {
+            "name": "auto_submit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "When true, submit the freshly published draft for review (validate \u2192 pending \u2192 run tests) in the same ingest task, instead of leaving it a reviewable draft. The `usvc_seller specs upload --auto-submit` flag maps to this.",
+              "default": false,
+              "title": "Auto Submit"
+            },
+            "description": "When true, submit the freshly published draft for review (validate \u2192 pending \u2192 run tests) in the same ingest task, instead of leaving it a reviewable draft. The `usvc_seller specs upload --auto-submit` flag maps to this."
+          },
+          {
             "name": "Idempotency-Key",
             "in": "header",
             "required": false,
@@ -2324,7 +2336,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ServiceDataInput"
+                "$ref": "#/components/schemas/Body_services_upload"
               }
             }
           }
@@ -3471,6 +3483,28 @@
           "file"
         ],
         "title": "Body_seller-upload_file"
+      },
+      "Body_services_upload": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ServiceDataInput"
+          },
+          "service_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "Body_services_upload"
       },
       "ContentFilterEnum": {
         "type": "string",
@@ -4995,88 +5029,6 @@
         "type": "object",
         "title": "ServiceConstraints"
       },
-      "ServiceData": {
-        "properties": {
-          "service_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Service Id",
-            "description": "Backend-assigned service id from a previous publish. When present on upload, the request targets the existing service (revise/replace) instead of creating a new one."
-          },
-          "revision_of": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Revision Of",
-            "description": "Set when this record describes a revision: the canonical service id the revision derives from. ``service_id`` is then the revision's own id."
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status",
-            "description": "Service identity status as resolved by the last ingest."
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name",
-            "description": "Backend-derived service name (from listing/offering)."
-          },
-          "display_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Display Name",
-            "description": "Backend-derived human-readable service name."
-          },
-          "time_created": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Time Created",
-            "description": "When the service was first created (informational provenance)."
-          }
-        },
-        "type": "object",
-        "title": "ServiceData",
-        "description": "Backend-assigned service identity record (the ``service.json`` file).\n\nA service's ``provider_data`` / ``offering_data`` / ``listing_data`` are\nauthored by the seller; this is the *other* half \u2014 the record the backend\nmaterializes once a service exists. It is the **round-trip** structure:\nthe ingest task returns it, the seller stores it in ``service.json`` beside\nthe spec files, and it travels back as the top-level ``service_data`` field\non the next upload/revision so the backend can match the upload to the\nexisting service.\n\nOf these fields, only ``service_id`` is consumed on the way *in* (it\ntargets revise/replace vs create); the rest are populated on the way *out*\nand are informational provenance for the seller. ``extra=\"ignore\"`` keeps\nunknown keys from breaking either direction."
-      },
       "ServiceDataInput": {
         "properties": {
           "provider_data": {
@@ -5090,17 +5042,6 @@
           "listing_data": {
             "$ref": "#/components/schemas/ServiceListingData",
             "description": "Service listing configuration data"
-          },
-          "service_data": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ServiceData"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Backend-assigned service identity record (the seller's service.json). Distinct from the authored provider/offering/listing content, so it travels as its own field. Of its fields only service_id is read here \u2014 it targets an existing service (create-vs-revise-vs-replace); the rest is provenance the seller carries. Returned by ingest_service and replayed on the next upload."
           }
         },
         "type": "object",
@@ -5110,7 +5051,7 @@
           "listing_data"
         ],
         "title": "ServiceDataInput",
-        "description": "Complete service data input for publishing.\n\nFields are typed against the shared ``unitysvc_core`` models so the\nOpenAPI spec carries the full provider/offering/listing schemas, and\ngenerated clients expose typed upload methods instead of ``dict[str, Any]``."
+        "description": "Authored service content for publishing (provider + offering + listing).\n\nFields are typed against the shared ``unitysvc_core`` models so the\nOpenAPI spec carries the full provider/offering/listing schemas, and\ngenerated clients expose typed upload methods instead of ``dict[str, Any]``.\nThe status sidecar (``ServiceStatus``) is a separate ``service_status``\nparameter, not a field here."
       },
       "ServiceDeleteResponse": {
         "properties": {
@@ -6190,6 +6131,101 @@
         "title": "ServicePublic",
         "description": "Public Service model for API responses.\n\nNote: name, display_name, and other derived fields are populated from\nthe materialized view (ServiceMView) in the API layer."
       },
+      "ServiceStatus": {
+        "properties": {
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Id",
+            "description": "Backend-assigned service id from a previous publish. When present on upload, the request targets the existing service (revise/replace) instead of creating a new one."
+          },
+          "revision_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Of",
+            "description": "Set when this record describes a revision: the canonical service id the revision derives from. ``service_id`` is then the revision's own id."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "Service identity status as resolved by the last ingest."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Backend-derived service name (from listing/offering)."
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name",
+            "description": "Backend-derived human-readable service name."
+          },
+          "time_created": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Created",
+            "description": "When the service was first created (informational provenance)."
+          },
+          "template_instance_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Instance Id",
+            "description": "Set when the service was published from a seller TemplateInstance (the seller-instances flow). Like ``service_id`` it is consumed on the way *in* to declare the operation \u2014 with no ``service_id`` it creates a service from the template (the backend pins the form's service_id); with one it updates an existing template-generated service \u2014 and echoed on the way *out* so ``service.json`` records the template association. Absent for plain (non-template) services."
+          }
+        },
+        "type": "object",
+        "title": "ServiceStatus",
+        "description": "Backend-assigned service **status / identity sidecar** (the ``service.json``\nfile) \u2014 *not* the authored service data.\n\nA service's ``provider_data`` / ``offering_data`` / ``listing_data`` are the\nauthored service data; this is the *other*, backend-owned half \u2014 the status\nrecord the backend materializes once a service exists. It is the\n**round-trip** sidecar: the ingest task returns it, the seller stores it in\n``service.json`` beside the spec files, and replays it on the next\nupload/revision so the backend can match the upload to the existing service.\n\nOf these fields, ``service_id`` and ``template_instance_id`` are consumed on\nthe way *in* (they declare which service / which template the publish\ntargets); the rest are populated on the way *out* as informational status /\nprovenance for the seller. ``extra=\"ignore\"`` keeps unknown keys from\nbreaking either direction."
+      },
       "ServiceStatusEnum": {
         "type": "string",
         "enum": [
@@ -6517,6 +6553,19 @@
             "title": "Auto Submit",
             "description": "If true, submit the rendered draft service for review immediately.",
             "default": false
+          },
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Id",
+            "description": "Existing canonical service id to update (the seller's durable sidecar handle). When set, re-renders the template with the new parameters and applies it to that service \u2014 in place for draft/pending, as a revision for active \u2014 instead of creating a new service. Omit to create a new service."
           }
         },
         "type": "object",

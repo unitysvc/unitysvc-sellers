@@ -297,7 +297,7 @@ class TestResolveFileReferencesIntegration:
 
         # Inspect what we actually sent to the backend.
         sent_body = json.loads(upload_route.calls.last.request.content.decode())
-        doc = sent_body["listing_data"]["documents"]["JS Example"]
+        doc = sent_body["data"]["listing_data"]["documents"]["JS Example"]
 
         # Code-example documents ship as raw templates (the backend renders
         # them per consumption context). The ``.j2`` suffix and the
@@ -378,7 +378,7 @@ class TestUploadByName:
         # Exactly one POST, for the matching service.
         assert upload_route.call_count == 1
         sent = json.loads(upload_route.calls.last.request.content.decode())
-        assert sent["listing_data"]["name"] == "acme/svc1"
+        assert sent["data"]["listing_data"]["name"] == "acme/svc1"
 
     def test_name_no_match_raises(self, tmp_path: Path) -> None:
         provider_dir = tmp_path / "acme"
@@ -414,5 +414,5 @@ class TestUploadByName:
 
         # acme/svc1 + acme/svc2 match 'acme/svc*'; acme/other does not.
         assert result.services.total == 2
-        uploaded = {json.loads(c.request.content.decode())["listing_data"]["name"] for c in upload_route.calls}
+        uploaded = {json.loads(c.request.content.decode())["data"]["listing_data"]["name"] for c in upload_route.calls}
         assert uploaded == {"acme/svc1", "acme/svc2"}

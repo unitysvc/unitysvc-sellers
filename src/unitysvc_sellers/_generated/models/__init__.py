@@ -12,6 +12,7 @@ from .access_interface_public_routing_key_type_0 import AccessInterfacePublicRou
 from .access_method_enum import AccessMethodEnum
 from .auth_method_enum import AuthMethodEnum
 from .body_seller_upload_file import BodySellerUploadFile
+from .body_services_upload import BodyServicesUpload
 from .content_filter_enum import ContentFilterEnum
 from .currency_enum import CurrencyEnum
 from .cursor_page_price_rule_public import CursorPagePriceRulePublic
@@ -62,7 +63,6 @@ from .seller_promotion_create_scope_type_0 import SellerPromotionCreateScopeType
 from .seller_promotion_update import SellerPromotionUpdate
 from .seller_promotion_update_pricing_type_0 import SellerPromotionUpdatePricingType0
 from .service_constraints import ServiceConstraints
-from .service_data import ServiceData
 from .service_data_input import ServiceDataInput
 from .service_delete_response import ServiceDeleteResponse
 from .service_detail_response import ServiceDetailResponse
@@ -108,6 +108,7 @@ from .service_offering_data_upstream_access_config_type_0_additional_property im
 )
 from .service_public import ServicePublic
 from .service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
+from .service_status import ServiceStatus
 from .service_status_enum import ServiceStatusEnum
 from .service_template_summaries_public import ServiceTemplateSummariesPublic
 from .service_template_summary import ServiceTemplateSummary
@@ -136,6 +137,7 @@ __all__ = (
     "AccessMethodEnum",
     "AuthMethodEnum",
     "BodySellerUploadFile",
+    "BodyServicesUpload",
     "ContentFilterEnum",
     "CurrencyEnum",
     "CursorPagePriceRulePublic",
@@ -186,7 +188,6 @@ __all__ = (
     "SellerPromotionUpdate",
     "SellerPromotionUpdatePricingType0",
     "ServiceConstraints",
-    "ServiceData",
     "ServiceDataInput",
     "ServiceDeleteResponse",
     "ServiceDetailResponse",
@@ -224,6 +225,7 @@ __all__ = (
     "ServiceOfferingDataUpstreamAccessConfigType0AdditionalProperty",
     "ServicePublic",
     "ServicePublicRoutingVarsType0",
+    "ServiceStatus",
     "ServiceStatusEnum",
     "ServiceTemplateSummariesPublic",
     "ServiceTemplateSummary",
