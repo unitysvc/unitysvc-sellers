@@ -34,6 +34,10 @@ class TemplateInstanceCreate:
     parameters: Parameters | Unset = UNSET
     auto_submit: bool | Unset = False
     """ If true, submit the rendered draft service for review immediately. """
+    service_id: None | Unset | UUID = UNSET
+    """ Existing canonical service id to update (the seller's durable sidecar handle). When set, re-renders the
+    template with the new parameters and applies it to that service — in place for draft/pending, as a revision for
+    active — instead of creating a new service. Omit to create a new service. """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -53,6 +57,14 @@ class TemplateInstanceCreate:
 
         auto_submit = self.auto_submit
 
+        service_id: None | str | Unset
+        if isinstance(self.service_id, Unset):
+            service_id = UNSET
+        elif isinstance(self.service_id, UUID):
+            service_id = str(self.service_id)
+        else:
+            service_id = self.service_id
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -66,6 +78,8 @@ class TemplateInstanceCreate:
             field_dict["parameters"] = parameters
         if auto_submit is not UNSET:
             field_dict["auto_submit"] = auto_submit
+        if service_id is not UNSET:
+            field_dict["service_id"] = service_id
 
         return field_dict
 
@@ -94,11 +108,29 @@ class TemplateInstanceCreate:
 
         auto_submit = d.pop("auto_submit", UNSET)
 
+        def _parse_service_id(data: object) -> None | Unset | UUID:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                service_id_type_0 = UUID(data)
+
+                return service_id_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | Unset | UUID, data)
+
+        service_id = _parse_service_id(d.pop("service_id", UNSET))
+
         template_instance_create = cls(
             template_id=template_id,
             name=name,
             parameters=parameters,
             auto_submit=auto_submit,
+            service_id=service_id,
         )
 
         template_instance_create.additional_properties = d

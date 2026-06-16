@@ -85,8 +85,9 @@ def sync_detailed(
     **draft** service via the canonical ingest pipeline. With
     ``auto_submit=True`` (the dashboard's one-click \"create & submit\") the draft
     is also submitted for review in the same async chain; otherwise it stays a
-    reviewable draft. The template must be **active**. Returns 202 with the new
-    ``instance_id`` and the ingest ``task_id``.
+    reviewable draft. For new creates (no ``service_id``) the template must be
+    **active**; revisions (``service_id`` supplied) are allowed on any status.
+    Returns 202 with the new ``instance_id`` and the ingest ``task_id``.
 
     Args:
         authorization (None | str | Unset):
@@ -137,8 +138,9 @@ def sync(
     **draft** service via the canonical ingest pipeline. With
     ``auto_submit=True`` (the dashboard's one-click \"create & submit\") the draft
     is also submitted for review in the same async chain; otherwise it stays a
-    reviewable draft. The template must be **active**. Returns 202 with the new
-    ``instance_id`` and the ingest ``task_id``.
+    reviewable draft. For new creates (no ``service_id``) the template must be
+    **active**; revisions (``service_id`` supplied) are allowed on any status.
+    Returns 202 with the new ``instance_id`` and the ingest ``task_id``.
 
     Args:
         authorization (None | str | Unset):
@@ -184,8 +186,9 @@ async def asyncio_detailed(
     **draft** service via the canonical ingest pipeline. With
     ``auto_submit=True`` (the dashboard's one-click \"create & submit\") the draft
     is also submitted for review in the same async chain; otherwise it stays a
-    reviewable draft. The template must be **active**. Returns 202 with the new
-    ``instance_id`` and the ingest ``task_id``.
+    reviewable draft. For new creates (no ``service_id``) the template must be
+    **active**; revisions (``service_id`` supplied) are allowed on any status.
+    Returns 202 with the new ``instance_id`` and the ingest ``task_id``.
 
     Args:
         authorization (None | str | Unset):
@@ -234,8 +237,9 @@ async def asyncio(
     **draft** service via the canonical ingest pipeline. With
     ``auto_submit=True`` (the dashboard's one-click \"create & submit\") the draft
     is also submitted for review in the same async chain; otherwise it stays a
-    reviewable draft. The template must be **active**. Returns 202 with the new
-    ``instance_id`` and the ingest ``task_id``.
+    reviewable draft. For new creates (no ``service_id``) the template must be
+    **active**; revisions (``service_id`` supplied) are allowed on any status.
+    Returns 202 with the new ``instance_id`` and the ingest ``task_id``.
 
     Args:
         authorization (None | str | Unset):

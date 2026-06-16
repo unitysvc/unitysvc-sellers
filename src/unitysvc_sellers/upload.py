@@ -268,11 +268,12 @@ def _build_service_payload(
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any] | None]:
     """Locate the offering and provider files for a listing and load all three.
 
-    Returns ``(provider_data, offering_data, listing_data, service_data)`` ready
-    to drop into ``ServiceDataInput``. ``service_data`` is the backend-assigned
-    identity record (from ``service.json``), not listing content, so it is
-    returned separately and travels as the top-level ``ServiceDataInput.
-    service_data`` field — never embedded in ``listing_data``.
+    Returns ``(provider_data, offering_data, listing_data, service_data)``. The
+    first three are the authored content that drops into ``ServiceDataInput``;
+    ``service_data`` is the backend-assigned identity record (from
+    ``service.json``), not listing content, so it is returned separately and
+    travels as the upload body's standalone ``service_status`` field — never
+    embedded in ``listing_data`` or ``ServiceDataInput``.
     """
     from .utils import load_data_file
 
@@ -302,10 +303,10 @@ def _build_service_payload(
     provider_path, _, provider_data = provider_files[0]
 
     # Backend-assigned identity record (service.json) — returned as a separate
-    # value so the caller can set the top-level ServiceDataInput.service_data,
-    # which tells the backend to treat the upload as an update/revision rather
-    # than a new service. It is identity, not listing content, so it is never
-    # merged into listing_data.
+    # value so the caller can send it as the upload body's standalone
+    # service_status field, which tells the backend to treat the upload as an
+    # update/revision rather than a new service. It is identity, not listing
+    # content, so it is never merged into listing_data or ServiceDataInput.
     service_data = read_service_data(service_dir)
 
     # Convenience-field expansion (logo: "./foo.png" -> DocumentData entry).
@@ -445,15 +446,19 @@ def upload_directory(
                 _emit("service", "error", listing_file.name, str(exc))
                 continue
 
+            # Authored content and the status sidecar travel as separate body
+            # fields: ``data`` is the provider/offering/listing content,
+            # ``service_status`` is the whole service.json record (identity, not
+            # listing content) sent only when one exists.
             payload: dict[str, Any] = {
-                "provider_data": provider_data,
-                "offering_data": offering_data,
-                "listing_data": listing_data,
+                "data": {
+                    "provider_data": provider_data,
+                    "offering_data": offering_data,
+                    "listing_data": listing_data,
+                }
             }
-            # service_data is identity, not listing content: send the whole
-            # service.json record at the payload top level when one exists.
             if service_data:
-                payload["service_data"] = service_data
+                payload["service_status"] = service_data
 
             try:
                 response = client.services.upload(payload)
@@ -545,9 +550,7 @@ def upload_directory(
                     # "name", "display_name", "time_created"}. Persist the whole
                     # record to service.json so it round-trips on the next upload.
                     task_result = status_dict.get("result") or {}
-                    service_record: dict[str, Any] = (
-                        task_result if isinstance(task_result, dict) else {}
-                    )
+                    service_record: dict[str, Any] = task_result if isinstance(task_result, dict) else {}
                     service_id = service_record.get("service_id")
                     revision_of = service_record.get("revision_of")
                     if revision_of:
