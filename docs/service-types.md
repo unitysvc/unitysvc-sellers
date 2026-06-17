@@ -63,9 +63,11 @@ Orthogonal to the service category, each service uses one of these delivery patt
 | **Recurrent** | Any of the above | Yes | Enroll and configure schedule |
 | **Subscription** | Seller | Yes | Enroll; platform charges daily/hourly via heartbeat |
 
+Each delivery pattern corresponds to an **upstream access channel** in the offering's `upstream_access_config` — a complete way for the gateway to reach the upstream. The channel's `channel_type` (`managed` / `byok` / `byoe`) is *derived* from its credential and endpoint, not hand-labelled. A single offering can expose more than one channel — see [Multi-channel services](#multi-channel-services).
+
 ### Managed services
 
-The seller provides upstream credentials. All customers share the same upstream endpoint. No enrollment required.
+A **managed channel** uses the seller's key (`${ secrets.* }`), so the seller provides upstream credentials. All customers share the same upstream endpoint. No enrollment required.
 
 ```json
 // specs/openai/gpt-4/offering.json — seller's upstream credentials
@@ -97,7 +99,7 @@ Request flow: `Customer → API key → Gateway → seller's upstream creds → 
 
 ### BYOK (Bring Your Own Key)
 
-The customer provides their own upstream API key. No enrollment required — the key lives in the customer's secret store. A BYOK offering references it with the **`customer_secrets`** namespace in `upstream_access_config`:
+A **BYOK channel** uses the customer's key (`${ customer_secrets.* }`), so the customer provides their own upstream API key. No enrollment required — the key lives in the customer's secret store. A BYOK channel references it with the **`customer_secrets`** namespace in `upstream_access_config`:
 
 ```json
 // specs/groq/llama-3.3-70b/offering.json
@@ -124,7 +126,7 @@ A `${ customer_secrets.X }` reference is also its own declaration — the platfo
 
 ### BYOE (Bring Your Own Endpoint)
 
-The customer provides the URL of their own service instance (e.g., self-hosted Ollama). Enrollment required. The key name is supplied per-enrollment via Jinja indirection inside the `customer_secrets` namespace:
+A **BYOE channel** uses the customer's key *and* a customer-templated `base_url`, so the customer provides the URL of their own service instance (e.g., self-hosted Ollama). Enrollment required. The key name is supplied per-enrollment via Jinja indirection inside the `customer_secrets` namespace:
 
 ```json
 // specs/ollama/byoe/offering.json — templates resolve from enrollment parameters
@@ -142,6 +144,10 @@ The customer provides the URL of their own service instance (e.g., self-hosted O
 Two-phase resolution:
 1. **Jinja rendering** (enrollment parameters): `{{ base_url }}` → `http://my-server:11434`, `{{ api_key_secret }}` → `MY_KEY`
 2. **Secret resolution**: `${ customer_secrets.MY_KEY }` → the actual key value from the customer's secret store
+
+### Multi-channel services
+
+A single offering isn't limited to one channel. `upstream_access_config` can hold several **upstream access channels** at once — for example a `managed` channel and a `byok` channel reaching the same upstream — and the gateway picks one per request (by `routing_key` match, or forced with `_channel=<name>`). Each channel can carry its own price via a channel-keyed `list_price`, so the same model can be billed per-token on the seller's key and free on the customer's. See [Channel-based Pricing](pricing.md#channel-based-pricing-channel) for the `upstream_access_config` + `list_price` shape.
 
 ### Recurrent services
 

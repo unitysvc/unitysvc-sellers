@@ -345,6 +345,83 @@ A fixed price per request that doesn't depend on usage metrics.
 
 ---
 
+## Channel-based Pricing (`channel`)
+
+A single offering can expose several **upstream access channels** in `upstream_access_config` — for example a `managed` channel (the seller's key) and a `byok` channel (the customer's key) reaching the same upstream. When the channels should be priced differently, the listing's `list_price` is a **`ChannelPriceData`**: a pricing object with `type: "channel"` whose `channels` map holds a sub-price per channel name.
+
+How it resolves at request time:
+
+1. The gateway selects one channel per request — by `routing_key` match, or forced explicitly with the `_channel=<name>` query selector.
+2. The sub-price under `channels.<selected>` applies for that request.
+3. If the request's channel is unknown or unset, the channel named by `default` is used as the fallback.
+
+Each value under `channels` is itself **any** pricing object (token-based, per-image, constant, composite, …) — `channel` only chooses *which* sub-price to bill, it does not constrain their types.
+
+> **Not a bare `{channel: price}` dict.** `list_price` must be the full `ChannelPriceData` object (`type: "channel"` + `default` + `channels`). A plain `{"managed": {...}, "byok": {...}}` mapping fails validation. (This is the rename of the old `type: "mode"` model — see [unitysvc-core#40](https://github.com/unitysvc/unitysvc-core/pull/40), v0.3.0.)
+
+### Worked example: DeepSeek managed + BYOK
+
+The offering defines two channels — same upstream (`api.deepseek.com`), same model, different credential — so the seller can serve keyless customers on the seller's key (`managed`) *and* let key-holding customers pay only the platform fee (`byok`):
+
+```json
+// offering.json → upstream_access_config  (two channels)
+{
+    "upstream_access_config": {
+        "managed": {
+            "access_method": "http",
+            "base_url": "https://api.deepseek.com",
+            "api_key": "${ secrets.DEEPSEEK_UPSTREAM_KEY }",
+            "routing_key": { "model": "deepseek-v4-pro" }
+        },
+        "byok": {
+            "access_method": "http",
+            "base_url": "https://api.deepseek.com",
+            "api_key": "${ customer_secrets.DEEPSEEK_API_KEY }",
+            "routing_key": { "model": "deepseek-v4-pro" }
+        }
+    }
+}
+```
+
+The `managed` channel uses the seller's `${ secrets.* }` key (derived `channel_type: managed`); the `byok` channel uses the customer's `${ customer_secrets.* }` key (derived `channel_type: byok`). Sellers don't hand-label the type — it is derived from the credential.
+
+The listing prices each channel separately. `managed` bills tokens; `byok` is free (the customer brought their own key, so only a platform fee, if any, applies):
+
+```json
+// listing.json → list_price  (a ChannelPriceData)
+{
+    "list_price": {
+        "type": "channel",
+        "default": "managed",
+        "channels": {
+            "managed": { "type": "one_million_tokens", "input": "0.27", "output": "1.10" },
+            "byok": { "type": "one_million_tokens", "price": "0" }
+        }
+    }
+}
+```
+
+The same `list_price` in TOML:
+
+```toml
+[list_price]
+type = "channel"
+default = "managed"
+
+[list_price.channels.managed]
+type = "one_million_tokens"
+input = "0.27"
+output = "1.10"
+
+[list_price.channels.byok]
+type = "one_million_tokens"
+price = "0"
+```
+
+A request routed to (or forced with `_channel=managed`) bills at `0.27`/`1.10` per 1M tokens; a request on `_channel=byok` bills at `0`. A request whose channel can't be determined falls back to `default` (`managed`). See [Service Types](service-types.md#multi-channel-services) for how multi-channel offerings surface in the catalog.
+
+---
+
 ## Equivalence Groups
 
 Units within the same equivalence group measure the same dimension and convert to each other automatically. When a pricing type specifies one unit (e.g., `one_hour`) but usage data provides a different unit from the same group (e.g., `one_minute`), the system converts automatically before calculating cost.

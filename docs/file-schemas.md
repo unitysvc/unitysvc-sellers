@@ -13,6 +13,15 @@ the data. The schemas (with their historical version names) are:
 - `listing.json` (`listing_v1`) - Service listing (user-facing marketplace perspective)
 - `service_group.json` (`service_group_v1`) - Service group definitions for organizing services
 
+### Upstream access channels vs. user access interfaces
+
+Two terms recur throughout these schemas, and they name **orthogonal** axes — don't conflate them:
+
+- An **upstream access channel** ("channel") is one named entry in an offering's `upstream_access_config`. Each channel is a complete way for the gateway to reach the upstream: a wire protocol (`access_method`), an endpoint (`base_url`), a credential (`api_key`), a `routing_key`, and quality/restrictions (`rate_limits`). Channel names are free-form (e.g. `"managed"`, `"byok"`, `"managed-eu"`). The gateway selects one channel per request. A channel answers *how the request is fulfilled and billed*, and is gated by **secret** availability.
+- A **user access interface** is one named entry in a listing's `user_access_interfaces` — the downstream, customer-facing endpoint the customer connects *to* (canonical, `/g/<group>`, `/p/<pool>`, `/e/<code>`). An interface answers *how you connect, and whether you may*, and is gated by **enrollment** / group membership.
+
+Channel selection happens per request regardless of which interface URL the customer hits, so the two are separable lists, not a matrix.
+
 ## Schema: provider_v1
 
 Provider files define the service provider's metadata and access configuration for automated service population.
@@ -107,7 +116,7 @@ Service files define the service offering from the upstream provider's perspecti
 | ---------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `name`                       | string                      | Service identifier (must match directory name, allows slashes for hierarchy)                                                                                                      |
 | `service_type`               | enum                        | Service category (see [ServiceTypeEnum values](#servicetype-enum-values))                                                                                                         |
-| `upstream_access_config` | dict of AccessInterfaceData | How to access upstream services, keyed by interface name. Supports Jinja2 templates (e.g. `{{ enrollment.code }}`); expanded at gateway routing time using enrollment context. |
+| `upstream_access_config` | dict of AccessInterfaceData | How the gateway reaches the upstream, keyed by **channel name**; each entry is an **upstream access channel** (see [Upstream access channels vs. user access interfaces](#upstream-access-channels-vs-user-access-interfaces)). Supports Jinja2 templates (e.g. `{{ enrollment.code }}`); expanded at gateway routing time using enrollment context. |
 | `time_created`               | datetime (ISO 8601)         | Timestamp when offering was created                                                                                                                                               |
 
 ### Optional Fields

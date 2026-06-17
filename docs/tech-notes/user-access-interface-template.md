@@ -7,7 +7,7 @@
 
 ## Overview
 
-String values in `user_access_interfaces` (and `upstream_access_config`) support **Jinja2 template syntax** for dynamic rendering at enrollment time. This enables per-enrollment access interfaces — for example, generating unique endpoint URLs or routing keys for each subscriber.
+String values support **Jinja2 template syntax** for dynamic rendering on both of the orthogonal axes: **user access interfaces** (`user_access_interfaces`, the downstream endpoints customers connect to) and **upstream access channels** (`upstream_access_config`, how the gateway reaches the upstream). The *timing* differs, though: a **user access interface** template is rendered **per enrollment** (it produces an enrollment-scoped `AccessInterface` record), whereas an **upstream access channel** template is rendered **per request at gateway routing time** (it resolves the upstream target for that one request and creates no record). Both see the same enrollment context for a given enrollment — for example, generating unique endpoint URLs or routing keys for each subscriber.
 
 Interfaces containing template syntax (`{{` or `{%`) are rendered per-enrollment and create enrollment-scoped `AccessInterface` records. Static interfaces (no template syntax) are shared across all enrollments at the listing level.
 

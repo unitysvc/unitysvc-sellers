@@ -409,6 +409,16 @@ When the user says "add a service to repo X":
 
 Service definitions reference customer-supplied values through one of three forms — knowing which is which avoids the two most common upload-time errors.
 
+### Upstream access channels (the `upstream_access_config` entries)
+
+Each named entry in `upstream_access_config` is an **upstream access channel** — one complete way for the gateway to reach the upstream (`access_method` + `base_url` + `api_key` + `routing_key` + `rate_limits`). Names are free-form (`managed`, `byok`, `managed-eu`). Its **`channel_type`** is *derived*, never hand-labelled:
+
+- `managed` — seller's key, `${ secrets.* }`
+- `byok` — customer's key, `${ customer_secrets.* }`
+- `byoe` — customer's key **and** a customer-templated `base_url`
+
+One offering may expose several channels; the gateway picks one per request (by `routing_key` match, or forced with the `_channel=<name>` query selector), and a channel-keyed `list_price` prices each separately (see `docs/pricing.md`). Orthogonal to channels are **user access interfaces** (`user_access_interfaces`, the downstream URLs customers connect to — canonical, `/g/`, `/p/`, `/e/`): a channel is *how a request is fulfilled & billed* (gated by secrets); an interface is *how you connect* (gated by enrollment). Don't conflate them — they pair freely, not as a matrix.
+
 ### Three shapes a reference can take
 
 ```text
