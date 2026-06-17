@@ -357,7 +357,7 @@ How it resolves at request time:
 
 Each value under `channels` is itself **any** pricing object (token-based, per-image, constant, composite, …) — `channel` only chooses *which* sub-price to bill, it does not constrain their types.
 
-> **Not a bare `{channel: price}` dict.** `list_price` must be the full `ChannelPriceData` object (`type: "channel"` + `default` + `channels`). A plain `{"managed": {...}, "byok": {...}}` mapping fails validation. (This is the rename of the old `type: "mode"` model — see [unitysvc-core#40](https://github.com/unitysvc/unitysvc-core/pull/40), v0.3.0.)
+> **Not a bare `{channel: price}` dict.** `list_price` must be the full `ChannelPriceData` object (`type: "channel"` + `default` + `channels`). A plain `{"managed": {...}, "byok": {...}}` mapping fails validation. (This is the rename of the old `type: "mode"` model — see [unitysvc-core#40](https://github.com/unitysvc/unitysvc-core/pull/40), `unitysvc-core` ≥ 0.2.5.)
 
 ### Worked example: DeepSeek managed + BYOK
 
