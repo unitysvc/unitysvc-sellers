@@ -13,6 +13,15 @@ the data. The schemas (with their historical version names) are:
 - `listing.json` (`listing_v1`) - Service listing (user-facing marketplace perspective)
 - `service_group.json` (`service_group_v1`) - Service group definitions for organizing services
 
+### Upstream access channels vs. user access interfaces
+
+Two terms recur throughout these schemas, and they name **orthogonal** axes — don't conflate them:
+
+- An **upstream access channel** ("channel") is one named entry in an offering's `upstream_access_config`. Each channel is a complete way for the gateway to reach the upstream: a wire protocol (`access_method`), an endpoint (`base_url`), a credential (`api_key`), a `routing_key`, and quality/restrictions (`rate_limits`). Channel names are free-form (e.g. `"managed"`, `"byok"`, `"managed-eu"`). The gateway selects one channel per request. A channel answers *how the request is fulfilled and billed*, and is gated by **secret** availability. A channel may optionally replace its flat `base_url` / `api_key` with a list of interchangeable **`servers`** (same `channel_type`) for capacity and failover — see [Multi-server channels](service-types.md#multi-server-channels-capacity-failover) (planned).
+- A **user access interface** is one named entry in a listing's `user_access_interfaces` — the downstream, customer-facing endpoint the customer connects *to* (canonical, `/g/<group>`, `/p/<pool>`, `/e/<code>`). An interface answers *how you connect, and whether you may*, and is gated by **enrollment** / group membership.
+
+Channel selection happens per request regardless of which interface URL the customer hits, so the two are separable lists, not a matrix.
+
 ## Schema: provider_v1
 
 Provider files define the service provider's metadata and access configuration for automated service population.
@@ -107,7 +116,7 @@ Service files define the service offering from the upstream provider's perspecti
 | ---------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `name`                       | string                      | Service identifier (must match directory name, allows slashes for hierarchy)                                                                                                      |
 | `service_type`               | enum                        | Service category (see [ServiceTypeEnum values](#servicetype-enum-values))                                                                                                         |
-| `upstream_access_config` | dict of AccessInterfaceData | How to access upstream services, keyed by interface name. Supports Jinja2 templates (e.g. `{{ enrollment.code }}`); expanded at gateway routing time using enrollment context. |
+| `upstream_access_config` | dict of AccessInterfaceData | How the gateway reaches the upstream, keyed by **channel name**; each entry is an **upstream access channel** (see [Upstream access channels vs. user access interfaces](#upstream-access-channels-vs-user-access-interfaces)). Supports Jinja2 templates (e.g. `{{ enrollment.code }}`); expanded at gateway routing time using enrollment context. |
 | `time_created`               | datetime (ISO 8601)         | Timestamp when offering was created                                                                                                                                               |
 
 ### Optional Fields
@@ -601,6 +610,8 @@ The `AccessInterfaceData` object defines how to access a service (used in offeri
 #### Jinja2 Template Values
 
 String values in `user_access_interfaces` and `upstream_access_config` can use **Jinja2 template syntax** for dynamic rendering at enrollment time. Templates are rendered with an enrollment context that includes enrollment parameters, customer ID, and enrollment ID.
+
+> A `raw` block inside an `upstream_access_config` channel is **not** Jinja2-expanded — its contents are passed through verbatim and merged into the channel — for values carrying their own templates (e.g. request/response transformers). `${ … }` secrets inside `raw` are still resolved. See [Deferring expansion: the `raw` block](tech-notes/user-access-interface-template.md#deferring-expansion-the-raw-block).
 
 **Template context variables:**
 

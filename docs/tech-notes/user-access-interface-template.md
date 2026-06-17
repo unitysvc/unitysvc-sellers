@@ -7,7 +7,7 @@
 
 ## Overview
 
-String values in `user_access_interfaces` (and `upstream_access_config`) support **Jinja2 template syntax** for dynamic rendering at enrollment time. This enables per-enrollment access interfaces — for example, generating unique endpoint URLs or routing keys for each subscriber.
+String values support **Jinja2 template syntax** for dynamic rendering on both of the orthogonal axes: **user access interfaces** (`user_access_interfaces`, the downstream endpoints customers connect to) and **upstream access channels** (`upstream_access_config`, how the gateway reaches the upstream). The *timing* differs, though: a **user access interface** template is rendered **per enrollment** (it produces an enrollment-scoped `AccessInterface` record), whereas an **upstream access channel** template is rendered **per request at gateway routing time** (it resolves the upstream target for that one request and creates no record). Both see the same enrollment context for a given enrollment — for example, generating unique endpoint URLs or routing keys for each subscriber.
 
 Interfaces containing template syntax (`{{` or `{%`) are rendered per-enrollment and create enrollment-scoped `AccessInterface` records. Static interfaces (no template syntax) are shared across all enrollments at the listing level.
 
@@ -93,6 +93,43 @@ Enrollment-scoped `AccessInterface` records are only visible to the enrollment t
 2. If the offering's `upstream_access_config` contain template syntax, they are rendered using the enrollment context
 3. `{{ enrollment.code }}` resolves to the enrollment's 4-character code (assigned at enrollment creation)
 4. The resolved upstream URL is used to forward the request — no upstream `AccessInterface` records are created per enrollment
+
+## Deferring expansion: the `raw` block
+
+The backend Jinja-expands **every** string in an `upstream_access_config` channel at routing time (using the enrollment context above). That breaks values that carry **their own** template syntax meant for a *later* stage — most often **request/response transformers**, whose `{{ … }}` templates are evaluated by the gateway's transformer engine against per-request data, not by the backend against enrollment context. Left alone, the backend's Jinja pass would consume or mangle templates that were never meant for it.
+
+Wrap those values in a **`raw`** block. Within a channel the backend:
+
+1. **Skips** the `raw` subtree during Jinja2 expansion — its contents pass through **verbatim**.
+2. After expanding the rest of the channel, **hoists** `raw`'s keys up into the channel (shallow merge) and **removes** the `raw` key.
+
+So `raw` is purely an authoring marker for "don't Jinja-expand this here." It never appears in the resolved config — its contents land at the channel level as if written there directly.
+
+```json
+{
+    "upstream_access_config": {
+        "managed": {
+            "access_method": "http",
+            "base_url": "https://api.example.com/{{ enrollment.code }}",
+            "api_key": "${ secrets.UPSTREAM_KEY }",
+            "raw": {
+                "request_transformer": {
+                    "body": { "model": "{{ model }}" }
+                }
+            }
+        }
+    }
+}
+```
+
+Here `base_url` is Jinja-expanded by the backend (`{{ enrollment.code }}` → `CEFF`), while the transformer's `{{ model }}` is preserved untouched for the gateway. After processing, the channel resolves to `{ access_method, base_url: ".../CEFF", api_key: <resolved>, request_transformer: {…verbatim…} }` — no `raw` key.
+
+**Important — `raw` defers Jinja2 only, not secrets.** Because `raw`'s contents are merged into the channel **before** secret resolution, `${ secrets.* }` / `${ customer_secrets.* }` references *inside* `raw` are still resolved. `raw` skips `{{ … }}`, not `${ … }`.
+
+**Scope notes:**
+- The hoist-and-remove runs **per channel** (the top level of each `upstream_access_config` entry). A `raw` block is preserved verbatim wherever it appears, but only a channel-top-level `raw` is merged up and dropped.
+- `raw` keys **override** same-named expanded keys (shallow merge, `raw` wins).
+- Multi-server channels: whether `raw` is also hoisted *inside* each `servers[]` entry is an open build-time question — see [unitysvc/unitysvc#1299](https://github.com/unitysvc/unitysvc/issues/1299).
 
 ## Consistency with Service Groups
 
