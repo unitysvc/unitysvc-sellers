@@ -5,10 +5,10 @@ the service it renders to (the backend ``TemplateInstance``, 1:1 with a
 service; the basis for capability-pool membership). This wraps
 ``/v1/seller/instances``:
 
-- ``create`` renders a template into a **draft** service; ``submit=True`` (the
-  default) also submits it for review in the same call (the SDK/CLI counterpart
-  of the dashboard's *Create from template*). Returns ``instance_id`` +
-  ``task_id``.
+- ``create`` renders a template into a **draft** service (the default); pass
+  ``submit=True`` to also submit it for review in the same call (the SDK/CLI
+  counterpart of the dashboard's *Create from template*). Returns ``instance_id``
+  + ``task_id``.
 - ``list`` / ``get`` / ``delete`` manage your instances. Deleting an instance
   does **not** unpublish the service it created.
 
@@ -39,25 +39,28 @@ class Instances:
         *,
         parameters: dict[str, Any] | None = None,
         name: str | None = None,
-        submit: bool = True,
+        submit: bool = False,
     ) -> Any:
         """Create a service from ``template_id`` + ``parameters``.
 
-        Renders the template into a draft service; with ``submit=True`` (default)
-        the draft is also submitted for review. Returns a record with
-        ``instance_id`` and the ingest ``task_id``.
+        Renders the template into a **draft** service (the default, mirroring the
+        backend's ``auto_submit=false``). Pass ``submit=True`` to also submit that
+        draft for review in the same call. Returns a record with ``instance_id``
+        and the ingest ``task_id``.
         """
         from ._generated.api.seller_instances import (
             seller_instances_create_instance as op,
         )
-        from ._generated.models.parameters import Parameters
         from ._generated.models.template_instance_create import TemplateInstanceCreate
+        from ._generated.models.template_instance_create_parameters import (
+            TemplateInstanceCreateParameters,
+        )
         from ._generated.types import UNSET
 
         body = TemplateInstanceCreate(
             template_id=UUID(str(template_id)),
             name=name if name is not None else UNSET,
-            parameters=Parameters.from_dict(parameters or {}),
+            parameters=TemplateInstanceCreateParameters.from_dict(parameters or {}),
             auto_submit=submit,
         )
         return unwrap(op.sync_detailed(client=self._client, body=body))

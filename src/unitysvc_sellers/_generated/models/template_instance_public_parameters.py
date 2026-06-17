@@ -8,13 +8,11 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="Pricing")
+T = TypeVar("T", bound="TemplateInstancePublicParameters")
 
 
 @_attrs_define
-class Pricing:
-    """Pricing specification (e.g., multiply, constant, add)"""
-
+class TemplateInstancePublicParameters:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -26,10 +24,10 @@ class Pricing:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        pricing = cls()
+        template_instance_public_parameters = cls()
 
-        pricing.additional_properties = d
-        return pricing
+        template_instance_public_parameters.additional_properties = d
+        return template_instance_public_parameters
 
     @property
     def additional_keys(self) -> list[str]:

@@ -8,11 +8,11 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="ResponseTasksGetTaskStatusAdditionalProperty")
+T = TypeVar("T", bound="TasksGetTaskStatusResponseTasksGetTaskStatusAdditionalProperty")
 
 
 @_attrs_define
-class ResponseTasksGetTaskStatusAdditionalProperty:
+class TasksGetTaskStatusResponseTasksGetTaskStatusAdditionalProperty:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -24,10 +24,10 @@ class ResponseTasksGetTaskStatusAdditionalProperty:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        response_tasks_get_task_status_additional_property = cls()
+        tasks_get_task_status_response_tasks_get_task_status_additional_property = cls()
 
-        response_tasks_get_task_status_additional_property.additional_properties = d
-        return response_tasks_get_task_status_additional_property
+        tasks_get_task_status_response_tasks_get_task_status_additional_property.additional_properties = d
+        return tasks_get_task_status_response_tasks_get_task_status_additional_property
 
     @property
     def additional_keys(self) -> list[str]:

@@ -7,7 +7,9 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
-from ...models.response_seller_instances_delete_instance import ResponseSellerInstancesDeleteInstance
+from ...models.seller_instances_delete_instance_response_seller_instances_delete_instance import (
+    SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance,
+)
 from ...types import UNSET, Response, Unset
 
 
@@ -37,9 +39,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | ResponseSellerInstancesDeleteInstance | None:
+) -> HTTPValidationError | SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance | None:
     if response.status_code == 200:
-        response_200 = ResponseSellerInstancesDeleteInstance.from_dict(response.json())
+        response_200 = SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance.from_dict(response.json())
 
         return response_200
 
@@ -56,7 +58,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | ResponseSellerInstancesDeleteInstance]:
+) -> Response[HTTPValidationError | SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -71,7 +73,7 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | ResponseSellerInstancesDeleteInstance]:
+) -> Response[HTTPValidationError | SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance]:
     """Delete Instance
 
      Delete a form. The linked service (if any) is not unpublished.
@@ -86,7 +88,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | ResponseSellerInstancesDeleteInstance]
+        Response[HTTPValidationError | SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance]
     """
 
     kwargs = _get_kwargs(
@@ -108,7 +110,7 @@ def sync(
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | ResponseSellerInstancesDeleteInstance | None:
+) -> HTTPValidationError | SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance | None:
     """Delete Instance
 
      Delete a form. The linked service (if any) is not unpublished.
@@ -123,7 +125,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | ResponseSellerInstancesDeleteInstance
+        HTTPValidationError | SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance
     """
 
     return sync_detailed(
@@ -140,7 +142,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | ResponseSellerInstancesDeleteInstance]:
+) -> Response[HTTPValidationError | SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance]:
     """Delete Instance
 
      Delete a form. The linked service (if any) is not unpublished.
@@ -155,7 +157,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | ResponseSellerInstancesDeleteInstance]
+        Response[HTTPValidationError | SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance]
     """
 
     kwargs = _get_kwargs(
@@ -175,7 +177,7 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | ResponseSellerInstancesDeleteInstance | None:
+) -> HTTPValidationError | SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance | None:
     """Delete Instance
 
      Delete a form. The linked service (if any) is not unpublished.
@@ -190,7 +192,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | ResponseSellerInstancesDeleteInstance
+        HTTPValidationError | SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance
     """
 
     return (

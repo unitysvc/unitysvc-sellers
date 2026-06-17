@@ -8,13 +8,11 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="PriceRulePricingSpec")
+T = TypeVar("T", bound="ServiceTemplateSummaryServiceTemplateSummaryParameterSchema")
 
 
 @_attrs_define
-class PriceRulePricingSpec:
-    """Pricing specification (percentage, fixed_amount, graduated, etc.)"""
-
+class ServiceTemplateSummaryServiceTemplateSummaryParameterSchema:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -26,10 +24,10 @@ class PriceRulePricingSpec:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        price_rule_pricing_spec = cls()
+        service_template_summary_service_template_summary_parameter_schema = cls()
 
-        price_rule_pricing_spec.additional_properties = d
-        return price_rule_pricing_spec
+        service_template_summary_service_template_summary_parameter_schema.additional_properties = d
+        return service_template_summary_service_template_summary_parameter_schema
 
     @property
     def additional_keys(self) -> list[str]:

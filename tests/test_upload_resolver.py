@@ -11,6 +11,7 @@ scripts, or any templated document.
 
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 
@@ -416,3 +417,57 @@ class TestUploadByName:
         assert result.services.total == 2
         uploaded = {json.loads(c.request.content.decode())["data"]["listing_data"]["name"] for c in upload_route.calls}
         assert uploaded == {"acme/svc1", "acme/svc2"}
+
+
+class TestUploadAutoSubmit:
+    """``upload_directory(auto_submit=...)`` threads the flag to ``POST /services``
+    as the ``auto_submit`` query param — the ``specs upload --submit`` path."""
+
+    def _mock_routes(self) -> object:
+        route = respx.post(f"{BASE_URL}/services").mock(
+            return_value=httpx.Response(202, json={"task_id": "t1", "status": "queued", "message": "q"})
+        )
+        done = {"t1": {"task_id": "t1", "state": "SUCCESS", "status": "completed", "result": {"service_id": "s1"}}}
+        respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(return_value=httpx.Response(200, json=done))
+        return route
+
+    @respx.mock
+    def test_default_leaves_draft(self, tmp_path: Path) -> None:
+        _write_service(tmp_path / "acme", "svc1", "acme/svc1")
+        route = self._mock_routes()
+
+        with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
+            upload_directory(client, tmp_path, task_poll_interval=0.001, task_wait_timeout=5.0)
+
+        assert route.calls.last.request.url.params["auto_submit"] == "false"
+
+    @respx.mock
+    def test_auto_submit_sets_query_param(self, tmp_path: Path) -> None:
+        _write_service(tmp_path / "acme", "svc1", "acme/svc1")
+        route = self._mock_routes()
+
+        with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
+            upload_directory(client, tmp_path, auto_submit=True, task_poll_interval=0.001, task_wait_timeout=5.0)
+
+        assert route.calls.last.request.url.params["auto_submit"] == "true"
+
+
+class TestSpecsUploadCli:
+    """``usvc_seller specs upload --submit`` — a single flag (default off) that
+    publishes-and-submits in one go. No ``--no-submit`` (draft is the default).
+
+    The flag→``auto_submit`` query-param threading is covered by
+    ``TestUploadAutoSubmit`` above (the CLI hands ``--submit`` straight to
+    ``client.upload(auto_submit=...)``); here we just lock the CLI surface by
+    introspecting the command's Typer option (no app invocation)."""
+
+    def test_upload_has_single_submit_flag_default_off(self) -> None:
+        from unitysvc_sellers._cli_upload import upload
+
+        opt = inspect.signature(upload).parameters["submit"].default
+        assert opt.default is False  # draft by default, mirrors the backend
+        assert "--submit" in opt.param_decls
+        # No negating flag, and we standardize on --submit (not --auto-submit).
+        joined = " ".join(opt.param_decls)
+        assert "--no-submit" not in joined
+        assert "--auto-submit" not in joined

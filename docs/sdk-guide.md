@@ -246,14 +246,15 @@ Manager methods on `client.templates`:
 ## `client.instances`
 
 **Template instances** — the SDK counterpart of the dashboard's *Create from
-template* flow. `create` renders a template into a service (and, by default,
-submits it for review); `list` / `get` / `delete` manage your instances.
+template* flow. `create` renders a template into a **draft** service (and, with
+`submit=True`, also submits it for review); `list` / `get` / `delete` manage your
+instances.
 
 Manager methods on `client.instances`:
 
 | Method                                                  | Description                                                                                  |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `create(template_id, parameters=, name=, submit=True)`  | Render a template into a service; `submit=True` (default) also submits it. Returns `instance_id` + ingest `task_id`. |
+| `create(template_id, parameters=, name=, submit=False)` | Render a template into a draft service; `submit=True` also submits it for review. Returns `instance_id` + ingest `task_id`. |
 | `list(skip=, limit=)`                                   | Your instances, with derived service status.                                                 |
 | `get(instance_id)`                                      | One instance: parameters, template metadata, linked service.                                 |
 | `delete(instance_id)`                                   | Delete the instance record (the linked service is **not** unpublished).                      |
@@ -265,7 +266,7 @@ with Client() as client:
     for tpl in client.templates.list():          # discover (catalog)
         print(tpl.name, tpl.version)
 
-    result = client.instances.create(            # create + submit
+    result = client.instances.create(            # create a draft
         "openai-compatible-llm",
         parameters={
             "api_base_url": "https://api.example.com/v1",
@@ -273,7 +274,7 @@ with Client() as client:
             "input_price": 1.00,
         },
         name="my-llm",
-        # submit=False → leave a reviewable draft; submit later via client.services.
+        # Draft by default; pass submit=True to also submit for review now.
     )
     # Poll the ingest task to a verdict with client.tasks if you need to block.
     print(result["instance_id"], result["task_id"])

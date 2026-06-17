@@ -15,7 +15,7 @@ from ..models.price_rule_status_enum import PriceRuleStatusEnum, check_price_rul
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.price_rule_pricing_spec import PriceRulePricingSpec
+    from ..models.price_rule_public_price_rule_pricing_spec import PriceRulePublicPriceRulePricingSpec
     from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
 
 
@@ -32,7 +32,7 @@ class PriceRulePublic:
     """ Source of code matching for price rules. """
     code: str
     """ The code to match (e.g., 'pro', 'BF2025') """
-    pricing: PriceRulePricingSpec
+    pricing: PriceRulePublicPriceRulePricingSpec
     """ Pricing specification (percentage, fixed_amount, graduated, etc.) """
     id: UUID
     created_by_id: UUID
@@ -60,7 +60,7 @@ class PriceRulePublic:
     """ Seller ID for seller-funded promotions (None = platform rule) """
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.price_rule_pricing_spec import PriceRulePricingSpec
+        from ..models.price_rule_public_price_rule_pricing_spec import PriceRulePublicPriceRulePricingSpec
         from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
 
         name = self.name
@@ -157,7 +157,7 @@ class PriceRulePublic:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.price_rule_pricing_spec import PriceRulePricingSpec
+        from ..models.price_rule_public_price_rule_pricing_spec import PriceRulePublicPriceRulePricingSpec
         from ..models.price_rule_public_scope_type_0 import PriceRulePublicScopeType0
 
         d = dict(src_dict)
@@ -167,7 +167,7 @@ class PriceRulePublic:
 
         code = d.pop("code")
 
-        pricing = PriceRulePricingSpec.from_dict(d.pop("pricing"))
+        pricing = PriceRulePublicPriceRulePricingSpec.from_dict(d.pop("pricing"))
 
         id = UUID(d.pop("id"))
 

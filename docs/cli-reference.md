@@ -190,6 +190,7 @@ $ usvc_seller specs upload [OPTIONS] [NAME]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `-t, --type TEXT`: Upload only one resource: services / promotions / groups. Default: upload all three.
+* `--submit`: Also submit each freshly published service for review (validate → pending → run tests) in the same ingest task. Default: leave services as reviewable drafts to submit later.
 * `--help`: Show this message and exit.
 
 ### `usvc_seller specs list-tests`
@@ -1297,7 +1298,7 @@ $ usvc_seller params instantiate [OPTIONS] [NAME]
 
 **Options**:
 
-* `--submit / --no-submit`: Submit each rendered service for review (default), or leave a draft.  [default: submit]
+* `--submit`: Also submit each rendered service for review (validate → pending → run tests) in the same call. Default: leave a reviewable draft to submit later.
 * `-d, --data-dir PATH`: Repo root or params/ directory (default: current directory).
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]

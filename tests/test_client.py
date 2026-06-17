@@ -10,6 +10,7 @@ backend.
 
 from __future__ import annotations
 
+import json
 import uuid
 
 import httpx
@@ -102,6 +103,42 @@ class TestServicesResource:
         client.services.list()
 
         assert route.calls.last.request.headers["authorization"] == "Bearer svcpass_test_key"
+
+
+# ---------------------------------------------------------------------------
+# auto_submit wiring — publish-and-submit in one call
+#
+# The services.upload query-param threading is covered end-to-end (through
+# ``upload_directory``, the CLI-reachable path) in test_upload_resolver.py,
+# where the valid-payload fixtures already live. Here we cover instances.create,
+# whose body the facade builds directly.
+# ---------------------------------------------------------------------------
+class TestInstancesCreateAutoSubmit:
+    def _resp(self) -> dict[str, object]:
+        return {
+            "instance_id": str(uuid.uuid4()),
+            "task_id": "t1",
+            "status": "queued",
+            "message": "q",
+        }
+
+    @respx.mock
+    def test_create_defaults_to_draft(self, client: Client) -> None:
+        route = respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(202, json=self._resp()))
+
+        client.instances.create(uuid.uuid4(), parameters={"k": "v"})
+
+        sent = json.loads(route.calls.last.request.content.decode())
+        assert sent["auto_submit"] is False
+
+    @respx.mock
+    def test_create_submit_sets_auto_submit(self, client: Client) -> None:
+        route = respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(202, json=self._resp()))
+
+        client.instances.create(uuid.uuid4(), parameters={"k": "v"}, submit=True)
+
+        sent = json.loads(route.calls.last.request.content.decode())
+        assert sent["auto_submit"] is True
 
 
 # ---------------------------------------------------------------------------

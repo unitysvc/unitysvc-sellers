@@ -10,7 +10,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.parameters import Parameters
+    from ..models.template_instance_create_parameters import TemplateInstanceCreateParameters
 
 
 T = TypeVar("T", bound="TemplateInstanceCreate")
@@ -31,7 +31,7 @@ class TemplateInstanceCreate:
     template_id: UUID
     name: None | str | Unset = UNSET
     """ Optional label; defaults to the template display name. """
-    parameters: Parameters | Unset = UNSET
+    parameters: TemplateInstanceCreateParameters | Unset = UNSET
     auto_submit: bool | Unset = False
     """ If true, submit the rendered draft service for review immediately. """
     service_id: None | Unset | UUID = UNSET
@@ -41,7 +41,7 @@ class TemplateInstanceCreate:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.parameters import Parameters
+        from ..models.template_instance_create_parameters import TemplateInstanceCreateParameters
 
         template_id = str(self.template_id)
 
@@ -85,7 +85,7 @@ class TemplateInstanceCreate:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.parameters import Parameters
+        from ..models.template_instance_create_parameters import TemplateInstanceCreateParameters
 
         d = dict(src_dict)
         template_id = UUID(d.pop("template_id"))
@@ -100,11 +100,11 @@ class TemplateInstanceCreate:
         name = _parse_name(d.pop("name", UNSET))
 
         _parameters = d.pop("parameters", UNSET)
-        parameters: Parameters | Unset
+        parameters: TemplateInstanceCreateParameters | Unset
         if isinstance(_parameters, Unset):
             parameters = UNSET
         else:
-            parameters = Parameters.from_dict(_parameters)
+            parameters = TemplateInstanceCreateParameters.from_dict(_parameters)
 
         auto_submit = d.pop("auto_submit", UNSET)
 

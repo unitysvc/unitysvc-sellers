@@ -371,6 +371,7 @@ def upload_directory(
     task_wait_timeout: float = 600.0,
     task_poll_interval: float = 2.0,
     name: str | None = None,
+    auto_submit: bool = False,
 ) -> UploadResult:
     """Upload all services, promotions, and service groups under ``data_dir``.
 
@@ -403,6 +404,10 @@ def upload_directory(
             leftover tasks as failed. Default 10 minutes.
         task_poll_interval: Seconds between ``batch-status`` polls.
             Default 2.
+        auto_submit: When True, each freshly published service draft is
+            also submitted for review (validate → pending → run tests)
+            in the same ingest task. When False (default), services are
+            left as reviewable drafts to submit later.
 
     Returns:
         :class:`UploadResult` with per-resource tallies and any errors.
@@ -461,7 +466,7 @@ def upload_directory(
                 payload["service_status"] = service_data
 
             try:
-                response = client.services.upload(payload)
+                response = client.services.upload(payload, auto_submit=auto_submit)
             except APIError as exc:
                 result.services.failed += 1
                 result.services.errors.append({"file": str(listing_file), "error": f"{exc.status_code}: {exc}"})

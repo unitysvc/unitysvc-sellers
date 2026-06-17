@@ -121,9 +121,9 @@ usvc_seller params instantiate openai-compatible-llm \
 ```
 
 `params instantiate` is the template analog of `specs upload`: it renders the
-template into a complete service and (by default) submits it for review.
-Secret-typed parameters take a **secret name** — create it first with
-`usvc_seller secrets` — never the raw value.
+template into a complete service, left as a reviewable draft by default (pass
+`--submit` to also submit it for review). Secret-typed parameters take a
+**secret name** — create it first with `usvc_seller secrets` — never the raw value.
 
 → Platform templates, capability pools, and authoring your own are covered in
 **[Service Templates](service-templates.md)**.
