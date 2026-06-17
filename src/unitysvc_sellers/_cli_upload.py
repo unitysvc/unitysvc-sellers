@@ -51,6 +51,15 @@ def upload(
         "-t",
         help="Upload only one resource: services / promotions / groups. Default: upload all three.",
     ),
+    submit: bool = typer.Option(
+        False,
+        "--submit",
+        help=(
+            "Also submit each freshly published service for review (validate → pending → "
+            "run tests) in the same ingest task. Default: leave services as reviewable "
+            "drafts to submit later."
+        ),
+    ),
 ) -> None:
     """Upload a seller catalog (services + promotions + service groups) to UnitySVC."""
     if not api_key:
@@ -123,6 +132,7 @@ def upload(
                 upload_groups=upload_groups,
                 on_progress=_on_progress,
                 name=name,
+                auto_submit=submit,
             )
     except APIError as exc:
         console.print(f"[red]✗[/red] API error: {exc}", style="bold red")

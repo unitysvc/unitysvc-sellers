@@ -4,6 +4,14 @@
 project_name_override: unitysvc-sellers-generated
 package_name_override: seller_api_client
 package_version_override: "0.0.0"
-use_path_prefixes_for_title_model_names: false
+# Path-prefix inline-object model names by their parent. Required: the spec has
+# two distinct inline objects both titled "Parameters" (TemplateInstanceCreate
+# and TemplateInstancePublic). Without prefixing they collide on the name
+# `Parameters`, and the generator silently drops the colliding models — leaving
+# template_instance_create.py with a dangling `from ..models.parameters import
+# Parameters` (no such file) and omitting TemplateInstancePublic entirely. That
+# broke instances.create/list/get at runtime. Prefixing yields unique names
+# (TemplateInstanceCreateParameters, TemplateInstancePublicParameters, …).
+use_path_prefixes_for_title_model_names: true
 docstrings_on_attributes: true
 literal_enums: true

@@ -530,12 +530,18 @@ class Services:
     def upload(
         self,
         body: BodyServicesUpload | dict[str, Any],
+        *,
+        auto_submit: bool = False,
     ) -> TaskQueuedResponse:
         """Submit a service for ingestion.
 
         ``body`` is ``{"data": {provider_data, offering_data, listing_data},
         "service_status": {...}}`` — the authored content and the status sidecar
         (service.json) travel as separate fields.
+
+        With ``auto_submit=True`` the freshly published draft is also submitted
+        for review (validate → pending → run tests) in the same ingest task;
+        otherwise (the default) it is left as a reviewable draft.
         """
         from ._generated.api.seller_services import services_upload
         from ._generated.models.body_services_upload import BodyServicesUpload
@@ -547,6 +553,7 @@ class Services:
             services_upload.sync_detailed(
                 client=self._client,
                 body=body,
+                auto_submit=auto_submit,
             )
         )
 

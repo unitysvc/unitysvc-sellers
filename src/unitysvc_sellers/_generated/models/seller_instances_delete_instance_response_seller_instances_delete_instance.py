@@ -8,11 +8,11 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="ServiceTemplateSummaryParameterSchema")
+T = TypeVar("T", bound="SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance")
 
 
 @_attrs_define
-class ServiceTemplateSummaryParameterSchema:
+class SellerInstancesDeleteInstanceResponseSellerInstancesDeleteInstance:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -24,10 +24,10 @@ class ServiceTemplateSummaryParameterSchema:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        service_template_summary_parameter_schema = cls()
+        seller_instances_delete_instance_response_seller_instances_delete_instance = cls()
 
-        service_template_summary_parameter_schema.additional_properties = d
-        return service_template_summary_parameter_schema
+        seller_instances_delete_instance_response_seller_instances_delete_instance.additional_properties = d
+        return seller_instances_delete_instance_response_seller_instances_delete_instance
 
     @property
     def additional_keys(self) -> list[str]:

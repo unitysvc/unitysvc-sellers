@@ -11,9 +11,11 @@ from ..models.service_type_enum import ServiceTypeEnum, check_service_type_enum
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.service_template_summary_parameter_schema import ServiceTemplateSummaryParameterSchema
     from ..models.service_template_summary_parameter_ui_schema_type_0 import (
         ServiceTemplateSummaryParameterUiSchemaType0,
+    )
+    from ..models.service_template_summary_service_template_summary_parameter_schema import (
+        ServiceTemplateSummaryServiceTemplateSummaryParameterSchema,
     )
 
 
@@ -38,16 +40,18 @@ class ServiceTemplateSummary:
 
     AI modalities (vision, tools, rerank, etc.) are tracked via the
     `capabilities` list on ServiceOffering, not service_type. """
-    parameter_schema: ServiceTemplateSummaryParameterSchema
+    parameter_schema: ServiceTemplateSummaryServiceTemplateSummaryParameterSchema
     description: None | str | Unset = UNSET
     pool_name: None | str | Unset = UNSET
     parameter_ui_schema: None | ServiceTemplateSummaryParameterUiSchemaType0 | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.service_template_summary_parameter_schema import ServiceTemplateSummaryParameterSchema
         from ..models.service_template_summary_parameter_ui_schema_type_0 import (
             ServiceTemplateSummaryParameterUiSchemaType0,
+        )
+        from ..models.service_template_summary_service_template_summary_parameter_schema import (
+            ServiceTemplateSummaryServiceTemplateSummaryParameterSchema,
         )
 
         id = str(self.id)
@@ -105,9 +109,11 @@ class ServiceTemplateSummary:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.service_template_summary_parameter_schema import ServiceTemplateSummaryParameterSchema
         from ..models.service_template_summary_parameter_ui_schema_type_0 import (
             ServiceTemplateSummaryParameterUiSchemaType0,
+        )
+        from ..models.service_template_summary_service_template_summary_parameter_schema import (
+            ServiceTemplateSummaryServiceTemplateSummaryParameterSchema,
         )
 
         d = dict(src_dict)
@@ -121,7 +127,9 @@ class ServiceTemplateSummary:
 
         service_type = check_service_type_enum(d.pop("service_type"))
 
-        parameter_schema = ServiceTemplateSummaryParameterSchema.from_dict(d.pop("parameter_schema"))
+        parameter_schema = ServiceTemplateSummaryServiceTemplateSummaryParameterSchema.from_dict(
+            d.pop("parameter_schema")
+        )
 
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:

@@ -245,13 +245,16 @@ class Client:
         upload_groups: bool = True,
         on_progress: Callable[[str, str, str, str], None] | None = None,
         name: str | None = None,
+        auto_submit: bool = False,
     ) -> UploadResult:
         """Upload an entire seller catalog directory.
 
         Thin wrapper around
         :func:`upload.upload_directory`. Pass ``name`` (an fnmatch pattern) to
         upload only the services whose ``service_name`` (= ``listing.name``)
-        match. See that function for argument and return-type docs.
+        match. With ``auto_submit=True`` each published draft is also submitted
+        for review in the same ingest task; otherwise (default) it's left a
+        reviewable draft. See that function for argument and return-type docs.
         """
         from pathlib import Path as _Path
 
@@ -265,6 +268,7 @@ class Client:
             upload_groups=upload_groups,
             on_progress=on_progress,
             name=name,
+            auto_submit=auto_submit,
         )
 
     # ------------------------------------------------------------------

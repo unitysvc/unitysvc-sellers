@@ -212,9 +212,12 @@ def show_param(
 def instantiate(
     name: str | None = typer.Argument(None, help="Param-file selector (fnmatch; omit = all under params/)."),
     submit: bool = typer.Option(
-        True,
-        "--submit/--no-submit",
-        help="Submit each rendered service for review (default), or leave a draft.",
+        False,
+        "--submit",
+        help=(
+            "Also submit each rendered service for review (validate → pending → run "
+            "tests) in the same call. Default: leave a reviewable draft to submit later."
+        ),
     ),
     data_dir: Path | None = typer.Option(
         None,
@@ -257,7 +260,7 @@ def instantiate(
                             stub["id"],
                             parameters=entry["parameters"],
                             name=label,
-                            submit=submit,
+                            auto_submit=submit,
                         )
                     )
                 except Exception as exc:  # noqa: BLE001 — report and continue

@@ -84,3 +84,16 @@ def test_show_missing_errors(params_repo: Path) -> None:
     result = runner.invoke(app, ["show", "acme/nope", "-d", str(params_repo)])
     assert result.exit_code == 1
     assert "No param file" in result.output
+
+
+def test_instantiate_has_single_submit_flag_default_off() -> None:
+    """``params instantiate`` uses a single ``--submit`` flag, default off
+    (draft), mirroring the backend's ``auto_submit=false`` — no ``--no-submit``."""
+    import inspect
+
+    from unitysvc_sellers.commands.params import instantiate
+
+    opt = inspect.signature(instantiate).parameters["submit"].default
+    assert opt.default is False
+    assert "--submit" in opt.param_decls
+    assert "--no-submit" not in " ".join(opt.param_decls)

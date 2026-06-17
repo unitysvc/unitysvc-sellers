@@ -4,7 +4,8 @@ The fastest way to publish a common service type is to **instantiate a system
 template** — a template the platform publishes (e.g. an OpenAI-compatible LLM
 endpoint). You author no spec files: you pick a template, supply a handful of
 parameters in a small **param file** under `params/`, and the platform renders
-the complete service, runs the template's bundled test, and submits it.
+the complete service as a reviewable draft (add `--submit` to also submit it for
+review, which runs the template's bundled test).
 
 This is the `params` route — the system-template mirror of `specs/`. Two
 commands work together:
@@ -71,19 +72,20 @@ usvc_seller params show acme/gpt        # one file's template, parameters, and r
 ## 4. Instantiate — `params instantiate`
 
 `params instantiate` is the params-kind analog of `specs upload`: it renders each
-param file's system template with its parameters into a backend service and (by
-default) submits it for review.
+param file's system template with its parameters into a backend service, left as
+a reviewable **draft** by default.
 
 ```bash
 usvc_seller params instantiate           # all param files under params/
 usvc_seller params instantiate acme/gpt  # just this one (NAME is an fnmatch selector)
 usvc_seller params instantiate 'acme/*'  # everything under acme/
+usvc_seller params instantiate --submit  # render and submit for review in one go
 ```
 
 | Option | Meaning |
 |---|---|
 | `[NAME]` | Param-file selector (fnmatch); omit = all under `params/` |
-| `--submit` / `--no-submit` | Submit each for review (default), or leave a draft |
+| `--submit` | Also submit each for review (validate → pending → tests); default leaves a draft |
 
 **Identity round-trips through the sidecar.** On a successful instantiate the
 backend-assigned `service_id` is written to `params/<name>.service.json` (commit
@@ -125,7 +127,7 @@ with Client() as client:
             "api_key_secret_name": "UPSTREAM_API_KEY",
             "input_price": 1.00,
         },
-        # submit=True by default; pass submit=False to leave a draft.
+        # Draft by default; pass auto_submit=True to also submit for review now.
     )
     # result carries the new instance_id and the ingest task_id
 ```

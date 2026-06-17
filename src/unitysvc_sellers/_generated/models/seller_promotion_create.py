@@ -13,7 +13,7 @@ from ..models.price_rule_status_enum import PriceRuleStatusEnum, check_price_rul
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.pricing import Pricing
+    from ..models.seller_promotion_create_pricing import SellerPromotionCreatePricing
     from ..models.seller_promotion_create_scope_type_0 import SellerPromotionCreateScopeType0
 
 
@@ -34,7 +34,7 @@ class SellerPromotionCreate:
 
     name: str
     """ Display name of the promotion (unique per seller) """
-    pricing: Pricing
+    pricing: SellerPromotionCreatePricing
     """ Pricing specification (e.g., multiply, constant, add) """
     description: None | str | Unset = UNSET
     """ Human-readable description """
@@ -57,7 +57,7 @@ class SellerPromotionCreate:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.pricing import Pricing
+        from ..models.seller_promotion_create_pricing import SellerPromotionCreatePricing
         from ..models.seller_promotion_create_scope_type_0 import SellerPromotionCreateScopeType0
 
         name = self.name
@@ -129,13 +129,13 @@ class SellerPromotionCreate:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.pricing import Pricing
+        from ..models.seller_promotion_create_pricing import SellerPromotionCreatePricing
         from ..models.seller_promotion_create_scope_type_0 import SellerPromotionCreateScopeType0
 
         d = dict(src_dict)
         name = d.pop("name")
 
-        pricing = Pricing.from_dict(d.pop("pricing"))
+        pricing = SellerPromotionCreatePricing.from_dict(d.pop("pricing"))
 
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
