@@ -611,6 +611,8 @@ The `AccessInterfaceData` object defines how to access a service (used in offeri
 
 String values in `user_access_interfaces` and `upstream_access_config` can use **Jinja2 template syntax** for dynamic rendering at enrollment time. Templates are rendered with an enrollment context that includes enrollment parameters, customer ID, and enrollment ID.
 
+> A `raw` block inside an `upstream_access_config` channel is **not** Jinja2-expanded — its contents are passed through verbatim and merged into the channel — for values carrying their own templates (e.g. request/response transformers). `${ … }` secrets inside `raw` are still resolved. See [Deferring expansion: the `raw` block](tech-notes/user-access-interface-template.md#deferring-expansion-the-raw-block).
+
 **Template context variables:**
 
 | Variable                 | Type   | Description                                          |
