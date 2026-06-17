@@ -132,10 +132,10 @@ class TestInstancesCreateAutoSubmit:
         assert sent["auto_submit"] is False
 
     @respx.mock
-    def test_create_submit_sets_auto_submit(self, client: Client) -> None:
+    def test_create_auto_submit_sets_field(self, client: Client) -> None:
         route = respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(202, json=self._resp()))
 
-        client.instances.create(uuid.uuid4(), parameters={"k": "v"}, submit=True)
+        client.instances.create(uuid.uuid4(), parameters={"k": "v"}, auto_submit=True)
 
         sent = json.loads(route.calls.last.request.content.decode())
         assert sent["auto_submit"] is True

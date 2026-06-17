@@ -260,7 +260,7 @@ def instantiate(
                             stub["id"],
                             parameters=entry["parameters"],
                             name=label,
-                            submit=submit,
+                            auto_submit=submit,
                         )
                     )
                 except Exception as exc:  # noqa: BLE001 — report and continue

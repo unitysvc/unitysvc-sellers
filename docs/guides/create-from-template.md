@@ -127,7 +127,7 @@ with Client() as client:
             "api_key_secret_name": "UPSTREAM_API_KEY",
             "input_price": 1.00,
         },
-        # Draft by default; pass submit=True to also submit for review now.
+        # Draft by default; pass auto_submit=True to also submit for review now.
     )
     # result carries the new instance_id and the ingest task_id
 ```

@@ -26,14 +26,14 @@ class AsyncInstances:
         *,
         parameters: dict[str, Any] | None = None,
         name: str | None = None,
-        submit: bool = False,
+        auto_submit: bool = False,
     ) -> Any:
         """Create a service from ``template_id`` + ``parameters``.
 
-        Renders the template into a **draft** service (the default, mirroring the
-        backend's ``auto_submit=false``). Pass ``submit=True`` to also submit that
-        draft for review in the same call. Returns a record with ``instance_id``
-        and the ingest ``task_id``.
+        Renders the template into a **draft** service (the default, matching the
+        backend's ``auto_submit=false``). Pass ``auto_submit=True`` to also submit
+        that draft for review in the same call. Returns a record with
+        ``instance_id`` and the ingest ``task_id``.
         """
         from ._generated.api.seller_instances import (
             seller_instances_create_instance as op,
@@ -48,7 +48,7 @@ class AsyncInstances:
             template_id=UUID(str(template_id)),
             name=name if name is not None else UNSET,
             parameters=TemplateInstanceCreateParameters.from_dict(parameters or {}),
-            auto_submit=submit,
+            auto_submit=auto_submit,
         )
         return unwrap(await op.asyncio_detailed(client=self._client, body=body))
 

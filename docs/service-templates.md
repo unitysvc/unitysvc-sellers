@@ -73,15 +73,15 @@ with Client() as client:
             "api_key_secret_name": "UPSTREAM_API_KEY",
             "input_price": 1.00,
         },
-        # Leaves a reviewable draft by default; pass submit=True to also submit.
+        # Leaves a reviewable draft by default; pass auto_submit=True to also submit.
     )
 ```
 
 `create` renders the template into a **draft** service — returning the new
 `instance_id` and the ingest `task_id` — and leaves it a reviewable draft by
-default (mirroring the backend's `auto_submit=false`). Pass `--submit` /
-`submit=True` to also submit it for review in the same call (otherwise submit
-later with `usvc_seller services submit`). Secret-typed parameters take the **secret name**
+default (mirroring the backend's `auto_submit=false`). Pass `--submit` (CLI) /
+`auto_submit=True` (SDK) to also submit it for review in the same call (otherwise
+submit later with `usvc_seller services submit`). Secret-typed parameters take the **secret name**
 (create it first with `usvc_seller secrets`), never the key value. See the
 [SDK Guide → `client.instances`](sdk-guide.md#clientinstances) for the full API.
 

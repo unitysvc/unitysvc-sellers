@@ -247,14 +247,14 @@ Manager methods on `client.templates`:
 
 **Template instances** — the SDK counterpart of the dashboard's *Create from
 template* flow. `create` renders a template into a **draft** service (and, with
-`submit=True`, also submits it for review); `list` / `get` / `delete` manage your
-instances.
+`auto_submit=True`, also submits it for review); `list` / `get` / `delete` manage
+your instances.
 
 Manager methods on `client.instances`:
 
-| Method                                                  | Description                                                                                  |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `create(template_id, parameters=, name=, submit=False)` | Render a template into a draft service; `submit=True` also submits it for review. Returns `instance_id` + ingest `task_id`. |
+| Method                                                       | Description                                                                                  |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `create(template_id, parameters=, name=, auto_submit=False)` | Render a template into a draft service; `auto_submit=True` also submits it for review. Returns `instance_id` + ingest `task_id`. |
 | `list(skip=, limit=)`                                   | Your instances, with derived service status.                                                 |
 | `get(instance_id)`                                      | One instance: parameters, template metadata, linked service.                                 |
 | `delete(instance_id)`                                   | Delete the instance record (the linked service is **not** unpublished).                      |
@@ -274,7 +274,7 @@ with Client() as client:
             "input_price": 1.00,
         },
         name="my-llm",
-        # Draft by default; pass submit=True to also submit for review now.
+        # Draft by default; pass auto_submit=True to also submit for review now.
     )
     # Poll the ingest task to a verdict with client.tasks if you need to block.
     print(result["instance_id"], result["task_id"])
