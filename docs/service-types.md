@@ -149,6 +149,58 @@ Two-phase resolution:
 
 A single offering isn't limited to one channel. `upstream_access_config` can hold several **upstream access channels** at once — for example a `managed` channel and a `byok` channel reaching the same upstream — and the gateway picks one per request (by `routing_key` match, or forced with `_channel=<name>`). Each channel can carry its own price via a channel-keyed `list_price`, so the same model can be billed per-token on the seller's key and free on the customer's. See [Channel-based Pricing](pricing.md#channel-based-pricing-channel) for the `upstream_access_config` + `list_price` shape.
 
+### Multi-server channels (capacity & failover)
+
+!!! note "Planned — schema reserved, not yet served"
+    The `servers` shape below is reserved and may be authored now, but the gateway does not yet
+    distribute or fail over across servers — today a channel uses its own top-level fields.
+    Tracked in [unitysvc/unitysvc#1299](https://github.com/unitysvc/unitysvc/issues/1299).
+
+Use multiple **channels** (above) when customers should *choose* between options (managed vs. BYOK).
+Use multiple **servers** when *you* are scaling or hardening **one** option. A single channel can be
+backed by several interchangeable **servers** — extra endpoints and/or keys for the *same*
+`channel_type` — to spread load, survive an upstream outage or rate limit, and migrate endpoints
+without downtime. Replace the channel's flat `base_url` / `api_key` with a `servers` list:
+
+```json
+{
+    "upstream_access_config": {
+        "managed": {
+            "access_method": "http",
+            "routing_key": { "model": "deepseek-v4-pro" },
+            "servers": [
+                { "base_url": "https://api.deepseek.com",       "api_key": "${ secrets.KEY_A }", "weight": 3 },
+                { "base_url": "https://api-backup.deepseek.com", "api_key": "${ secrets.KEY_B }", "weight": 1 }
+            ]
+        }
+    }
+}
+```
+
+How the gateway resolves a channel:
+
+1. **`servers` present** — pick one server by `weight`, lift its fields onto the channel, then route as usual.
+2. **No `servers`** — use the channel's own top-level fields (the single-server case is unchanged).
+
+Server entries are **free-form** — their fields are whatever that `access_method` needs (an `http`
+server has `base_url` / `api_key`; an `smtp` server carries different keys), exactly the fields you'd
+otherwise place at the channel level, plus an optional `weight`.
+
+- **Capacity** — `weight` spreads steady-state load proportionally (`weight: 3` takes ~3× the traffic
+  of `weight: 1`; omitted weights are equal).
+- **Failover** — if the chosen server returns a retriable upstream failure (`429`, `502/503/504`,
+  connection/timeout) *before any response is sent*, the gateway spills to another server in the same
+  channel and retries, up to a bounded number of attempts. A client error (`4xx`) is never retried,
+  and once a response has started streaming it cannot fail over.
+- **Zero-downtime transition** — add the new server, set the old one's `weight: 0` to drain it (it
+  stays a failover target but takes no new traffic), then remove it once traffic has moved.
+
+All servers in a channel must be the **same `channel_type`** — failover never crosses provenance, so a
+`byok` server is never swapped for a `managed` one (which would change whose key and bill applies).
+Because the servers are interchangeable, the channel keeps **one** name, **one** `channel_type`, and
+**one** price: multi-server is invisible to the customer and to
+[channel pricing](pricing.md#channel-based-pricing-channel).
+
 ### Recurrent services
 
 The platform triggers requests on a schedule. Recurrence is orthogonal to delivery pattern — any service type can be recurrent.
