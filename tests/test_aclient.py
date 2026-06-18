@@ -237,7 +237,7 @@ class TestServicesCommands:
         # ``--id`` resolution falls back to listing on a 404; mock an
         # empty list so the helper reports "not found" rather than
         # "ambiguous".
-        respx.get(f"{BASE_URL}/services").mock(
+        list_route = respx.get(f"{BASE_URL}/services").mock(
             return_value=httpx.Response(
                 200, json={"data": [], "has_more": False, "count": 0}
             )
@@ -247,6 +247,11 @@ class TestServicesCommands:
         assert result.exit_code == 1
         # ``resolve_service_id`` reports a not-found via the list fallback.
         assert "not found" in result.stdout.lower() or "Failed to resolve" in result.stdout
+        # Regression: the fallback must page within the backend's limit cap
+        # (<= 200), not request limit=1000 (which raised a confusing 422).
+        assert list_route.called
+        limit = int(list_route.calls.last.request.url.params["limit"])
+        assert limit <= 200, f"resolve fallback requested limit={limit} (> 200 cap)"
 
     @respx.mock
     def test_deprecate_calls_set_status(self, runner: CliRunner, env: None) -> None:
