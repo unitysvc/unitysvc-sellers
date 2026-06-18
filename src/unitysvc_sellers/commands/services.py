@@ -383,6 +383,36 @@ def show_service(
             )
         console.print(doc_table)
 
+    # Upstream channels (#1281/#1297): the offering's upstream_access_config,
+    # one entry per channel, with the per-channel type + customer secrets the
+    # backend stamps at ingest (#1305). Orthogonal to the user-facing access
+    # interfaces below: a channel is *how the service reaches upstream*, an
+    # interface is *how a customer reaches the service*.
+    offering = service.get("offering")
+    offering_dict = model_to_dict(offering) if offering and not isinstance(offering, dict) else (offering or {})
+    channels = offering_dict.get("upstream_access_config") if isinstance(offering_dict, dict) else None
+    if isinstance(channels, dict) and channels:
+        console.print(f"\n[bold]Upstream Channels[/bold] ({len(channels)})")
+        for ch_name, cfg in channels.items():
+            if not isinstance(cfg, dict):
+                continue
+            ch_type = cfg.get("type")
+            # The enrollable channel is the one that hosts enrollment.
+            marker = "  [yellow](enrollment channel)[/yellow]" if ch_type == "enrollable" else ""
+            type_label = f" [dim]({ch_type})[/dim]" if ch_type else ""
+            console.print(f"  • [cyan]{ch_name}[/cyan]{type_label}{marker}")
+            if cfg.get("access_method"):
+                console.print(f"      access_method: {cfg['access_method']}")
+            required = cfg.get("customer_secrets_required")
+            if required:
+                console.print(f"      customer_secrets_required: {', '.join(required)}")
+            optional = cfg.get("customer_secrets_optional")
+            if optional:
+                names = ", ".join(
+                    str(o.get("name")) if isinstance(o, dict) else str(o) for o in optional
+                )
+                console.print(f"      customer_secrets_optional: {names}")
+
     # Interfaces
     interfaces = service.get("interfaces") or []
     if interfaces:
