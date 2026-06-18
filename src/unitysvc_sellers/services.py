@@ -66,8 +66,14 @@ class RunTestsIfaceResult:
     outcome: str | None = None
     # ``"success"`` | ``"script_failed"`` | … — the gateway-mode result string.
     gateway: str | None = None
-    # When upstream fallback ran, this carries the upstream-mode probe summary.
+    # When upstream fallback ran, this carries the upstream-mode probe summary
+    # (the representative channel — a passing one if any).
     upstream: dict[str, Any] | None = None
+    # Per upstream-access-channel probe summaries, keyed by channel name
+    # (#1281/#1297).  A multi-channel service is probed once per channel; the
+    # enrollment channel is probed via its ops enrollment.  ``upstream`` above
+    # stays for back-compat; this carries the full per-channel breakdown.
+    upstream_channels: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -139,6 +145,7 @@ def _parse_run_tests_payload(task_id: str, payload: dict[str, Any]) -> RunTestsR
             outcome=row.get("outcome"),
             gateway=row.get("gateway"),
             upstream=row.get("upstream"),
+            upstream_channels=row.get("upstream_channels"),
         )
         for row in (body.get("results") or [])
     ]

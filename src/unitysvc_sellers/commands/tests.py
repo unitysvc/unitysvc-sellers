@@ -318,6 +318,28 @@ def show_test(
             console.print("\n[bold]rendered script (executed):[/bold]")
             console.print(_truncate_for_display(str(test["rendered_script"])))
 
+        # Per-channel upstream probe results (#1281/#1297). A multi-channel
+        # service is probed once per upstream access channel; the enrollment
+        # channel is probed via its ops enrollment. ``upstream`` (singleton,
+        # representative) is shown only when the per-channel map is absent.
+        upstream_channels = test.get("upstream_channels")
+        if isinstance(upstream_channels, dict) and upstream_channels:
+            console.print("\n[bold]Per-channel upstream results[/bold]")
+            for ch_name, rec in upstream_channels.items():
+                if not isinstance(rec, dict):
+                    continue
+                console.print(f"  • [cyan]{ch_name}[/cyan]")
+                for k in ("status", "exit_code", "stdout", "stderr", "error"):
+                    v = rec.get(k)
+                    if v not in (None, ""):
+                        console.print(f"      {k}: {v}")
+        elif isinstance(test.get("upstream"), dict) and test["upstream"]:
+            console.print("\n[bold]Upstream result[/bold]")
+            for k in ("status", "exit_code", "stdout", "stderr", "error"):
+                v = test["upstream"].get(k)
+                if v not in (None, ""):
+                    console.print(f"      {k}: {v}")
+
     console.print()
 
 
@@ -585,7 +607,22 @@ def _render_iface_row(row: Any, *, prefix: str) -> None:
     console.print(f"  [red]✗[/red] {prefix}: {detail}")
     # When upstream fallback ran, show how it landed too — that's the
     # signal that distinguishes "platform broke" from "upstream broke".
-    if row.upstream:
+    # Multi-channel services (#1281/#1297) probe each upstream channel; show
+    # one line per channel when the per-channel breakdown is present, else
+    # fall back to the singleton representative probe.
+    channels = getattr(row, "upstream_channels", None)
+    if channels:
+        for ch_name, rec in channels.items():
+            ustatus = (rec or {}).get("status")
+            if ustatus == "success":
+                console.print(
+                    f"      [dim]↳ upstream[{ch_name}]: success (platform fault)[/dim]"
+                )
+            elif ustatus:
+                console.print(
+                    f"      [dim]↳ upstream[{ch_name}]: {ustatus} (upstream fault)[/dim]"
+                )
+    elif row.upstream:
         ustatus = row.upstream.get("status")
         if ustatus == "success":
             console.print("      [dim]↳ upstream: success (platform fault)[/dim]")
