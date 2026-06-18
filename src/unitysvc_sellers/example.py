@@ -174,7 +174,7 @@ def build_upstream_template_context(interface: dict[str, Any]) -> dict[str, Any]
     return context
 
 
-def extract_upstream_interfaces_from_offering(
+def extract_upstream_channels_from_offering(
     listing_file: Path,
 ) -> dict[str, dict[str, Any]]:
     """Load upstream_access_config from the offering file for a listing.
@@ -206,9 +206,9 @@ def discover_code_examples(
     """Discover code examples by scanning listing files.
 
     Shared discovery logic used by list, show, and run commands.
-    Returns one entry per (document × upstream_interface) pair.
-    Each example dict includes ``upstream_interface_name`` and
-    ``upstream_interface`` (raw data, secrets not resolved).
+    Returns one entry per (document × upstream_channel) pair.
+    Each example dict includes ``upstream_channel_name`` and
+    ``upstream_channel`` (raw data, secrets not resolved).
 
     Args:
         data_dir: Root directory to scan for listing files.
@@ -245,18 +245,18 @@ def discover_code_examples(
             continue
 
         # Load upstream interfaces from offering (cross-product with documents)
-        upstream_interfaces = extract_upstream_interfaces_from_offering(listing_file)
+        upstream_channels = extract_upstream_channels_from_offering(listing_file)
 
         # For byok services, ops_testing_parameters provides upstream credentials
         service_options = listing_data.get("service_options", {}) or {}
         default_params = service_options.get("ops_testing_parameters", {}) or {}
 
-        if not upstream_interfaces and default_params:
+        if not upstream_channels and default_params:
             # No upstream interfaces defined — create one from ops_testing_parameters
-            upstream_interfaces = {"default": dict(default_params)}
-        elif upstream_interfaces and default_params:
+            upstream_channels = {"default": dict(default_params)}
+        elif upstream_channels and default_params:
             # Override api_key/base_url with ops_testing_parameters
-            for _name, iface_data in upstream_interfaces.items():
+            for _name, iface_data in upstream_channels.items():
                 for field in ("api_key", "base_url"):
                     if field in default_params:
                         iface_data[field] = default_params[field]
@@ -266,17 +266,17 @@ def discover_code_examples(
 
         # Extract code examples × upstream interfaces
         for example in extract_code_examples_from_listing(listing_data, listing_file):
-            if upstream_interfaces:
-                for iface_name, iface_data in upstream_interfaces.items():
+            if upstream_channels:
+                for iface_name, iface_data in upstream_channels.items():
                     ex = {
                         **example,
-                        "upstream_interface_name": iface_name,
-                        "upstream_interface": iface_data,
+                        "upstream_channel_name": iface_name,
+                        "upstream_channel": iface_data,
                     }
                     results.append((ex, prov_name))
             else:
-                example["upstream_interface_name"] = "default"
-                example["upstream_interface"] = {}
+                example["upstream_channel_name"] = "default"
+                example["upstream_channel"] = {}
                 results.append((example, prov_name))
 
     return results
@@ -434,8 +434,8 @@ def load_upstream_access_interface(listing_file: Path) -> dict[str, str] | None:
 
         # Extract credentials from upstream_access_config (dict keyed by name)
         # Use first interface for credentials
-        upstream_interfaces = offering.get("upstream_access_config", {})
-        first_interface: dict[str, Any] = next(iter(upstream_interfaces.values()), {}) if upstream_interfaces else {}
+        upstream_channels = offering.get("upstream_access_config", {})
+        first_interface: dict[str, Any] = next(iter(upstream_channels.values()), {}) if upstream_channels else {}
         first_interface = expand_template_strings(
             first_interface,
             extra_context={
@@ -763,7 +763,7 @@ def list_code_examples(
                 "service": example["service_name"],
                 "title": example["title"],
                 "category": category,
-                "interface": example.get("upstream_interface_name", "default"),
+                "channel": example.get("upstream_channel_name", "default"),
                 "type": file_ext,
                 "file_path": file_path,
             }
@@ -772,12 +772,12 @@ def list_code_examples(
     format_output(
         rows,
         output_format=output_format,
-        columns=["service", "title", "category", "interface", "type", "file_path"],
+        columns=["service", "title", "category", "channel", "type", "file_path"],
         column_styles={
             "service": "cyan",
             "title": "white",
             "category": "green",
-            "interface": "magenta",
+            "channel": "magenta",
             "type": "magenta",
             "file_path": "dim",
         },
@@ -962,7 +962,7 @@ def run_local(
     # credential-resolution pass append skipped entries directly.
     results: list[dict[str, Any]] = []
 
-    # Resolve credentials from upstream_interface in each discovered example
+    # Resolve credentials from upstream_channel in each discovered example
     all_code_examples: list[tuple[dict[str, Any], str, dict[str, str]]] = []
     warned_listings: set[str] = set()
 
@@ -974,7 +974,7 @@ def run_local(
         ops_params = listing_so.get("ops_testing_parameters", {}) or {}
         routing_vars = listing_so.get("routing_vars", {}) or {}
         iface = expand_template_strings(
-            example.get("upstream_interface", {}),
+            example.get("upstream_channel", {}),
             extra_context={
                 "enrollment_vars": rendered_vars,
                 "params": ops_params,
@@ -983,7 +983,7 @@ def run_local(
                 **ops_params,
             },
         )
-        iface_name = example.get("upstream_interface_name", "default")
+        iface_name = example.get("upstream_channel_name", "default")
         # Build credentials from all fields, resolving secrets and
         # collecting the names of any secrets whose env vars aren't set.
         credentials: dict[str, Any] = {}
@@ -1038,7 +1038,7 @@ def run_local(
                     "service_name": example["service_name"],
                     "provider": prov_name,
                     "title": example["title"],
-                    "interface": iface_name,
+                    "channel": iface_name,
                     "result": {
                         "success": True,
                         "exit_code": None,
@@ -1062,7 +1062,7 @@ def run_local(
     for example, prov_name, credentials in all_code_examples:
         service_name = example["service_name"]
         example_title = example["title"]
-        iface_name = example.get("upstream_interface_name", "default")
+        iface_name = example.get("upstream_channel_name", "default")
         example_listing_file = example.get("listing_file")
         code_example_path = Path(example.get("file_path", ""))
 
@@ -1082,7 +1082,7 @@ def run_local(
                     "service_name": service_name,
                     "provider": prov_name,
                     "title": example_title,
-                    "interface": iface_name,
+                    "channel": iface_name,
                     "result": {
                         "success": True,
                         "exit_code": None,
@@ -1102,7 +1102,7 @@ def run_local(
                 "service_name": service_name,
                 "provider": prov_name,
                 "title": example_title,
-                "interface": iface_name,
+                "channel": iface_name,
                 "result": result,
             }
         )
@@ -1226,7 +1226,7 @@ def run_local(
     table.add_column("Service", style="cyan")
     table.add_column("Provider", style="blue")
     table.add_column("Example", style="white")
-    table.add_column("Interface", style="magenta")
+    table.add_column("Channel", style="magenta")
     table.add_column("Status", style="green")
     table.add_column("Exit Code", style="white")
 
@@ -1252,7 +1252,7 @@ def run_local(
             test["service_name"],
             test["provider"],
             test["title"],
-            test.get("interface", ""),
+            test.get("channel", ""),
             status,
             exit_code,
         )
