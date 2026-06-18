@@ -151,12 +151,18 @@ async def resolve_promotion(client: AsyncClient, name_or_id: str) -> dict[str, A
 # Service id resolution
 # ---------------------------------------------------------------------------
 async def resolve_service_id(client: AsyncClient, partial_id: str) -> str:
-    """Resolve a partial service id (≥8 chars) to a full UUID.
+    """Resolve a partial service id to a full UUID.
 
-    The new ``services_get`` endpoint accepts the raw path segment and
-    leaves resolution to the backend, but for bulk operations we still
-    need a list-and-prefix-match step. Returns the full id as a string,
-    or raises ``typer.Exit(1)`` on miss / ambiguous.
+    For an id of at least 8 chars the ``services_get`` endpoint resolves the
+    partial id **server-side**, so the happy path never lists — ``get`` returns
+    the service directly. Only when ``get`` *fails* (or for a short prefix it
+    won't accept) do we fall back to a list-and-prefix-match.
+
+    That fallback is cursor-paginated: the backend caps page size at 200
+    (``seller/_pagination.LimitParam``), so the previous single ``limit=1000``
+    request raised a 422 — which, on a plain not-found, surfaced as a confusing
+    "limit must be <= 200" instead of "service not found". Returns the full id
+    as a string, or raises ``typer.Exit(1)`` on miss / ambiguous.
     """
     if len(partial_id) >= 8:
         # Try to fetch directly first — backend handles partial ids.
@@ -168,9 +174,12 @@ async def resolve_service_id(client: AsyncClient, partial_id: str) -> str:
         except SellerSDKError:
             pass
 
-    # Fall back to listing and prefix match.
-    services = model_list(await client.services.list(limit=1000))
-    matches = [s for s in services if str(s.get("id", "")).startswith(partial_id)]
+    # Fall back to a cursor-paginated list-and-prefix-match.
+    matches: list[dict[str, Any]] = []
+    async for svc in client.services.iter_all(limit=200):
+        detail = model_to_dict(svc)
+        if str(detail.get("id", "")).startswith(partial_id):
+            matches.append(detail)
     if len(matches) == 1:
         return str(matches[0]["id"])
     if len(matches) > 1:
