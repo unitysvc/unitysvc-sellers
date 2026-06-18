@@ -190,3 +190,15 @@ def test_discover_code_examples_resolves_provider_from_sibling_file() -> None:
     providers = {prov_name for _example, prov_name in results}
     assert providers == {"provider1", "provider2"}
     assert "unknown" not in providers
+
+
+def test_discover_code_examples_exposes_channel_name() -> None:
+    """Each discovered entry carries the upstream-*channel* name/data (#1297
+    terminology) — guards against regressing to the old ``upstream_interface_*``
+    keys that mislabelled the run-tests / list-tests output."""
+    results = discover_code_examples(EXAMPLE_DATA)
+    assert results, "expected at least one discovered example"
+    for example, _prov in results:
+        assert "upstream_channel_name" in example
+        assert "upstream_channel" in example
+        assert "upstream_interface_name" not in example
