@@ -1048,7 +1048,7 @@ $ usvc_seller groups delete [OPTIONS] NAME_OR_ID
 
 ## `usvc_seller secrets`
 
-Remote secret operations (list, show, set, delete).
+Remote secret operations (list, show, set, upload, delete).
 
 **Usage**:
 
@@ -1065,6 +1065,7 @@ $ usvc_seller secrets [OPTIONS] COMMAND [ARGS]...
 * `list`: List the seller&#x27;s secrets (metadata only —...
 * `show`: Show metadata for a single secret by name.
 * `set`: Set a secret to ``value`` (idempotent —...
+* `upload`: Bulk-set secrets from a sourceable file or...
 * `delete`: Permanently delete a secret.
 
 ### `usvc_seller secrets list`
@@ -1132,6 +1133,42 @@ $ usvc_seller secrets set [OPTIONS] NAME
 **Options**:
 
 * `-v, --value TEXT`: Secret value. If omitted: reads from stdin when piped, prompts with hidden input when run interactively.
+* `-f, --format TEXT`: Output format: table | json.  [default: table]
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller secrets upload`
+
+Bulk-set secrets from a sourceable file or stdin (idempotent).
+
+Reads the same shell-sourceable file you keep for local testing — ``export
+NAME=&quot;value&quot;`` / ``NAME=value`` lines, surrounding quotes stripped, ``#``
+comments and blank lines ignored — and sets each via
+``PUT /v1/seller/secrets/{name}``. Entries with an empty value are skipped
+(fine for OPTIONAL secrets); when a name repeats, the last assignment wins.
+
+Input is a file or a pipe — no implicit default:
+
+  - ``FILE`` argument — a path to a sourceable secrets file
+  - ``-`` or piped stdin — decrypt on the fly, e.g.::
+
+         sops -d .secrets | usvc_seller secrets upload
+         gpg -d .secrets.gpg | usvc_seller secrets upload -
+
+**Usage**:
+
+```console
+$ usvc_seller secrets upload [OPTIONS] [FILE]
+```
+
+**Arguments**:
+
+* `[FILE]`: Secrets file to read (&#x27;export NAME=value&#x27; lines), or &#x27;-&#x27; for stdin. Omit when piping input in.
+
+**Options**:
+
+* `--dry-run`: Parse and list names; upload nothing.
 * `-f, --format TEXT`: Output format: table | json.  [default: table]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
