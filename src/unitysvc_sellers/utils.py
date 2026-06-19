@@ -189,32 +189,76 @@ def write_service_id(service_dir: Path, service_id: str) -> None:
     write_service_data(service_dir, {"service_id": str(service_id)})
 
 
+def _provider_from_specs_path(path: Path) -> str | None:
+    """Provider slug for a flat ``specs/<provider>/…`` path — the directory
+    segment right after ``specs/``.
+
+    Fallback for the file-based param layout, where a ``<name>.service.json``
+    sidecar has no sibling ``provider.{json,toml}``. By convention the provider
+    directory name equals ``provider.name``.
+    """
+    parts = path.parts
+    if "specs" in parts:
+        i = parts.index("specs")
+        if i + 2 < len(parts):  # specs / <provider> / … / <file>
+            return parts[i + 1]
+    return None
+
+
+def _find_service_sidecars(data_dir: Path) -> list[Path]:
+    """Every service-id sidecar under ``data_dir`` — a recursive walk matching
+    both on-disk shapes at any depth (service names can be hierarchical, e.g.
+    ``parasail/Qwen/Qwen2.5-…`` → a deeply-nested sidecar):
+
+    - the folder layout's bare ``service.json``, and
+    - the flat param layout's ``<name>.service.json`` (beside ``<name>.json``).
+
+    Sorted for deterministic output.
+    """
+    found: list[Path] = []
+    for root, _dirs, files in os.walk(data_dir):
+        for fname in files:
+            if fname == "service.json" or fname.endswith(".service.json"):
+                found.append(Path(root) / fname)
+    return sorted(found)
+
+
 def read_local_service_ids(data_dir: Path, provider: str | None = None) -> list[str]:
     """Collect backend ``service_id``s for the local services under ``data_dir``.
 
     The shared ``-l`` / ``--local-ids`` resolution used across the ``services``
-    command family: walk every ``listing_v1`` file beneath ``data_dir`` and read
-    the backend-assigned id from the sibling ``service.json`` (the flat
-    ``specs/`` layout keeps the id as provenance beside the spec files). Folders
-    without a recorded id are skipped.
+    command family. ``specs``/``data upload`` records the backend id in a sidecar
+    beside the spec files; this reads it from every sidecar :func:`found
+    <_find_service_sidecars>` under ``data_dir`` — both the folder layout's
+    ``service.json`` and the flat param layout's ``<name>.service.json``, at any
+    depth. (The earlier ``listing_v1``-anchored walk missed flat repos: their
+    param files have stem ``<name>``, not ``listing``, and aren't ``listing_v1``
+    until materialised.)
 
-    With ``provider`` set, keep only services whose sibling ``provider_v1``
-    ``name`` contains the given substring (case-insensitive) — matching the
-    filter the bulk ``services`` commands apply in ``--local-ids`` mode.
+    Sidecars without a ``service_id`` are skipped; ids are de-duplicated. With
+    ``provider`` set, keep only services whose provider ``name`` contains the
+    substring (case-insensitive) — resolved from a sibling ``provider_v1`` or,
+    failing that, the ``specs/<provider>/`` path segment.
     """
     provider_lower = provider.lower() if provider else None
     ids: list[str] = []
-    for listing_path, _fmt, _data in find_files_by_schema(data_dir, "listing_v1"):
-        sid = read_service_id(listing_path.parent)
-        if not sid:
+    seen: set[str] = set()
+
+    for sidecar in _find_service_sidecars(data_dir):
+        try:
+            data = json.loads(sidecar.read_text())
+        except Exception:
+            continue
+        sid = str(data["service_id"]) if isinstance(data, dict) and data.get("service_id") else None
+        if not sid or sid in seen:
             continue
         if provider_lower is not None:
-            # The provider lives beside the listing in the flat layout.
-            prov = find_files_by_schema(listing_path.parent, "provider_v1")
-            prov_name = (prov[0][2].get("name") or "") if prov else ""
+            prov_name = resolve_provider_name(sidecar) or _provider_from_specs_path(sidecar) or ""
             if provider_lower not in prov_name.lower():
                 continue
+        seen.add(sid)
         ids.append(sid)
+
     return ids
 
 
