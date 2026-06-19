@@ -440,6 +440,22 @@ The upload validator rejects a listing whose `${ customer_secrets.X }` reference
 
 Optional references with `?? ` fallback (e.g. `${ customer_secrets.HTTP_RELAY_API_KEY ?? }`) don't strictly require the seller-secret to exist, but the seed step will `::warning::` + skip them if unset, which is fine.
 
+### Point the upstream host at the mock for testing — the ops-customer → seller-secret fallback
+
+To make a service reach the **mock** (`mock.unitysvc.dev`) during testing but the **real provider** in production — on one platform, no staging/production split — route the upstream host (or base URL) through a `customer_secrets` reference whose `??` default is the real provider, then seed a same-named **seller** secret pointing at the mock:
+
+```text
+base_url = ${ customer_secrets.<SVC>_BASE_URL ?? https://api.realprovider.com }/...
+```
+
+It resolves to the right host in each context because, for the synthetic **ops_customer** the gateway uses in its tests, a missing `${ customer_secrets.X }` **falls back to your seller-secrets store** (`backend/app/core/route_mapping.py` — "customer_secrets … not found for ops_customer, falling back to seller secrets"):
+
+- **Production** — a normal customer hasn't set `<SVC>_BASE_URL`, so the `??` default (the real provider) is used. A customer running their own provider-compatible proxy may set it to point there.
+- **Gateway-side tests** — the ops_customer hasn't set it either, so the gateway falls back to **your** seller secret. Seed it to the mock: `usvc_seller secrets set <SVC>_BASE_URL --value https://mock.unitysvc.dev/<svc>/...`. Only ops-customer (test) traffic resolves to the mock; production customers are untouched.
+- **Local upstream tests** — the runner reads `<SVC>_BASE_URL` from the environment; export it to the mock host.
+
+This is the **one** justified exception to the "operational URLs are direct params, not `customer_secrets`" rule above (§ *Three shapes a reference can take*): the indirection is precisely what buys the ops-customer→seller-secret fallback, so *you* own the mock/real switch from your seller-secrets store and never touch the service definition to test it. Do **not** use a seller-scope `${ secrets.X }` reference for the host — a seller secret is global, so a mock value would route *production* traffic to the mock too.
+
 ### Namespace your customer-secret names
 
 `SMTP_HOST` and `SMTP_PASSWORD` are too generic — they'll collide the moment a second SMTP-flavored service appears under the same customer. Use a service-specific prefix:
