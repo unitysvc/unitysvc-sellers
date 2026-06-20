@@ -5,11 +5,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from unitysvc_core.models.base import DocumentCategoryEnum
+
 from unitysvc_sellers.example import (
     build_upstream_template_context,
     discover_code_examples,
+    document_applies_to_channel,
     execute_code_example,
     expand_template_strings,
+    extract_code_examples_from_listing,
 )
 
 EXAMPLE_DATA = Path(__file__).parent / "example_data"
@@ -202,3 +206,38 @@ def test_discover_code_examples_exposes_channel_name() -> None:
         assert "upstream_channel_name" in example
         assert "upstream_channel" in example
         assert "upstream_interface_name" not in example
+
+
+def test_document_applies_to_channel() -> None:
+    """Absent/empty ``meta.channels`` applies to every channel; a non-empty
+    list restricts the document to exactly those channels (unitysvc#1321)."""
+    assert document_applies_to_channel(None, "apprise") is True
+    assert document_applies_to_channel([], "apprise") is True
+    assert document_applies_to_channel(["apprise"], "apprise") is True
+    assert document_applies_to_channel(["apprise", "native"], "native") is True
+    assert document_applies_to_channel(["apprise"], "native") is False
+
+
+def test_extract_code_examples_captures_meta_channels() -> None:
+    """``meta.channels`` is carried onto the discovered example so the
+    document × channel cross-product can filter per channel (unitysvc#1321)."""
+    listing_data = {
+        "name": "demo/svc",
+        "documents": {
+            "Scoped": {
+                "category": DocumentCategoryEnum.connectivity_test,
+                "file_path": "scoped.sh.j2",
+                "mime_type": "shell",
+                "meta": {"channels": ["apprise"]},
+            },
+            "Shared": {
+                "category": DocumentCategoryEnum.connectivity_test,
+                "file_path": "shared.sh.j2",
+                "mime_type": "shell",
+                "meta": {},
+            },
+        },
+    }
+    by_title = {e["title"]: e for e in extract_code_examples_from_listing(listing_data, Path("/tmp/listing.json"))}
+    assert by_title["Scoped"]["channels"] == ["apprise"]
+    assert by_title["Shared"]["channels"] is None

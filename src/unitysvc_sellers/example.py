@@ -146,6 +146,7 @@ def extract_code_examples_from_listing(listing_data: dict[str, Any], listing_fil
                     "output_contains": meta.get("output_contains"),  # Substring to check in output (from meta)
                     "requirements": meta.get("requirements"),  # Required packages (from meta)
                     "category": category,  # Track which category this is
+                    "channels": meta.get("channels"),  # Upstream channels this doc applies to (None/[] = all)
                 }
                 code_examples.append(code_example)
 
@@ -195,6 +196,18 @@ def extract_upstream_channels_from_offering(
         return offering_data.get("upstream_access_config", {}) or {}
     except Exception:
         return {}
+
+
+def document_applies_to_channel(allowed_channels: list[str] | None, channel_name: str | None) -> bool:
+    """Whether a document applies to a given upstream channel.
+
+    A document's ``meta.channels`` (when non-empty) restricts it to the listed
+    upstream channels; absent or empty means it applies to every channel. This
+    lets a multi-channel service give a channel that delivers differently its
+    own code example / connectivity test, while equivalent channels share one
+    document with no annotation (unitysvc#1321).
+    """
+    return not allowed_channels or channel_name in allowed_channels
 
 
 def discover_code_examples(
@@ -267,7 +280,13 @@ def discover_code_examples(
         # Extract code examples × upstream interfaces
         for example in extract_code_examples_from_listing(listing_data, listing_file):
             if upstream_channels:
+                allowed_channels = example.get("channels")
                 for iface_name, iface_data in upstream_channels.items():
+                    # Per-channel docs: skip a channel the document does not
+                    # apply to, so a multi-channel service only runs each test
+                    # against its relevant channels (unitysvc#1321).
+                    if not document_applies_to_channel(allowed_channels, iface_name):
+                        continue
                     ex = {
                         **example,
                         "upstream_channel_name": iface_name,
