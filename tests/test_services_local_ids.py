@@ -503,3 +503,74 @@ def test_read_ids_from_data_dir_delegates_to_utility(tmp_path: Path) -> None:
     """The private services-module reader stays as a thin wrapper."""
     _write_listing(tmp_path / "a" / "listing.json", {"service_id": _UUID_A})
     assert _read_ids_from_data_dir(tmp_path) == [_UUID_A]
+
+
+# ---------------------------------------------------------------------------
+# read_local_service_ids — flat param layout (`<name>.service.json` sidecars)
+# ---------------------------------------------------------------------------
+
+
+def _write_flat_param(repo: Path, provider: str, name: str, service_id: str | None) -> None:
+    """Flat param layout: a ``specs/<provider>/<name>.json`` param file plus the
+    ``<name>.service.json`` sidecar that ``specs upload`` writes — no
+    ``listing.json`` in the directory."""
+    pdir = repo / "specs" / provider
+    pdir.mkdir(parents=True, exist_ok=True)
+    (pdir / f"{name}.json").write_text(json.dumps({"template": "t", "parameters": {}}))
+    if service_id is not None:
+        (pdir / f"{name}.service.json").write_text(json.dumps({"service_id": service_id}))
+
+
+def test_read_local_service_ids_collects_flat_sidecars(tmp_path: Path) -> None:
+    _write_flat_param(tmp_path, "labs", "discord-relay", _UUID_A)
+    _write_flat_param(tmp_path, "labs", "msg-to-discord", _UUID_B)
+    _write_flat_param(tmp_path, "labs", "not-uploaded", None)  # no sidecar → skipped
+    assert sorted(read_local_service_ids(tmp_path)) == sorted([_UUID_A, _UUID_B])
+
+
+def test_read_local_service_ids_flat_provider_from_path(tmp_path: Path) -> None:
+    # No sibling provider.json in the param layout — provider comes from the
+    # ``specs/<provider>/`` path segment.
+    _write_flat_param(tmp_path, "labs", "discord-relay", _UUID_A)
+    _write_flat_param(tmp_path, "acme", "thing", _UUID_B)
+    assert read_local_service_ids(tmp_path, provider="labs") == [_UUID_A]
+    assert read_local_service_ids(tmp_path, provider="acme") == [_UUID_B]
+
+
+def test_read_local_service_ids_mixed_layouts(tmp_path: Path) -> None:
+    # A folder-layout service and a flat-param service coexist; both surface once.
+    _write_listing(tmp_path / "old" / "services" / "svc" / "listing.json", {"service_id": _UUID_A})
+    _write_flat_param(tmp_path, "labs", "discord-relay", _UUID_B)
+    assert sorted(read_local_service_ids(tmp_path)) == sorted([_UUID_A, _UUID_B])
+
+
+def test_read_local_service_ids_deeply_nested_hierarchical_name(tmp_path: Path) -> None:
+    # Hierarchical service name (parasail/Qwen/Qwen2.5-…) → a deeply-nested
+    # `<name>.service.json` sidecar. The recursive walk finds it at any depth.
+    sidecar = tmp_path / "specs" / "parasail" / "Qwen" / "Qwen2.5-Coder-7B-Instruct.service.json"
+    sidecar.parent.mkdir(parents=True, exist_ok=True)
+    sidecar.write_text(json.dumps({"service_id": _UUID_A}))
+    assert read_local_service_ids(tmp_path) == [_UUID_A]
+    # Provider is the segment right after `specs/`, not a nested name segment.
+    assert read_local_service_ids(tmp_path, provider="parasail") == [_UUID_A]
+    assert read_local_service_ids(tmp_path, provider="qwen") == []
+
+
+def test_read_local_service_ids_bare_service_json_at_depth(tmp_path: Path) -> None:
+    # A bare `service.json` with no sibling listing.json is still found by the
+    # walk — the earlier listing_v1-anchored discovery missed exactly this.
+    sidecar = tmp_path / "specs" / "acme" / "deep" / "svc" / "service.json"
+    sidecar.parent.mkdir(parents=True, exist_ok=True)
+    sidecar.write_text(json.dumps({"service_id": _UUID_B}))
+    assert read_local_service_ids(tmp_path) == [_UUID_B]
+
+
+def test_read_local_service_ids_mixed_sidecar_shapes_one_repo(tmp_path: Path) -> None:
+    # Real repos (e.g. anthropic) carry both shapes side by side under one
+    # provider dir: a bare `service.json` plus per-model `<name>.service.json`.
+    pdir = tmp_path / "specs" / "anthropic"
+    pdir.mkdir(parents=True)
+    (pdir / "service.json").write_text(json.dumps({"service_id": _UUID_A}))
+    (pdir / "claude-opus.service.json").write_text(json.dumps({"service_id": _UUID_B}))
+    assert sorted(read_local_service_ids(tmp_path)) == sorted([_UUID_A, _UUID_B])
+    assert sorted(read_local_service_ids(tmp_path, provider="anthropic")) == sorted([_UUID_A, _UUID_B])
