@@ -245,6 +245,52 @@ def _localize_file_paths(obj: Any, folder: Path) -> bool:
     return changed
 
 
+def _localize_relative_file_paths(obj: Any, folder: Path, source_base: Path, claimed: dict[str, Path]) -> bool:
+    """Copy any *relative* ``file_path`` (resolved against *source_base*) into
+    *folder* and rewrite it to the local basename. Returns True if a reference was
+    rewritten. ``claimed`` maps basename → source so same-basename clashes are
+    reported (last-wins). Absolute paths and ``$preset`` sentinels are left alone
+    (handled by :func:`_materialize_presets`)."""
+    changed = False
+    if isinstance(obj, dict):
+        fp = obj.get("file_path")
+        if isinstance(fp, str) and fp and not Path(fp).is_absolute():
+            src = source_base / fp
+            if src.is_file():
+                prior = claimed.get(src.name)
+                if prior is not None and prior != src:
+                    print(f"  ⚠ expand: two docs both map to '{src.name}' ({prior} vs {src}); keeping the latter")
+                claimed[src.name] = src
+                shutil.copyfile(src, folder / src.name)
+                if fp != src.name:
+                    obj["file_path"] = src.name
+                    changed = True
+        for value in obj.values():
+            changed = _localize_relative_file_paths(value, folder, source_base, claimed) or changed
+    elif isinstance(obj, list):
+        for value in obj:
+            changed = _localize_relative_file_paths(value, folder, source_base, claimed) or changed
+    return changed
+
+
+def _inline_local_docs(folder: Path, source_base: Path) -> None:
+    """Pull every doc a spec references by *relative path* (e.g. a shared
+    ``../../docs/connectivity.sh.j2``) into *folder*, rewriting the reference to
+    the local basename — so the expanded folder is self-contained for files that
+    exist locally, regardless of where they were authored. Resolves relative
+    paths against *source_base* (the service's real/canonical location)."""
+    claimed: dict[str, Path] = {}
+    for kind in ("provider", "offering", "listing"):
+        path = folder / f"{kind}.json"
+        if not path.is_file():
+            continue
+        data = _load_json(path)
+        if not isinstance(data, dict):
+            continue
+        if _localize_relative_file_paths(data, folder, source_base, claimed):
+            path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+
 def _materialize_presets(folder: Path) -> None:
     """Resolve ``$doc_preset`` / ``$file_preset`` references in a rendered folder.
 
@@ -316,11 +362,26 @@ def _render_test_variants(folder: Path) -> None:
             (folder / _variant_name(rendered_name, "gateway")).write_text(gateway)
 
 
-def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, expand_presets: bool, render_tests: bool) -> Path:
+def _postprocess(leaf: Path, *, source_base: Path, expand_presets: bool, render_tests: bool) -> None:
+    """Finish an expanded folder. Inlining locally-referenced shared docs is
+    **unconditional** (base behavior — makes the folder self-contained for files
+    that exist locally); resolving presets and rendering test variants are opt-in.
+    Order matters: inline + resolve every doc to a local ``.j2`` *before* rendering
+    test variants from those ``.j2`` files.
+    """
+    _inline_local_docs(leaf, source_base)
+    if expand_presets:
+        _materialize_presets(leaf)
+    if render_tests:
+        _render_test_variants(leaf)
+
+
+def _render_one(
+    ctx: dict[str, Any], tdir: Path, into_root: Path, *, source_base: Path, expand_presets: bool, render_tests: bool
+) -> Path:
     """Render ``ctx`` into ``into_root/<ctx['name']>/`` and return that leaf folder:
-    populate the templates, bundle the template's extra files, and (optionally)
-    resolve presets and render test variants. Shared by the nested and ``--flat``
-    expand paths.
+    populate the templates, bundle the template's extra files, then post-process.
+    Shared by the nested and ``--flat`` expand paths.
     """
     with contextlib.redirect_stdout(io.StringIO()):
         populate_from_iterator(iter([ctx]), templates_dir=tdir, output_dir=into_root, deprecate_missing=False)
@@ -330,10 +391,7 @@ def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, expand_pres
     extras = [f for f in tdir.iterdir() if f.is_file() and f.name not in (_NON_BUNDLED | {"provider.json"})]
     for f in extras:
         shutil.copyfile(f, leaf / f.name)
-    if expand_presets:
-        _materialize_presets(leaf)
-    if render_tests:
-        _render_test_variants(leaf)
+    _postprocess(leaf, source_base=source_base, expand_presets=expand_presets, render_tests=render_tests)
     return leaf
 
 
@@ -357,10 +415,13 @@ def expand_param_file(
     :data:`unitysvc_sellers.utils.EXPANDED_DIRNAME`), so a stale render (e.g.
     after a template change) is harmless until the next ``expand``.
 
-    With ``expand_presets``, ``$doc_preset`` / ``$file_preset`` document
-    references are also resolved and their files copied in, so the folder has no
-    references outside itself. With ``render_tests``, every ``.j2`` is also
-    rendered in local- and gateway-test modes (see :func:`_render_test_variants`).
+    Every expand inlines docs referenced by a **relative path** (e.g. a shared
+    ``../../docs/connectivity.sh.j2``) into the folder, rewriting the reference to
+    its basename, so the folder is self-contained for files that exist locally.
+    With ``expand_presets``, ``$doc_preset`` / ``$file_preset`` references are
+    *also* resolved and their files copied in. With ``render_tests``, every
+    ``.j2`` is rendered in local- and gateway-test modes (see
+    :func:`_render_test_variants`).
 
     ``output_dir`` overrides the default ``expanded/`` location. By default the
     full ``<service_name>`` path is created beneath it, so expanding several
@@ -384,12 +445,17 @@ def expand_param_file(
         "provider_name": service_name.split("/")[0],
         **(data.get("parameters") or {}),
     }
+    # Relative doc refs resolve against where the service *would* live in specs/
+    # (its canonical location), matching how the upload pipeline renders them.
+    source_base = specs_root / service_name
 
     if flat:
         # Render into a throwaway tree, then copy just this service's files in —
         # so a shared output dir keeps its other contents (can't blanket-rmtree).
         with tempfile.TemporaryDirectory() as tmp:
-            leaf = _render_one(ctx, tdir, Path(tmp), expand_presets=expand_presets, render_tests=render_tests)
+            leaf = _render_one(
+                ctx, tdir, Path(tmp), source_base=source_base, expand_presets=expand_presets, render_tests=render_tests
+            )
             expanded_root.mkdir(parents=True, exist_ok=True)
             for f in leaf.iterdir():
                 if f.is_file():
@@ -401,7 +467,9 @@ def expand_param_file(
     # template doesn't linger.
     if folder.exists():
         shutil.rmtree(folder)
-    _render_one(ctx, tdir, expanded_root, expand_presets=expand_presets, render_tests=render_tests)
+    _render_one(
+        ctx, tdir, expanded_root, source_base=source_base, expand_presets=expand_presets, render_tests=render_tests
+    )
     return folder
 
 
@@ -442,10 +510,8 @@ def expand_service_folder(
         else:
             shutil.copyfile(item, folder / item.name)
 
-    if expand_presets:
-        _materialize_presets(folder)
-    if render_tests:
-        _render_test_variants(folder)
+    # Relative doc refs resolve against the service's real directory.
+    _postprocess(folder, source_base=service_dir, expand_presets=expand_presets, render_tests=render_tests)
     return folder
 
 

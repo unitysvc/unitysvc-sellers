@@ -330,6 +330,51 @@ def test_expand_service_folder_renders_tests(tmp_path: Path) -> None:
     assert (folder / "connectivity.gateway.sh").read_text().strip() == "curl ${SERVICE_BASE_URL}/healthz"
 
 
+def test_expand_inlines_shared_relative_docs(tmp_path: Path) -> None:
+    """Base expand pulls a doc referenced by a relative path *outside* the service
+    dir into the folder and rewrites the ref to its basename — self-contained."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+    shared = root / "specs" / "labs" / "_docs"
+    shared.mkdir()
+    (shared / "connectivity.sh.j2").write_text("echo shared\n")
+    listing_path = root / "specs" / "labs" / "svc1" / "listing.json"
+    listing = json.loads(listing_path.read_text())
+    listing["documents"] = {
+        "C": {"category": "connectivity_test", "file_path": "../_docs/connectivity.sh.j2", "mime_type": "bash"}
+    }
+    listing_path.write_text(json.dumps(listing))
+
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1")  # no flags
+
+    assert (folder / "connectivity.sh.j2").read_text() == "echo shared\n"
+    rec = json.loads((folder / "listing.json").read_text())["documents"]["C"]
+    assert rec["file_path"] == "connectivity.sh.j2"
+    # Source is untouched.
+    assert (shared / "connectivity.sh.j2").is_file()
+
+
+def test_expand_tests_renders_inlined_shared_doc(tmp_path: Path) -> None:
+    """A shared relative doc is a *local* test — `--tests` alone (no --presets)
+    renders it, because base expand already inlined it."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+    shared = root / "specs" / "labs" / "_docs"
+    shared.mkdir()
+    (shared / "connectivity.sh.j2").write_text(_CONNECTIVITY_BRANCHING_J2)
+    listing_path = root / "specs" / "labs" / "svc1" / "listing.json"
+    listing = json.loads(listing_path.read_text())
+    listing["documents"] = {"C": {"category": "connectivity_test", "file_path": "../_docs/connectivity.sh.j2"}}
+    listing_path.write_text(json.dumps(listing))
+
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1", render_tests=True)
+
+    assert (folder / "connectivity.local.sh").read_text().strip() == "curl https://up.labs.test/healthz"
+    assert (folder / "connectivity.gateway.sh").read_text().strip() == "curl ${SERVICE_BASE_URL}/healthz"
+
+
 def test_expand_service_folder_with_presets(tmp_path: Path) -> None:
     """A folder service that uses a $doc_preset gets it resolved + localized too."""
     from unitysvc_sellers.params_render import expand_service_folder

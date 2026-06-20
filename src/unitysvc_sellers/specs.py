@@ -234,11 +234,13 @@ def expand_service(
     Accepts either a param file (``specs/<NAME>.json`` — rendered through its
     template) or a hand-authored service folder (``specs/<NAME>/`` — copied as-is)
     and writes ``expanded/<NAME>/`` (provider + offering + listing + bundled
-    files) at the repo root. The folder is yours to read, diff, or delete — it is
+    files) at the repo root. Docs referenced by a relative path (e.g. a shared
+    ``../../docs/*.j2``) are always pulled into the folder so it is self-contained
+    for local files. The folder is yours to read, diff, or delete — it is
     **never** validated or uploaded, and discovery ignores it, so it may go stale
-    until you re-run ``expand``. Pass ``--presets`` to inline preset documents,
-    ``--tests`` to render each ``.j2`` in local/gateway modes, or ``--output-dir``
-    to expand elsewhere.
+    until you re-run ``expand``. Pass ``--presets`` to also resolve preset
+    documents, ``--tests`` to render each ``.j2`` in local/gateway modes, or
+    ``--output-dir`` to expand elsewhere.
     """
     start = (data_dir or Path.cwd()).resolve()
     specs_root = specs_layout.resolve_specs_root(start)
