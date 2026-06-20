@@ -105,8 +105,8 @@ path (e.g. a shared ``../../docs/*.j2``) are inlined, ``$doc_preset`` /
 and is left as-authored rather than failing), and every ``.j2`` is rendered in
 local/gateway test modes. The folder is yours to read, diff, or delete — it is
 **never** validated or uploaded, and discovery ignores it, so it may go stale
-until you re-run ``expand``. Pass ``--no-tests`` to skip the test-variant
-files, or ``--output-dir`` to expand elsewhere.
+until you re-run ``expand``. Use ``--output-dir`` to expand elsewhere, or
+``--flat`` to drop the ``&lt;NAME&gt;/`` subfolder.
 
 **Usage**:
 
@@ -120,7 +120,6 @@ $ usvc_seller specs expand [OPTIONS] NAME
 
 **Options**:
 
-* `--tests / --no-tests`: Render each .j2 in local- and gateway-test modes (connectivity.local.sh / connectivity.gateway.sh). On by default; --no-tests to skip.  [default: tests]
 * `-o, --output-dir PATH`: Directory to expand into (default: &lt;repo&gt;/expanded — the one tree discovery ignores). The full &lt;service_name&gt; path is created beneath it, so several services never collide.
 * `--flat`: Write the spec files directly into the directory, without the &lt;service_name&gt;/ subfolder (predictable paths). Holds one service at a time; best paired with --output-dir.
 * `-d, --data-dir PATH`: Repo root or specs/ directory (default: current directory).

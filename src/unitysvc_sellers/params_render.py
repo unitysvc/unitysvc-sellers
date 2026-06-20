@@ -366,21 +366,18 @@ def _render_test_variants(folder: Path) -> None:
             (folder / _variant_name(rendered_name, "gateway")).write_text(gateway)
 
 
-def _postprocess(leaf: Path, *, source_base: Path, render_tests: bool) -> None:
-    """Finish an expanded folder so it's fully resolved for inspection. ``expand``
-    does everything by default: inline locally-referenced shared docs, resolve
-    presets (best-effort — a broken preset warns and is left as-authored, never
-    fails the command), and render test variants. ``render_tests=False``
-    (``--no-tests``) skips only the variant files. Order matters: resolve every
-    doc to a local ``.j2`` *before* rendering test variants from those files.
+def _postprocess(leaf: Path, *, source_base: Path) -> None:
+    """Fully resolve an expanded folder for inspection: inline locally-referenced
+    shared docs, resolve presets (best-effort — a broken preset warns and is left
+    as-authored, never fails), and render test variants. Order matters: resolve
+    every doc to a local ``.j2`` *before* rendering test variants from those files.
     """
     _inline_local_docs(leaf, source_base)
     _materialize_presets(leaf)
-    if render_tests:
-        _render_test_variants(leaf)
+    _render_test_variants(leaf)
 
 
-def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, source_base: Path, render_tests: bool) -> Path:
+def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, source_base: Path) -> Path:
     """Render ``ctx`` into ``into_root/<ctx['name']>/`` and return that leaf folder:
     populate the templates, bundle the template's extra files, then post-process.
     Shared by the nested and ``--flat`` expand paths.
@@ -393,14 +390,13 @@ def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, source_base
     extras = [f for f in tdir.iterdir() if f.is_file() and f.name not in (_NON_BUNDLED | {"provider.json"})]
     for f in extras:
         shutil.copyfile(f, leaf / f.name)
-    _postprocess(leaf, source_base=source_base, render_tests=render_tests)
+    _postprocess(leaf, source_base=source_base)
     return leaf
 
 
 def expand_param_file(
     param_file: Path,
     *,
-    render_tests: bool = True,
     output_dir: Path | None = None,
     flat: bool = False,
 ) -> Path:
@@ -420,8 +416,7 @@ def expand_param_file(
     **relative path** (e.g. a shared ``../../docs/connectivity.sh.j2``), resolves
     ``$doc_preset`` / ``$file_preset`` references (best-effort — a broken preset
     warns and is left as-authored, never fails), and renders every ``.j2`` in
-    local- and gateway-test modes. Pass ``render_tests=False`` to skip only the
-    test-variant files.
+    local- and gateway-test modes.
 
     ``output_dir`` overrides the default ``expanded/`` location. By default the
     full ``<service_name>`` path is created beneath it, so expanding several
@@ -453,7 +448,7 @@ def expand_param_file(
         # Render into a throwaway tree, then copy just this service's files in —
         # so a shared output dir keeps its other contents (can't blanket-rmtree).
         with tempfile.TemporaryDirectory() as tmp:
-            leaf = _render_one(ctx, tdir, Path(tmp), source_base=source_base, render_tests=render_tests)
+            leaf = _render_one(ctx, tdir, Path(tmp), source_base=source_base)
             expanded_root.mkdir(parents=True, exist_ok=True)
             for f in leaf.iterdir():
                 if f.is_file():
@@ -465,14 +460,13 @@ def expand_param_file(
     # template doesn't linger.
     if folder.exists():
         shutil.rmtree(folder)
-    _render_one(ctx, tdir, expanded_root, source_base=source_base, render_tests=render_tests)
+    _render_one(ctx, tdir, expanded_root, source_base=source_base)
     return folder
 
 
 def expand_service_folder(
     service_dir: Path,
     *,
-    render_tests: bool = True,
     output_dir: Path | None = None,
     flat: bool = False,
 ) -> Path:
@@ -482,9 +476,8 @@ def expand_service_folder(
     provider/offering/listing already exist — so this copies the folder into the
     informal ``expanded/`` tree and applies the same post-processing as
     :func:`expand_param_file` (inline shared docs, resolve presets best-effort,
-    render test variants unless ``render_tests=False``). The ``service.json``
-    identity record is never copied. ``output_dir`` / ``flat`` behave as there.
-    Returns the expanded folder path.
+    render test variants). The ``service.json`` identity record is never copied.
+    ``output_dir`` / ``flat`` behave as there. Returns the expanded folder path.
     """
     specs_root = _specs_root_for(service_dir)
     service_name = service_dir.relative_to(specs_root).as_posix()
@@ -505,7 +498,7 @@ def expand_service_folder(
             shutil.copyfile(item, folder / item.name)
 
     # Relative doc refs resolve against the service's real directory.
-    _postprocess(folder, source_base=service_dir, render_tests=render_tests)
+    _postprocess(folder, source_base=service_dir)
     return folder
 
 

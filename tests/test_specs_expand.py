@@ -218,13 +218,13 @@ _CONNECTIVITY_BRANCHING_J2 = (
 
 
 def test_render_tests_writes_local_and_gateway_variants(tmp_path: Path) -> None:
-    """``render_tests`` renders each test .j2 in both modes as suffix siblings."""
+    """expand renders each test .j2 in both modes as suffix siblings."""
     from unitysvc_sellers.params_render import expand_param_file
 
     root = _make_repo(tmp_path)
     (root / "templates" / "resp" / "connectivity.sh.j2").write_text(_CONNECTIVITY_BRANCHING_J2)
 
-    folder = expand_param_file(root / "specs" / "unitysvc" / "resp200.json", render_tests=True)
+    folder = expand_param_file(root / "specs" / "unitysvc" / "resp200.json")
 
     # Raw template is kept; both variants are rendered beside it.
     assert (folder / "connectivity.sh.j2").is_file()
@@ -243,7 +243,7 @@ def test_render_tests_collapses_when_modes_are_identical(tmp_path: Path) -> None
     root = _make_repo(tmp_path)
     (root / "templates" / "resp" / "connectivity.sh.j2").write_text("echo ok\n")
 
-    folder = expand_param_file(root / "specs" / "unitysvc" / "resp200.json", render_tests=True)
+    folder = expand_param_file(root / "specs" / "unitysvc" / "resp200.json")
 
     assert (folder / "connectivity.sh").read_text().strip() == "echo ok"
     assert not (folder / "connectivity.local.sh").exists()
@@ -324,7 +324,7 @@ def test_expand_service_folder_renders_tests(tmp_path: Path) -> None:
     root = _make_folder_service(tmp_path)
     (root / "specs" / "labs" / "svc1" / "connectivity.sh.j2").write_text(_CONNECTIVITY_BRANCHING_J2)
 
-    folder = expand_service_folder(root / "specs" / "labs" / "svc1", render_tests=True)
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1")
 
     assert (folder / "connectivity.local.sh").read_text().strip() == "curl https://up.labs.test/healthz"
     assert (folder / "connectivity.gateway.sh").read_text().strip() == "curl ${SERVICE_BASE_URL}/healthz"
@@ -356,8 +356,8 @@ def test_expand_inlines_shared_relative_docs(tmp_path: Path) -> None:
 
 
 def test_expand_tests_renders_inlined_shared_doc(tmp_path: Path) -> None:
-    """A shared relative doc is a *local* test — `--tests` alone (no --presets)
-    renders it, because base expand already inlined it."""
+    """A shared relative doc is a *local* test — expand inlines it and renders
+    both variants from it."""
     from unitysvc_sellers.params_render import expand_service_folder
 
     root = _make_folder_service(tmp_path)
@@ -369,7 +369,7 @@ def test_expand_tests_renders_inlined_shared_doc(tmp_path: Path) -> None:
     listing["documents"] = {"C": {"category": "connectivity_test", "file_path": "../_docs/connectivity.sh.j2"}}
     listing_path.write_text(json.dumps(listing))
 
-    folder = expand_service_folder(root / "specs" / "labs" / "svc1", render_tests=True)
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1")
 
     assert (folder / "connectivity.local.sh").read_text().strip() == "curl https://up.labs.test/healthz"
     assert (folder / "connectivity.gateway.sh").read_text().strip() == "curl ${SERVICE_BASE_URL}/healthz"
@@ -444,19 +444,6 @@ def test_expand_command_renders_tests_by_default(tmp_path: Path) -> None:
     assert (folder / "connectivity.gateway.sh").is_file()
 
 
-def test_expand_command_no_tests_skips_variants(tmp_path: Path) -> None:
-    root = _make_repo(tmp_path)
-    (root / "templates" / "resp" / "connectivity.sh.j2").write_text(_CONNECTIVITY_BRANCHING_J2)
-
-    result = runner.invoke(specs_app, ["expand", "unitysvc/resp200", "--no-tests", "-d", str(root)])
-
-    assert result.exit_code == 0, result.output
-    folder = root / "expanded" / "unitysvc" / "resp200"
-    assert (folder / "connectivity.sh.j2").is_file()  # raw template kept
-    assert not (folder / "connectivity.local.sh").exists()
-    assert not (folder / "connectivity.gateway.sh").exists()
-
-
 def test_expand_command_renders_and_reports(tmp_path: Path) -> None:
     root = _make_repo(tmp_path)
 
@@ -469,10 +456,10 @@ def test_expand_command_renders_and_reports(tmp_path: Path) -> None:
     assert str(folder) in "".join(result.output.split())
 
 
-def test_expand_command_presets_flag(tmp_path: Path) -> None:
+def test_expand_command_resolves_presets(tmp_path: Path) -> None:
     root = _make_preset_repo(tmp_path)
 
-    result = runner.invoke(specs_app, ["expand", "unitysvc/p1", "--presets", "-d", str(root)])
+    result = runner.invoke(specs_app, ["expand", "unitysvc/p1", "-d", str(root)])  # no flags
 
     assert result.exit_code == 0, result.output
     listing = json.loads((root / "expanded" / "unitysvc" / "p1" / "listing.json").read_text())
