@@ -257,7 +257,10 @@ def _materialize_presets(folder: Path) -> None:
         path = folder / f"{kind}.json"
         if not path.is_file():
             continue
-        expanded, _ = load_data_file(path)
+        try:
+            expanded, _ = load_data_file(path)
+        except Exception as exc:  # unknown preset, bad sentinel, … — surface cleanly, not as a traceback
+            raise ParamRenderError(f"failed to resolve presets in {kind}.json: {exc}") from exc
         if not isinstance(expanded, dict):
             continue
         _localize_file_paths(expanded, folder)
@@ -265,10 +268,59 @@ def _materialize_presets(folder: Path) -> None:
             path.write_text(json.dumps(expanded, indent=2, ensure_ascii=False) + "\n")
 
 
-def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, expand_presets: bool) -> Path:
+def _variant_name(filename: str, mode: str) -> str:
+    """``connectivity.sh`` + ``local`` → ``connectivity.local.sh`` (mode before ext)."""
+    if "." in filename:
+        base, ext = filename.rsplit(".", 1)
+        return f"{base}.{mode}.{ext}"
+    return f"{filename}.{mode}"
+
+
+def _render_test_variants(folder: Path) -> None:
+    """Render every ``.j2`` in *folder* in both test modes for debugging.
+
+    Each ``<base>.<ext>.j2`` is rendered with ``local_testing=True`` (what
+    ``data run-tests`` runs against the upstream) and ``local_testing=False``
+    (what ``services run-tests`` runs through the gateway), written as
+    ``<base>.local.<ext>`` and ``<base>.gateway.<ext>`` beside the kept template.
+    When the two modes are identical (no ``local_testing`` branch) a single
+    ``<base>.<ext>`` is written instead. Runtime-injected values (the gateway
+    URL, ``${customer_secrets.*}``, …) stay as ``${...}`` placeholders — exactly
+    what the live test sees before the runner fills them in.
+    """
+    from .example import build_upstream_template_context
+    from .utils import render_template_file
+
+    def _load(name: str) -> dict[str, Any]:
+        path = folder / name
+        if not path.is_file():
+            return {}
+        loaded, _ = load_data_file(path)
+        return loaded if isinstance(loaded, dict) else {}
+
+    listing, offering, provider = _load("listing.json"), _load("offering.json"), _load("provider.json")
+    # The upstream interface (first channel) feeds the local-mode render namespace
+    # ({{ service_base_url }}, {{ routing_key }}, …) the same way run-tests does.
+    uac = offering.get("upstream_access_config") if isinstance(offering, dict) else None
+    interface = next((v for v in uac.values() if isinstance(v, dict)), {}) if isinstance(uac, dict) else {}
+    upstream_ctx = build_upstream_template_context(interface)
+
+    for j2 in sorted(folder.glob("*.j2")):
+        kwargs = dict(listing=listing, offering=offering, provider=provider, interface=interface, **upstream_ctx)
+        local, rendered_name = render_template_file(j2, local_testing=True, **kwargs)
+        gateway, _ = render_template_file(j2, local_testing=False, **kwargs)
+        if local == gateway:
+            (folder / rendered_name).write_text(local)
+        else:
+            (folder / _variant_name(rendered_name, "local")).write_text(local)
+            (folder / _variant_name(rendered_name, "gateway")).write_text(gateway)
+
+
+def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, expand_presets: bool, render_tests: bool) -> Path:
     """Render ``ctx`` into ``into_root/<ctx['name']>/`` and return that leaf folder:
     populate the templates, bundle the template's extra files, and (optionally)
-    resolve presets. Shared by the nested and ``--flat`` expand paths.
+    resolve presets and render test variants. Shared by the nested and ``--flat``
+    expand paths.
     """
     with contextlib.redirect_stdout(io.StringIO()):
         populate_from_iterator(iter([ctx]), templates_dir=tdir, output_dir=into_root, deprecate_missing=False)
@@ -280,6 +332,8 @@ def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, expand_pres
         shutil.copyfile(f, leaf / f.name)
     if expand_presets:
         _materialize_presets(leaf)
+    if render_tests:
+        _render_test_variants(leaf)
     return leaf
 
 
@@ -287,6 +341,7 @@ def expand_param_file(
     param_file: Path,
     *,
     expand_presets: bool = False,
+    render_tests: bool = False,
     output_dir: Path | None = None,
     flat: bool = False,
 ) -> Path:
@@ -304,7 +359,8 @@ def expand_param_file(
 
     With ``expand_presets``, ``$doc_preset`` / ``$file_preset`` document
     references are also resolved and their files copied in, so the folder has no
-    references outside itself.
+    references outside itself. With ``render_tests``, every ``.j2`` is also
+    rendered in local- and gateway-test modes (see :func:`_render_test_variants`).
 
     ``output_dir`` overrides the default ``expanded/`` location. By default the
     full ``<service_name>`` path is created beneath it, so expanding several
@@ -333,7 +389,7 @@ def expand_param_file(
         # Render into a throwaway tree, then copy just this service's files in —
         # so a shared output dir keeps its other contents (can't blanket-rmtree).
         with tempfile.TemporaryDirectory() as tmp:
-            leaf = _render_one(ctx, tdir, Path(tmp), expand_presets=expand_presets)
+            leaf = _render_one(ctx, tdir, Path(tmp), expand_presets=expand_presets, render_tests=render_tests)
             expanded_root.mkdir(parents=True, exist_ok=True)
             for f in leaf.iterdir():
                 if f.is_file():
@@ -345,7 +401,51 @@ def expand_param_file(
     # template doesn't linger.
     if folder.exists():
         shutil.rmtree(folder)
-    _render_one(ctx, tdir, expanded_root, expand_presets=expand_presets)
+    _render_one(ctx, tdir, expanded_root, expand_presets=expand_presets, render_tests=render_tests)
+    return folder
+
+
+def expand_service_folder(
+    service_dir: Path,
+    *,
+    expand_presets: bool = False,
+    render_tests: bool = False,
+    output_dir: Path | None = None,
+    flat: bool = False,
+) -> Path:
+    """Expand a hand-authored ``specs/<name>/`` service folder for inspection.
+
+    Unlike :func:`expand_param_file` there's no template to render — the
+    provider/offering/listing already exist — so this copies the folder into the
+    informal ``expanded/`` tree and applies the same post-processing:
+    ``expand_presets`` resolves ``$doc_preset`` / ``$file_preset`` references (so
+    a preset-using service shows its concrete docs), and ``render_tests`` renders
+    each ``.j2`` in local- and gateway-test modes. The ``service.json`` identity
+    record is never copied. ``output_dir`` / ``flat`` behave as in
+    :func:`expand_param_file`. Returns the expanded folder path.
+    """
+    specs_root = _specs_root_for(service_dir)
+    service_name = service_dir.relative_to(specs_root).as_posix()
+    expanded_root = Path(output_dir) if output_dir is not None else specs_root.parent / EXPANDED_DIRNAME
+    folder = expanded_root if flat else expanded_root / service_name
+
+    # Non-flat: clean refresh of this service's folder. Flat: merge into the dir
+    # without disturbing files that belong to other services / the user.
+    if not flat and folder.exists():
+        shutil.rmtree(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    for item in service_dir.iterdir():
+        if item.name == "service.json":  # identity stays in the formal tree, never the inspection copy
+            continue
+        if item.is_dir():
+            shutil.copytree(item, folder / item.name, dirs_exist_ok=True)
+        else:
+            shutil.copyfile(item, folder / item.name)
+
+    if expand_presets:
+        _materialize_presets(folder)
+    if render_tests:
+        _render_test_variants(folder)
     return folder
 
 

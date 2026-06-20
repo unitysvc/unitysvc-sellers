@@ -49,7 +49,7 @@ $ usvc_seller specs [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `show`: Show expanded data for a service.
-* `expand`: Expand a param file into the informal...
+* `expand`: Expand a service into the informal...
 * `validate`: Validate a repository in the flat...
 * `format`: Format data files (JSON, TOML, MD) to...
 * `populate`: Populate services by executing the repo&#x27;s...
@@ -94,14 +94,16 @@ $ usvc_seller specs show [OPTIONS] SERVICE_NAME
 
 ### `usvc_seller specs expand`
 
-Expand a param file into the informal ``expanded/`` tree for inspection.
+Expand a service into the informal ``expanded/`` tree for inspection.
 
-Renders ``specs/&lt;NAME&gt;.json`` to ``expanded/&lt;NAME&gt;/`` (provider + offering +
-listing + bundled files) at the repo root. The folder is yours to read,
-diff, or delete — it is **never** validated or uploaded, and discovery
-ignores it, so it may go stale after a template change until you re-run
-``expand``. Pass ``--presets`` to also inline preset documents so the folder
-has no references outside itself, or ``--output-dir`` to expand elsewhere.
+Accepts either a param file (``specs/&lt;NAME&gt;.json`` — rendered through its
+template) or a hand-authored service folder (``specs/&lt;NAME&gt;/`` — copied as-is)
+and writes ``expanded/&lt;NAME&gt;/`` (provider + offering + listing + bundled
+files) at the repo root. The folder is yours to read, diff, or delete — it is
+**never** validated or uploaded, and discovery ignores it, so it may go stale
+until you re-run ``expand``. Pass ``--presets`` to inline preset documents,
+``--tests`` to render each ``.j2`` in local/gateway modes, or ``--output-dir``
+to expand elsewhere.
 
 **Usage**:
 
@@ -111,11 +113,12 @@ $ usvc_seller specs expand [OPTIONS] NAME
 
 **Arguments**:
 
-* `NAME`: Service name = the param file&#x27;s path under specs/ without .json (e.g. &#x27;parasail/foo&#x27;).  [required]
+* `NAME`: Service name: a param file (specs/&lt;NAME&gt;.json) or a service folder (specs/&lt;NAME&gt;/).  [required]
 
 **Options**:
 
 * `--presets`: Also resolve $doc_preset / $file_preset references and copy their files into the folder.
+* `--tests`: Also render each .j2 in local- and gateway-test modes (connectivity.local.sh / connectivity.gateway.sh) for debugging.
 * `-o, --output-dir PATH`: Directory to expand into (default: &lt;repo&gt;/expanded — the one tree discovery ignores). The full &lt;service_name&gt; path is created beneath it, so several services never collide.
 * `--flat`: Write the spec files directly into the directory, without the &lt;service_name&gt;/ subfolder (predictable paths). Holds one service at a time; best paired with --output-dir.
 * `-d, --data-dir PATH`: Repo root or specs/ directory (default: current directory).
