@@ -284,6 +284,11 @@ Code examples are referenced in your `listing.json` or `listing.toml` file under
     -   Examples: `"✓ Test passed"`, `"\"choices\""`, `"Status: 200"`
     -   If specified, test passes only if stdout contains this string
     -   Without this field, tests only check exit code (0 = pass, non-zero = fail)
+-   **`meta.channels`**: _(User-maintained, multi-channel services only)_ Restrict this document to specific upstream access channels
+    -   A list of upstream channel names from the offering's `upstream_access_config` (e.g., `["apprise"]`)
+    -   When set, `run-tests` only runs this document against the listed channels; channels not in the list are skipped
+    -   **Omit it (the default)** for single-channel services, or whenever every channel behaves the same — the document then applies to all channels with no annotation
+    -   Use it only when channels deliver differently (e.g., one channel posts an Apprise body, another a channel-native body) and each needs its own code example / connectivity test
 
 **System-Maintained Fields (in `meta` object):**
 
