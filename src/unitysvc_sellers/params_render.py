@@ -23,6 +23,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import re
 import shutil
 import tempfile
 from collections.abc import Iterator
@@ -323,17 +324,26 @@ def _variant_name(filename: str, mode: str) -> str:
     return f"{filename}.{mode}"
 
 
-def _render_test_variants(folder: Path) -> None:
-    """Render every ``.j2`` in *folder* in both test modes for debugging.
+def _first_interface(config: Any) -> dict[str, Any]:
+    """The first channel dict of an ``{upstream,user}_access_config`` mapping."""
+    if isinstance(config, dict):
+        return next((v for v in config.values() if isinstance(v, dict)), {})
+    return {}
 
-    Each ``<base>.<ext>.j2`` is rendered with ``local_testing=True`` (what
-    ``data run-tests`` runs against the upstream) and ``local_testing=False``
-    (what ``services run-tests`` runs through the gateway), written as
+
+def _render_test_variants(folder: Path) -> None:
+    """Render every ``.j2`` in *folder* in both test modes — always writing
     ``<base>.local.<ext>`` and ``<base>.gateway.<ext>`` beside the kept template.
-    When the two modes are identical (no ``local_testing`` branch) a single
-    ``<base>.<ext>`` is written instead. Runtime-injected values (the gateway
-    URL, ``${customer_secrets.*}``, …) stay as ``${...}`` placeholders — exactly
-    what the live test sees before the runner fills them in.
+
+    The two modes differ by **interface**, mirroring the backend: the local
+    variant (``data run-tests``) renders against the offering's *upstream*
+    interface, so ``{{ service_base_url }}`` is the upstream URL; the gateway
+    variant (``services run-tests``) renders against the listing's
+    *user_access_interface*, so ``{{ service_base_url }}`` is the gateway URL
+    (``${API_GATEWAY_BASE_URL}/<service_name>`` — with ``{{ service_name }}``
+    resolved and the deployment base left as a ``${...}`` placeholder). Shell
+    ``${SERVICE_BASE_URL}`` / ``${customer_secrets.*}`` and unresolved tokens stay
+    as placeholders — what the live runner fills in.
     """
     from .example import build_upstream_template_context
     from .utils import render_template_file
@@ -349,21 +359,26 @@ def _render_test_variants(folder: Path) -> None:
         return loaded if isinstance(loaded, dict) else {}
 
     listing, offering, provider = _load("listing.json"), _load("offering.json"), _load("provider.json")
-    # The upstream interface (first channel) feeds the local-mode render namespace
-    # ({{ service_base_url }}, {{ routing_key }}, …) the same way run-tests does.
-    uac = offering.get("upstream_access_config") if isinstance(offering, dict) else None
-    interface = next((v for v in uac.values() if isinstance(v, dict)), {}) if isinstance(uac, dict) else {}
-    upstream_ctx = build_upstream_template_context(interface)
+    service_name = (listing.get("name") or offering.get("name") or "") if isinstance(listing, dict) else ""
 
+    # Local = offering upstream interface; gateway = listing user_access_interface
+    # with {{ service_name }} resolved (the deployment base stays a placeholder).
+    upstream_iface = _first_interface(offering.get("upstream_access_config") if isinstance(offering, dict) else None)
+    gateway_iface = dict(_first_interface(listing.get("user_access_interfaces") if isinstance(listing, dict) else None))
+    if isinstance(gateway_iface.get("base_url"), str):
+        gateway_iface["base_url"] = re.sub(r"{{\s*service_name\s*}}", service_name, gateway_iface["base_url"])
+
+    modes = {
+        "local": (True, upstream_iface, build_upstream_template_context(upstream_iface)),
+        "gateway": (False, gateway_iface, build_upstream_template_context(gateway_iface)),
+    }
     for j2 in sorted(folder.glob("*.j2")):
-        kwargs = dict(listing=listing, offering=offering, provider=provider, interface=interface, **upstream_ctx)
-        local, rendered_name = render_template_file(j2, local_testing=True, **kwargs)
-        gateway, _ = render_template_file(j2, local_testing=False, **kwargs)
-        if local == gateway:
-            (folder / rendered_name).write_text(local)
-        else:
-            (folder / _variant_name(rendered_name, "local")).write_text(local)
-            (folder / _variant_name(rendered_name, "gateway")).write_text(gateway)
+        for mode, (local_testing, iface, flat_ctx) in modes.items():
+            content, rendered_name = render_template_file(
+                j2, listing=listing, offering=offering, provider=provider,
+                interface=iface, local_testing=local_testing, **flat_ctx,
+            )
+            (folder / _variant_name(rendered_name, mode)).write_text(content)
 
 
 def _postprocess(leaf: Path, *, source_base: Path) -> None:

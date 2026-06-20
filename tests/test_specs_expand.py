@@ -236,8 +236,9 @@ def test_render_tests_writes_local_and_gateway_variants(tmp_path: Path) -> None:
     assert gateway.strip() == "curl ${SERVICE_BASE_URL}/healthz"
 
 
-def test_render_tests_collapses_when_modes_are_identical(tmp_path: Path) -> None:
-    """A .j2 with no local_testing branch renders once (no redundant variants)."""
+def test_render_tests_always_writes_both_variants(tmp_path: Path) -> None:
+    """Both .local and .gateway are always written — even for a static test with no
+    mode difference — so the two are predictable and never collapsed away."""
     from unitysvc_sellers.params_render import expand_param_file
 
     root = _make_repo(tmp_path)
@@ -245,9 +246,31 @@ def test_render_tests_collapses_when_modes_are_identical(tmp_path: Path) -> None
 
     folder = expand_param_file(root / "specs" / "unitysvc" / "resp200.json")
 
-    assert (folder / "connectivity.sh").read_text().strip() == "echo ok"
-    assert not (folder / "connectivity.local.sh").exists()
-    assert not (folder / "connectivity.gateway.sh").exists()
+    assert (folder / "connectivity.local.sh").read_text().strip() == "echo ok"
+    assert (folder / "connectivity.gateway.sh").read_text().strip() == "echo ok"
+
+
+def test_render_tests_local_vs_gateway_service_base_url(tmp_path: Path) -> None:
+    """`service_base_url` differs by mode: local = the offering's upstream, gateway =
+    the listing's user_access_interface (with {{ service_name }} resolved) — matching
+    how the backend renders gateway tests."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+    svc = root / "specs" / "labs" / "svc1"
+    listing = json.loads((svc / "listing.json").read_text())
+    listing["user_access_interfaces"] = {
+        "canonical": {"access_method": "http", "base_url": "${API_GATEWAY_BASE_URL}/{{ service_name }}"}
+    }
+    listing["documents"] = {"C": {"category": "connectivity_test", "file_path": "connectivity.sh.j2"}}
+    (svc / "listing.json").write_text(json.dumps(listing))
+    (svc / "connectivity.sh.j2").write_text("curl {{ service_base_url }}/health\n")
+
+    folder = expand_service_folder(svc)
+
+    # local → the offering's upstream base_url; gateway → the gateway URL, service_name resolved.
+    assert (folder / "connectivity.local.sh").read_text().strip() == "curl https://up.labs.test/health"
+    assert (folder / "connectivity.gateway.sh").read_text().strip() == "curl ${API_GATEWAY_BASE_URL}/labs/svc1/health"
 
 
 def _make_folder_service(tmp_path: Path) -> Path:
