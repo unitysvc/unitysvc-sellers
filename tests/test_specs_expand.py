@@ -181,24 +181,24 @@ def test_expand_param_file_is_idempotent(tmp_path: Path) -> None:
     assert not (folder / "stale.txt").exists()
 
 
-def test_expand_without_presets_leaves_sentinel_untouched(tmp_path: Path) -> None:
-    """Default expand keeps ``$doc_preset`` as authored — no file is materialized."""
+def test_expand_resolves_presets_by_default(tmp_path: Path) -> None:
+    """Expand resolves ``$doc_preset`` by default — no flag needed."""
     from unitysvc_sellers.params_render import expand_param_file
 
     root = _make_preset_repo(tmp_path)
     folder = expand_param_file(root / "specs" / "unitysvc" / "p1.json")
 
-    listing = json.loads((folder / "listing.json").read_text())
-    assert listing["documents"]["Connectivity"] == {"$doc_preset": "s3_connectivity_v1"}
+    record = json.loads((folder / "listing.json").read_text())["documents"]["Connectivity"]
+    assert "$doc_preset" not in json.dumps(record)
 
 
-def test_expand_presets_materializes_doc_into_folder(tmp_path: Path) -> None:
-    """``--presets`` resolves the sentinel and copies the bundled doc in, with a
-    folder-local ``file_path`` so the render is self-contained."""
+def test_expand_materializes_preset_doc_locally(tmp_path: Path) -> None:
+    """The resolved preset doc is copied in with a folder-local ``file_path`` so the
+    render is self-contained."""
     from unitysvc_sellers.params_render import expand_param_file
 
     root = _make_preset_repo(tmp_path)
-    folder = expand_param_file(root / "specs" / "unitysvc" / "p1.json", expand_presets=True)
+    folder = expand_param_file(root / "specs" / "unitysvc" / "p1.json")
 
     listing = json.loads((folder / "listing.json").read_text())
     record = listing["documents"]["Connectivity"]
@@ -385,19 +385,17 @@ def test_expand_service_folder_with_presets(tmp_path: Path) -> None:
     listing["documents"] = {"Connectivity": {"$doc_preset": "s3_connectivity_v1"}}
     listing_path.write_text(json.dumps(listing))
 
-    folder = expand_service_folder(root / "specs" / "labs" / "svc1", expand_presets=True)
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1")  # presets resolve by default
 
     record = json.loads((folder / "listing.json").read_text())["documents"]["Connectivity"]
     assert "$doc_preset" not in json.dumps(record)
     assert (folder / record["file_path"]).is_file()
 
 
-def test_expand_presets_unknown_preset_is_clean_error(tmp_path: Path) -> None:
-    """An unknown $doc_preset surfaces as a clean ParamRenderError, not a traceback —
-    this is the local-debugging payoff (catch the bug before CI)."""
-    import pytest
-
-    from unitysvc_sellers.params_render import ParamRenderError, expand_service_folder
+def test_expand_unknown_preset_is_best_effort(tmp_path: Path) -> None:
+    """An unknown $doc_preset is best-effort: warn and leave the sentinel as-authored,
+    never fail — so a plain expand still gives you an inspection view."""
+    from unitysvc_sellers.params_render import expand_service_folder
 
     root = _make_folder_service(tmp_path)
     listing_path = root / "specs" / "labs" / "svc1" / "listing.json"
@@ -405,22 +403,24 @@ def test_expand_presets_unknown_preset_is_clean_error(tmp_path: Path) -> None:
     listing["documents"] = {"C": {"$doc_preset": "nonexistent_preset_xyz"}}
     listing_path.write_text(json.dumps(listing))
 
-    with pytest.raises(ParamRenderError, match="preset"):
-        expand_service_folder(root / "specs" / "labs" / "svc1", expand_presets=True)
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1")  # does not raise
+
+    record = json.loads((folder / "listing.json").read_text())["documents"]["C"]
+    assert record == {"$doc_preset": "nonexistent_preset_xyz"}  # left as authored
 
 
-def test_expand_command_unknown_preset_reports_cleanly(tmp_path: Path) -> None:
+def test_expand_command_unknown_preset_warns_but_succeeds(tmp_path: Path) -> None:
     root = _make_folder_service(tmp_path)
     listing_path = root / "specs" / "labs" / "svc1" / "listing.json"
     listing = json.loads(listing_path.read_text())
     listing["documents"] = {"C": {"$doc_preset": "nonexistent_preset_xyz"}}
     listing_path.write_text(json.dumps(listing))
 
-    result = runner.invoke(specs_app, ["expand", "labs/svc1", "--presets", "-d", str(root)])
+    result = runner.invoke(specs_app, ["expand", "labs/svc1", "-d", str(root)])
 
-    assert result.exit_code != 0
+    assert result.exit_code == 0, result.output
     assert "Traceback" not in result.output
-    assert "preset" in result.output.lower()
+    assert "could not resolve presets" in result.output
 
 
 def test_expand_command_works_on_folder_service(tmp_path: Path) -> None:
@@ -432,16 +432,29 @@ def test_expand_command_works_on_folder_service(tmp_path: Path) -> None:
     assert (root / "expanded" / "labs" / "svc1" / "listing.json").is_file()
 
 
-def test_expand_command_tests_flag(tmp_path: Path) -> None:
+def test_expand_command_renders_tests_by_default(tmp_path: Path) -> None:
     root = _make_repo(tmp_path)
     (root / "templates" / "resp" / "connectivity.sh.j2").write_text(_CONNECTIVITY_BRANCHING_J2)
 
-    result = runner.invoke(specs_app, ["expand", "unitysvc/resp200", "--tests", "-d", str(root)])
+    result = runner.invoke(specs_app, ["expand", "unitysvc/resp200", "-d", str(root)])  # no flags
 
     assert result.exit_code == 0, result.output
     folder = root / "expanded" / "unitysvc" / "resp200"
     assert (folder / "connectivity.local.sh").is_file()
     assert (folder / "connectivity.gateway.sh").is_file()
+
+
+def test_expand_command_no_tests_skips_variants(tmp_path: Path) -> None:
+    root = _make_repo(tmp_path)
+    (root / "templates" / "resp" / "connectivity.sh.j2").write_text(_CONNECTIVITY_BRANCHING_J2)
+
+    result = runner.invoke(specs_app, ["expand", "unitysvc/resp200", "--no-tests", "-d", str(root)])
+
+    assert result.exit_code == 0, result.output
+    folder = root / "expanded" / "unitysvc" / "resp200"
+    assert (folder / "connectivity.sh.j2").is_file()  # raw template kept
+    assert not (folder / "connectivity.local.sh").exists()
+    assert not (folder / "connectivity.gateway.sh").exists()
 
 
 def test_expand_command_renders_and_reports(tmp_path: Path) -> None:

@@ -192,18 +192,19 @@ def expand_service(
         ...,
         help="Service name: a param file (specs/<NAME>.json) or a service folder (specs/<NAME>/).",
     ),
+    tests: bool = typer.Option(
+        True,
+        "--tests/--no-tests",
+        help=(
+            "Render each .j2 in local- and gateway-test modes "
+            "(connectivity.local.sh / connectivity.gateway.sh). On by default; --no-tests to skip."
+        ),
+    ),
     presets: bool = typer.Option(
         False,
         "--presets",
-        help="Also resolve $doc_preset / $file_preset references and copy their files into the folder.",
-    ),
-    tests: bool = typer.Option(
-        False,
-        "--tests",
-        help=(
-            "Also render each .j2 in local- and gateway-test modes "
-            "(connectivity.local.sh / connectivity.gateway.sh) for debugging."
-        ),
+        hidden=True,
+        help="(deprecated; presets are resolved by default)",
     ),
     output_dir: Path | None = typer.Option(
         None,
@@ -234,13 +235,14 @@ def expand_service(
     Accepts either a param file (``specs/<NAME>.json`` — rendered through its
     template) or a hand-authored service folder (``specs/<NAME>/`` — copied as-is)
     and writes ``expanded/<NAME>/`` (provider + offering + listing + bundled
-    files) at the repo root. Docs referenced by a relative path (e.g. a shared
-    ``../../docs/*.j2``) are always pulled into the folder so it is self-contained
-    for local files. The folder is yours to read, diff, or delete — it is
+    files) at the repo root, **fully resolved**: docs referenced by a relative
+    path (e.g. a shared ``../../docs/*.j2``) are inlined, ``$doc_preset`` /
+    ``$file_preset`` references are resolved (best-effort — a broken preset warns
+    and is left as-authored rather than failing), and every ``.j2`` is rendered in
+    local/gateway test modes. The folder is yours to read, diff, or delete — it is
     **never** validated or uploaded, and discovery ignores it, so it may go stale
-    until you re-run ``expand``. Pass ``--presets`` to also resolve preset
-    documents, ``--tests`` to render each ``.j2`` in local/gateway modes, or
-    ``--output-dir`` to expand elsewhere.
+    until you re-run ``expand``. Pass ``--no-tests`` to skip the test-variant
+    files, or ``--output-dir`` to expand elsewhere.
     """
     start = (data_dir or Path.cwd()).resolve()
     specs_root = specs_layout.resolve_specs_root(start)
@@ -251,13 +253,9 @@ def expand_service(
     )
     try:
         if param_file.is_file() and is_param_file(param_file):
-            folder = expand_param_file(
-                param_file, expand_presets=presets, render_tests=tests, output_dir=output_dir, flat=flat
-            )
+            folder = expand_param_file(param_file, render_tests=tests, output_dir=output_dir, flat=flat)
         elif is_folder_service:
-            folder = expand_service_folder(
-                service_dir, expand_presets=presets, render_tests=tests, output_dir=output_dir, flat=flat
-            )
+            folder = expand_service_folder(service_dir, render_tests=tests, output_dir=output_dir, flat=flat)
         elif param_file.is_file():
             console.print(
                 f"[red]✗[/red] {param_file.name} is not a param file (a {{template?, parameters}} spec), "

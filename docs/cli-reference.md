@@ -99,13 +99,14 @@ Expand a service into the informal ``expanded/`` tree for inspection.
 Accepts either a param file (``specs/&lt;NAME&gt;.json`` — rendered through its
 template) or a hand-authored service folder (``specs/&lt;NAME&gt;/`` — copied as-is)
 and writes ``expanded/&lt;NAME&gt;/`` (provider + offering + listing + bundled
-files) at the repo root. Docs referenced by a relative path (e.g. a shared
-``../../docs/*.j2``) are always pulled into the folder so it is self-contained
-for local files. The folder is yours to read, diff, or delete — it is
+files) at the repo root, **fully resolved**: docs referenced by a relative
+path (e.g. a shared ``../../docs/*.j2``) are inlined, ``$doc_preset`` /
+``$file_preset`` references are resolved (best-effort — a broken preset warns
+and is left as-authored rather than failing), and every ``.j2`` is rendered in
+local/gateway test modes. The folder is yours to read, diff, or delete — it is
 **never** validated or uploaded, and discovery ignores it, so it may go stale
-until you re-run ``expand``. Pass ``--presets`` to also resolve preset
-documents, ``--tests`` to render each ``.j2`` in local/gateway modes, or
-``--output-dir`` to expand elsewhere.
+until you re-run ``expand``. Pass ``--no-tests`` to skip the test-variant
+files, or ``--output-dir`` to expand elsewhere.
 
 **Usage**:
 
@@ -119,8 +120,7 @@ $ usvc_seller specs expand [OPTIONS] NAME
 
 **Options**:
 
-* `--presets`: Also resolve $doc_preset / $file_preset references and copy their files into the folder.
-* `--tests`: Also render each .j2 in local- and gateway-test modes (connectivity.local.sh / connectivity.gateway.sh) for debugging.
+* `--tests / --no-tests`: Render each .j2 in local- and gateway-test modes (connectivity.local.sh / connectivity.gateway.sh). On by default; --no-tests to skip.  [default: tests]
 * `-o, --output-dir PATH`: Directory to expand into (default: &lt;repo&gt;/expanded — the one tree discovery ignores). The full &lt;service_name&gt; path is created beneath it, so several services never collide.
 * `--flat`: Write the spec files directly into the directory, without the &lt;service_name&gt;/ subfolder (predictable paths). Holds one service at a time; best paired with --output-dir.
 * `-d, --data-dir PATH`: Repo root or specs/ directory (default: current directory).
