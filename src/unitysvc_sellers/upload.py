@@ -43,11 +43,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from unitysvc_core.utils import find_files_by_schema
-
 from .exceptions import APIError
 from .utils import (
     convert_convenience_fields_to_documents,
+    find_files_by_schema,
     read_service_data,
     service_name_matches,
     write_service_data,
