@@ -24,6 +24,7 @@ import contextlib
 import io
 import json
 import shutil
+import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -32,6 +33,7 @@ from typing import Any
 import json5
 
 from .template_populate import _sanitize_dirname, populate_from_iterator
+from .utils import EXPANDED_DIRNAME, load_data_file
 
 
 class ParamRenderError(ValueError):
@@ -217,6 +219,134 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                 if sid:
                     _write_service_id(sidecar, str(sid))
             shutil.rmtree(folder, ignore_errors=True)
+
+
+def _localize_file_paths(obj: Any, folder: Path) -> bool:
+    """Copy any absolute ``file_path`` in *obj* into *folder* and rewrite it to the
+    local basename. Returns True if anything was localized.
+
+    Preset expansion (``$doc_preset`` / ``$file_preset``) yields records whose
+    ``file_path`` is an absolute path into the installed ``unitysvc-data``
+    package; copying the file in beside the JSON makes the rendered folder
+    self-contained for inspection.
+    """
+    changed = False
+    if isinstance(obj, dict):
+        fp = obj.get("file_path")
+        if isinstance(fp, str) and Path(fp).is_absolute() and Path(fp).is_file():
+            shutil.copyfile(fp, folder / Path(fp).name)
+            obj["file_path"] = Path(fp).name
+            changed = True
+        for value in obj.values():
+            changed = _localize_file_paths(value, folder) or changed
+    elif isinstance(obj, list):
+        for value in obj:
+            changed = _localize_file_paths(value, folder) or changed
+    return changed
+
+
+def _materialize_presets(folder: Path) -> None:
+    """Resolve ``$doc_preset`` / ``$file_preset`` references in a rendered folder.
+
+    For each spec file, expand its preset sentinels (via the preset-aware
+    :func:`load_data_file`), copy any referenced document files in beside the
+    JSON, and write the resolved form back — but only when expansion actually
+    changed the file, so preset-free specs stay byte-for-byte as rendered.
+    """
+    for kind in ("provider", "offering", "listing"):
+        path = folder / f"{kind}.json"
+        if not path.is_file():
+            continue
+        expanded, _ = load_data_file(path)
+        if not isinstance(expanded, dict):
+            continue
+        _localize_file_paths(expanded, folder)
+        if expanded != _load_json(path):
+            path.write_text(json.dumps(expanded, indent=2, ensure_ascii=False) + "\n")
+
+
+def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, expand_presets: bool) -> Path:
+    """Render ``ctx`` into ``into_root/<ctx['name']>/`` and return that leaf folder:
+    populate the templates, bundle the template's extra files, and (optionally)
+    resolve presets. Shared by the nested and ``--flat`` expand paths.
+    """
+    with contextlib.redirect_stdout(io.StringIO()):
+        populate_from_iterator(iter([ctx]), templates_dir=tdir, output_dir=into_root, deprecate_missing=False)
+    leaf = into_root / ctx["name"]
+    # Bundle the template's other files (e.g. connectivity.sh.j2) so the folder
+    # is self-contained (provider.json is already copied by the populator).
+    extras = [f for f in tdir.iterdir() if f.is_file() and f.name not in (_NON_BUNDLED | {"provider.json"})]
+    for f in extras:
+        shutil.copyfile(f, leaf / f.name)
+    if expand_presets:
+        _materialize_presets(leaf)
+    return leaf
+
+
+def expand_param_file(
+    param_file: Path,
+    *,
+    expand_presets: bool = False,
+    output_dir: Path | None = None,
+    flat: bool = False,
+) -> Path:
+    """Render one param file into the informal ``expanded/`` inspection tree.
+
+    ``specs/<name>.json`` → ``expanded/<name>/`` (provider + offering + listing +
+    bundled template files), beside ``specs/`` at the repo root. Unlike the
+    ephemeral render in :func:`materialized_param_specs`, this folder is a
+    **static, user-owned artifact**: it is refreshed in place on each call and
+    then left on disk for inspection. It never carries a ``service.json`` —
+    backend identity stays with the param file's ``<name>.service.json`` sidecar
+    — and every formal command ignores the default ``expanded/`` tree (see
+    :data:`unitysvc_sellers.utils.EXPANDED_DIRNAME`), so a stale render (e.g.
+    after a template change) is harmless until the next ``expand``.
+
+    With ``expand_presets``, ``$doc_preset`` / ``$file_preset`` document
+    references are also resolved and their files copied in, so the folder has no
+    references outside itself.
+
+    ``output_dir`` overrides the default ``expanded/`` location. By default the
+    full ``<service_name>`` path is created beneath it, so expanding several
+    services into one directory never collides. With ``flat``, the spec files are
+    written **directly** into the directory (no ``<service_name>/``) for
+    predictable paths — which only holds one service at a time, so it overwrites
+    its own spec files but leaves any other files in the directory untouched.
+
+    Returns the rendered folder path (the ``<service_name>/`` leaf, or the
+    directory itself when ``flat``).
+    """
+    data = _load_json(param_file)
+    tdir = _resolve_template_dir(param_file, data.get("template"))
+    specs_root = _specs_root_for(param_file)
+    service_name = _service_name_for(param_file)
+    expanded_root = Path(output_dir) if output_dir is not None else specs_root.parent / EXPANDED_DIRNAME
+
+    ctx = {
+        "name": service_name,  # name_field → folder path under output_dir
+        "service_name": service_name,
+        "provider_name": service_name.split("/")[0],
+        **(data.get("parameters") or {}),
+    }
+
+    if flat:
+        # Render into a throwaway tree, then copy just this service's files in —
+        # so a shared output dir keeps its other contents (can't blanket-rmtree).
+        with tempfile.TemporaryDirectory() as tmp:
+            leaf = _render_one(ctx, tdir, Path(tmp), expand_presets=expand_presets)
+            expanded_root.mkdir(parents=True, exist_ok=True)
+            for f in leaf.iterdir():
+                if f.is_file():
+                    shutil.copyfile(f, expanded_root / f.name)
+        return expanded_root
+
+    folder = expanded_root / service_name
+    # Refresh in place: drop any previous render so a removed/renamed file in the
+    # template doesn't linger.
+    if folder.exists():
+        shutil.rmtree(folder)
+    _render_one(ctx, tdir, expanded_root, expand_presets=expand_presets)
+    return folder
 
 
 # Keys that ``materialized_param_specs`` injects from the param file's path, so

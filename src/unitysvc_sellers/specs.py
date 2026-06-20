@@ -12,7 +12,7 @@ from rich.table import Table
 from . import _cli_upload as upload_cmd
 from . import example, format_data, populate, specs_layout
 from . import list as list_cmd
-from .params_render import ParamRenderError, materialized_param_specs
+from .params_render import ParamRenderError, expand_param_file, is_param_file, materialized_param_specs
 from .utils import find_files_by_schema, load_data_file, read_service_id
 
 app = typer.Typer(help="Local operations on the flat specs/ layout (validate, format, populate, upload, test, etc.)")
@@ -33,7 +33,10 @@ def _expand_params(ctx: typer.Context) -> None:
     committed files themselves, not the expanded view.
     """
     sub = ctx.invoked_subcommand
-    if not sub or sub in {"format", "populate"}:
+    # ``format``/``populate`` operate on the committed files themselves; ``expand``
+    # writes the informal expanded/ tree from the param file directly — none of
+    # them want the ephemeral whole-repo render.
+    if not sub or sub in {"format", "populate", "expand"}:
         return
     try:
         ctx.with_resource(materialized_param_specs(Path.cwd()))
@@ -175,6 +178,78 @@ def show_service(
         _render_output(sections[selected[0]], output_format)
     else:
         _render_output({k: sections[k] for k in selected}, output_format)
+
+
+@app.command("expand")
+def expand_service(
+    name: str = typer.Argument(
+        ...,
+        help="Service name = the param file's path under specs/ without .json (e.g. 'parasail/foo').",
+    ),
+    presets: bool = typer.Option(
+        False,
+        "--presets",
+        help="Also resolve $doc_preset / $file_preset references and copy their files into the folder.",
+    ),
+    output_dir: Path | None = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help=(
+            "Directory to expand into (default: <repo>/expanded — the one tree discovery ignores). "
+            "The full <service_name> path is created beneath it, so several services never collide."
+        ),
+    ),
+    flat: bool = typer.Option(
+        False,
+        "--flat",
+        help=(
+            "Write the spec files directly into the directory, without the <service_name>/ subfolder "
+            "(predictable paths). Holds one service at a time; best paired with --output-dir."
+        ),
+    ),
+    data_dir: Path | None = typer.Option(
+        None,
+        "--data-dir",
+        "-d",
+        help="Repo root or specs/ directory (default: current directory).",
+    ),
+) -> None:
+    """Expand a param file into the informal ``expanded/`` tree for inspection.
+
+    Renders ``specs/<NAME>.json`` to ``expanded/<NAME>/`` (provider + offering +
+    listing + bundled files) at the repo root. The folder is yours to read,
+    diff, or delete — it is **never** validated or uploaded, and discovery
+    ignores it, so it may go stale after a template change until you re-run
+    ``expand``. Pass ``--presets`` to also inline preset documents so the folder
+    has no references outside itself, or ``--output-dir`` to expand elsewhere.
+    """
+    start = (data_dir or Path.cwd()).resolve()
+    specs_root = specs_layout.resolve_specs_root(start)
+    param_file = specs_root / f"{name}.json"
+    if not param_file.is_file():
+        console.print(f"[red]✗[/red] No param file for {name!r} at {param_file}")
+        raise typer.Exit(1)
+    if not is_param_file(param_file):
+        console.print(
+            f"[red]✗[/red] {param_file.name} is not a param file (a {{template?, parameters}} spec). "
+            f"'expand' only renders param files."
+        )
+        raise typer.Exit(1)
+    try:
+        folder = expand_param_file(param_file, expand_presets=presets, output_dir=output_dir, flat=flat)
+    except ParamRenderError as exc:
+        console.print(f"[red]✗[/red] Param render error: {exc}")
+        raise typer.Exit(1) from exc
+    console.print(f"[green]✓[/green] Expanded to {folder}")
+    if output_dir is None:
+        console.print("[dim]Inspection only — not part of the catalog; re-run 'expand' to refresh.[/dim]")
+    else:
+        # Only the default expanded/ tree is auto-excluded from discovery.
+        console.print(
+            "[dim]Inspection only. Note: a custom --output-dir is not auto-ignored by discovery — "
+            "keep it outside the catalog (or gitignored) so it isn't picked up as a service.[/dim]"
+        )
 
 
 # Register subcommands

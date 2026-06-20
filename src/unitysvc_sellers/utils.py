@@ -34,7 +34,6 @@ from unitysvc_core.utils import (  # noqa: F401
     compute_file_hash,
     deep_merge_dicts,
     find_data_files,
-    find_files_by_schema,
     generate_content_based_key,
     get_basename,
     get_file_extension,
@@ -42,6 +41,46 @@ from unitysvc_core.utils import (  # noqa: F401
     mime_type_to_extension,
     write_data_file,
 )
+from unitysvc_core.utils import (
+    find_files_by_schema as _core_find_files_by_schema,
+)
+
+# Top-level directory holding `usvc_seller specs expand` output: a static,
+# user-owned tree of rendered services for inspection only. It is deliberately
+# NOT part of the formal catalog, so every discovery walk skips it (see the
+# `find_files_by_schema` wrapper below). Lives beside `specs/` at the repo root;
+# `specs/` is where formal data lives, so a top-level `expanded/` never collides
+# with a real provider/service path.
+EXPANDED_DIRNAME = "expanded"
+
+
+def find_files_by_schema(
+    data_dir: Any,
+    schema: str,
+    path_filter: str | None = None,
+    field_filter: Any = None,
+) -> list[tuple[Path, str, dict[str, Any]]]:
+    """Seller wrapper over ``unitysvc_core.utils.find_files_by_schema``.
+
+    Identical to core discovery, except results under a top-level
+    ``expanded/`` directory (relative to ``data_dir``) are dropped — that tree
+    is the informal output of ``specs expand`` and must never be treated as a
+    formal service, even if committed. Mirrors the dot-directory skip that
+    ``specs_layout.find_service_folders`` already applies to ``validate``.
+    """
+    results = _core_find_files_by_schema(data_dir, schema, path_filter, field_filter)
+    root = Path(data_dir)
+    kept: list[tuple[Path, str, dict[str, Any]]] = []
+    for path, fmt, data in results:
+        try:
+            rel = path.relative_to(root)
+        except ValueError:
+            kept.append((path, fmt, data))
+            continue
+        if rel.parts and rel.parts[0] == EXPANDED_DIRNAME:
+            continue
+        kept.append((path, fmt, data))
+    return kept
 
 
 def service_name_matches(service_name: str | None, pattern: str) -> bool:
