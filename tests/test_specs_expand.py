@@ -398,6 +398,39 @@ def test_expand_tests_renders_inlined_shared_doc(tmp_path: Path) -> None:
     assert (folder / "connectivity.gateway.sh").read_text().strip() == "curl ${SERVICE_BASE_URL}/healthz"
 
 
+def test_local_variant_rewrites_secret_refs_to_env_form(tmp_path: Path) -> None:
+    """The local variant must not leak ``${ customer_secrets.X }`` — local run-tests
+    pulls secrets from env vars, so rewrite to env-var form (``${X}`` / ``${X:-default}``).
+    The gateway variant keeps them (the gateway resolves them server-side)."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+    svc = root / "specs" / "labs" / "svc1"
+    offering = json.loads((svc / "offering.json").read_text())
+    offering["upstream_access_config"] = {
+        "apprise": {
+            "access_method": "http",
+            "base_url": "${ customer_secrets.APPRISE_BASE ?? https://apprise.unitysvc.dev }/notify",
+        }
+    }
+    (svc / "offering.json").write_text(json.dumps(offering))
+    listing = json.loads((svc / "listing.json").read_text())
+    listing["documents"] = {"C": {"category": "connectivity_test", "file_path": "connectivity.sh.j2"}}
+    (svc / "listing.json").write_text(json.dumps(listing))
+    (svc / "connectivity.sh.j2").write_text(
+        'curl "{{ service_base_url }}" -H "X-Token: ${ customer_secrets.TOKEN }"\n'
+    )
+
+    folder = expand_service_folder(svc)
+
+    local = (folder / "connectivity.local.sh").read_text()
+    assert "customer_secrets" not in local
+    assert "${APPRISE_BASE:-https://apprise.unitysvc.dev}/notify" in local  # ?? default → shell default
+    assert "${TOKEN}" in local  # no default → plain env var
+    # Gateway keeps the reference — the gateway injects customer secrets at request time.
+    assert "${ customer_secrets.TOKEN }" in (folder / "connectivity.gateway.sh").read_text()
+
+
 def test_expand_service_folder_with_presets(tmp_path: Path) -> None:
     """A folder service that uses a $doc_preset gets it resolved + localized too."""
     from unitysvc_sellers.params_render import expand_service_folder

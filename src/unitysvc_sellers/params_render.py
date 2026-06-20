@@ -331,6 +331,29 @@ def _first_interface(config: Any) -> dict[str, Any]:
     return {}
 
 
+# ``${ secrets.VAR }`` / ``${ customer_secrets.VAR ?? default }`` anywhere in a string
+# (the in-string form; mirrors example.py's whole-string ``_SECRETS_RE``).
+_SECRET_REF_RE = re.compile(r"\$\{\s*(?:secrets|customer_secrets)\.([A-Za-z_]\w*)(?:\s*\?\?\s*(.*?))?\s*\}")
+
+
+def _localize_secret_refs(text: str) -> str:
+    """Rewrite secret references to env-var form for the **local** test variant.
+
+    ``data run-tests`` pulls every ``${ secrets.X }`` / ``${ customer_secrets.X }``
+    from an environment variable named ``X`` (see ``example.resolve_secret_ref``),
+    so the local script should read the env var, not the catalog reference:
+    ``${ ns.X }`` → ``${X}`` and ``${ ns.X ?? default }`` → ``${X:-default}`` (shell
+    default-expansion, preserving the fallback). The **gateway** variant keeps the
+    references — the gateway resolves customer secrets server-side.
+    """
+
+    def repl(m: re.Match[str]) -> str:
+        name, default = m.group(1), m.group(2)
+        return f"${{{name}:-{default}}}" if default is not None else f"${{{name}}}"
+
+    return _SECRET_REF_RE.sub(repl, text)
+
+
 def _render_test_variants(folder: Path) -> None:
     """Render every ``.j2`` in *folder* in both test modes — always writing
     ``<base>.local.<ext>`` and ``<base>.gateway.<ext>`` beside the kept template.
@@ -378,6 +401,9 @@ def _render_test_variants(folder: Path) -> None:
                 j2, listing=listing, offering=offering, provider=provider,
                 interface=iface, local_testing=local_testing, **flat_ctx,
             )
+            if mode == "local":
+                # Local run-tests reads secrets from env vars; don't leak ${ customer_secrets.X }.
+                content = _localize_secret_refs(content)
             (folder / _variant_name(rendered_name, mode)).write_text(content)
 
 
