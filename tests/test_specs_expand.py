@@ -181,24 +181,24 @@ def test_expand_param_file_is_idempotent(tmp_path: Path) -> None:
     assert not (folder / "stale.txt").exists()
 
 
-def test_expand_without_presets_leaves_sentinel_untouched(tmp_path: Path) -> None:
-    """Default expand keeps ``$doc_preset`` as authored — no file is materialized."""
+def test_expand_resolves_presets_by_default(tmp_path: Path) -> None:
+    """Expand resolves ``$doc_preset`` by default — no flag needed."""
     from unitysvc_sellers.params_render import expand_param_file
 
     root = _make_preset_repo(tmp_path)
     folder = expand_param_file(root / "specs" / "unitysvc" / "p1.json")
 
-    listing = json.loads((folder / "listing.json").read_text())
-    assert listing["documents"]["Connectivity"] == {"$doc_preset": "s3_connectivity_v1"}
+    record = json.loads((folder / "listing.json").read_text())["documents"]["Connectivity"]
+    assert "$doc_preset" not in json.dumps(record)
 
 
-def test_expand_presets_materializes_doc_into_folder(tmp_path: Path) -> None:
-    """``--presets`` resolves the sentinel and copies the bundled doc in, with a
-    folder-local ``file_path`` so the render is self-contained."""
+def test_expand_materializes_preset_doc_locally(tmp_path: Path) -> None:
+    """The resolved preset doc is copied in with a folder-local ``file_path`` so the
+    render is self-contained."""
     from unitysvc_sellers.params_render import expand_param_file
 
     root = _make_preset_repo(tmp_path)
-    folder = expand_param_file(root / "specs" / "unitysvc" / "p1.json", expand_presets=True)
+    folder = expand_param_file(root / "specs" / "unitysvc" / "p1.json")
 
     listing = json.loads((folder / "listing.json").read_text())
     record = listing["documents"]["Connectivity"]
@@ -207,6 +207,297 @@ def test_expand_presets_materializes_doc_into_folder(tmp_path: Path) -> None:
     assert "$doc_preset" not in json.dumps(record)
     assert not Path(record["file_path"]).is_absolute()
     assert (folder / record["file_path"]).is_file()
+
+
+# A connectivity probe that branches on local_testing: local mode hits the
+# upstream (Jinja `service_base_url`), gateway mode hits the gateway (shell env).
+_CONNECTIVITY_BRANCHING_J2 = (
+    "{% if local_testing %}curl {{ service_base_url }}/healthz"
+    "{% else %}curl ${SERVICE_BASE_URL}/healthz{% endif %}\n"
+)
+
+
+def test_render_tests_writes_local_and_gateway_variants(tmp_path: Path) -> None:
+    """expand renders each test .j2 in both modes as suffix siblings."""
+    from unitysvc_sellers.params_render import expand_param_file
+
+    root = _make_repo(tmp_path)
+    (root / "templates" / "resp" / "connectivity.sh.j2").write_text(_CONNECTIVITY_BRANCHING_J2)
+
+    folder = expand_param_file(root / "specs" / "unitysvc" / "resp200.json")
+
+    # Raw template is kept; both variants are rendered beside it.
+    assert (folder / "connectivity.sh.j2").is_file()
+    local = (folder / "connectivity.local.sh").read_text()
+    gateway = (folder / "connectivity.gateway.sh").read_text()
+    # Local mode resolves the upstream base_url from the offering; gateway mode
+    # keeps the shell placeholder the real gateway test uses.
+    assert local.strip() == "curl resp://200/healthz"
+    assert gateway.strip() == "curl ${SERVICE_BASE_URL}/healthz"
+
+
+def test_render_tests_always_writes_both_variants(tmp_path: Path) -> None:
+    """Both .local and .gateway are always written — even for a static test with no
+    mode difference — so the two are predictable and never collapsed away."""
+    from unitysvc_sellers.params_render import expand_param_file
+
+    root = _make_repo(tmp_path)
+    (root / "templates" / "resp" / "connectivity.sh.j2").write_text("echo ok\n")
+
+    folder = expand_param_file(root / "specs" / "unitysvc" / "resp200.json")
+
+    assert (folder / "connectivity.local.sh").read_text().strip() == "echo ok"
+    assert (folder / "connectivity.gateway.sh").read_text().strip() == "echo ok"
+
+
+def test_render_tests_local_vs_gateway_service_base_url(tmp_path: Path) -> None:
+    """`service_base_url` differs by mode: local = the offering's upstream, gateway =
+    the listing's user_access_interface (with {{ service_name }} resolved) — matching
+    how the backend renders gateway tests."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+    svc = root / "specs" / "labs" / "svc1"
+    listing = json.loads((svc / "listing.json").read_text())
+    listing["user_access_interfaces"] = {
+        "canonical": {"access_method": "http", "base_url": "${API_GATEWAY_BASE_URL}/{{ service_name }}"}
+    }
+    listing["documents"] = {"C": {"category": "connectivity_test", "file_path": "connectivity.sh.j2"}}
+    (svc / "listing.json").write_text(json.dumps(listing))
+    (svc / "connectivity.sh.j2").write_text("curl {{ service_base_url }}/health\n")
+
+    folder = expand_service_folder(svc)
+
+    # local → the offering's upstream base_url; gateway → the gateway URL, service_name resolved.
+    assert (folder / "connectivity.local.sh").read_text().strip() == "curl https://up.labs.test/health"
+    assert (folder / "connectivity.gateway.sh").read_text().strip() == "curl ${API_GATEWAY_BASE_URL}/labs/svc1/health"
+
+
+def _make_folder_service(tmp_path: Path) -> Path:
+    """A hand-authored flat service folder (specs/<name>/), no param/template."""
+    svc = tmp_path / "specs" / "labs" / "svc1"
+    svc.mkdir(parents=True)
+    (svc / "provider.json").write_text(
+        json.dumps(
+            {
+                "name": "labs",
+                "display_name": "Labs",
+                "homepage": "https://labs.test/",
+                "contact_email": "x@labs.test",
+                "status": "ready",
+                "time_created": "2026-05-31T00:00:00Z",
+            }
+        )
+        + "\n"
+    )
+    (svc / "offering.json").write_text(
+        json.dumps(
+            {
+                "name": "labs/svc1",
+                "service_type": "gateway",
+                "capabilities": ["http_relay"],
+                "description": "d",
+                "status": "ready",
+                "tags": ["t"],
+                "time_created": "2026-05-31T00:00:00Z",
+                "upstream_access_config": {"direct": {"access_method": "http", "base_url": "https://up.labs.test"}},
+            }
+        )
+        + "\n"
+    )
+    (svc / "listing.json").write_text(
+        json.dumps(
+            {
+                "name": "labs/svc1",
+                "display_name": "Svc1",
+                "currency": "USD",
+                "status": "ready",
+                "list_price": {"type": "constant", "price": "0", "description": "F"},
+                "user_access_interfaces": {
+                    "direct": {"access_method": "http", "base_url": "${API_GATEWAY_BASE_URL}/labs/svc1"}
+                },
+            }
+        )
+        + "\n"
+    )
+    return tmp_path
+
+
+def test_expand_service_folder_copies_to_expanded_tree(tmp_path: Path) -> None:
+    """expand also works on a hand-authored specs/<name>/ folder (not a param file)."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1")
+
+    assert folder == root / "expanded" / "labs" / "svc1"
+    for f in ("provider.json", "offering.json", "listing.json"):
+        assert (folder / f).is_file()
+    assert json.loads((folder / "listing.json").read_text())["name"] == "labs/svc1"
+    # Source folder untouched; no identity record leaks into the inspection tree.
+    assert (root / "specs" / "labs" / "svc1" / "listing.json").is_file()
+    assert not (folder / "service.json").exists()
+
+
+def test_expand_service_folder_renders_tests(tmp_path: Path) -> None:
+    """Folder services get the same local/gateway test rendering."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+    (root / "specs" / "labs" / "svc1" / "connectivity.sh.j2").write_text(_CONNECTIVITY_BRANCHING_J2)
+
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1")
+
+    assert (folder / "connectivity.local.sh").read_text().strip() == "curl https://up.labs.test/healthz"
+    assert (folder / "connectivity.gateway.sh").read_text().strip() == "curl ${SERVICE_BASE_URL}/healthz"
+
+
+def test_expand_inlines_shared_relative_docs(tmp_path: Path) -> None:
+    """Base expand pulls a doc referenced by a relative path *outside* the service
+    dir into the folder and rewrites the ref to its basename — self-contained."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+    shared = root / "specs" / "labs" / "_docs"
+    shared.mkdir()
+    (shared / "connectivity.sh.j2").write_text("echo shared\n")
+    listing_path = root / "specs" / "labs" / "svc1" / "listing.json"
+    listing = json.loads(listing_path.read_text())
+    listing["documents"] = {
+        "C": {"category": "connectivity_test", "file_path": "../_docs/connectivity.sh.j2", "mime_type": "bash"}
+    }
+    listing_path.write_text(json.dumps(listing))
+
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1")  # no flags
+
+    assert (folder / "connectivity.sh.j2").read_text() == "echo shared\n"
+    rec = json.loads((folder / "listing.json").read_text())["documents"]["C"]
+    assert rec["file_path"] == "connectivity.sh.j2"
+    # Source is untouched.
+    assert (shared / "connectivity.sh.j2").is_file()
+
+
+def test_expand_tests_renders_inlined_shared_doc(tmp_path: Path) -> None:
+    """A shared relative doc is a *local* test — expand inlines it and renders
+    both variants from it."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+    shared = root / "specs" / "labs" / "_docs"
+    shared.mkdir()
+    (shared / "connectivity.sh.j2").write_text(_CONNECTIVITY_BRANCHING_J2)
+    listing_path = root / "specs" / "labs" / "svc1" / "listing.json"
+    listing = json.loads(listing_path.read_text())
+    listing["documents"] = {"C": {"category": "connectivity_test", "file_path": "../_docs/connectivity.sh.j2"}}
+    listing_path.write_text(json.dumps(listing))
+
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1")
+
+    assert (folder / "connectivity.local.sh").read_text().strip() == "curl https://up.labs.test/healthz"
+    assert (folder / "connectivity.gateway.sh").read_text().strip() == "curl ${SERVICE_BASE_URL}/healthz"
+
+
+def test_local_variant_rewrites_secret_refs_to_env_form(tmp_path: Path) -> None:
+    """The local variant must not leak ``${ customer_secrets.X }`` — local run-tests
+    pulls secrets from env vars, so rewrite to env-var form (``${X}`` / ``${X:-default}``).
+    The gateway variant keeps them (the gateway resolves them server-side)."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+    svc = root / "specs" / "labs" / "svc1"
+    offering = json.loads((svc / "offering.json").read_text())
+    offering["upstream_access_config"] = {
+        "apprise": {
+            "access_method": "http",
+            "base_url": "${ customer_secrets.APPRISE_BASE ?? https://apprise.unitysvc.dev }/notify",
+        }
+    }
+    (svc / "offering.json").write_text(json.dumps(offering))
+    listing = json.loads((svc / "listing.json").read_text())
+    listing["documents"] = {"C": {"category": "connectivity_test", "file_path": "connectivity.sh.j2"}}
+    (svc / "listing.json").write_text(json.dumps(listing))
+    (svc / "connectivity.sh.j2").write_text(
+        'curl "{{ service_base_url }}" -H "X-Token: ${ customer_secrets.TOKEN }"\n'
+    )
+
+    folder = expand_service_folder(svc)
+
+    local = (folder / "connectivity.local.sh").read_text()
+    assert "customer_secrets" not in local
+    assert "${APPRISE_BASE:-https://apprise.unitysvc.dev}/notify" in local  # ?? default → shell default
+    assert "${TOKEN}" in local  # no default → plain env var
+    # Gateway keeps the reference — the gateway injects customer secrets at request time.
+    assert "${ customer_secrets.TOKEN }" in (folder / "connectivity.gateway.sh").read_text()
+
+
+def test_expand_service_folder_with_presets(tmp_path: Path) -> None:
+    """A folder service that uses a $doc_preset gets it resolved + localized too."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+    listing_path = root / "specs" / "labs" / "svc1" / "listing.json"
+    listing = json.loads(listing_path.read_text())
+    listing["documents"] = {"Connectivity": {"$doc_preset": "s3_connectivity_v1"}}
+    listing_path.write_text(json.dumps(listing))
+
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1")  # presets resolve by default
+
+    record = json.loads((folder / "listing.json").read_text())["documents"]["Connectivity"]
+    assert "$doc_preset" not in json.dumps(record)
+    assert (folder / record["file_path"]).is_file()
+
+
+def test_expand_unknown_preset_is_best_effort(tmp_path: Path) -> None:
+    """An unknown $doc_preset is best-effort: warn and leave the sentinel as-authored,
+    never fail — so a plain expand still gives you an inspection view."""
+    from unitysvc_sellers.params_render import expand_service_folder
+
+    root = _make_folder_service(tmp_path)
+    listing_path = root / "specs" / "labs" / "svc1" / "listing.json"
+    listing = json.loads(listing_path.read_text())
+    listing["documents"] = {"C": {"$doc_preset": "nonexistent_preset_xyz"}}
+    listing_path.write_text(json.dumps(listing))
+
+    folder = expand_service_folder(root / "specs" / "labs" / "svc1")  # does not raise
+
+    record = json.loads((folder / "listing.json").read_text())["documents"]["C"]
+    assert record == {"$doc_preset": "nonexistent_preset_xyz"}  # left as authored
+
+
+def test_expand_command_unknown_preset_warns_but_succeeds(tmp_path: Path) -> None:
+    root = _make_folder_service(tmp_path)
+    listing_path = root / "specs" / "labs" / "svc1" / "listing.json"
+    listing = json.loads(listing_path.read_text())
+    listing["documents"] = {"C": {"$doc_preset": "nonexistent_preset_xyz"}}
+    listing_path.write_text(json.dumps(listing))
+
+    result = runner.invoke(specs_app, ["expand", "labs/svc1", "-d", str(root)])
+
+    assert result.exit_code == 0, result.output
+    assert "Traceback" not in result.output
+    assert "could not resolve presets" in result.output
+
+
+def test_expand_command_works_on_folder_service(tmp_path: Path) -> None:
+    root = _make_folder_service(tmp_path)
+
+    result = runner.invoke(specs_app, ["expand", "labs/svc1", "-d", str(root)])
+
+    assert result.exit_code == 0, result.output
+    assert (root / "expanded" / "labs" / "svc1" / "listing.json").is_file()
+
+
+def test_expand_command_renders_tests_by_default(tmp_path: Path) -> None:
+    root = _make_repo(tmp_path)
+    (root / "templates" / "resp" / "connectivity.sh.j2").write_text(_CONNECTIVITY_BRANCHING_J2)
+
+    result = runner.invoke(specs_app, ["expand", "unitysvc/resp200", "-d", str(root)])  # no flags
+
+    assert result.exit_code == 0, result.output
+    folder = root / "expanded" / "unitysvc" / "resp200"
+    assert (folder / "connectivity.local.sh").is_file()
+    assert (folder / "connectivity.gateway.sh").is_file()
 
 
 def test_expand_command_renders_and_reports(tmp_path: Path) -> None:
@@ -221,10 +512,10 @@ def test_expand_command_renders_and_reports(tmp_path: Path) -> None:
     assert str(folder) in "".join(result.output.split())
 
 
-def test_expand_command_presets_flag(tmp_path: Path) -> None:
+def test_expand_command_resolves_presets(tmp_path: Path) -> None:
     root = _make_preset_repo(tmp_path)
 
-    result = runner.invoke(specs_app, ["expand", "unitysvc/p1", "--presets", "-d", str(root)])
+    result = runner.invoke(specs_app, ["expand", "unitysvc/p1", "-d", str(root)])  # no flags
 
     assert result.exit_code == 0, result.output
     listing = json.loads((root / "expanded" / "unitysvc" / "p1" / "listing.json").read_text())

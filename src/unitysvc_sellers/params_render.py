@@ -23,6 +23,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import re
 import shutil
 import tempfile
 from collections.abc import Iterator
@@ -245,6 +246,52 @@ def _localize_file_paths(obj: Any, folder: Path) -> bool:
     return changed
 
 
+def _localize_relative_file_paths(obj: Any, folder: Path, source_base: Path, claimed: dict[str, Path]) -> bool:
+    """Copy any *relative* ``file_path`` (resolved against *source_base*) into
+    *folder* and rewrite it to the local basename. Returns True if a reference was
+    rewritten. ``claimed`` maps basename → source so same-basename clashes are
+    reported (last-wins). Absolute paths and ``$preset`` sentinels are left alone
+    (handled by :func:`_materialize_presets`)."""
+    changed = False
+    if isinstance(obj, dict):
+        fp = obj.get("file_path")
+        if isinstance(fp, str) and fp and not Path(fp).is_absolute():
+            src = source_base / fp
+            if src.is_file():
+                prior = claimed.get(src.name)
+                if prior is not None and prior != src:
+                    print(f"  ⚠ expand: two docs both map to '{src.name}' ({prior} vs {src}); keeping the latter")
+                claimed[src.name] = src
+                shutil.copyfile(src, folder / src.name)
+                if fp != src.name:
+                    obj["file_path"] = src.name
+                    changed = True
+        for value in obj.values():
+            changed = _localize_relative_file_paths(value, folder, source_base, claimed) or changed
+    elif isinstance(obj, list):
+        for value in obj:
+            changed = _localize_relative_file_paths(value, folder, source_base, claimed) or changed
+    return changed
+
+
+def _inline_local_docs(folder: Path, source_base: Path) -> None:
+    """Pull every doc a spec references by *relative path* (e.g. a shared
+    ``../../docs/connectivity.sh.j2``) into *folder*, rewriting the reference to
+    the local basename — so the expanded folder is self-contained for files that
+    exist locally, regardless of where they were authored. Resolves relative
+    paths against *source_base* (the service's real/canonical location)."""
+    claimed: dict[str, Path] = {}
+    for kind in ("provider", "offering", "listing"):
+        path = folder / f"{kind}.json"
+        if not path.is_file():
+            continue
+        data = _load_json(path)
+        if not isinstance(data, dict):
+            continue
+        if _localize_relative_file_paths(data, folder, source_base, claimed):
+            path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+
 def _materialize_presets(folder: Path) -> None:
     """Resolve ``$doc_preset`` / ``$file_preset`` references in a rendered folder.
 
@@ -257,7 +304,11 @@ def _materialize_presets(folder: Path) -> None:
         path = folder / f"{kind}.json"
         if not path.is_file():
             continue
-        expanded, _ = load_data_file(path)
+        try:
+            expanded, _ = load_data_file(path)
+        except Exception as exc:  # unknown preset, bad sentinel, … — best-effort: warn and keep the sentinel
+            print(f"  ⚠ expand: could not resolve presets in {kind}.json — left as-authored ({exc})")
+            continue
         if not isinstance(expanded, dict):
             continue
         _localize_file_paths(expanded, folder)
@@ -265,10 +316,112 @@ def _materialize_presets(folder: Path) -> None:
             path.write_text(json.dumps(expanded, indent=2, ensure_ascii=False) + "\n")
 
 
-def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, expand_presets: bool) -> Path:
+def _variant_name(filename: str, mode: str) -> str:
+    """``connectivity.sh`` + ``local`` → ``connectivity.local.sh`` (mode before ext)."""
+    if "." in filename:
+        base, ext = filename.rsplit(".", 1)
+        return f"{base}.{mode}.{ext}"
+    return f"{filename}.{mode}"
+
+
+def _first_interface(config: Any) -> dict[str, Any]:
+    """The first channel dict of an ``{upstream,user}_access_config`` mapping."""
+    if isinstance(config, dict):
+        return next((v for v in config.values() if isinstance(v, dict)), {})
+    return {}
+
+
+# ``${ secrets.VAR }`` / ``${ customer_secrets.VAR ?? default }`` anywhere in a string
+# (the in-string form; mirrors example.py's whole-string ``_SECRETS_RE``).
+_SECRET_REF_RE = re.compile(r"\$\{\s*(?:secrets|customer_secrets)\.([A-Za-z_]\w*)(?:\s*\?\?\s*(.*?))?\s*\}")
+
+
+def _localize_secret_refs(text: str) -> str:
+    """Rewrite secret references to env-var form for the **local** test variant.
+
+    ``data run-tests`` pulls every ``${ secrets.X }`` / ``${ customer_secrets.X }``
+    from an environment variable named ``X`` (see ``example.resolve_secret_ref``),
+    so the local script should read the env var, not the catalog reference:
+    ``${ ns.X }`` → ``${X}`` and ``${ ns.X ?? default }`` → ``${X:-default}`` (shell
+    default-expansion, preserving the fallback). The **gateway** variant keeps the
+    references — the gateway resolves customer secrets server-side.
+    """
+
+    def repl(m: re.Match[str]) -> str:
+        name, default = m.group(1), m.group(2)
+        return f"${{{name}:-{default}}}" if default is not None else f"${{{name}}}"
+
+    return _SECRET_REF_RE.sub(repl, text)
+
+
+def _render_test_variants(folder: Path) -> None:
+    """Render every ``.j2`` in *folder* in both test modes — always writing
+    ``<base>.local.<ext>`` and ``<base>.gateway.<ext>`` beside the kept template.
+
+    The two modes differ by **interface**, mirroring the backend: the local
+    variant (``data run-tests``) renders against the offering's *upstream*
+    interface, so ``{{ service_base_url }}`` is the upstream URL; the gateway
+    variant (``services run-tests``) renders against the listing's
+    *user_access_interface*, so ``{{ service_base_url }}`` is the gateway URL
+    (``${API_GATEWAY_BASE_URL}/<service_name>`` — with ``{{ service_name }}``
+    resolved and the deployment base left as a ``${...}`` placeholder). Shell
+    ``${SERVICE_BASE_URL}`` / ``${customer_secrets.*}`` and unresolved tokens stay
+    as placeholders — what the live runner fills in.
+    """
+    from .example import build_upstream_template_context
+    from .utils import render_template_file
+
+    def _load(name: str) -> dict[str, Any]:
+        path = folder / name
+        if not path.is_file():
+            return {}
+        try:
+            loaded, _ = load_data_file(path)
+        except Exception:
+            loaded = _load_json(path)  # best-effort: an unresolved preset doesn't block test rendering
+        return loaded if isinstance(loaded, dict) else {}
+
+    listing, offering, provider = _load("listing.json"), _load("offering.json"), _load("provider.json")
+    service_name = (listing.get("name") or offering.get("name") or "") if isinstance(listing, dict) else ""
+
+    # Local = offering upstream interface; gateway = listing user_access_interface
+    # with {{ service_name }} resolved (the deployment base stays a placeholder).
+    upstream_iface = _first_interface(offering.get("upstream_access_config") if isinstance(offering, dict) else None)
+    gateway_iface = dict(_first_interface(listing.get("user_access_interfaces") if isinstance(listing, dict) else None))
+    if isinstance(gateway_iface.get("base_url"), str):
+        gateway_iface["base_url"] = re.sub(r"{{\s*service_name\s*}}", service_name, gateway_iface["base_url"])
+
+    modes = {
+        "local": (True, upstream_iface, build_upstream_template_context(upstream_iface)),
+        "gateway": (False, gateway_iface, build_upstream_template_context(gateway_iface)),
+    }
+    for j2 in sorted(folder.glob("*.j2")):
+        for mode, (local_testing, iface, flat_ctx) in modes.items():
+            content, rendered_name = render_template_file(
+                j2, listing=listing, offering=offering, provider=provider,
+                interface=iface, local_testing=local_testing, **flat_ctx,
+            )
+            if mode == "local":
+                # Local run-tests reads secrets from env vars; don't leak ${ customer_secrets.X }.
+                content = _localize_secret_refs(content)
+            (folder / _variant_name(rendered_name, mode)).write_text(content)
+
+
+def _postprocess(leaf: Path, *, source_base: Path) -> None:
+    """Fully resolve an expanded folder for inspection: inline locally-referenced
+    shared docs, resolve presets (best-effort — a broken preset warns and is left
+    as-authored, never fails), and render test variants. Order matters: resolve
+    every doc to a local ``.j2`` *before* rendering test variants from those files.
+    """
+    _inline_local_docs(leaf, source_base)
+    _materialize_presets(leaf)
+    _render_test_variants(leaf)
+
+
+def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, source_base: Path) -> Path:
     """Render ``ctx`` into ``into_root/<ctx['name']>/`` and return that leaf folder:
-    populate the templates, bundle the template's extra files, and (optionally)
-    resolve presets. Shared by the nested and ``--flat`` expand paths.
+    populate the templates, bundle the template's extra files, then post-process.
+    Shared by the nested and ``--flat`` expand paths.
     """
     with contextlib.redirect_stdout(io.StringIO()):
         populate_from_iterator(iter([ctx]), templates_dir=tdir, output_dir=into_root, deprecate_missing=False)
@@ -278,15 +431,13 @@ def _render_one(ctx: dict[str, Any], tdir: Path, into_root: Path, *, expand_pres
     extras = [f for f in tdir.iterdir() if f.is_file() and f.name not in (_NON_BUNDLED | {"provider.json"})]
     for f in extras:
         shutil.copyfile(f, leaf / f.name)
-    if expand_presets:
-        _materialize_presets(leaf)
+    _postprocess(leaf, source_base=source_base)
     return leaf
 
 
 def expand_param_file(
     param_file: Path,
     *,
-    expand_presets: bool = False,
     output_dir: Path | None = None,
     flat: bool = False,
 ) -> Path:
@@ -302,9 +453,11 @@ def expand_param_file(
     :data:`unitysvc_sellers.utils.EXPANDED_DIRNAME`), so a stale render (e.g.
     after a template change) is harmless until the next ``expand``.
 
-    With ``expand_presets``, ``$doc_preset`` / ``$file_preset`` document
-    references are also resolved and their files copied in, so the folder has no
-    references outside itself.
+    Expand resolves everything by default: it inlines docs referenced by a
+    **relative path** (e.g. a shared ``../../docs/connectivity.sh.j2``), resolves
+    ``$doc_preset`` / ``$file_preset`` references (best-effort — a broken preset
+    warns and is left as-authored, never fails), and renders every ``.j2`` in
+    local- and gateway-test modes.
 
     ``output_dir`` overrides the default ``expanded/`` location. By default the
     full ``<service_name>`` path is created beneath it, so expanding several
@@ -328,12 +481,15 @@ def expand_param_file(
         "provider_name": service_name.split("/")[0],
         **(data.get("parameters") or {}),
     }
+    # Relative doc refs resolve against where the service *would* live in specs/
+    # (its canonical location), matching how the upload pipeline renders them.
+    source_base = specs_root / service_name
 
     if flat:
         # Render into a throwaway tree, then copy just this service's files in —
         # so a shared output dir keeps its other contents (can't blanket-rmtree).
         with tempfile.TemporaryDirectory() as tmp:
-            leaf = _render_one(ctx, tdir, Path(tmp), expand_presets=expand_presets)
+            leaf = _render_one(ctx, tdir, Path(tmp), source_base=source_base)
             expanded_root.mkdir(parents=True, exist_ok=True)
             for f in leaf.iterdir():
                 if f.is_file():
@@ -345,7 +501,45 @@ def expand_param_file(
     # template doesn't linger.
     if folder.exists():
         shutil.rmtree(folder)
-    _render_one(ctx, tdir, expanded_root, expand_presets=expand_presets)
+    _render_one(ctx, tdir, expanded_root, source_base=source_base)
+    return folder
+
+
+def expand_service_folder(
+    service_dir: Path,
+    *,
+    output_dir: Path | None = None,
+    flat: bool = False,
+) -> Path:
+    """Expand a hand-authored ``specs/<name>/`` service folder for inspection.
+
+    Unlike :func:`expand_param_file` there's no template to render — the
+    provider/offering/listing already exist — so this copies the folder into the
+    informal ``expanded/`` tree and applies the same post-processing as
+    :func:`expand_param_file` (inline shared docs, resolve presets best-effort,
+    render test variants). The ``service.json`` identity record is never copied.
+    ``output_dir`` / ``flat`` behave as there. Returns the expanded folder path.
+    """
+    specs_root = _specs_root_for(service_dir)
+    service_name = service_dir.relative_to(specs_root).as_posix()
+    expanded_root = Path(output_dir) if output_dir is not None else specs_root.parent / EXPANDED_DIRNAME
+    folder = expanded_root if flat else expanded_root / service_name
+
+    # Non-flat: clean refresh of this service's folder. Flat: merge into the dir
+    # without disturbing files that belong to other services / the user.
+    if not flat and folder.exists():
+        shutil.rmtree(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    for item in service_dir.iterdir():
+        if item.name == "service.json":  # identity stays in the formal tree, never the inspection copy
+            continue
+        if item.is_dir():
+            shutil.copytree(item, folder / item.name, dirs_exist_ok=True)
+        else:
+            shutil.copyfile(item, folder / item.name)
+
+    # Relative doc refs resolve against the service's real directory.
+    _postprocess(folder, source_base=service_dir)
     return folder
 
 

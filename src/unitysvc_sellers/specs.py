@@ -12,7 +12,13 @@ from rich.table import Table
 from . import _cli_upload as upload_cmd
 from . import example, format_data, populate, specs_layout
 from . import list as list_cmd
-from .params_render import ParamRenderError, expand_param_file, is_param_file, materialized_param_specs
+from .params_render import (
+    ParamRenderError,
+    expand_param_file,
+    expand_service_folder,
+    is_param_file,
+    materialized_param_specs,
+)
 from .utils import find_files_by_schema, load_data_file, read_service_id
 
 app = typer.Typer(help="Local operations on the flat specs/ layout (validate, format, populate, upload, test, etc.)")
@@ -184,12 +190,7 @@ def show_service(
 def expand_service(
     name: str = typer.Argument(
         ...,
-        help="Service name = the param file's path under specs/ without .json (e.g. 'parasail/foo').",
-    ),
-    presets: bool = typer.Option(
-        False,
-        "--presets",
-        help="Also resolve $doc_preset / $file_preset references and copy their files into the folder.",
+        help="Service name: a param file (specs/<NAME>.json) or a service folder (specs/<NAME>/).",
     ),
     output_dir: Path | None = typer.Option(
         None,
@@ -215,29 +216,43 @@ def expand_service(
         help="Repo root or specs/ directory (default: current directory).",
     ),
 ) -> None:
-    """Expand a param file into the informal ``expanded/`` tree for inspection.
+    """Expand a service into the informal ``expanded/`` tree for inspection.
 
-    Renders ``specs/<NAME>.json`` to ``expanded/<NAME>/`` (provider + offering +
-    listing + bundled files) at the repo root. The folder is yours to read,
-    diff, or delete — it is **never** validated or uploaded, and discovery
-    ignores it, so it may go stale after a template change until you re-run
-    ``expand``. Pass ``--presets`` to also inline preset documents so the folder
-    has no references outside itself, or ``--output-dir`` to expand elsewhere.
+    Accepts either a param file (``specs/<NAME>.json`` — rendered through its
+    template) or a hand-authored service folder (``specs/<NAME>/`` — copied as-is)
+    and writes ``expanded/<NAME>/`` (provider + offering + listing + bundled
+    files) at the repo root, **fully resolved**: docs referenced by a relative
+    path (e.g. a shared ``../../docs/*.j2``) are inlined, ``$doc_preset`` /
+    ``$file_preset`` references are resolved (best-effort — a broken preset warns
+    and is left as-authored rather than failing), and every ``.j2`` is rendered in
+    local/gateway test modes. The folder is yours to read, diff, or delete — it is
+    **never** validated or uploaded, and discovery ignores it, so it may go stale
+    until you re-run ``expand``. Use ``--output-dir`` to expand elsewhere, or
+    ``--flat`` to drop the ``<NAME>/`` subfolder.
     """
     start = (data_dir or Path.cwd()).resolve()
     specs_root = specs_layout.resolve_specs_root(start)
     param_file = specs_root / f"{name}.json"
-    if not param_file.is_file():
-        console.print(f"[red]✗[/red] No param file for {name!r} at {param_file}")
-        raise typer.Exit(1)
-    if not is_param_file(param_file):
-        console.print(
-            f"[red]✗[/red] {param_file.name} is not a param file (a {{template?, parameters}} spec). "
-            f"'expand' only renders param files."
-        )
-        raise typer.Exit(1)
+    service_dir = specs_root / name
+    is_folder_service = service_dir.is_dir() and any(
+        (service_dir / f"listing{suffix}").is_file() for suffix in (".json", ".toml")
+    )
     try:
-        folder = expand_param_file(param_file, expand_presets=presets, output_dir=output_dir, flat=flat)
+        if param_file.is_file() and is_param_file(param_file):
+            folder = expand_param_file(param_file, output_dir=output_dir, flat=flat)
+        elif is_folder_service:
+            folder = expand_service_folder(service_dir, output_dir=output_dir, flat=flat)
+        elif param_file.is_file():
+            console.print(
+                f"[red]✗[/red] {param_file.name} is not a param file (a {{template?, parameters}} spec), "
+                f"and {name}/ is not a service folder."
+            )
+            raise typer.Exit(1)
+        else:
+            console.print(
+                f"[red]✗[/red] No param file {name}.json or service folder {name}/ found under {specs_root}"
+            )
+            raise typer.Exit(1)
     except ParamRenderError as exc:
         console.print(f"[red]✗[/red] Param render error: {exc}")
         raise typer.Exit(1) from exc
