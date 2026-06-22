@@ -8,7 +8,8 @@ Commands:
 
 - ``list``      — query services with filtering / pagination
 - ``show``      — show full detail for one service
-- ``submit``    — draft → pending (sets status='pending')
+- ``mark-pending`` — draft|rejected|suspended → pending, no tests (pure status change)
+- ``submit``    — draft|rejected|suspended → pending AND run the activation tests
 - ``withdraw``  — pending|rejected → draft
 - ``deprecate`` — mark services as deprecated
 - ``set-visibility VISIBILITY`` — set visibility to ``public`` / ``unlisted`` / ``private``
@@ -476,6 +477,58 @@ def _bulk_status_change(
             raise typer.Exit(code=1)
 
 
+def _bulk_submit(
+    *,
+    api_key: str | None,
+    base_url: str,
+    service_ids: list[str],
+    confirm_prompt: str,
+    yes: bool,
+) -> None:
+    """Submit services for review via ``POST /services/{id}/submit``.
+
+    Unlike :func:`_bulk_status_change` (a pure status PATCH), this validates
+    each service and dispatches the activation test pipeline server-side.  A
+    duplicate-content submit comes back as a 200 no-op whose ``message``
+    explains why; an invalid service raises and is reported as a failure.
+    """
+    count = len(service_ids)
+    if not yes:
+        if not typer.confirm(confirm_prompt):
+            console.print("[yellow]Cancelled[/yellow]")
+            raise typer.Exit(code=0)
+
+    async def _impl() -> list[tuple[str, Any | None, Exception | None]]:
+        results: list[tuple[str, Any | None, Exception | None]] = []
+        async with async_client(api_key, base_url) as client:
+            for sid in service_ids:
+                try:
+                    resp = await client.services.submit_for_review(sid)
+                    results.append((sid, resp, None))
+                except Exception as exc:  # noqa: BLE001
+                    results.append((sid, None, exc))
+        return results
+
+    results = run_async(_impl(), error_prefix="Submit failed")
+
+    success = 0
+    failed = 0
+    for sid, resp, err in results:
+        if err is None:
+            detail = getattr(resp, "message", None) or getattr(resp, "status", "submitted")
+            console.print(f"  [green]✓[/green] {sid}: {detail}")
+            success += 1
+        else:
+            console.print(f"  [red]✗[/red] {sid}: {err}")
+            failed += 1
+
+    if count > 1:
+        console.print(f"\n[green]✓ Success:[/green] {success}/{count}")
+        if failed:
+            console.print(f"[red]✗ Failed:[/red] {failed}/{count}")
+            raise typer.Exit(code=1)
+
+
 def _bulk_visibility_change(
     *,
     api_key: str | None,
@@ -772,7 +825,9 @@ def _resolve_or_fetch_ids(
 def submit_service(
     name: str | None = _NAME_ARGUMENT,
     service_id: str | None = _ID_OPTION,
-    all_drafts: bool = typer.Option(False, "--all", help="Submit all draft and rejected services."),
+    all_drafts: bool = typer.Option(
+        False, "--all", help="Submit all draft, rejected, and suspended services."
+    ),
     local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     provider: str | None = typer.Option(
@@ -782,14 +837,63 @@ def submit_service(
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Submit services for review (draft|rejected → pending)."""
+    """Submit services for review (draft|rejected|suspended → pending).
+
+    This validates each service and runs the activation test pipeline that
+    drives ``review`` / ``active`` / ``rejected``.  To make a service routable
+    *without* running tests — e.g. to test code examples on-wire while you
+    iterate — use ``mark-pending`` instead.
+    """
     ids = _resolve_or_fetch_ids(
         api_key=api_key,
         base_url=base_url,
         name=name,
         service_id=service_id,
         use_all=all_drafts,
-        statuses_when_all=["draft", "rejected"],
+        statuses_when_all=["draft", "rejected", "suspended"],
+        provider=provider,
+        use_local_ids=local_ids,
+        data_dir=data_dir,
+    )
+    _bulk_submit(
+        api_key=api_key,
+        base_url=base_url,
+        service_ids=ids,
+        confirm_prompt=f"Submit {len(ids)} service(s) for review?",
+        yes=yes,
+    )
+
+
+@app.command("mark-pending")
+def mark_pending_service(
+    name: str | None = _NAME_ARGUMENT,
+    service_id: str | None = _ID_OPTION,
+    all_eligible: bool = typer.Option(
+        False, "--all", help="Mark all draft, rejected, and suspended services pending."
+    ),
+    local_ids: bool = _LOCAL_IDS_OPTION,
+    data_dir: Path = _DATA_DIR_OPTION,
+    provider: str | None = typer.Option(
+        None, "--provider", help="Filter by provider when --all or --local-ids is set."
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Mark services pending (draft|rejected|suspended → pending) WITHOUT tests.
+
+    A pure status change that makes a service routable so you can test its code
+    examples on-wire (e.g. with ``services run-tests``) while you iterate.  It
+    does **not** run the activation test pipeline and won't progress the service
+    to ``active`` — use ``submit`` for that when you're ready for review.
+    """
+    ids = _resolve_or_fetch_ids(
+        api_key=api_key,
+        base_url=base_url,
+        name=name,
+        service_id=service_id,
+        use_all=all_eligible,
+        statuses_when_all=["draft", "rejected", "suspended"],
         provider=provider,
         use_local_ids=local_ids,
         data_dir=data_dir,
@@ -799,8 +903,8 @@ def submit_service(
         base_url=base_url,
         service_ids=ids,
         status="pending",
-        success_verb="Submitted",
-        confirm_prompt=f"Submit {len(ids)} service(s) for review?",
+        success_verb="Marked pending",
+        confirm_prompt=f"Mark {len(ids)} service(s) pending (no tests)?",
         yes=yes,
     )
 

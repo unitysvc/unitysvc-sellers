@@ -476,7 +476,8 @@ $ usvc_seller services [OPTIONS] COMMAND [ARGS]...
 
 * `list`: List services owned by the authenticated...
 * `show`: Show details of a single service,...
-* `submit`: Submit services for review (draft|rejected...
+* `submit`: Submit services for review...
+* `mark-pending`: Mark services pending...
 * `withdraw`: Withdraw services back to draft...
 * `deprecate`: Mark services as deprecated.
 * `set-visibility`: Set the visibility of one or more services.
@@ -555,7 +556,12 @@ $ usvc_seller services show [OPTIONS] [NAME]
 
 ### `usvc_seller services submit`
 
-Submit services for review (draft|rejected → pending).
+Submit services for review (draft|rejected|suspended → pending).
+
+This validates each service and runs the activation test pipeline that
+drives ``review`` / ``active`` / ``rejected``.  To make a service routable
+*without* running tests — e.g. to test code examples on-wire while you
+iterate — use ``mark-pending`` instead.
 
 **Usage**:
 
@@ -570,7 +576,38 @@ $ usvc_seller services submit [OPTIONS] [NAME]
 **Options**:
 
 * `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
-* `--all`: Submit all draft and rejected services.
+* `--all`: Submit all draft, rejected, and suspended services.
+* `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
+* `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
+* `--provider TEXT`: Filter by provider when --all or --local-ids is set.
+* `-y, --yes`: Skip confirmation prompt.
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller services mark-pending`
+
+Mark services pending (draft|rejected|suspended → pending) WITHOUT tests.
+
+A pure status change that makes a service routable so you can test its code
+examples on-wire (e.g. with ``services run-tests``) while you iterate.  It
+does **not** run the activation test pipeline and won&#x27;t progress the service
+to ``active`` — use ``submit`` for that when you&#x27;re ready for review.
+
+**Usage**:
+
+```console
+$ usvc_seller services mark-pending [OPTIONS] [NAME]
+```
+
+**Arguments**:
+
+* `[NAME]`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
+
+**Options**:
+
+* `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
+* `--all`: Mark all draft, rejected, and suspended services pending.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.

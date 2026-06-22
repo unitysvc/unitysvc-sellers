@@ -3244,6 +3244,101 @@
           }
         }
       }
+    },
+    "/services/{service_id}/submit": {
+      "post": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Submit Service For Review Endpoint",
+        "description": "Submit a service for review (``draft`` / ``rejected`` / ``suspended`` \u2192\n``pending``) **and** run the activation test pipeline.\n\nThis is the testing counterpart to ``PATCH /services/{id}`` with\n``status=pending``: the PATCH is a pure status change (\"mark pending\") with\nno side effects, whereas *this* endpoint additionally validates the content\nand dispatches the gateway test job that drives the service to\n``review`` / ``active`` / ``rejected`` based on the result.\n\n- **Duplicate content** \u21d2 ``200`` no-op (idempotent re-submit, so the\n  upload-then-submit CI loop in ``unitysvc-services-*`` repos doesn't flap\n  red on a \"no real changes\" merge).\n- **Invalid content** \u21d2 ``400`` (status set to ``rejected``).\n- Otherwise \u21d2 status set to ``pending`` and the test pipeline dispatched.",
+        "operationId": "services_submit",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6367,11 +6462,6 @@
                 "type": "null"
               }
             ]
-          },
-          "run_tests": {
-            "type": "boolean",
-            "title": "Run Tests",
-            "default": true
           },
           "visibility": {
             "anyOf": [

@@ -38,7 +38,6 @@ class ServiceUpdate:
     """
 
     status: None | ServiceStatusEnum | Unset = UNSET
-    run_tests: bool | Unset = True
     visibility: None | ServiceVisibilityEnum | Unset = UNSET
     routing_vars: None | ServiceUpdateRoutingVarsType0 | Unset = UNSET
     price: None | ServiceUpdatePriceType0 | Unset = UNSET
@@ -55,8 +54,6 @@ class ServiceUpdate:
             status = self.status
         else:
             status = self.status
-
-        run_tests = self.run_tests
 
         visibility: None | str | Unset
         if isinstance(self.visibility, Unset):
@@ -87,8 +84,6 @@ class ServiceUpdate:
         field_dict.update({})
         if status is not UNSET:
             field_dict["status"] = status
-        if run_tests is not UNSET:
-            field_dict["run_tests"] = run_tests
         if visibility is not UNSET:
             field_dict["visibility"] = visibility
         if routing_vars is not UNSET:
@@ -121,8 +116,6 @@ class ServiceUpdate:
             return cast(None | ServiceStatusEnum | Unset, data)
 
         status = _parse_status(d.pop("status", UNSET))
-
-        run_tests = d.pop("run_tests", UNSET)
 
         def _parse_visibility(data: object) -> None | ServiceVisibilityEnum | Unset:
             if data is None:
@@ -177,7 +170,6 @@ class ServiceUpdate:
 
         service_update = cls(
             status=status,
-            run_tests=run_tests,
             visibility=visibility,
             routing_vars=routing_vars,
             price=price,

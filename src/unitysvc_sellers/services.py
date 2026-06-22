@@ -3,8 +3,8 @@
 Wraps the seller-tagged ``/v1/seller/services/*`` operations from the
 generated low-level client. ``client.services.get(...)`` returns a
 :class:`Service` active-record wrapper whose methods (``refresh``,
-``update``, ``delete``, ``submit``, ``run_tests``) navigate without
-re-passing the service id; ``client.services.list(...)`` returns a
+``update``, ``delete``, ``mark_pending``, ``submit``, ``run_tests``)
+navigate without re-passing the service id; ``client.services.list(...)`` returns a
 :class:`ServiceList` that's iterable directly so ``for svc in
 services`` works alongside ``services.next_cursor`` /
 ``services.has_more`` for pagination.
@@ -179,7 +179,10 @@ class Service:
     - :meth:`update` — patch fields (status, visibility, routing_vars,
       list_price). Same body shape as :meth:`Services.update`.
     - :meth:`delete` — remove the service.
-    - :meth:`submit` — convenience for ``update({"status": "pending"})``.
+    - :meth:`mark_pending` — make the service routable (``→ pending``)
+      without running tests; a pure status change.
+    - :meth:`submit` — submit for review: ``→ pending`` **and** run the
+      activation test pipeline.
     - :meth:`run_tests` — queue a server-side diagnostic and block until
       complete; returns gateway-then-upstream attribution per (doc × iface).
 
@@ -253,14 +256,24 @@ class Service:
         """Delete the service. See :meth:`Services.delete`."""
         return self._parent.services.delete(self._raw.id, dryrun=dryrun)
 
-    def submit(self) -> ServiceUpdateResponse:
-        """Submit for review — shortcut for ``update({"status": "pending"})``.
+    def mark_pending(self) -> ServiceUpdateResponse:
+        """Mark the service ``pending`` (routable) without running tests.
 
-        The seller flow is ``draft`` → ``pending`` (this call) →
-        admin sets ``review`` / ``active`` / ``rejected`` /
-        ``suspended`` after their checks.
+        A pure status change for ``draft`` / ``rejected`` / ``suspended``
+        services — shortcut for ``update({"status": "pending"})``.  Use this to
+        make a service routable for on-wire testing of code examples.  It does
+        **not** run the activation test pipeline; see :meth:`submit` for that.
         """
         return self.update({"status": "pending"})
+
+    def submit(self) -> ServiceUpdateResponse:
+        """Submit for review — see :meth:`Services.submit_for_review`.
+
+        Sets the service ``pending`` **and** runs the activation test pipeline
+        that drives ``review`` / ``active`` / ``rejected``.  To make a service
+        routable without testing, use :meth:`mark_pending` instead.
+        """
+        return self._parent.services.submit_for_review(self._raw.id)
 
 
 class ServiceList:
@@ -604,6 +617,31 @@ class Services:
                 service_id=str(service_id),
                 client=self._client,
                 body=ServiceUpdate.from_dict(body),
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # Write — submit for review
+    # ------------------------------------------------------------------
+    def submit_for_review(self, service_id: str | UUID) -> ServiceUpdateResponse:
+        """Submit a service for review (``draft`` / ``rejected`` / ``suspended``
+        → ``pending``) and run the activation test pipeline.
+
+        Calls ``POST /v1/seller/services/{id}/submit``.  Unlike a plain
+        ``update({"status": "pending"})`` (a pure "mark pending" status change),
+        this validates the content and dispatches the gateway test job that
+        drives the service to ``review`` / ``active`` / ``rejected``.
+
+        - Duplicate content ⇒ a ``200`` no-op (status unchanged) — the response
+          ``message`` explains why; idempotent re-submits don't churn the catalog.
+        - Invalid content ⇒ raises (HTTP 400).
+        """
+        from ._generated.api.seller_services import services_submit
+
+        return unwrap(
+            services_submit.sync_detailed(
+                service_id=str(service_id),
+                client=self._client,
             )
         )
 
