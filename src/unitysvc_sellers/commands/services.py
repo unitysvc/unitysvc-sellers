@@ -8,7 +8,8 @@ Commands:
 
 - ``list``      — query services with filtering / pagination
 - ``show``      — show full detail for one service
-- ``mark-pending`` — draft|rejected|suspended → pending, no tests (pure status change)
+- ``enable-testing`` — draft|rejected|suspended → pending, no tests (makes the
+  service routable for on-wire testing; a pure status change)
 - ``submit``    — draft|rejected|suspended → pending AND run the activation tests
 - ``withdraw``  — pending|rejected → draft
 - ``deprecate`` — mark services as deprecated
@@ -842,7 +843,7 @@ def submit_service(
     This validates each service and runs the activation test pipeline that
     drives ``review`` / ``active`` / ``rejected``.  To make a service routable
     *without* running tests — e.g. to test code examples on-wire while you
-    iterate — use ``mark-pending`` instead.
+    iterate — use ``enable-testing`` instead.
     """
     ids = _resolve_or_fetch_ids(
         api_key=api_key,
@@ -864,12 +865,12 @@ def submit_service(
     )
 
 
-@app.command("mark-pending")
-def mark_pending_service(
+@app.command("enable-testing")
+def enable_testing_service(
     name: str | None = _NAME_ARGUMENT,
     service_id: str | None = _ID_OPTION,
     all_eligible: bool = typer.Option(
-        False, "--all", help="Mark all draft, rejected, and suspended services pending."
+        False, "--all", help="Enable testing for all draft, rejected, and suspended services."
     ),
     local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
@@ -880,12 +881,13 @@ def mark_pending_service(
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Mark services pending (draft|rejected|suspended → pending) WITHOUT tests.
+    """Make services routable for on-wire testing (draft|rejected|suspended → pending).
 
-    A pure status change that makes a service routable so you can test its code
-    examples on-wire (e.g. with ``services run-tests``) while you iterate.  It
-    does **not** run the activation test pipeline and won't progress the service
-    to ``active`` — use ``submit`` for that when you're ready for review.
+    A pure status change (status becomes ``pending``) that makes a service
+    routable so you can test its code examples on-wire — e.g. with
+    ``services run-tests`` — while you iterate.  It does **not** run the
+    activation test pipeline and won't progress the service to ``active``; it is
+    NOT a submission for review.  Use ``submit`` when you're ready for that.
     """
     ids = _resolve_or_fetch_ids(
         api_key=api_key,
@@ -903,8 +905,8 @@ def mark_pending_service(
         base_url=base_url,
         service_ids=ids,
         status="pending",
-        success_verb="Marked pending",
-        confirm_prompt=f"Mark {len(ids)} service(s) pending (no tests)?",
+        success_verb="Enabled for testing",
+        confirm_prompt=f"Enable testing for {len(ids)} service(s) (routable, no tests)?",
         yes=yes,
     )
 

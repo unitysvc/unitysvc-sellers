@@ -1,9 +1,9 @@
-"""Tests for the split between ``services submit`` and ``services mark-pending``.
+"""Tests for the split between ``services submit`` and ``services enable-testing``.
 
 - ``submit`` → ``POST /services/{id}/submit`` (validate + set pending + run the
   activation test pipeline).
-- ``mark-pending`` → ``PATCH /services/{id}`` ``status=pending`` (pure status
-  change, no tests).
+- ``enable-testing`` → ``PATCH /services/{id}`` ``status=pending`` (pure status
+  change, no tests). The SDK keeps the authentic ``Service.mark_pending`` name.
 
 Covers the SDK (``Services.submit_for_review`` / ``Service.mark_pending``) and
 the CLI wiring for both commands.
@@ -108,18 +108,18 @@ def test_cli_submit_calls_submit_for_review(_env: None) -> None:
     assert str(submit_mock.await_args.args[0]) == _SID
 
 
-def test_cli_mark_pending_patches_status(_env: None) -> None:
+def test_cli_enable_testing_patches_status(_env: None) -> None:
     update_mock = AsyncMock(return_value=SimpleNamespace(status="pending"))
     get_mock = AsyncMock(return_value={"id": _SID})
     submit_mock = AsyncMock(return_value=SimpleNamespace(status="pending"))
     factory = _patched_client(update=update_mock, get=get_mock, submit_for_review=submit_mock)
 
     with patch("unitysvc_sellers.commands.services.async_client", factory):
-        result = CliRunner().invoke(cli_app, ["services", "mark-pending", "--id", _SID, "--yes"])
+        result = CliRunner().invoke(cli_app, ["services", "enable-testing", "--id", _SID, "--yes"])
 
     assert result.exit_code == 0, result.output
     update_mock.assert_awaited_once()
     assert update_mock.await_args.args[0] == _SID or str(update_mock.await_args.args[0]) == _SID
     assert update_mock.await_args.args[1] == {"status": "pending"}
-    # mark-pending must not run the activation pipeline.
+    # enable-testing must not run the activation pipeline.
     submit_mock.assert_not_awaited()

@@ -477,7 +477,7 @@ $ usvc_seller services [OPTIONS] COMMAND [ARGS]...
 * `list`: List services owned by the authenticated...
 * `show`: Show details of a single service,...
 * `submit`: Submit services for review...
-* `mark-pending`: Mark services pending...
+* `enable-testing`: Make services routable for on-wire testing...
 * `withdraw`: Withdraw services back to draft...
 * `deprecate`: Mark services as deprecated.
 * `set-visibility`: Set the visibility of one or more services.
@@ -561,7 +561,7 @@ Submit services for review (draft|rejected|suspended → pending).
 This validates each service and runs the activation test pipeline that
 drives ``review`` / ``active`` / ``rejected``.  To make a service routable
 *without* running tests — e.g. to test code examples on-wire while you
-iterate — use ``mark-pending`` instead.
+iterate — use ``enable-testing`` instead.
 
 **Usage**:
 
@@ -585,19 +585,20 @@ $ usvc_seller services submit [OPTIONS] [NAME]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services mark-pending`
+### `usvc_seller services enable-testing`
 
-Mark services pending (draft|rejected|suspended → pending) WITHOUT tests.
+Make services routable for on-wire testing (draft|rejected|suspended → pending).
 
-A pure status change that makes a service routable so you can test its code
-examples on-wire (e.g. with ``services run-tests``) while you iterate.  It
-does **not** run the activation test pipeline and won&#x27;t progress the service
-to ``active`` — use ``submit`` for that when you&#x27;re ready for review.
+A pure status change (status becomes ``pending``) that makes a service
+routable so you can test its code examples on-wire — e.g. with
+``services run-tests`` — while you iterate.  It does **not** run the
+activation test pipeline and won&#x27;t progress the service to ``active``; it is
+NOT a submission for review.  Use ``submit`` when you&#x27;re ready for that.
 
 **Usage**:
 
 ```console
-$ usvc_seller services mark-pending [OPTIONS] [NAME]
+$ usvc_seller services enable-testing [OPTIONS] [NAME]
 ```
 
 **Arguments**:
@@ -607,7 +608,7 @@ $ usvc_seller services mark-pending [OPTIONS] [NAME]
 **Options**:
 
 * `--id TEXT`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
-* `--all`: Mark all draft, rejected, and suspended services pending.
+* `--all`: Enable testing for all draft, rejected, and suspended services.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
