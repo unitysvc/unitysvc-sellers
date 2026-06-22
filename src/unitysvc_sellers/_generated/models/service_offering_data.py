@@ -74,7 +74,7 @@ class ServiceOfferingData:
     payout_price: None | ServiceOfferingDataPayoutPriceType0 | Unset = UNSET
     """ Payout pricing: How to calculate seller payout """
     upstream_access_config: None | ServiceOfferingDataUpstreamAccessConfigType0 | Unset = UNSET
-    """ Upstream access interfaces, keyed by name """
+    """ Upstream access channels, keyed by channel name """
     documents: None | ServiceOfferingDataDocumentsType0 | Unset = UNSET
     """ Documents associated with the service, keyed by title """
     currency: CurrencyEnum | Unset = UNSET

@@ -80,6 +80,37 @@ flowchart LR
 -   Your actual provider costs are your trade secret - UnitySVC doesn't need to know
 -   **list_price** is what end users pay
 
+### Submitting for review vs. enabling testing
+
+Two seller actions move a service to `pending`, but they mean different things:
+
+| Action | CLI | What it does |
+|---|---|---|
+| **Submit for review** | `usvc_seller services submit <name>` | Validates the service, sets `pending`, and runs the activation test pipeline that drives it to `review` / `active` / `rejected`. This is how you get a service live. |
+| **Enable testing** | `usvc_seller services enable-testing <name>` | A pure status change (draft/rejected/suspended → `pending`) with **no** tests. Makes the service routable so you can test its code examples on-wire while you iterate. It is *not* a submission — the service won't progress on its own. |
+
+Status changes never run tests as a side effect — testing is always an explicit
+step. The typical debugging loop for a service that isn't passing yet:
+
+```bash
+# 1. Make the draft routable (no tests, no auto-reject).
+usvc_seller services enable-testing my-provider/my-service
+
+# 2. Run the gateway diagnostic as many times as you need while you fix things.
+usvc_seller services run-tests my-provider/my-service --force
+
+# 3. When it's healthy, submit for review to start the activation pipeline.
+usvc_seller services submit my-provider/my-service
+```
+
+!!! note "SDK equivalents"
+    The SDK keeps the status-authentic names:
+    `client.services.get(id).mark_pending()` (the `enable-testing` action — a
+    pure status change) and `client.services.get(id).submit()` (submit for
+    review + tests), or the manager forms
+    `client.services.update(id, {"status": "pending"})` and
+    `client.services.submit_for_review(id)`.
+
 ## 2. Active Service
 
 Once approved by admin, your service is **activated** but starts as **unlisted** — it is live and routable, but not yet visible in the public marketplace catalog.

@@ -101,6 +101,14 @@ def sync_detailed(
     draft → pending, rejected → pending, rejected → draft,
     pending → draft, active → deprecated.
 
+    Status changes here are **pure** — no tests are run as a side effect.
+    In particular ``→ pending`` (\"mark pending\") simply makes a
+    draft/rejected/suspended service routable (e.g. so you can test code
+    examples on-wire); it does **not** run the activation test pipeline.
+    To submit a service for review (validate + run the gateway tests that
+    drive ``review`` / ``active`` / ``rejected``), use
+    ``POST /services/{id}/submit``.
+
     **Visibility**: ``public`` / ``unlisted`` / ``private``.
     Only active services can be set to ``public``.
 
@@ -176,6 +184,14 @@ def sync(
     draft → pending, rejected → pending, rejected → draft,
     pending → draft, active → deprecated.
 
+    Status changes here are **pure** — no tests are run as a side effect.
+    In particular ``→ pending`` (\"mark pending\") simply makes a
+    draft/rejected/suspended service routable (e.g. so you can test code
+    examples on-wire); it does **not** run the activation test pipeline.
+    To submit a service for review (validate + run the gateway tests that
+    drive ``review`` / ``active`` / ``rejected``), use
+    ``POST /services/{id}/submit``.
+
     **Visibility**: ``public`` / ``unlisted`` / ``private``.
     Only active services can be set to ``public``.
 
@@ -245,6 +261,14 @@ async def asyncio_detailed(
     **Status** transitions (seller-allowed):
     draft → pending, rejected → pending, rejected → draft,
     pending → draft, active → deprecated.
+
+    Status changes here are **pure** — no tests are run as a side effect.
+    In particular ``→ pending`` (\"mark pending\") simply makes a
+    draft/rejected/suspended service routable (e.g. so you can test code
+    examples on-wire); it does **not** run the activation test pipeline.
+    To submit a service for review (validate + run the gateway tests that
+    drive ``review`` / ``active`` / ``rejected``), use
+    ``POST /services/{id}/submit``.
 
     **Visibility**: ``public`` / ``unlisted`` / ``private``.
     Only active services can be set to ``public``.
@@ -318,6 +342,14 @@ async def asyncio(
     **Status** transitions (seller-allowed):
     draft → pending, rejected → pending, rejected → draft,
     pending → draft, active → deprecated.
+
+    Status changes here are **pure** — no tests are run as a side effect.
+    In particular ``→ pending`` (\"mark pending\") simply makes a
+    draft/rejected/suspended service routable (e.g. so you can test code
+    examples on-wire); it does **not** run the activation test pipeline.
+    To submit a service for review (validate + run the gateway tests that
+    drive ``review`` / ``active`` / ``rejected``), use
+    ``POST /services/{id}/submit``.
 
     **Visibility**: ``public`` / ``unlisted`` / ``private``.
     Only active services can be set to ``public``.

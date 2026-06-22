@@ -2139,10 +2139,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter by ``service.name`` (= listing.name, #1138).  Restricted glob: ``*`` and ``%`` are accepted as synonymous wildcards, allowed only at the start, end, or both \u2014 ``cohere/command-r-plus`` matches exactly that row, ``cohere/*`` (or ``cohere/%``) matches the namespace, ``*-byok`` (or ``%-byok``) matches the suffix, ``*command*`` (or ``%command%``) matches anything containing the substring.  ``%`` is shell-safe (no quoting needed for interactive use); ``*`` is fnmatch-familiar.  ``?`` and ``[...]`` are rejected.  Use the dedicated ``provider`` parameter to filter by provider name.",
+              "description": "Filter by ``service.name`` (= listing.name, #1138).  ``*`` and ``%`` are accepted as synonymous wildcards, anywhere in the pattern \u2014 ``cohere/command-r-plus`` matches exactly that row, ``cohere/*`` (or ``cohere/%``) matches the namespace, ``*-byok`` (or ``%-byok``) matches the suffix, ``*command*`` matches a substring, and ``labs/*-relay`` matches mid-pattern.  ``%`` is shell-safe (no quoting needed for interactive use); ``*`` is fnmatch-familiar.  ``?`` and ``[...]`` are rejected.  Use the dedicated ``provider`` parameter to filter by provider name.",
               "title": "Name"
             },
-            "description": "Filter by ``service.name`` (= listing.name, #1138).  Restricted glob: ``*`` and ``%`` are accepted as synonymous wildcards, allowed only at the start, end, or both \u2014 ``cohere/command-r-plus`` matches exactly that row, ``cohere/*`` (or ``cohere/%``) matches the namespace, ``*-byok`` (or ``%-byok``) matches the suffix, ``*command*`` (or ``%command%``) matches anything containing the substring.  ``%`` is shell-safe (no quoting needed for interactive use); ``*`` is fnmatch-familiar.  ``?`` and ``[...]`` are rejected.  Use the dedicated ``provider`` parameter to filter by provider name."
+            "description": "Filter by ``service.name`` (= listing.name, #1138).  ``*`` and ``%`` are accepted as synonymous wildcards, anywhere in the pattern \u2014 ``cohere/command-r-plus`` matches exactly that row, ``cohere/*`` (or ``cohere/%``) matches the namespace, ``*-byok`` (or ``%-byok``) matches the suffix, ``*command*`` matches a substring, and ``labs/*-relay`` matches mid-pattern.  ``%`` is shell-safe (no quoting needed for interactive use); ``*`` is fnmatch-familiar.  ``?`` and ``[...]`` are rejected.  Use the dedicated ``provider`` parameter to filter by provider name."
           },
           {
             "name": "provider",
@@ -2677,7 +2677,7 @@
           "seller-services"
         ],
         "summary": "Update Service",
-        "description": "Update a service \u2014 status, visibility, routing vars, and/or list price.\n\nAll fields are optional. Include only the fields you want to change.\nMultiple fields can be updated in a single request.\n\n**Status** transitions (seller-allowed):\ndraft \u2192 pending, rejected \u2192 pending, rejected \u2192 draft,\npending \u2192 draft, active \u2192 deprecated.\n\n**Visibility**: ``public`` / ``unlisted`` / ``private``.\nOnly active services can be set to ``public``.\n\n**Routing vars** and **list price** accept two forms:\n\n- *Full replacement* \u2014 a plain dict replaces the entire value::\n\n    {\"routing_vars\": {\"region\": \"us-east\", \"count\": 42}}\n    {\"list_price\": {\"type\": \"constant\", \"price\": \"1.00\"}}\n\n- *Partial update* \u2014 a dict with ``set`` and/or ``remove`` keys::\n\n    {\"routing_vars\": {\"set\": {\"count\": 43}, \"remove\": [\"region\"]}}\n    {\"list_price\": {\"set\": {\"input\": \"0.40\"}, \"remove\": [\"reference\"]}}",
+        "description": "Update a service \u2014 status, visibility, routing vars, and/or list price.\n\nAll fields are optional. Include only the fields you want to change.\nMultiple fields can be updated in a single request.\n\n**Status** transitions (seller-allowed):\ndraft \u2192 pending, rejected \u2192 pending, rejected \u2192 draft,\npending \u2192 draft, active \u2192 deprecated.\n\nStatus changes here are **pure** \u2014 no tests are run as a side effect.\nIn particular ``\u2192 pending`` (\"mark pending\") simply makes a\ndraft/rejected/suspended service routable (e.g. so you can test code\nexamples on-wire); it does **not** run the activation test pipeline.\nTo submit a service for review (validate + run the gateway tests that\ndrive ``review`` / ``active`` / ``rejected``), use\n``POST /services/{id}/submit``.\n\n**Visibility**: ``public`` / ``unlisted`` / ``private``.\nOnly active services can be set to ``public``.\n\n**Routing vars** and **list price** accept two forms:\n\n- *Full replacement* \u2014 a plain dict replaces the entire value::\n\n    {\"routing_vars\": {\"region\": \"us-east\", \"count\": 42}}\n    {\"list_price\": {\"type\": \"constant\", \"price\": \"1.00\"}}\n\n- *Partial update* \u2014 a dict with ``set`` and/or ``remove`` keys::\n\n    {\"routing_vars\": {\"set\": {\"count\": 43}, \"remove\": [\"region\"]}}\n    {\"list_price\": {\"set\": {\"input\": \"0.40\"}, \"remove\": [\"reference\"]}}",
         "operationId": "services_update",
         "parameters": [
           {
@@ -2732,6 +2732,101 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/{service_id}/submit": {
+      "post": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Submit Service For Review Endpoint",
+        "description": "Submit a service for review (``draft`` / ``rejected`` / ``suspended`` \u2192\n``pending``) **and** run the activation test pipeline.\n\nThis is the testing counterpart to ``PATCH /services/{id}`` with\n``status=pending``: the PATCH is a pure status change (\"mark pending\") with\nno side effects, whereas *this* endpoint additionally validates the content\nand dispatches the gateway test job that drives the service to\n``review`` / ``active`` / ``rejected`` based on the result.\n\n- **Duplicate content** \u21d2 ``200`` no-op (idempotent re-submit, so the\n  upload-then-submit CI loop in ``unitysvc-services-*`` repos doesn't flap\n  red on a \"no real changes\" merge).\n- **Invalid content** \u21d2 ``400`` (status set to ``rejected``).\n- Otherwise \u21d2 status set to ``pending`` and the test pipeline dispatched.",
+        "operationId": "services_submit",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3266,18 +3361,6 @@
               }
             ],
             "title": "Service Id"
-          },
-          "group_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Group Id"
           },
           "access_method": {
             "$ref": "#/components/schemas/AccessMethodEnum"
@@ -5856,7 +5939,7 @@
               }
             ],
             "title": "Upstream Access Config",
-            "description": "Upstream access interfaces, keyed by name"
+            "description": "Upstream access channels, keyed by channel name"
           },
           "documents": {
             "anyOf": [
@@ -6367,11 +6450,6 @@
                 "type": "null"
               }
             ]
-          },
-          "run_tests": {
-            "type": "boolean",
-            "title": "Run Tests",
-            "default": true
           },
           "visibility": {
             "anyOf": [
