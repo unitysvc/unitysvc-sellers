@@ -35,7 +35,6 @@ class AccessInterfacePublic:
     sort_order: int
     created_at: str
     service_id: None | Unset | UUID = UNSET
-    group_id: None | Unset | UUID = UNSET
     base_url: None | str | Unset = UNSET
     base_url_pattern: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
@@ -78,14 +77,6 @@ class AccessInterfacePublic:
             service_id = str(self.service_id)
         else:
             service_id = self.service_id
-
-        group_id: None | str | Unset
-        if isinstance(self.group_id, Unset):
-            group_id = UNSET
-        elif isinstance(self.group_id, UUID):
-            group_id = str(self.group_id)
-        else:
-            group_id = self.group_id
 
         base_url: None | str | Unset
         if isinstance(self.base_url, Unset):
@@ -183,8 +174,6 @@ class AccessInterfacePublic:
         )
         if service_id is not UNSET:
             field_dict["service_id"] = service_id
-        if group_id is not UNSET:
-            field_dict["group_id"] = group_id
         if base_url is not UNSET:
             field_dict["base_url"] = base_url
         if base_url_pattern is not UNSET:
@@ -249,23 +238,6 @@ class AccessInterfacePublic:
             return cast(None | Unset | UUID, data)
 
         service_id = _parse_service_id(d.pop("service_id", UNSET))
-
-        def _parse_group_id(data: object) -> None | Unset | UUID:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                group_id_type_0 = UUID(data)
-
-                return group_id_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(None | Unset | UUID, data)
-
-        group_id = _parse_group_id(d.pop("group_id", UNSET))
 
         def _parse_base_url(data: object) -> None | str | Unset:
             if data is None:
@@ -430,7 +402,6 @@ class AccessInterfacePublic:
             sort_order=sort_order,
             created_at=created_at,
             service_id=service_id,
-            group_id=group_id,
             base_url=base_url,
             base_url_pattern=base_url_pattern,
             description=description,
