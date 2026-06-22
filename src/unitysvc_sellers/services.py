@@ -253,14 +253,22 @@ class Service:
         """Delete the service. See :meth:`Services.delete`."""
         return self._parent.services.delete(self._raw.id, dryrun=dryrun)
 
-    def submit(self) -> ServiceUpdateResponse:
+    def submit(self, *, run_tests: bool = True) -> ServiceUpdateResponse:
         """Submit for review — shortcut for ``update({"status": "pending"})``.
 
         The seller flow is ``draft`` → ``pending`` (this call) →
         admin sets ``review`` / ``active`` / ``rejected`` /
         ``suspended`` after their checks.
+
+        Args:
+            run_tests: When ``True`` (default) the backend runs the gateway
+                diagnostic after the transition and flips the service to
+                ``review`` / ``active`` / ``rejected`` based on the result.
+                Pass ``False`` to skip the diagnostic and hold the service at
+                ``pending`` (routable) — useful for on-wire testing of code
+                examples while iterating. Content is still validated either way.
         """
-        return self.update({"status": "pending"})
+        return self.update({"status": "pending", "run_tests": run_tests})
 
 
 class ServiceList:

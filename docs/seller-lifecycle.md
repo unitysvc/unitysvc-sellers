@@ -80,6 +80,43 @@ flowchart LR
 -   Your actual provider costs are your trade secret - UnitySVC doesn't need to know
 -   **list_price** is what end users pay
 
+### Submitting for review
+
+`usvc_seller services submit` moves a service `draft|rejected → pending`. By
+default the backend then runs the **gateway diagnostic** and flips the service
+to `review` / `active` / `rejected` based on the result:
+
+```bash
+usvc_seller services submit <service_name>
+```
+
+#### Parking a service at `pending` for on-wire testing
+
+Automated test runners and on-wire testing of code examples only pick up
+services in a **routable** state (`pending` / `review` / `active`) — a `draft`
+is invisible to them. To keep a service routable while you iterate on its code
+examples *without* the submit-time diagnostic auto-rejecting it, submit with
+`--no-run-tests`:
+
+```bash
+usvc_seller services submit <service_name> --no-run-tests
+```
+
+This lands the service at `pending` and **skips the gateway diagnostic**, so it
+stays routable for your own testing instead of being driven straight to
+`active` or `rejected`.
+
+!!! note "What `--no-run-tests` does and doesn't skip"
+    - Content is **still validated** on submit — invalid data is rejected
+      regardless of this flag.
+    - It only skips the post-submit gateway diagnostic job. A service parked
+      this way **will not progress to `active`** on its own; submit again
+      normally (or run the diagnostic) when you're ready for real review.
+    - The flag is meaningful only for the `→ pending` transition;
+      `withdraw` / `deprecate` ignore it.
+
+    SDK equivalent: `client.services.get(id).submit(run_tests=False)`.
+
 ## 2. Active Service
 
 Once approved by admin, your service is **activated** but starts as **unlisted** — it is live and routable, but not yet visible in the public marketplace catalog.

@@ -557,6 +557,12 @@ $ usvc_seller services show [OPTIONS] [NAME]
 
 Submit services for review (draft|rejected → pending).
 
+By default the backend runs the gateway diagnostic after the transition and
+flips the service to ``review`` / ``active`` / ``rejected`` based on the
+result. Pass ``--no-run-tests`` to skip the diagnostic and hold the service
+at ``pending`` — useful when you want it routable for on-wire testing of
+code examples while still iterating.
+
 **Usage**:
 
 ```console
@@ -574,6 +580,7 @@ $ usvc_seller services submit [OPTIONS] [NAME]
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir DIRECTORY`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider TEXT`: Filter by provider when --all or --local-ids is set.
+* `--run-tests / --no-run-tests`: Run the gateway diagnostic after submitting (default). Use --no-run-tests to park the service at &#x27;pending&#x27; (routable) without triggering the diagnostic — for on-wire testing of code examples. Content is still validated; a service submitted this way stays &#x27;pending&#x27; and won&#x27;t progress to &#x27;active&#x27; until a real diagnostic passes.  [default: run-tests]
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]

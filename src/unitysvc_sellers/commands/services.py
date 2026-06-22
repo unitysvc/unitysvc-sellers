@@ -438,20 +438,31 @@ def _bulk_status_change(
     success_verb: str,
     confirm_prompt: str,
     yes: bool,
+    run_tests: bool | None = None,
 ) -> None:
-    """Apply status change across many services with consistent UX."""
+    """Apply status change across many services with consistent UX.
+
+    ``run_tests`` is forwarded to the backend only when not ``None``; it is
+    meaningful only for the ``draft|rejected → pending`` (submit) transition,
+    where ``run_tests=False`` parks the service at ``pending`` without
+    dispatching the gateway diagnostic. Other transitions leave it unset.
+    """
     count = len(service_ids)
     if not yes:
         if not typer.confirm(confirm_prompt):
             console.print("[yellow]Cancelled[/yellow]")
             raise typer.Exit(code=0)
 
+    body: dict[str, Any] = {"status": status}
+    if run_tests is not None:
+        body["run_tests"] = run_tests
+
     async def _impl() -> list[tuple[str, Exception | None]]:
         results: list[tuple[str, Exception | None]] = []
         async with async_client(api_key, base_url) as client:
             for sid in service_ids:
                 try:
-                    await client.services.update(sid, {"status": status})
+                    await client.services.update(sid, dict(body))
                     results.append((sid, None))
                 except Exception as exc:  # noqa: BLE001
                     results.append((sid, exc))
@@ -778,11 +789,30 @@ def submit_service(
     provider: str | None = typer.Option(
         None, "--provider", help="Filter by provider when --all or --local-ids is set."
     ),
+    run_tests: bool = typer.Option(
+        True,
+        "--run-tests/--no-run-tests",
+        help=(
+            "Run the gateway diagnostic after submitting (default). "
+            "Use --no-run-tests to park the service at 'pending' (routable) "
+            "without triggering the diagnostic — for on-wire testing of code "
+            "examples. Content is still validated; a service submitted this way "
+            "stays 'pending' and won't progress to 'active' until a real "
+            "diagnostic passes."
+        ),
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Submit services for review (draft|rejected → pending)."""
+    """Submit services for review (draft|rejected → pending).
+
+    By default the backend runs the gateway diagnostic after the transition and
+    flips the service to ``review`` / ``active`` / ``rejected`` based on the
+    result. Pass ``--no-run-tests`` to skip the diagnostic and hold the service
+    at ``pending`` — useful when you want it routable for on-wire testing of
+    code examples while still iterating.
+    """
     ids = _resolve_or_fetch_ids(
         api_key=api_key,
         base_url=base_url,
@@ -802,6 +832,7 @@ def submit_service(
         success_verb="Submitted",
         confirm_prompt=f"Submit {len(ids)} service(s) for review?",
         yes=yes,
+        run_tests=run_tests,
     )
 
 
