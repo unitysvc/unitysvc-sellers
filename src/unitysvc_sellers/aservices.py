@@ -75,9 +75,15 @@ class AsyncService:
     async def delete(self, *, dryrun: bool = False) -> ServiceDeleteResponse:
         return await self._parent.services.delete(self._raw.id, dryrun=dryrun)
 
-    async def submit(self) -> ServiceUpdateResponse:
-        """Submit for review — shortcut for ``update({"status": "pending"})``."""
+    async def mark_pending(self) -> ServiceUpdateResponse:
+        """Mark the service ``pending`` (routable) without running tests —
+        a pure status change. See :meth:`Service.mark_pending` (sync)."""
         return await self.update({"status": "pending"})
+
+    async def submit(self) -> ServiceUpdateResponse:
+        """Submit for review — sets ``pending`` and runs the activation test
+        pipeline. See :meth:`AsyncServices.submit_for_review`."""
+        return await self._parent.services.submit_for_review(self._raw.id)
 
 
 class AsyncServiceList:
@@ -308,6 +314,23 @@ class AsyncServices:
                 service_id=str(service_id),
                 client=self._client,
                 body=ServiceUpdate.from_dict(body),
+            )
+        )
+
+    async def submit_for_review(self, service_id: str | UUID) -> ServiceUpdateResponse:
+        """Submit a service for review (``draft`` / ``rejected`` / ``suspended``
+        → ``pending``) and run the activation test pipeline.
+
+        Calls ``POST /v1/seller/services/{id}/submit``.  See
+        :meth:`unitysvc_sellers.services.Services.submit_for_review` for the
+        full semantics (dup content → 200 no-op; invalid → raises).
+        """
+        from ._generated.api.seller_services import services_submit
+
+        return unwrap(
+            await services_submit.asyncio_detailed(
+                service_id=str(service_id),
+                client=self._client,
             )
         )
 

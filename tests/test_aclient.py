@@ -146,6 +146,25 @@ class TestAsyncClient:
 
     @pytest.mark.asyncio
     @respx.mock
+    async def test_services_submit_for_review_posts_to_submit(self) -> None:
+        """Regression: the async manager must expose ``submit_for_review`` and
+        POST to ``/submit`` — the CLI's ``services submit`` runs through the
+        async client, so a sync-only method silently breaks it (#117 follow-up)."""
+        sid = uuid.uuid4()
+        route = respx.post(f"{BASE_URL}/services/{sid}/submit").mock(
+            return_value=httpx.Response(
+                200, json=_service_update_response(id=str(sid), status="pending")
+            )
+        )
+
+        async with AsyncClient(api_key="svcpass_test", base_url=BASE_URL) as client:
+            resp = await client.services.submit_for_review(sid)
+
+        assert route.called
+        assert resp.status == "pending"
+
+    @pytest.mark.asyncio
+    @respx.mock
     async def test_promotions_list_async(self) -> None:
         respx.get(f"{BASE_URL}/promotions").mock(return_value=httpx.Response(200, json={"data": [], "has_more": False}))
 
