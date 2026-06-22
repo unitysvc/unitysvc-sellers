@@ -37,6 +37,24 @@ def _env(monkeypatch: pytest.MonkeyPatch) -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_sync_async_service_method_parity() -> None:
+    """The sync and async clients must expose the same service operations.
+
+    Guards against the #117 regression where ``submit_for_review`` was added to
+    the sync ``Services`` but not ``AsyncServices`` — silently breaking the CLI
+    (which runs through the async client) at runtime.
+    """
+    from unitysvc_sellers.aservices import AsyncService, AsyncServices
+    from unitysvc_sellers.services import Service, Services
+
+    for op in ("submit_for_review", "update", "delete", "run_tests", "get", "list"):
+        assert hasattr(Services, op), f"sync Services missing {op}"
+        assert hasattr(AsyncServices, op), f"AsyncServices missing {op}"
+    for op in ("submit", "mark_pending", "update", "delete", "run_tests"):
+        assert hasattr(Service, op), f"sync Service missing {op}"
+        assert hasattr(AsyncService, op), f"AsyncService missing {op}"
+
+
 @respx.mock
 def test_sdk_submit_for_review_posts_to_submit_endpoint() -> None:
     route = respx.post(f"{_BASE_URL}/services/{_SID}/submit").mock(
