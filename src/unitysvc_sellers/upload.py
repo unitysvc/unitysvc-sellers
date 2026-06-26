@@ -12,7 +12,8 @@ service, named by the (namespaced) service name::
         ├── offering.{json,toml}
         ├── listing.{json,toml}
         └── service.json              (optional: backend service_id)
-    promotion.{json,toml} / service_group.{json,toml} may live anywhere.
+    promotions/       ← all *.json/*.toml files here are promotions
+    groups/           ← all *.json/*.toml files here are service groups
 
 For each listing file the uploader pairs it with the offering and provider
 in the *same folder*, optionally expands convenience fields (``logo``,
@@ -22,7 +23,10 @@ to that folder's ``service.json`` so subsequent uploads update the same
 service in place.
 
 Promotions and service groups are uploaded via PUT (idempotent upsert
-keyed on the ``name`` field).
+keyed on the ``name`` field).  They are discovered by scanning the
+``promotions/`` and ``groups/`` top-level directories directly — every
+``*.json`` / ``*.toml`` file under those directories is assumed to be a
+promotion or service group, respectively.
 
 This module deliberately ships a minimal subset of the original
 ``unitysvc-services`` upload pipeline:
@@ -47,6 +51,7 @@ from .exceptions import APIError
 from .utils import (
     convert_convenience_fields_to_documents,
     find_files_by_pattern,
+    load_data_file,
     read_service_data,
     service_name_matches,
     write_service_data,
@@ -591,10 +596,16 @@ def upload_directory(
 
     # ----- Promotions -------------------------------------------------
     if upload_promotions:
-        promo_files = find_files_by_pattern(data_dir, "promotion_v1")
+        promo_dir = data_dir / "promotions"
+        promo_files: list[tuple[Path, dict[str, Any]]] = []
+        if promo_dir.is_dir():
+            for f in sorted(promo_dir.glob("*.json")):
+                promo_files.append((f, load_data_file(f)[0]))
+            for f in sorted(promo_dir.glob("*.toml")):
+                promo_files.append((f, load_data_file(f)[0]))
         result.promotions.total = len(promo_files)
 
-        for promo_path, _fmt, promo_data in promo_files:
+        for promo_path, promo_data in promo_files:
             try:
                 payload = promo_data
                 name = str(payload.get("name", "?"))
@@ -612,10 +623,16 @@ def upload_directory(
 
     # ----- Service groups --------------------------------------------
     if upload_groups:
-        group_files = find_files_by_pattern(data_dir, "service_group_v1")
+        group_dir = data_dir / "groups"
+        group_files: list[tuple[Path, dict[str, Any]]] = []
+        if group_dir.is_dir():
+            for f in sorted(group_dir.glob("*.json")):
+                group_files.append((f, load_data_file(f)[0]))
+            for f in sorted(group_dir.glob("*.toml")):
+                group_files.append((f, load_data_file(f)[0]))
         result.groups.total = len(group_files)
 
-        for group_path, _fmt, group_data in group_files:
+        for group_path, group_data in group_files:
             try:
                 payload = group_data
                 name = str(payload.get("name", "?"))
