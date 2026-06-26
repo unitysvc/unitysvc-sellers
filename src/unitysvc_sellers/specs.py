@@ -19,7 +19,7 @@ from .params_render import (
     is_param_file,
     materialized_param_specs,
 )
-from .utils import find_files_by_schema, load_data_file, read_service_id
+from .utils import find_files_by_pattern, load_data_file, read_service_id
 
 app = typer.Typer(help="Local operations on the flat specs/ layout (validate, format, populate, upload, test, etc.)")
 console = Console()
@@ -69,10 +69,10 @@ def _resolve_service_paths(data_dir: Path, service_name: str) -> tuple[Path | No
     listing.name → offering.name → provider at <listing_dir>/../../.
     Any slot may be ``None`` if the corresponding file is missing.
     """
-    for listing_file, _fmt, listing_data in find_files_by_schema(data_dir, "listing_v1"):
+    for listing_file, _fmt, listing_data in find_files_by_pattern(data_dir, "listing_v1"):
         offering_file: Path | None = None
         offering_name = ""
-        offering_results = find_files_by_schema(listing_file.parent, "offering_v1")
+        offering_results = find_files_by_pattern(listing_file.parent, "offering_v1")
         if offering_results:
             offering_file, _, offering_data = offering_results[0]
             offering_name = offering_data.get("name", "")
@@ -83,7 +83,7 @@ def _resolve_service_paths(data_dir: Path, service_name: str) -> tuple[Path | No
 
         # In the flat specs/ layout the provider lives beside the listing.
         provider_file: Path | None = None
-        provider_results = find_files_by_schema(listing_file.parent, "provider_v1")
+        provider_results = find_files_by_pattern(listing_file.parent, "provider_v1")
         if provider_results:
             provider_file = provider_results[0][0]
 
@@ -298,7 +298,7 @@ def _list_services_impl(data_dir: Path | None):
     console.print(f"[blue]Scanning for services in:[/blue] {data_dir}\n")
 
     # Find all listing files
-    listing_results = find_files_by_schema(data_dir, "listing_v1")
+    listing_results = find_files_by_pattern(data_dir, "listing_v1")
 
     if not listing_results:
         console.print("[yellow]No services found.[/yellow]")
@@ -313,7 +313,7 @@ def _list_services_impl(data_dir: Path | None):
         listing_status = listing_data.get("status", "")
 
         # Find corresponding offering file (same directory)
-        offering_results = find_files_by_schema(listing_file.parent, "offering_v1")
+        offering_results = find_files_by_pattern(listing_file.parent, "offering_v1")
         offering_name = ""
         offering_status = ""
         offering_data: dict[str, Any] = {}
@@ -328,7 +328,7 @@ def _list_services_impl(data_dir: Path | None):
         # Provider lives beside the listing in the flat specs/ layout.
         provider_name = ""
         provider_status = ""
-        provider_results = find_files_by_schema(listing_file.parent, "provider_v1")
+        provider_results = find_files_by_pattern(listing_file.parent, "provider_v1")
         if provider_results:
             _, _fmt, provider_data = provider_results[0]
             provider_name = provider_data.get("name", "")

@@ -10,7 +10,7 @@ Generic file helpers (hashing, mime types, JSON/TOML loading, override
 files, schema-based file discovery, deep-merge) are re-exported from
 ``unitysvc_core.utils`` for convenience, so seller code can do::
 
-    from unitysvc_sellers.utils import find_files_by_schema, resolve_provider_name
+    from unitysvc_sellers.utils import find_files_by_pattern, resolve_provider_name
 
 without caring whether a given helper is core or seller-specific.
 """
@@ -42,19 +42,19 @@ from unitysvc_core.utils import (  # noqa: F401
     write_data_file,
 )
 from unitysvc_core.utils import (
-    find_files_by_pattern as _core_find_files_by_schema,
+    find_files_by_pattern as _core_find_files_by_pattern,
 )
 
 # Top-level directory holding `usvc_seller specs expand` output: a static,
 # user-owned tree of rendered services for inspection only. It is deliberately
 # NOT part of the formal catalog, so every discovery walk skips it (see the
-# `find_files_by_schema` wrapper below). Lives beside `specs/` at the repo root;
+# `find_files_by_pattern` wrapper below). Lives beside `specs/` at the repo root;
 # `specs/` is where formal data lives, so a top-level `expanded/` never collides
 # with a real provider/service path.
 EXPANDED_DIRNAME = "expanded"
 
 
-def find_files_by_schema(
+def find_files_by_pattern(
     data_dir: Any,
     schema: str,
     path_filter: str | None = None,
@@ -70,7 +70,7 @@ def find_files_by_schema(
     dot-directory skip that ``specs_layout.find_service_folders`` already
     applies to ``validate``.
     """
-    results = _core_find_files_by_schema(data_dir, schema, path_filter, field_filter)
+    results = _core_find_files_by_pattern(data_dir, schema, path_filter, field_filter)
     root = Path(data_dir)
     kept: list[tuple[Path, str, dict[str, Any]]] = []
     for path, fmt, data in results:

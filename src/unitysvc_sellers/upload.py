@@ -46,7 +46,7 @@ from typing import TYPE_CHECKING, Any
 from .exceptions import APIError
 from .utils import (
     convert_convenience_fields_to_documents,
-    find_files_by_schema,
+    find_files_by_pattern,
     read_service_data,
     service_name_matches,
     write_service_data,
@@ -282,7 +282,7 @@ def _build_service_payload(
     # siblings in the one self-contained service folder.
     service_dir = listing_file.parent
 
-    offering_files = find_files_by_schema(service_dir, "offering_v1")
+    offering_files = find_files_by_pattern(service_dir, "offering_v1")
     if not offering_files:
         raise ValueError(
             f"No offering file found in {service_dir}. "
@@ -296,7 +296,7 @@ def _build_service_payload(
     if not listing_data.get("name"):
         listing_data["name"] = offering_data.get("name")
 
-    provider_files = find_files_by_schema(service_dir, "provider_v1")
+    provider_files = find_files_by_pattern(service_dir, "provider_v1")
     if not provider_files:
         raise ValueError(f"No provider file found in {service_dir}. Each service folder must contain a provider file.")
     provider_path, _, provider_data = provider_files[0]
@@ -424,7 +424,7 @@ def upload_directory(
 
     # ----- Services ---------------------------------------------------
     if upload_services:
-        all_listings = find_files_by_schema(data_dir, "listing_v1")
+        all_listings = find_files_by_pattern(data_dir, "listing_v1")
         if name is not None:
             # --name uploads every service whose service_name (= listing.name,
             # #1138) matches the fnmatch pattern: a literal name uploads one
@@ -591,7 +591,7 @@ def upload_directory(
 
     # ----- Promotions -------------------------------------------------
     if upload_promotions:
-        promo_files = find_files_by_schema(data_dir, "promotion_v1")
+        promo_files = find_files_by_pattern(data_dir, "promotion_v1")
         result.promotions.total = len(promo_files)
 
         for promo_path, _fmt, promo_data in promo_files:
@@ -612,7 +612,7 @@ def upload_directory(
 
     # ----- Service groups --------------------------------------------
     if upload_groups:
-        group_files = find_files_by_schema(data_dir, "service_group_v1")
+        group_files = find_files_by_pattern(data_dir, "service_group_v1")
         result.groups.total = len(group_files)
 
         for group_path, _fmt, group_data in group_files:

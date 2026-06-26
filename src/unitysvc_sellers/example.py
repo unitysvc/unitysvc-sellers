@@ -22,7 +22,7 @@ from unitysvc_core.models.base import DocumentCategoryEnum
 from .output import format_output
 from .utils import (
     execute_script_content,
-    find_files_by_schema,
+    find_files_by_pattern,
     load_data_file,
     render_template_file,
     resolve_provider_name,
@@ -189,7 +189,7 @@ def extract_upstream_channels_from_offering(
         Dict keyed by interface name, or empty dict if not found.
     """
     try:
-        offering_results = find_files_by_schema(listing_file.parent, "offering_v1")
+        offering_results = find_files_by_pattern(listing_file.parent, "offering_v1")
         if not offering_results:
             return {}
         _file_path, _format, offering_data = offering_results[0]
@@ -233,7 +233,7 @@ def discover_code_examples(
     Returns:
         List of (code_example_dict, provider_name) tuples.
     """
-    listing_results = find_files_by_schema(data_dir, "listing_v1")
+    listing_results = find_files_by_pattern(data_dir, "listing_v1")
 
     results: list[tuple[dict[str, Any], str]] = []
 
@@ -317,31 +317,31 @@ def load_related_data(listing_file: Path) -> dict[str, Any]:
     }
 
     try:
-        # Find offering file (offering.json in same directory as listing) using find_files_by_schema
-        offering_results = find_files_by_schema(listing_file.parent, "offering_v1")
+        # Find offering file (offering.json in same directory as listing) using find_files_by_pattern
+        offering_results = find_files_by_pattern(listing_file.parent, "offering_v1")
         if offering_results:
             # Unpack tuple: (file_path, format, data)
-            # Data is already loaded by find_files_by_schema
+            # Data is already loaded by find_files_by_pattern
             _file_path, _format, offering_data = offering_results[0]
             result["offering"] = offering_data
         else:
             console.print(f"[yellow]Warning: No offering_v1 file found in {listing_file.parent}[/yellow]")
 
         # Provider lives beside the listing in the flat specs/ layout.
-        provider_results = find_files_by_schema(listing_file.parent, "provider_v1")
+        provider_results = find_files_by_pattern(listing_file.parent, "provider_v1")
         if provider_results:
             # Unpack tuple: (file_path, format, data)
-            # Data is already loaded by find_files_by_schema
+            # Data is already loaded by find_files_by_pattern
             _file_path, _format, provider_data = provider_results[0]
             result["provider"] = provider_data
         else:
             console.print(f"[yellow]Warning: No provider file found in {listing_file.parent}[/yellow]")
 
         # Find seller file (optional - seller files are not always present).
-        seller_results = find_files_by_schema(listing_file.parent, "seller_v1")
+        seller_results = find_files_by_pattern(listing_file.parent, "seller_v1")
         if seller_results:
             # Unpack tuple: (file_path, format, data)
-            # Data is already loaded by find_files_by_schema
+            # Data is already loaded by find_files_by_pattern
             _file_path, _format, seller_data = seller_results[0]
             result["seller"] = seller_data
         # No warning if seller file not found - seller data is optional

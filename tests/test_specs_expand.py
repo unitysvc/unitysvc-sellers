@@ -15,7 +15,7 @@ import pytest
 from typer.testing import CliRunner
 
 from unitysvc_sellers.specs import app as specs_app
-from unitysvc_sellers.utils import find_files_by_schema
+from unitysvc_sellers.utils import find_files_by_pattern
 
 from .test_params_render import OFFERING_J2, PROVIDER, _make_repo
 
@@ -49,7 +49,7 @@ def _make_preset_repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_find_files_by_schema_excludes_top_level_expanded_tree(tmp_path: Path) -> None:
+def test_find_files_by_pattern_excludes_top_level_expanded_tree(tmp_path: Path) -> None:
     """Discovery must skip the informal ``expanded/`` tree but keep ``specs/``."""
     specs_listing = tmp_path / "specs" / "unitysvc" / "foo" / "listing.json"
     specs_listing.parent.mkdir(parents=True)
@@ -59,7 +59,7 @@ def test_find_files_by_schema_excludes_top_level_expanded_tree(tmp_path: Path) -
     expanded_listing.parent.mkdir(parents=True)
     expanded_listing.write_text(json.dumps({"name": "unitysvc/foo"}))
 
-    found = {p for p, _, _ in find_files_by_schema(tmp_path, "listing_v1")}
+    found = {p for p, _, _ in find_files_by_pattern(tmp_path, "listing_v1")}
 
     assert specs_listing in found
     assert expanded_listing not in found

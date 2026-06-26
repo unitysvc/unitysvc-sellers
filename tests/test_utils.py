@@ -22,10 +22,10 @@ def example_data_dir() -> Path:
 
 def test_resolve_service_name_explicit(example_data_dir: Path) -> None:
     """Test that explicit service_name in listing is used."""
-    from unitysvc_sellers.utils import find_files_by_schema
+    from unitysvc_sellers.utils import find_files_by_pattern
 
     # Find a listing with explicit service_name
-    listing_files = find_files_by_schema(example_data_dir, "listing_v1")
+    listing_files = find_files_by_pattern(example_data_dir, "listing_v1")
 
     # Find the provider2 listing which has explicit service_name
     for file_path, _format, data in listing_files:
@@ -39,10 +39,10 @@ def test_resolve_service_name_explicit(example_data_dir: Path) -> None:
 
 def test_resolve_service_name_auto(example_data_dir: Path) -> None:
     """Test that service_name is auto-resolved from service offering."""
-    from unitysvc_sellers.utils import find_files_by_schema
+    from unitysvc_sellers.utils import find_files_by_pattern
 
     # Find a listing without explicit service_name
-    listing_files = find_files_by_schema(example_data_dir, "listing_v1")
+    listing_files = find_files_by_pattern(example_data_dir, "listing_v1")
 
     # Find the provider1 listing which should auto-resolve
     for file_path, _format, data in listing_files:
@@ -68,10 +68,10 @@ def test_resolve_service_name_no_service_offering(tmp_path: Path) -> None:
 
 def test_resolve_provider_name_from_service_offering(example_data_dir: Path) -> None:
     """Test that provider name is resolved from service offering file path."""
-    from unitysvc_sellers.utils import find_files_by_schema
+    from unitysvc_sellers.utils import find_files_by_pattern
 
     # Find a service offering file
-    service_files = find_files_by_schema(example_data_dir, "offering_v1")
+    service_files = find_files_by_pattern(example_data_dir, "offering_v1")
 
     # Find the provider1 service file
     for file_path, _format, _data in service_files:
@@ -85,10 +85,10 @@ def test_resolve_provider_name_from_service_offering(example_data_dir: Path) -> 
 
 def test_resolve_provider_name_from_listing(example_data_dir: Path) -> None:
     """Test that provider name is resolved from listing file path."""
-    from unitysvc_sellers.utils import find_files_by_schema
+    from unitysvc_sellers.utils import find_files_by_pattern
 
     # Find a listing file
-    listing_files = find_files_by_schema(example_data_dir, "listing_v1")
+    listing_files = find_files_by_pattern(example_data_dir, "listing_v1")
 
     # Find the provider2 listing file
     for file_path, _format, _data in listing_files:
