@@ -42,7 +42,7 @@ from unitysvc_core.utils import (  # noqa: F401
     write_data_file,
 )
 from unitysvc_core.utils import (
-    find_files_by_schema as _core_find_files_by_schema,
+    find_files_by_pattern as _core_find_files_by_schema,
 )
 
 # Top-level directory holding `usvc_seller specs expand` output: a static,
@@ -60,13 +60,15 @@ def find_files_by_schema(
     path_filter: str | None = None,
     field_filter: Any = None,
 ) -> list[tuple[Path, str, dict[str, Any]]]:
-    """Seller wrapper over ``unitysvc_core.utils.find_files_by_schema``.
+    """Seller wrapper over ``unitysvc_core.utils.find_files_by_pattern``.
 
-    Identical to core discovery, except results under a top-level
-    ``expanded/`` directory (relative to ``data_dir``) are dropped — that tree
-    is the informal output of ``specs expand`` and must never be treated as a
-    formal service, even if committed. Mirrors the dot-directory skip that
-    ``specs_layout.find_service_folders`` already applies to ``validate``.
+    Matches files by **filename stem** (``provider.json`` → ``provider_v1``,
+    etc.) — the convention used by the flat ``specs/`` layout.  Results under
+    a top-level ``expanded/`` directory (relative to ``data_dir``) are
+    dropped — that tree is the informal output of ``specs expand`` and must
+    never be treated as a formal service, even if committed.  Mirrors the
+    dot-directory skip that ``specs_layout.find_service_folders`` already
+    applies to ``validate``.
     """
     results = _core_find_files_by_schema(data_dir, schema, path_filter, field_filter)
     root = Path(data_dir)
