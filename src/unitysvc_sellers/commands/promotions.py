@@ -10,6 +10,7 @@ Commands:
 - ``activate`` — set status to ``active``
 - ``pause``    — set status to ``paused``
 - ``delete``   — permanently delete a promotion
+- ``upload``   — upload promotion files from ``promotions/`` directory
 
 The legacy ``activate`` / ``pause`` HTTP routes were absorbed into
 ``PATCH /v1/seller/promotions/{id}`` with a ``status`` field as part of
@@ -20,12 +21,15 @@ ergonomic shortcuts that internally call ``promotions.update``.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
 from unitysvc_core.models.promotion_data import describe_scope
 
+from ..client import Client
+from ..exceptions import APIError
 from ._helpers import (
     api_key_option,
     async_client,
@@ -39,7 +43,7 @@ from ._helpers import (
 console = Console()
 
 app = typer.Typer(
-    help="Remote promotion operations (list, show, activate, pause, delete).",
+    help="Remote promotion operations (list, show, activate, pause, delete, upload).",
 )
 
 
@@ -222,3 +226,49 @@ def delete_promotion(
 
     promo = run_async(_impl(), error_prefix="Failed to delete promotion")
     console.print(f"[green]✓[/green] Deleted: {promo.get('name', name_or_id)}")
+
+
+# ---------------------------------------------------------------------------
+# upload
+# ---------------------------------------------------------------------------
+@app.command("upload")
+def upload_promotions(
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Upload all promotion files from ``promotions/`` directory."""
+    if not api_key:
+        console.print(
+            "[red]✗[/red] Missing seller API key. Set $UNITYSVC_SELLER_API_KEY or pass --api-key.",
+            style="bold red",
+        )
+        raise typer.Exit(code=1)
+
+    data_dir = Path.cwd()
+    console.print(f"[bold blue]Uploading promotions from:[/bold blue] {data_dir / 'promotions'}")
+
+    def _on_progress(kind: str, status: str, name: str, detail: str = "") -> None:
+        if status == "ok":
+            console.print(f"  [green]✓[/green] upserted: [cyan]{name}[/cyan]")
+        else:
+            console.print(f"  [red]✗[/red] failed: [cyan]{name}[/cyan] — {detail}")
+
+    try:
+        with Client(api_key=api_key, base_url=base_url) as client:
+            result = client.upload_promotions(data_dir, on_progress=_on_progress)
+    except APIError as exc:
+        console.print(f"[red]✗[/red] API error: {exc}", style="bold red")
+        raise typer.Exit(code=1) from exc
+    except Exception as exc:
+        console.print(f"[red]✗[/red] Upload failed: {exc}", style="bold red")
+        raise typer.Exit(code=1) from exc
+
+    console.print()
+    console.print(f"Promotions — [green]{result.success}[/green] success, [red]{result.failed}[/red] failed")
+    if result.errors:
+        for err in result.errors:
+            console.print(f"  [red]✗[/red] {err.get('file', '?')}: {err.get('error', '?')}")
+
+    if result.failed > 0:
+        raise typer.Exit(code=1)
+    console.print("\n[green]✓[/green] Promotions uploaded successfully", style="bold green")

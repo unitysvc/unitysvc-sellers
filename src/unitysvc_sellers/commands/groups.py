@@ -2,21 +2,22 @@
 
 Net-new command group (no equivalent in ``unitysvc-services``). Mirrors
 the structure of ``promotions``: name lookup with partial-id fallback,
-list / show / delete / refresh. Group create/update is intentionally
-not exposed here — sellers manage group definitions as files committed
-to their catalog directory and pushed via ``usvc_seller specs upload``,
-which is the same flow promotions use.
+list / show / delete. Group definitions are committed as files under
+``groups/`` and pushed via ``usvc_seller groups upload``.
 """
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
+from ..client import Client
+from ..exceptions import APIError
 from ._helpers import (
     api_key_option,
     async_client,
@@ -29,7 +30,7 @@ from ._helpers import (
 console = Console()
 
 app = typer.Typer(
-    help="Remote service group operations (list, show, delete).",
+    help="Remote service group operations (list, show, delete, upload).",
 )
 
 
@@ -191,6 +192,52 @@ def delete_group(
 
     stub = run_async(_impl(), error_prefix="Failed to delete group")
     console.print(f"[green]✓[/green] Deleted: {stub.get('name', name_or_id)}")
+
+
+# ---------------------------------------------------------------------------
+# upload
+# ---------------------------------------------------------------------------
+@app.command("upload")
+def upload_groups(
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Upload all service-group files from ``groups/`` directory."""
+    if not api_key:
+        console.print(
+            "[red]✗[/red] Missing seller API key. Set $UNITYSVC_SELLER_API_KEY or pass --api-key.",
+            style="bold red",
+        )
+        raise typer.Exit(code=1)
+
+    data_dir = Path.cwd()
+    console.print(f"[bold blue]Uploading groups from:[/bold blue] {data_dir / 'groups'}")
+
+    def _on_progress(kind: str, status: str, name: str, detail: str = "") -> None:
+        if status == "ok":
+            console.print(f"  [green]✓[/green] upserted: [cyan]{name}[/cyan]")
+        else:
+            console.print(f"  [red]✗[/red] failed: [cyan]{name}[/cyan] — {detail}")
+
+    try:
+        with Client(api_key=api_key, base_url=base_url) as client:
+            result = client.upload_groups(data_dir, on_progress=_on_progress)
+    except APIError as exc:
+        console.print(f"[red]✗[/red] API error: {exc}", style="bold red")
+        raise typer.Exit(code=1) from exc
+    except Exception as exc:
+        console.print(f"[red]✗[/red] Upload failed: {exc}", style="bold red")
+        raise typer.Exit(code=1) from exc
+
+    console.print()
+    console.print(f"Groups — [green]{result.success}[/green] success, [red]{result.failed}[/red] failed")
+    if result.errors:
+        for err in result.errors:
+            console.print(f"  [red]✗[/red] {err.get('file', '?')}: {err.get('error', '?')}")
+
+    if result.failed > 0:
+        raise typer.Exit(code=1)
+    console.print("\n[green]✓[/green] Groups uploaded successfully", style="bold green")
 
 
 # NOTE: ``usvc_seller groups refresh`` was removed alongside the

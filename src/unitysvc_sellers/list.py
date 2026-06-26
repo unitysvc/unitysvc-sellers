@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .utils import (
-    find_files_by_schema,
+    find_files_by_pattern,
     resolve_provider_name,
     resolve_service_name_for_listing,
 )
@@ -38,7 +38,7 @@ def list_providers(
     console.print(f"[blue]Searching for providers in:[/blue] {data_dir}\n")
 
     # Find provider files by schema
-    provider_files = find_files_by_schema(data_dir, "provider_v1")
+    provider_files = find_files_by_pattern(data_dir, "provider_v1")
 
     if not provider_files:
         console.print("[yellow]No provider files found.[/yellow]")
@@ -83,7 +83,7 @@ def list_sellers(
     console.print(f"[blue]Searching for sellers in:[/blue] {data_dir}\n")
 
     # Find seller files by schema
-    seller_files = find_files_by_schema(data_dir, "seller_v1")
+    seller_files = find_files_by_pattern(data_dir, "seller_v1")
 
     if not seller_files:
         console.print("[yellow]No seller files found.[/yellow]")
@@ -128,7 +128,7 @@ def list_offerings(
     console.print(f"[blue]Searching for service offerings in:[/blue] {data_dir}\n")
 
     # Find service files by schema
-    service_files = find_files_by_schema(data_dir, "offering_v1")
+    service_files = find_files_by_pattern(data_dir, "offering_v1")
 
     if not service_files:
         console.print("[yellow]No service offering files found.[/yellow]")
@@ -178,7 +178,7 @@ def list_listings(
     console.print(f"[blue]Searching for service listings in:[/blue] {data_dir}\n")
 
     # Find listing files by schema
-    listing_files = find_files_by_schema(data_dir, "listing_v1")
+    listing_files = find_files_by_pattern(data_dir, "listing_v1")
 
     if not listing_files:
         console.print("[yellow]No service listing files found.[/yellow]")

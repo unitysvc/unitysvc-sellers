@@ -65,7 +65,7 @@ if TYPE_CHECKING:
     from .services import Services
     from .tasks import Tasks
     from .templates import Templates
-    from .upload import UploadResult
+    from .upload import UploadCounts, UploadResult
 
 DEFAULT_SELLER_API_URL = "https://seller.unitysvc.com/v1"
 ENV_SELLER_API_KEY = "UNITYSVC_SELLER_API_KEY"
@@ -240,21 +240,13 @@ class Client:
         self,
         data_dir: str | Path,
         *,
-        upload_services: bool = True,
-        upload_promotions: bool = True,
-        upload_groups: bool = True,
         on_progress: Callable[[str, str, str, str], None] | None = None,
         name: str | None = None,
         auto_submit: bool = False,
     ) -> UploadResult:
-        """Upload an entire seller catalog directory.
+        """Upload services from a seller catalog directory.
 
-        Thin wrapper around
-        :func:`upload.upload_directory`. Pass ``name`` (an fnmatch pattern) to
-        upload only the services whose ``service_name`` (= ``listing.name``)
-        match. With ``auto_submit=True`` each published draft is also submitted
-        for review in the same ingest task; otherwise (default) it's left a
-        reviewable draft. See that function for argument and return-type docs.
+        Thin wrapper around :func:`upload.upload_directory`.
         """
         from pathlib import Path as _Path
 
@@ -263,13 +255,36 @@ class Client:
         return upload_directory(
             self,
             _Path(str(data_dir)),
-            upload_services=upload_services,
-            upload_promotions=upload_promotions,
-            upload_groups=upload_groups,
             on_progress=on_progress,
             name=name,
             auto_submit=auto_submit,
         )
+
+    def upload_promotions(
+        self,
+        data_dir: str | Path,
+        *,
+        on_progress: Callable[[str, str, str, str], None] | None = None,
+    ) -> UploadCounts:
+        """Upload promotion files from ``promotions/`` directory."""
+        from pathlib import Path as _Path
+
+        from .upload import upload_promotions
+
+        return upload_promotions(self, _Path(str(data_dir)), on_progress=on_progress)
+
+    def upload_groups(
+        self,
+        data_dir: str | Path,
+        *,
+        on_progress: Callable[[str, str, str, str], None] | None = None,
+    ) -> UploadCounts:
+        """Upload service-group files from ``groups/`` directory."""
+        from pathlib import Path as _Path
+
+        from .upload import upload_groups
+
+        return upload_groups(self, _Path(str(data_dir)), on_progress=on_progress)
 
     # ------------------------------------------------------------------
     # Lifecycle

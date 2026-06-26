@@ -10,7 +10,7 @@ import typer
 from rich.console import Console
 
 from .format_data import format_data_files
-from .utils import find_files_by_schema
+from .utils import find_files_by_pattern
 
 app = typer.Typer(help="Populate services")
 console = Console()
@@ -79,7 +79,7 @@ def _populator_sources(data_dir: Path, provider_filter: str | None) -> list[tupl
 
     # Legacy: provider files (provider.json/toml) carrying services_populator.
     sources: list[tuple[dict, Path, str]] = []
-    for provider_file, _fmt, pdata in find_files_by_schema(data_dir, "provider_v1"):
+    for provider_file, _fmt, pdata in find_files_by_pattern(data_dir, "provider_v1"):
         name = pdata.get("name", "unknown")
         if provider_filter and name != provider_filter:
             continue
