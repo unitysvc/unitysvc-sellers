@@ -53,7 +53,7 @@ $ usvc_seller specs [OPTIONS] COMMAND [ARGS]...
 * `validate`: Validate a repository in the flat...
 * `format`: Format data files (JSON, TOML, MD) to...
 * `populate`: Populate services by executing the repo&#x27;s...
-* `upload`: Upload a seller catalog (services +...
+* `upload`: Upload service specs to UnitySVC.
 * `list-tests`: List available code examples without...
 * `run-tests`: Run code examples locally with upstream...
 * `show-test`: Show test results for a service&#x27;s code...
@@ -207,7 +207,10 @@ $ usvc_seller specs populate [OPTIONS] [DATA_DIR]
 
 ### `usvc_seller specs upload`
 
-Upload a seller catalog (services + promotions + service groups) to UnitySVC.
+Upload service specs to UnitySVC.
+
+Use ``usvc_seller promotions upload`` and ``usvc_seller groups upload``
+for promotions and service groups.
 
 **Usage**:
 
@@ -217,13 +220,12 @@ $ usvc_seller specs upload [OPTIONS] [NAME]
 
 **Arguments**:
 
-* `[NAME]`: Service to upload, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Omit to upload every service in the current directory (plus promotions and groups unless ``--type`` restricts the scope).
+* `[NAME]`: Service to upload, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Omit to upload every service in the current directory.
 
 **Options**:
 
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
-* `-t, --type TEXT`: Upload only one resource: services / promotions / groups. Default: upload all three.
 * `--submit`: Also submit each freshly published service for review (validate → pending → run tests) in the same ingest task. Default: leave services as reviewable drafts to submit later.
 * `--help`: Show this message and exit.
 
@@ -919,7 +921,7 @@ $ usvc_seller services unskip-test [OPTIONS] DOCUMENT_ID
 
 ## `usvc_seller promotions`
 
-Remote promotion operations (list, show, activate, pause, delete).
+Remote promotion operations (list, show, activate, pause, delete, upload).
 
 **Usage**:
 
@@ -938,6 +940,7 @@ $ usvc_seller promotions [OPTIONS] COMMAND [ARGS]...
 * `activate`: Set a promotion&#x27;s status to ``active``.
 * `pause`: Set a promotion&#x27;s status to ``paused``.
 * `delete`: Permanently delete a promotion.
+* `upload`: Upload all promotion files from...
 
 ### `usvc_seller promotions list`
 
@@ -1038,9 +1041,25 @@ $ usvc_seller promotions delete [OPTIONS] NAME_OR_ID
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
+### `usvc_seller promotions upload`
+
+Upload all promotion files from ``promotions/`` directory.
+
+**Usage**:
+
+```console
+$ usvc_seller promotions upload [OPTIONS]
+```
+
+**Options**:
+
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
 ## `usvc_seller groups`
 
-Remote service group operations (list, show, delete).
+Remote service group operations (list, show, delete, upload).
 
 **Usage**:
 
@@ -1057,6 +1076,7 @@ $ usvc_seller groups [OPTIONS] COMMAND [ARGS]...
 * `list`: List the seller&#x27;s service groups.
 * `show`: Show details of a single service group.
 * `delete`: Permanently delete a service group.
+* `upload`: Upload all service-group files from...
 
 ### `usvc_seller groups list`
 
@@ -1114,6 +1134,22 @@ $ usvc_seller groups delete [OPTIONS] NAME_OR_ID
 **Options**:
 
 * `-f, --force`: Skip confirmation prompt.
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller groups upload`
+
+Upload all service-group files from ``groups/`` directory.
+
+**Usage**:
+
+```console
+$ usvc_seller groups upload [OPTIONS]
+```
+
+**Options**:
+
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
