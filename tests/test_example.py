@@ -5,15 +5,18 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from unitysvc_core.models.base import DocumentCategoryEnum
 
 from unitysvc_sellers.example import (
+    MissingSecretEnvVar,
     build_upstream_template_context,
     discover_code_examples,
     document_applies_to_channel,
     execute_code_example,
     expand_template_strings,
     extract_code_examples_from_listing,
+    resolve_secret_ref,
 )
 
 EXAMPLE_DATA = Path(__file__).parent / "example_data"
@@ -241,3 +244,66 @@ def test_extract_code_examples_captures_meta_channels() -> None:
     by_title = {e["title"]: e for e in extract_code_examples_from_listing(listing_data, Path("/tmp/listing.json"))}
     assert by_title["Scoped"]["channels"] == ["apprise"]
     assert by_title["Shared"]["channels"] is None
+
+
+# --- resolve_secret_ref: in-place (embedded) substitution -------------------
+
+
+def test_resolve_secret_ref_literal_passthrough() -> None:
+    """A string with no reference is returned unchanged."""
+    assert resolve_secret_ref("https://api.example.com/v1", "base_url") == "https://api.example.com/v1"
+
+
+def test_resolve_secret_ref_non_secret_namespace_untouched() -> None:
+    """``${VAR}`` env-style refs (no secrets namespace) are left alone."""
+    assert resolve_secret_ref("${API_GATEWAY_BASE_URL}/svc", "base_url") == "${API_GATEWAY_BASE_URL}/svc"
+
+
+def test_resolve_secret_ref_whole_value_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A whole-value reference resolves from the environment (back-compat)."""
+    monkeypatch.setenv("MY_TOKEN", "abc123")
+    assert resolve_secret_ref("${ secrets.MY_TOKEN }", "api_key") == "abc123"
+
+
+def test_resolve_secret_ref_default_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``?? default`` is used when the env var is unset."""
+    monkeypatch.delenv("MY_TOKEN", raising=False)
+    assert resolve_secret_ref("${ secrets.MY_TOKEN ?? fallback }", "api_key") == "fallback"
+
+
+def test_resolve_secret_ref_required_missing_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A required reference with no default and no env var raises."""
+    monkeypatch.delenv("MY_TOKEN", raising=False)
+    with pytest.raises(MissingSecretEnvVar):
+        resolve_secret_ref("${ secrets.MY_TOKEN }", "api_key")
+
+
+def test_resolve_secret_ref_embedded_prefix_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The regression: a ref embedded as a URL *prefix* resolves, keeping the path.
+
+    This is the stress-service base_url shape — previously the whole-value
+    regex failed to match, leaving the raw ``${ ... }`` to reach bash as a
+    ``bad substitution``.
+    """
+    monkeypatch.setenv("UNITYSVC_STRESS_BASE_URL", "https://stress.unitysvc.dev")
+    out = resolve_secret_ref(
+        "${ customer_secrets.UNITYSVC_STRESS_BASE_URL ?? http://stress-server:8800 }/stress/anthropic",
+        "base_url",
+    )
+    assert out == "https://stress.unitysvc.dev/stress/anthropic"
+
+
+def test_resolve_secret_ref_embedded_prefix_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Embedded ref falls back to its default and keeps the trailing path."""
+    monkeypatch.delenv("UNITYSVC_STRESS_BASE_URL", raising=False)
+    out = resolve_secret_ref(
+        "${ customer_secrets.UNITYSVC_STRESS_BASE_URL ?? http://stress-server:8800 }/stress/anthropic",
+        "base_url",
+    )
+    assert out == "http://stress-server:8800/stress/anthropic"
+
+
+def test_resolve_secret_ref_empty_env_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``??`` coalesces on null, not empty — an empty env value is kept."""
+    monkeypatch.setenv("MY_TOKEN", "")
+    assert resolve_secret_ref("${ secrets.MY_TOKEN ?? fallback }", "api_key") == ""
