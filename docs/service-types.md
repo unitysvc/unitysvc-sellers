@@ -239,10 +239,6 @@ base_url = "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment.code }}"
 `{{ enrollment.code }}` renders to the enrollment's unique code (e.g. `CEFF`) at enrollment
 time. The same enrollment is also reachable directly at `/e/CEFF` regardless of `base_url`.
 
-> If the code is used as the discriminator in a **shared upstream namespace** (e.g. an ntfy
-> topic shared across customers), set `service_options.scope = "global"` so the
-> code is globally unique rather than only per-customer. See
-> [file-schemas.md](file-schemas.md#service-options).
 
 See [file-schemas.md](file-schemas.md#jinja2-template-values) for the full templating model, and
 [service-templates.md](service-templates.md) for instantiating these patterns from a template.

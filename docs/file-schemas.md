@@ -232,7 +232,7 @@ The `service_options` field configures backend behavior for service listings. Al
 | ------------------------ | ------ | ------------------------------------------------------------------------------ |
 | `ops_testing_parameters` | object | Default parameter values for testing (see [User Parameters](#user-parameters)) |
 | `routing_vars`           | object | Seller-managed operational variables, referenced as `{{ routing_vars.X }}`     |
-| `enrollment`             | object | Per-enrollment configuration — code scope and enrollment limits (see below)    |
+| `enrollment`             | object | Per-enrollment configuration — enrollment limits (see below)    |
 
 **Enrollment configuration (`enrollment`):**
 
@@ -240,7 +240,6 @@ All enrollment-related options live under a single `enrollment` object:
 
 | Key                  | Type    | Description                                                                                                                                                                                              |
 | -------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scope`              | string  | Enrollment-code scope: `"customer"` (default) or `"global"`. With `"global"`, each enrollment gets a longer, globally-unique code — use it when the code lands in a **shared upstream namespace** (e.g. a notification topic), where a per-customer-only code could collide across customers. |
 | `limit`              | integer | Maximum total active enrollments for this service (global)                                                                                                                                              |
 | `limit_per_customer` | integer | Maximum active enrollments per customer                                                                                                                                                                 |
 | `limit_per_user`     | integer | Maximum active enrollments per user (creator)                                                                                                                                                           |
@@ -264,7 +263,6 @@ All enrollment-related options live under a single `enrollment` object:
             "region": "us-east-1"
         },
         "enrollment": {
-            "scope": "global",
             "limit": 100,
             "limit_per_customer": 5,
             "limit_per_user": 2
@@ -281,7 +279,6 @@ api_key = "${ secrets.SERVICE_API_KEY }"
 region = "us-east-1"
 
 [service_options.enrollment]
-scope = "global"
 limit = 100
 limit_per_customer = 5
 limit_per_user = 2
