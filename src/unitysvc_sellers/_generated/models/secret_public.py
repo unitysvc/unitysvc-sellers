@@ -25,7 +25,8 @@ class SecretPublic:
     id: UUID
     owner_type: SecretOwnerTypeEnum
     """ Owner type for secrets - determines which entity owns the secret. """
-    owner_id: UUID
+    role_id: None | UUID
+    owner_id: None | UUID
     created_at: datetime.datetime
     updated_at: datetime.datetime | None
     last_used_at: datetime.datetime | None
@@ -38,7 +39,17 @@ class SecretPublic:
 
         owner_type: str = self.owner_type
 
-        owner_id = str(self.owner_id)
+        role_id: None | str
+        if isinstance(self.role_id, UUID):
+            role_id = str(self.role_id)
+        else:
+            role_id = self.role_id
+
+        owner_id: None | str
+        if isinstance(self.owner_id, UUID):
+            owner_id = str(self.owner_id)
+        else:
+            owner_id = self.owner_id
 
         created_at = self.created_at.isoformat()
 
@@ -61,6 +72,7 @@ class SecretPublic:
                 "name": name,
                 "id": id,
                 "owner_type": owner_type,
+                "role_id": role_id,
                 "owner_id": owner_id,
                 "created_at": created_at,
                 "updated_at": updated_at,
@@ -79,7 +91,35 @@ class SecretPublic:
 
         owner_type = check_secret_owner_type_enum(d.pop("owner_type"))
 
-        owner_id = UUID(d.pop("owner_id"))
+        def _parse_role_id(data: object) -> None | UUID:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                role_id_type_0 = UUID(data)
+
+                return role_id_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | UUID, data)
+
+        role_id = _parse_role_id(d.pop("role_id"))
+
+        def _parse_owner_id(data: object) -> None | UUID:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                owner_id_type_0 = UUID(data)
+
+                return owner_id_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | UUID, data)
+
+        owner_id = _parse_owner_id(d.pop("owner_id"))
 
         created_at = isoparse(d.pop("created_at"))
 
@@ -117,6 +157,7 @@ class SecretPublic:
             name=name,
             id=id,
             owner_type=owner_type,
+            role_id=role_id,
             owner_id=owner_id,
             created_at=created_at,
             updated_at=updated_at,

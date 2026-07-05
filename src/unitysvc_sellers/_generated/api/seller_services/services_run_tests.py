@@ -107,9 +107,10 @@ def sync_detailed(
 
     Replaces the local-execution ``usvc_seller services run-tests`` path
     (#1105).  Runs every executable document (``connectivity_test`` and
-    ``code_example``) against every active access interface inside the
-    cluster — the same network environment customers hit — and falls
-    back to an upstream-mode probe on any iface-level gateway failure
+    ``code_example``) against every active access interface and upstream
+    channel inside the cluster — the same network environment customers
+    hit — and falls back to an upstream-mode probe on any channel-level
+    gateway failure
     so the result attributes the fault as ``platform_fault`` vs
     ``upstream_fault``.
 
@@ -119,11 +120,12 @@ def sync_detailed(
     restored in a ``finally`` block so a worker crash mid-run can't
     leave the service permanently elevated.
 
-    Per-(doc × iface) results land on
-    ``Document.meta.test.tests[<iface_id>]`` (same shape ingest writes,
-    so ``services show-test`` keeps working).  The task return payload
-    duplicates a summary with stdout/stderr truncated to 16 KB per
-    stream; full streams remain available via ``show-test``.
+    Per-(doc × iface × channel) results land on
+    ``Document.meta.test.tests[<iface_id>].channels[<channel>]``.  The
+    interface row remains a rollup for legacy ``services show-test``
+    readers.  The task return payload duplicates a summary with
+    stdout/stderr truncated to 16 KB per stream; full streams remain
+    available via ``show-test``.
 
     Poll via ``GET /v1/seller/tasks/{task_id}``.
 
@@ -176,9 +178,10 @@ def sync(
 
     Replaces the local-execution ``usvc_seller services run-tests`` path
     (#1105).  Runs every executable document (``connectivity_test`` and
-    ``code_example``) against every active access interface inside the
-    cluster — the same network environment customers hit — and falls
-    back to an upstream-mode probe on any iface-level gateway failure
+    ``code_example``) against every active access interface and upstream
+    channel inside the cluster — the same network environment customers
+    hit — and falls back to an upstream-mode probe on any channel-level
+    gateway failure
     so the result attributes the fault as ``platform_fault`` vs
     ``upstream_fault``.
 
@@ -188,11 +191,12 @@ def sync(
     restored in a ``finally`` block so a worker crash mid-run can't
     leave the service permanently elevated.
 
-    Per-(doc × iface) results land on
-    ``Document.meta.test.tests[<iface_id>]`` (same shape ingest writes,
-    so ``services show-test`` keeps working).  The task return payload
-    duplicates a summary with stdout/stderr truncated to 16 KB per
-    stream; full streams remain available via ``show-test``.
+    Per-(doc × iface × channel) results land on
+    ``Document.meta.test.tests[<iface_id>].channels[<channel>]``.  The
+    interface row remains a rollup for legacy ``services show-test``
+    readers.  The task return payload duplicates a summary with
+    stdout/stderr truncated to 16 KB per stream; full streams remain
+    available via ``show-test``.
 
     Poll via ``GET /v1/seller/tasks/{task_id}``.
 
@@ -240,9 +244,10 @@ async def asyncio_detailed(
 
     Replaces the local-execution ``usvc_seller services run-tests`` path
     (#1105).  Runs every executable document (``connectivity_test`` and
-    ``code_example``) against every active access interface inside the
-    cluster — the same network environment customers hit — and falls
-    back to an upstream-mode probe on any iface-level gateway failure
+    ``code_example``) against every active access interface and upstream
+    channel inside the cluster — the same network environment customers
+    hit — and falls back to an upstream-mode probe on any channel-level
+    gateway failure
     so the result attributes the fault as ``platform_fault`` vs
     ``upstream_fault``.
 
@@ -252,11 +257,12 @@ async def asyncio_detailed(
     restored in a ``finally`` block so a worker crash mid-run can't
     leave the service permanently elevated.
 
-    Per-(doc × iface) results land on
-    ``Document.meta.test.tests[<iface_id>]`` (same shape ingest writes,
-    so ``services show-test`` keeps working).  The task return payload
-    duplicates a summary with stdout/stderr truncated to 16 KB per
-    stream; full streams remain available via ``show-test``.
+    Per-(doc × iface × channel) results land on
+    ``Document.meta.test.tests[<iface_id>].channels[<channel>]``.  The
+    interface row remains a rollup for legacy ``services show-test``
+    readers.  The task return payload duplicates a summary with
+    stdout/stderr truncated to 16 KB per stream; full streams remain
+    available via ``show-test``.
 
     Poll via ``GET /v1/seller/tasks/{task_id}``.
 
@@ -307,9 +313,10 @@ async def asyncio(
 
     Replaces the local-execution ``usvc_seller services run-tests`` path
     (#1105).  Runs every executable document (``connectivity_test`` and
-    ``code_example``) against every active access interface inside the
-    cluster — the same network environment customers hit — and falls
-    back to an upstream-mode probe on any iface-level gateway failure
+    ``code_example``) against every active access interface and upstream
+    channel inside the cluster — the same network environment customers
+    hit — and falls back to an upstream-mode probe on any channel-level
+    gateway failure
     so the result attributes the fault as ``platform_fault`` vs
     ``upstream_fault``.
 
@@ -319,11 +326,12 @@ async def asyncio(
     restored in a ``finally`` block so a worker crash mid-run can't
     leave the service permanently elevated.
 
-    Per-(doc × iface) results land on
-    ``Document.meta.test.tests[<iface_id>]`` (same shape ingest writes,
-    so ``services show-test`` keeps working).  The task return payload
-    duplicates a summary with stdout/stderr truncated to 16 KB per
-    stream; full streams remain available via ``show-test``.
+    Per-(doc × iface × channel) results land on
+    ``Document.meta.test.tests[<iface_id>].channels[<channel>]``.  The
+    interface row remains a rollup for legacy ``services show-test``
+    readers.  The task return payload duplicates a summary with
+    stdout/stderr truncated to 16 KB per stream; full streams remain
+    available via ``show-test``.
 
     Poll via ``GET /v1/seller/tasks/{task_id}``.
 
