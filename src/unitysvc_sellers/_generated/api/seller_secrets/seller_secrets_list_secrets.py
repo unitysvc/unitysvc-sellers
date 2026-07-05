@@ -14,7 +14,7 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     *,
     skip: int | Unset = 0,
-    limit: int | Unset = 100,
+    limit: int | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -29,7 +29,12 @@ def _get_kwargs(
 
     params["skip"] = skip
 
-    params["limit"] = limit
+    json_limit: int | None | Unset
+    if isinstance(limit, Unset):
+        json_limit = UNSET
+    else:
+        json_limit = limit
+    params["limit"] = json_limit
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -77,7 +82,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     skip: int | Unset = 0,
-    limit: int | Unset = 100,
+    limit: int | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | SecretsPublic]:
@@ -85,11 +90,12 @@ def sync_detailed(
 
      List the current seller's secrets.
 
-    Returns secret metadata only — values are never returned.
+    Returns secret metadata only — values are never returned. ``limit``
+    defaults to ``None`` (every secret); pass one to paginate.
 
     Args:
         skip (int | Unset):  Default: 0.
-        limit (int | Unset):  Default: 100.
+        limit (int | None | Unset):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -119,7 +125,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     skip: int | Unset = 0,
-    limit: int | Unset = 100,
+    limit: int | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> HTTPValidationError | SecretsPublic | None:
@@ -127,11 +133,12 @@ def sync(
 
      List the current seller's secrets.
 
-    Returns secret metadata only — values are never returned.
+    Returns secret metadata only — values are never returned. ``limit``
+    defaults to ``None`` (every secret); pass one to paginate.
 
     Args:
         skip (int | Unset):  Default: 0.
-        limit (int | Unset):  Default: 100.
+        limit (int | None | Unset):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -156,7 +163,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     skip: int | Unset = 0,
-    limit: int | Unset = 100,
+    limit: int | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | SecretsPublic]:
@@ -164,11 +171,12 @@ async def asyncio_detailed(
 
      List the current seller's secrets.
 
-    Returns secret metadata only — values are never returned.
+    Returns secret metadata only — values are never returned. ``limit``
+    defaults to ``None`` (every secret); pass one to paginate.
 
     Args:
         skip (int | Unset):  Default: 0.
-        limit (int | Unset):  Default: 100.
+        limit (int | None | Unset):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -196,7 +204,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     skip: int | Unset = 0,
-    limit: int | Unset = 100,
+    limit: int | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> HTTPValidationError | SecretsPublic | None:
@@ -204,11 +212,12 @@ async def asyncio(
 
      List the current seller's secrets.
 
-    Returns secret metadata only — values are never returned.
+    Returns secret metadata only — values are never returned. ``limit``
+    defaults to ``None`` (every secret); pass one to paginate.
 
     Args:
         skip (int | Unset):  Default: 0.
-        limit (int | Unset):  Default: 100.
+        limit (int | None | Unset):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 

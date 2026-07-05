@@ -1693,7 +1693,7 @@
           "seller-secrets"
         ],
         "summary": "List Secrets",
-        "description": "List the current seller's secrets.\n\nReturns secret metadata only \u2014 values are never returned.",
+        "description": "List the current seller's secrets.\n\nReturns secret metadata only \u2014 values are never returned. ``limit``\ndefaults to ``None`` (every secret); pass one to paginate.",
         "operationId": "seller-secrets-list_secrets",
         "parameters": [
           {
@@ -1711,8 +1711,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer",
-              "default": 100,
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Limit"
             }
           },
@@ -2877,7 +2883,7 @@
           "seller-services"
         ],
         "summary": "Run Service Tests Endpoint",
-        "description": "Queue a server-side diagnostic test run on one of the caller's services.\n\nReplaces the local-execution ``usvc_seller services run-tests`` path\n(#1105).  Runs every executable document (``connectivity_test`` and\n``code_example``) against every active access interface inside the\ncluster \u2014 the same network environment customers hit \u2014 and falls\nback to an upstream-mode probe on any iface-level gateway failure\nso the result attributes the fault as ``platform_fault`` vs\n``upstream_fault``.\n\nThe service's status is snapshotted and temporarily elevated to\n``pending`` if it isn't already in a routable state\n(``pending`` / ``review`` / ``active``); the original status is\nrestored in a ``finally`` block so a worker crash mid-run can't\nleave the service permanently elevated.\n\nPer-(doc \u00d7 iface) results land on\n``Document.meta.test.tests[<iface_id>]`` (same shape ingest writes,\nso ``services show-test`` keeps working).  The task return payload\nduplicates a summary with stdout/stderr truncated to 16 KB per\nstream; full streams remain available via ``show-test``.\n\nPoll via ``GET /v1/seller/tasks/{task_id}``.\n\nSupports partial service ID matching (minimum 8 characters).",
+        "description": "Queue a server-side diagnostic test run on one of the caller's services.\n\nReplaces the local-execution ``usvc_seller services run-tests`` path\n(#1105).  Runs every executable document (``connectivity_test`` and\n``code_example``) against every active access interface and upstream\nchannel inside the cluster \u2014 the same network environment customers\nhit \u2014 and falls back to an upstream-mode probe on any channel-level\ngateway failure\nso the result attributes the fault as ``platform_fault`` vs\n``upstream_fault``.\n\nThe service's status is snapshotted and temporarily elevated to\n``pending`` if it isn't already in a routable state\n(``pending`` / ``review`` / ``active``); the original status is\nrestored in a ``finally`` block so a worker crash mid-run can't\nleave the service permanently elevated.\n\nPer-(doc \u00d7 iface \u00d7 channel) results land on\n``Document.meta.test.tests[<iface_id>].channels[<channel>]``.  The\ninterface row remains a rollup for legacy ``services show-test``\nreaders.  The task return payload duplicates a summary with\nstdout/stderr truncated to 16 KB per stream; full streams remain\navailable via ``show-test``.\n\nPoll via ``GET /v1/seller/tasks/{task_id}``.\n\nSupports partial service ID matching (minimum 8 characters).",
         "operationId": "services_run_tests",
         "parameters": [
           {
@@ -4559,9 +4565,28 @@
           "owner_type": {
             "$ref": "#/components/schemas/SecretOwnerTypeEnum"
           },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          },
           "owner_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Owner Id"
           },
           "created_at": {
@@ -4599,6 +4624,7 @@
           "name",
           "id",
           "owner_type",
+          "role_id",
           "owner_id",
           "created_at",
           "updated_at",
