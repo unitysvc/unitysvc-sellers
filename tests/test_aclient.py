@@ -67,7 +67,8 @@ def _service_group_public(**overrides) -> dict:
     """Build a ServiceGroupPublic dict for mocked group responses."""
     base = {
         "id": str(uuid.uuid4()),
-        "owner_id": str(uuid.uuid4()),
+        "role_id": str(uuid.uuid4()),
+        "owner_id": None,
         "owner_type": "seller",
         "name": "group",
         "display_name": "group",

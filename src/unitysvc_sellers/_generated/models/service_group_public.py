@@ -28,7 +28,7 @@ class ServiceGroupPublic:
     """Public response model for ServiceGroup."""
 
     id: UUID
-    owner_id: UUID
+    role_id: UUID
     owner_type: GroupOwnerTypeEnum
     """ Owner type for service groups. """
     name: str
@@ -36,6 +36,7 @@ class ServiceGroupPublic:
     status: ServiceGroupStatusEnum
     """ Status of a service group. """
     created_at: datetime.datetime
+    owner_id: None | Unset | UUID = UNSET
     description: None | str | Unset = UNSET
     membership_rules: None | ServiceGroupPublicMembershipRulesType0 | Unset = UNSET
     user_access_interfaces: None | ServiceGroupPublicUserAccessInterfacesType0 | Unset = UNSET
@@ -72,7 +73,7 @@ class ServiceGroupPublic:
 
         id = str(self.id)
 
-        owner_id = str(self.owner_id)
+        role_id = str(self.role_id)
 
         owner_type: str = self.owner_type
 
@@ -83,6 +84,14 @@ class ServiceGroupPublic:
         status: str = self.status
 
         created_at = self.created_at.isoformat()
+
+        owner_id: None | str | Unset
+        if isinstance(self.owner_id, Unset):
+            owner_id = UNSET
+        elif isinstance(self.owner_id, UUID):
+            owner_id = str(self.owner_id)
+        else:
+            owner_id = self.owner_id
 
         description: None | str | Unset
         if isinstance(self.description, Unset):
@@ -153,7 +162,7 @@ class ServiceGroupPublic:
         field_dict.update(
             {
                 "id": id,
-                "owner_id": owner_id,
+                "role_id": role_id,
                 "owner_type": owner_type,
                 "name": name,
                 "display_name": display_name,
@@ -161,6 +170,8 @@ class ServiceGroupPublic:
                 "created_at": created_at,
             }
         )
+        if owner_id is not UNSET:
+            field_dict["owner_id"] = owner_id
         if description is not UNSET:
             field_dict["description"] = description
         if membership_rules is not UNSET:
@@ -197,7 +208,7 @@ class ServiceGroupPublic:
         d = dict(src_dict)
         id = UUID(d.pop("id"))
 
-        owner_id = UUID(d.pop("owner_id"))
+        role_id = UUID(d.pop("role_id"))
 
         owner_type = check_group_owner_type_enum(d.pop("owner_type"))
 
@@ -208,6 +219,23 @@ class ServiceGroupPublic:
         status = check_service_group_status_enum(d.pop("status"))
 
         created_at = isoparse(d.pop("created_at"))
+
+        def _parse_owner_id(data: object) -> None | Unset | UUID:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                owner_id_type_0 = UUID(data)
+
+                return owner_id_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | Unset | UUID, data)
+
+        owner_id = _parse_owner_id(d.pop("owner_id", UNSET))
 
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
@@ -326,12 +354,13 @@ class ServiceGroupPublic:
 
         service_group_public = cls(
             id=id,
-            owner_id=owner_id,
+            role_id=role_id,
             owner_type=owner_type,
             name=name,
             display_name=display_name,
             status=status,
             created_at=created_at,
+            owner_id=owner_id,
             description=description,
             membership_rules=membership_rules,
             user_access_interfaces=user_access_interfaces,

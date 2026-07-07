@@ -5480,9 +5480,21 @@
             "format": "uuid",
             "title": "Id"
           },
-          "owner_id": {
+          "role_id": {
             "type": "string",
             "format": "uuid",
+            "title": "Role Id"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Owner Id"
           },
           "owner_type": {
@@ -5614,7 +5626,7 @@
         "type": "object",
         "required": [
           "id",
-          "owner_id",
+          "role_id",
           "owner_type",
           "name",
           "display_name",
