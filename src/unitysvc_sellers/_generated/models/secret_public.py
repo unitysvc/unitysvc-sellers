@@ -17,7 +17,12 @@ T = TypeVar("T", bound="SecretPublic")
 
 @_attrs_define
 class SecretPublic:
-    """Public schema for secret info (excludes value - write-only)."""
+    """Public schema for secret info.
+
+    Sensitive rows keep ``value`` omitted/null. Non-sensitive variables include
+    their decrypted value for authorized callers.
+
+    """
 
     name: str
     """ Secret name (e.g., OPENAI_API_KEY). Must be uppercase letters, digits, and underscores; must start with a
@@ -27,9 +32,11 @@ class SecretPublic:
     """ Owner type for secrets - determines which entity owns the secret. """
     role_id: None | UUID
     owner_id: None | UUID
+    sensitive: bool
     created_at: datetime.datetime
     updated_at: datetime.datetime | None
     last_used_at: datetime.datetime | None
+    value: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -51,6 +58,8 @@ class SecretPublic:
         else:
             owner_id = self.owner_id
 
+        sensitive = self.sensitive
+
         created_at = self.created_at.isoformat()
 
         updated_at: None | str
@@ -65,6 +74,12 @@ class SecretPublic:
         else:
             last_used_at = self.last_used_at
 
+        value: None | str | Unset
+        if isinstance(self.value, Unset):
+            value = UNSET
+        else:
+            value = self.value
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -74,11 +89,14 @@ class SecretPublic:
                 "owner_type": owner_type,
                 "role_id": role_id,
                 "owner_id": owner_id,
+                "sensitive": sensitive,
                 "created_at": created_at,
                 "updated_at": updated_at,
                 "last_used_at": last_used_at,
             }
         )
+        if value is not UNSET:
+            field_dict["value"] = value
 
         return field_dict
 
@@ -121,6 +139,8 @@ class SecretPublic:
 
         owner_id = _parse_owner_id(d.pop("owner_id"))
 
+        sensitive = d.pop("sensitive")
+
         created_at = isoparse(d.pop("created_at"))
 
         def _parse_updated_at(data: object) -> datetime.datetime | None:
@@ -153,15 +173,26 @@ class SecretPublic:
 
         last_used_at = _parse_last_used_at(d.pop("last_used_at"))
 
+        def _parse_value(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        value = _parse_value(d.pop("value", UNSET))
+
         secret_public = cls(
             name=name,
             id=id,
             owner_type=owner_type,
             role_id=role_id,
             owner_id=owner_id,
+            sensitive=sensitive,
             created_at=created_at,
             updated_at=updated_at,
             last_used_at=last_used_at,
+            value=value,
         )
 
         secret_public.additional_properties = d
