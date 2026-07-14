@@ -62,6 +62,12 @@ documentation with examples, see the [SDK Guide](sdk-guide.md).
     options:
       show_root_heading: true
 
+### Files
+
+::: unitysvc_sellers.files.Files
+    options:
+      show_root_heading: true
+
 ### Documents
 
 ::: unitysvc_sellers.documents.Documents

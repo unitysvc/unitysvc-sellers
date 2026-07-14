@@ -29,6 +29,7 @@ $ usvc_seller [OPTIONS] COMMAND [ARGS]...
 * `promotions`: Remote promotion operations (list, show,...
 * `groups`: Remote service group operations (list,...
 * `secrets`: Remote secret operations (list, show, set,...
+* `files`: Seller account files (ls, get, put, url).
 * `templates`: Browse the platform service-template...
 * `params`: System-template param files under params/...
 
@@ -1299,6 +1300,114 @@ $ usvc_seller secrets delete [OPTIONS] NAME
 **Options**:
 
 * `-f, --force`: Skip confirmation prompt.
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+## `usvc_seller files`
+
+Seller account files (ls, get, put, url).
+
+**Usage**:
+
+```console
+$ usvc_seller files [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `ls`: List one folder level of your account files.
+* `get`: Download one file (bytes stream storage →...
+* `put`: Upload one file into a folder (bytes go...
+* `url`: Print a short-TTL presigned download URL...
+
+### `usvc_seller files ls`
+
+List one folder level of your account files.
+
+**Usage**:
+
+```console
+$ usvc_seller files ls [OPTIONS] [PATH]
+```
+
+**Arguments**:
+
+* `[PATH]`: Folder path relative to your files root.
+
+**Options**:
+
+* `-f, --format TEXT`: table | json.  [default: table]
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller files get`
+
+Download one file (bytes stream storage → disk directly).
+
+**Usage**:
+
+```console
+$ usvc_seller files get [OPTIONS] KEY [DEST]
+```
+
+**Arguments**:
+
+* `KEY`: File key relative to your files root.  [required]
+* `[DEST]`: Destination file or directory (default: basename in cwd).
+
+**Options**:
+
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller files put`
+
+Upload one file into a folder (bytes go disk → storage directly).
+
+The size ceiling is enforced by the server-signed upload policy;
+uploading to an existing name overwrites it.
+
+**Usage**:
+
+```console
+$ usvc_seller files put [OPTIONS] SRC [PATH]
+```
+
+**Arguments**:
+
+* `SRC`: Local file to upload.  [required]
+* `[PATH]`: Folder to upload into, e.g. exports or reports/2026.
+
+**Options**:
+
+* `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc_seller files url`
+
+Print a short-TTL presigned download URL (for scripts / sharing).
+
+**Usage**:
+
+```console
+$ usvc_seller files url [OPTIONS] KEY
+```
+
+**Arguments**:
+
+* `KEY`: File key relative to your files root.  [required]
+
+**Options**:
+
+* `--expires INTEGER`: URL validity in seconds (60-3600).  [default: 900]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.

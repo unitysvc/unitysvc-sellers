@@ -340,6 +340,247 @@
         }
       }
     },
+    "/files/list": {
+      "get": {
+        "tags": [
+          "seller",
+          "account-files"
+        ],
+        "summary": "List Seller Files",
+        "description": "List the seller's account files (one folder level per call).\n\nReturned keys and prefixes are relative to the seller root. A missing\nbucket reads as an empty listing (the bucket is provisioned out of\nband).",
+        "operationId": "seller-list_seller_files",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Folder path relative to the seller root",
+              "default": "",
+              "title": "Path"
+            },
+            "description": "Folder path relative to the seller root"
+          },
+          {
+            "name": "max_keys",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Max Keys"
+            }
+          },
+          {
+            "name": "continuation_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Continuation Token"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerFilesListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/download": {
+      "get": {
+        "tags": [
+          "seller",
+          "account-files"
+        ],
+        "summary": "Download Seller File",
+        "description": "Generate a short-TTL presigned download URL for one seller file.\n\nThe object must exist (404 otherwise) and always resolves under the\nseller's own root \u2014 ``key`` is relative, so other tenants' folders\ncannot be addressed.",
+        "operationId": "seller-download_seller_file",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Object key relative to the seller root",
+              "title": "Key"
+            },
+            "description": "Object key relative to the seller root"
+          },
+          {
+            "name": "expires_in",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 3600,
+              "minimum": 60,
+              "default": 900,
+              "title": "Expires In"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerFileDownloadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/upload": {
+      "post": {
+        "tags": [
+          "seller",
+          "account-files"
+        ],
+        "summary": "Upload Seller File",
+        "description": "Mint a presigned-POST ticket for one direct-to-storage upload.\n\nBytes never transit this API: POST the returned ``fields`` plus the\nfile (last, field name ``file``) as multipart form data to ``url``.\nThe key lands under the seller root at ``{path}{filename}`` (existing\nobjects with the same key are overwritten, like a home directory);\nthe size ceiling is enforced by the signed policy, not the declared\n``size``.",
+        "operationId": "seller-upload_seller_file",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellerFileUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountFileUploadTicket"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/service-groups": {
       "get": {
         "tags": [
@@ -3548,6 +3789,67 @@
         ],
         "title": "AccessMethodEnum"
       },
+      "AccountFileObject": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "last_modified": {
+            "type": "string",
+            "title": "Last Modified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "size",
+          "last_modified"
+        ],
+        "title": "AccountFileObject",
+        "description": "One object in an account-files listing (key relative to the scope root)."
+      },
+      "AccountFileUploadTicket": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Fields"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          },
+          "max_bytes": {
+            "type": "integer",
+            "title": "Max Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "url",
+          "fields",
+          "expires_in",
+          "max_bytes"
+        ],
+        "title": "AccountFileUploadTicket",
+        "description": "Presigned-POST ticket for one direct-to-storage upload.\n\nPOST ``fields`` plus the file (as the last form field, named\n``file``) as multipart form data to ``url``. The size ceiling and\nexact key are enforced by the signed policy, not by the client."
+      },
       "AuthMethodEnum": {
         "type": "string",
         "enum": [
@@ -4699,6 +5001,112 @@
         ],
         "title": "SecretsPublic",
         "description": "List of secrets with count."
+      },
+      "SellerFileDownloadResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "url",
+          "expires_in"
+        ],
+        "title": "SellerFileDownloadResponse",
+        "description": "Presigned download URL for one seller account file."
+      },
+      "SellerFileUploadRequest": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename",
+          "size"
+        ],
+        "title": "SellerFileUploadRequest",
+        "description": "Mint request for one direct-to-storage upload."
+      },
+      "SellerFilesListResponse": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/AccountFileObject"
+            },
+            "type": "array",
+            "title": "Objects"
+          },
+          "common_prefixes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Common Prefixes"
+          },
+          "is_truncated": {
+            "type": "boolean",
+            "title": "Is Truncated"
+          },
+          "next_continuation_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Continuation Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "objects",
+          "common_prefixes",
+          "is_truncated",
+          "next_continuation_token"
+        ],
+        "title": "SellerFilesListResponse",
+        "description": "One page of a seller account-files listing."
       },
       "SellerPromotionCreate": {
         "properties": {
@@ -6944,6 +7352,17 @@
           "type"
         ],
         "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "http://localhost:8080/realms/unitysvc/protocol/openid-connect/token"
+          }
+        }
       }
     }
   },

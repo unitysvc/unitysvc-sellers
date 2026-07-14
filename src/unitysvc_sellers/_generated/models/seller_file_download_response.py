@@ -8,29 +8,54 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="PriceRulePublicPriceRulePricingSpec")
+T = TypeVar("T", bound="SellerFileDownloadResponse")
 
 
 @_attrs_define
-class PriceRulePublicPriceRulePricingSpec:
-    """Pricing specification (percentage, fixed_amount, graduated, etc.)"""
+class SellerFileDownloadResponse:
+    """Presigned download URL for one seller account file."""
 
+    key: str
+    url: str
+    expires_in: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        key = self.key
+
+        url = self.url
+
+        expires_in = self.expires_in
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "key": key,
+                "url": url,
+                "expires_in": expires_in,
+            }
+        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        price_rule_public_price_rule_pricing_spec = cls()
+        key = d.pop("key")
 
-        price_rule_public_price_rule_pricing_spec.additional_properties = d
-        return price_rule_public_price_rule_pricing_spec
+        url = d.pop("url")
+
+        expires_in = d.pop("expires_in")
+
+        seller_file_download_response = cls(
+            key=key,
+            url=url,
+            expires_in=expires_in,
+        )
+
+        seller_file_download_response.additional_properties = d
+        return seller_file_download_response
 
     @property
     def additional_keys(self) -> list[str]:

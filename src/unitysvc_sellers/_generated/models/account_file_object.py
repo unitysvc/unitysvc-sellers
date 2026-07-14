@@ -8,29 +8,54 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="PriceRulePublicPriceRulePricingSpec")
+T = TypeVar("T", bound="AccountFileObject")
 
 
 @_attrs_define
-class PriceRulePublicPriceRulePricingSpec:
-    """Pricing specification (percentage, fixed_amount, graduated, etc.)"""
+class AccountFileObject:
+    """One object in an account-files listing (key relative to the scope root)."""
 
+    key: str
+    size: int
+    last_modified: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        key = self.key
+
+        size = self.size
+
+        last_modified = self.last_modified
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "key": key,
+                "size": size,
+                "last_modified": last_modified,
+            }
+        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        price_rule_public_price_rule_pricing_spec = cls()
+        key = d.pop("key")
 
-        price_rule_public_price_rule_pricing_spec.additional_properties = d
-        return price_rule_public_price_rule_pricing_spec
+        size = d.pop("size")
+
+        last_modified = d.pop("last_modified")
+
+        account_file_object = cls(
+            key=key,
+            size=size,
+            last_modified=last_modified,
+        )
+
+        account_file_object.additional_properties = d
+        return account_file_object
 
     @property
     def additional_keys(self) -> list[str]:
