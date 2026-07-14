@@ -76,7 +76,7 @@ def sync_detailed(
 
      Get metadata for one of the current seller's secrets by name.
 
-    Returns metadata only — the value is never returned.
+    Sensitive values are masked; variable values are returned.
 
     Args:
         name (str):
@@ -115,7 +115,7 @@ def sync(
 
      Get metadata for one of the current seller's secrets by name.
 
-    Returns metadata only — the value is never returned.
+    Sensitive values are masked; variable values are returned.
 
     Args:
         name (str):
@@ -149,7 +149,7 @@ async def asyncio_detailed(
 
      Get metadata for one of the current seller's secrets by name.
 
-    Returns metadata only — the value is never returned.
+    Sensitive values are masked; variable values are returned.
 
     Args:
         name (str):
@@ -186,7 +186,7 @@ async def asyncio(
 
      Get metadata for one of the current seller's secrets by name.
 
-    Returns metadata only — the value is never returned.
+    Sensitive values are masked; variable values are returned.
 
     Args:
         name (str):

@@ -88,10 +88,10 @@ def sync_detailed(
 ) -> Response[HTTPValidationError | SecretsPublic]:
     """List Secrets
 
-     List the current seller's secrets.
+     List the current seller's secrets and variables.
 
-    Returns secret metadata only — values are never returned. ``limit``
-    defaults to ``None`` (every secret); pass one to paginate.
+    Sensitive values are masked; variable values are returned. ``limit``
+    defaults to ``None`` (every row); pass one to paginate.
 
     Args:
         skip (int | Unset):  Default: 0.
@@ -131,10 +131,10 @@ def sync(
 ) -> HTTPValidationError | SecretsPublic | None:
     """List Secrets
 
-     List the current seller's secrets.
+     List the current seller's secrets and variables.
 
-    Returns secret metadata only — values are never returned. ``limit``
-    defaults to ``None`` (every secret); pass one to paginate.
+    Sensitive values are masked; variable values are returned. ``limit``
+    defaults to ``None`` (every row); pass one to paginate.
 
     Args:
         skip (int | Unset):  Default: 0.
@@ -169,10 +169,10 @@ async def asyncio_detailed(
 ) -> Response[HTTPValidationError | SecretsPublic]:
     """List Secrets
 
-     List the current seller's secrets.
+     List the current seller's secrets and variables.
 
-    Returns secret metadata only — values are never returned. ``limit``
-    defaults to ``None`` (every secret); pass one to paginate.
+    Sensitive values are masked; variable values are returned. ``limit``
+    defaults to ``None`` (every row); pass one to paginate.
 
     Args:
         skip (int | Unset):  Default: 0.
@@ -210,10 +210,10 @@ async def asyncio(
 ) -> HTTPValidationError | SecretsPublic | None:
     """List Secrets
 
-     List the current seller's secrets.
+     List the current seller's secrets and variables.
 
-    Returns secret metadata only — values are never returned. ``limit``
-    defaults to ``None`` (every secret); pass one to paginate.
+    Sensitive values are masked; variable values are returned. ``limit``
+    defaults to ``None`` (every row); pass one to paginate.
 
     Args:
         skip (int | Unset):  Default: 0.

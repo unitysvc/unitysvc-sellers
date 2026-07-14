@@ -86,26 +86,21 @@ def sync_detailed(
 ) -> Response[HTTPValidationError | SecretPublic]:
     """Set Secret
 
-     Set a seller secret to ``value`` (idempotent create-or-replace).
+     Set a seller secret or variable to ``value``.
 
     Returns ``201 Created`` on insert and ``200 OK`` on update.
-    The value is encrypted at rest. **The value cannot be retrieved
-    after this call** — store it securely if you need a copy.
+    The value is encrypted at rest. Set ``sensitive=false`` on creation to make
+    the value viewable as a variable. Existing rows cannot change between
+    secret and variable in place.
 
     Args:
         name (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (SecretUpdate): Request body for ``PUT /secrets/{name}``.
+        body (SecretUpdate): Request body for variable-capable ``PUT /secrets/{name}`` endpoints.
 
-            Carries only the value — the name comes from the URL path. The same
-            schema is used for both create and update because ``PUT`` is
-            idempotent (see issue #798).
-
-            Empty string is allowed: a customer may deliberately store ``""``
-            to override a non-empty default in a ``${ secrets.X ?? default }``
-            reference. ``??`` coalesces on null only, so the explicit empty
-            value is preserved.
+            ``sensitive`` is only honored when creating rows; an existing row cannot be
+            changed between secret and variable in place.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -139,26 +134,21 @@ def sync(
 ) -> HTTPValidationError | SecretPublic | None:
     """Set Secret
 
-     Set a seller secret to ``value`` (idempotent create-or-replace).
+     Set a seller secret or variable to ``value``.
 
     Returns ``201 Created`` on insert and ``200 OK`` on update.
-    The value is encrypted at rest. **The value cannot be retrieved
-    after this call** — store it securely if you need a copy.
+    The value is encrypted at rest. Set ``sensitive=false`` on creation to make
+    the value viewable as a variable. Existing rows cannot change between
+    secret and variable in place.
 
     Args:
         name (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (SecretUpdate): Request body for ``PUT /secrets/{name}``.
+        body (SecretUpdate): Request body for variable-capable ``PUT /secrets/{name}`` endpoints.
 
-            Carries only the value — the name comes from the URL path. The same
-            schema is used for both create and update because ``PUT`` is
-            idempotent (see issue #798).
-
-            Empty string is allowed: a customer may deliberately store ``""``
-            to override a non-empty default in a ``${ secrets.X ?? default }``
-            reference. ``??`` coalesces on null only, so the explicit empty
-            value is preserved.
+            ``sensitive`` is only honored when creating rows; an existing row cannot be
+            changed between secret and variable in place.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -187,26 +177,21 @@ async def asyncio_detailed(
 ) -> Response[HTTPValidationError | SecretPublic]:
     """Set Secret
 
-     Set a seller secret to ``value`` (idempotent create-or-replace).
+     Set a seller secret or variable to ``value``.
 
     Returns ``201 Created`` on insert and ``200 OK`` on update.
-    The value is encrypted at rest. **The value cannot be retrieved
-    after this call** — store it securely if you need a copy.
+    The value is encrypted at rest. Set ``sensitive=false`` on creation to make
+    the value viewable as a variable. Existing rows cannot change between
+    secret and variable in place.
 
     Args:
         name (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (SecretUpdate): Request body for ``PUT /secrets/{name}``.
+        body (SecretUpdate): Request body for variable-capable ``PUT /secrets/{name}`` endpoints.
 
-            Carries only the value — the name comes from the URL path. The same
-            schema is used for both create and update because ``PUT`` is
-            idempotent (see issue #798).
-
-            Empty string is allowed: a customer may deliberately store ``""``
-            to override a non-empty default in a ``${ secrets.X ?? default }``
-            reference. ``??`` coalesces on null only, so the explicit empty
-            value is preserved.
+            ``sensitive`` is only honored when creating rows; an existing row cannot be
+            changed between secret and variable in place.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -238,26 +223,21 @@ async def asyncio(
 ) -> HTTPValidationError | SecretPublic | None:
     """Set Secret
 
-     Set a seller secret to ``value`` (idempotent create-or-replace).
+     Set a seller secret or variable to ``value``.
 
     Returns ``201 Created`` on insert and ``200 OK`` on update.
-    The value is encrypted at rest. **The value cannot be retrieved
-    after this call** — store it securely if you need a copy.
+    The value is encrypted at rest. Set ``sensitive=false`` on creation to make
+    the value viewable as a variable. Existing rows cannot change between
+    secret and variable in place.
 
     Args:
         name (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (SecretUpdate): Request body for ``PUT /secrets/{name}``.
+        body (SecretUpdate): Request body for variable-capable ``PUT /secrets/{name}`` endpoints.
 
-            Carries only the value — the name comes from the URL path. The same
-            schema is used for both create and update because ``PUT`` is
-            idempotent (see issue #798).
-
-            Empty string is allowed: a customer may deliberately store ``""``
-            to override a non-empty default in a ``${ secrets.X ?? default }``
-            reference. ``??`` coalesces on null only, so the explicit empty
-            value is preserved.
+            ``sensitive`` is only honored when creating rows; an existing row cannot be
+            changed between secret and variable in place.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

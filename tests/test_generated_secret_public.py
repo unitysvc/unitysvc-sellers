@@ -17,6 +17,9 @@ def test_secret_public_accepts_shared_secret_null_owner_id() -> None:
             "owner_type": "seller",
             "role_id": role_id,
             "owner_id": None,
+            # Seller secrets are always sensitive (write-only); variables are a
+            # customer-only feature (#1528). SecretPublic now carries the flag.
+            "sensitive": True,
             "created_at": "2026-07-05T12:00:00Z",
             "updated_at": None,
             "last_used_at": None,
@@ -26,4 +29,5 @@ def test_secret_public_accepts_shared_secret_null_owner_id() -> None:
     assert secret.owner_type == "seller"
     assert secret.role_id == UUID(role_id)
     assert secret.owner_id is None
+    assert secret.sensitive is True
     assert secret.to_dict()["owner_id"] is None
