@@ -597,12 +597,76 @@ The `AccessInterfaceData` object defines how to access a service (used in offeri
 | `request_transformer` | object             | Request transformation config (keys: `proxy_rewrite`, `body_transformer`)                                 |
 | `routing_key`         | object             | Optional routing key for request matching                                                                 |
 | `rate_limits`         | array of RateLimit | Rate limiting rules                                                                                       |
+| `response_rules`      | object             | Per-status-code triggers → `log` / `flag` / `notify`. See [Response rules](#response-rules).               |
 | `constraints`         | ServiceConstraints | Service constraints                                                                                       |
 | `is_active`           | boolean            | Whether interface is active (default: true)                                                               |
 | `is_primary`          | boolean            | Whether this is primary interface (default: false)                                                        |
 | `sort_order`          | integer            | Display order (default: 0)                                                                                |
 
 **Note:** The interface name is specified as the dict key, not as a field within the object.
+
+#### Response rules
+
+`response_rules` on an access interface (typically the offering's `upstream_access_config` channel) tells the gateway what to do based on the **upstream HTTP status code** of each proxied request: record it, flag it, or send a notification. It's a dict keyed by a rule id; each rule has a `priority`, a `status_code` condition, and one or more `actions`.
+
+```json
+"response_rules": {
+  "on_server_error": {
+    "name": "Upstream 5xx",
+    "priority": 100,
+    "conditions": { "status_code": { "op": "gte", "value": 500 } },
+    "actions": {
+      "log": true,
+      "flag": true,
+      "notify": {
+        "title": "Upstream error",
+        "message": "{{ method }} {{ path }} returned {{ status_code }}",
+        "type": "error"
+      }
+    }
+  }
+}
+```
+
+**Rule fields**
+
+| Field | Description |
+| --- | --- |
+| `name` | Human-readable label (shown on notifications). |
+| `priority` | Integer; higher is evaluated first. Among matching `notify` rules, the **highest-priority one** is the notification that fires. |
+| `enabled` | Optional boolean, default `true`. Set `false` to keep a rule without evaluating it. |
+| `conditions.status_code` | `{ "op": <operator>, "value": <v> }` — the only supported condition (see below). |
+| `conditions.match` | Optional, `"all"` (default) or `"any"` — how multiple conditions combine. Only `status_code` exists today, so this rarely matters. |
+| `actions.log` | `true` → the request appears in the customer's request logs. |
+| `actions.flag` | `true` → the request is flagged (surfaced in dashboards/alerts). |
+| `actions.notify` | Object → send a notification (see below). |
+
+**`status_code` operators:** `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `between` (`value` is `[low, high]`, inclusive), `in` / `not_in` (`value` is a list), `exists`, `not_exists`.
+
+**`notify` action**
+
+| Field | Description |
+| --- | --- |
+| `title` | Notification title. |
+| `message` | Notification body. |
+| `type` | Optional: `info` (default), `success`, `warning`, `error`. |
+| `category` | Optional: `service` (default), `wallet`, `security`, `billing`. |
+| `link` | Optional URL. |
+
+A notify rule delivers an **in-app notification** to the requesting user and, if that customer has configured a `/b/notification` broadcast group, fans out to its targets (email, Discord, …). Repeated identical alerts for the same `(user, service, rule, status)` are de-duplicated over a short window, so a flapping upstream won't spam.
+
+**Template variables** — `title`, `message`, and `link` support simple `{{ var }}` substitution over a fixed set:
+
+`{{ status_code }}`, `{{ method }}`, `{{ path }}`, `{{ response_time_ms }}`, `{{ rule_id }}`, `{{ rule_name }}`.
+
+> Only these variables, and only plain `{{ var }}` substitution — no conditionals or loops, and **no response-body fields**. Matching and templating are status-code based because at evaluation time the gateway only has a truncated/streamed view of the response body, so body-based rules were unreliable and have been removed.
+
+**Platform defaults.** Every service already has sensible defaults that your rules are **merged over** (a rule you define under the same key replaces the default):
+
+- **Production:** `log` + `flag` on `5xx`, on `429`, and `log` on `4xx`. No notifications by default.
+- **Dev/test** (an unpublished service tested via the ops account): additionally `log` everything and `notify` on errors, for visibility while you iterate.
+
+So you usually only add a rule when you want a **notification** on a specific status, or to change the default log/flag behavior.
 
 #### Jinja2 Template Values
 
