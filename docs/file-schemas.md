@@ -661,6 +661,30 @@ A notify rule delivers an **in-app notification** to the requesting user and, if
 
 > Only these variables, and only plain `{{ var }}` substitution — no conditionals or loops, and **no response-body fields**. Matching and templating are status-code based because at evaluation time the gateway only has a truncated/streamed view of the response body, so body-based rules were unreliable and have been removed.
 
+**These placeholders are notify-*time* variables the gateway fills per request — they must survive the enrollment-time template render.** Declare `response_rules` under the channel's [`raw:` block](#jinja2-template-values) so `{{ status_code }}`/`{{ path }}`/etc. are passed through verbatim (the resolver hoists `raw` into the channel):
+
+```json
+"upstream_access_config": {
+  "default": {
+    "base_url": "https://api.example.com",
+    "raw": {
+      "response_rules": {
+        "on_server_error": {
+          "priority": 100,
+          "conditions": { "status_code": { "op": "gte", "value": 500 } },
+          "actions": { "notify": {
+            "title": "Upstream error",
+            "message": "{{ method }} {{ path }} returned {{ status_code }}"
+          } }
+        }
+      }
+    }
+  }
+}
+```
+
+Outside `raw:`, the enrollment-time render would blank these variables (they aren't enrollment parameters). Do **not** use `{% raw %}` markers — the `raw:` key is the mechanism.
+
 **Platform defaults.** Every service already has sensible defaults that your rules are **merged over** (a rule you define under the same key replaces the default):
 
 - **Production:** `log` + `flag` on `5xx`, on `429`, and `log` on `4xx`. No notifications by default.
