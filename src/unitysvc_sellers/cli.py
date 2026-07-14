@@ -7,6 +7,7 @@ import importlib.metadata
 import typer
 
 from . import specs as specs_group
+from .commands import files as files_cmd
 from .commands import groups as groups_cmd
 from .commands import params as params_cmd
 from .commands import promotions as promotions_cmd
@@ -58,6 +59,7 @@ app.add_typer(services_cmd.app, name="services")
 app.add_typer(promotions_cmd.app, name="promotions")
 app.add_typer(groups_cmd.app, name="groups")
 app.add_typer(secrets_cmd.app, name="secrets")
+app.add_typer(files_cmd.app, name="files")
 app.add_typer(templates_cmd.app, name="templates")
 app.add_typer(params_cmd.app, name="params")
 

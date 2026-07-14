@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from .documents import Documents
+    from .files import Files
     from .groups import Groups
     from .instances import Instances
     from .promotions import Promotions
@@ -119,6 +120,7 @@ class Client:
         # via the cached properties below.
         self._services: Services | None = None
         self._promotions: Promotions | None = None
+        self._files: Files | None = None
         self._groups: Groups | None = None
         self._documents: Documents | None = None
         self._tasks: Tasks | None = None
@@ -171,6 +173,14 @@ class Client:
 
             self._groups = Groups(self._client, parent=self)
         return self._groups
+
+    @property
+    def files(self) -> Files:
+        if self._files is None:
+            from .files import Files
+
+            self._files = Files(self._client)
+        return self._files
 
     @property
     def documents(self) -> Documents:
