@@ -7,6 +7,7 @@ import importlib.metadata
 import typer
 
 from . import specs as specs_group
+from ._experimental import experimental_enabled
 from .commands import files as files_cmd
 from .commands import groups as groups_cmd
 from .commands import params as params_cmd
@@ -62,6 +63,18 @@ app.add_typer(secrets_cmd.app, name="secrets")
 app.add_typer(files_cmd.app, name="files")
 app.add_typer(templates_cmd.app, name="templates")
 app.add_typer(params_cmd.app, name="params")
+
+# Experimental command groups (unitysvc#1540) are registered only when the user
+# opts in via UNITYSVC_EXPERIMENTAL, so `usvc_seller --help` hides them by
+# default and they only work against a deployment that serves them (staging).
+# Pattern for future experimental sub-apps (e.g. the order-based S3 delivery
+# model):
+#
+#     from ._experimental import experimental_enabled
+#     if experimental_enabled():
+#         app.add_typer(orders_cmd.app, name="orders")
+if experimental_enabled():
+    pass  # no experimental commands yet — register them here when they land
 
 
 if __name__ == "__main__":

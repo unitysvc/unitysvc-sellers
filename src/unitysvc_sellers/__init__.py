@@ -23,6 +23,7 @@ The seller context is encoded entirely in the API key, so no separate
 constructor argument or the ``UNITYSVC_SELLER_API_URL`` env var.
 """
 
+from ._experimental import experimental_enabled, require_experimental
 from ._spec_version import SPEC_SHA256, SPEC_VERSION
 from .aclient import AsyncClient
 from .client import DEFAULT_SELLER_API_URL, ENV_SELLER_API_KEY, ENV_SELLER_API_URL, Client
@@ -30,6 +31,7 @@ from .exceptions import (
     APIError,
     AuthenticationError,
     ConflictError,
+    ExperimentalDisabledError,
     NotFoundError,
     PermissionError,
     RateLimitError,
@@ -64,4 +66,8 @@ __all__ = [
     "ConflictError",
     "RateLimitError",
     "ServerError",
+    "ExperimentalDisabledError",
+    # Experimental feature gate (unitysvc#1540)
+    "experimental_enabled",
+    "require_experimental",
 ]
