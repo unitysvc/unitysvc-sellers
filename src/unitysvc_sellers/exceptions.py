@@ -26,11 +26,20 @@ __all__ = [
     "ConflictError",
     "RateLimitError",
     "ServerError",
+    "ExperimentalDisabledError",
 ]
 
 
 class SellerSDKError(Exception):
     """Base class for all errors raised by ``unitysvc_sellers``."""
+
+
+class ExperimentalDisabledError(SellerSDKError):
+    """An experimental SDK/CLI feature was used without opting in.
+
+    Set ``UNITYSVC_EXPERIMENTAL=1`` and use a deployment that serves the feature
+    (staging) — see :mod:`unitysvc_sellers._experimental` (unitysvc#1540).
+    """
 
 
 class APIError(SellerSDKError):
