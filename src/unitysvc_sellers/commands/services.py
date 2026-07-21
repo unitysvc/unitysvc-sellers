@@ -1305,6 +1305,15 @@ def update_service(
         "--remove-price-field",
         help="Remove a list_price field by key or dotted path (repeatable).",
     ),
+    sync_price: bool = typer.Option(
+        False,
+        "--sync-price",
+        help=(
+            "Reset the service-level price override to the listing's list_price "
+            "(source of truth) and clear any price-divergence warning. Mutually "
+            "exclusive with --set-price / --remove-price-field."
+        ),
+    ),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
@@ -1317,16 +1326,26 @@ def update_service(
     has_routing = bool(set_routing_var or remove_routing_var or load_routing_vars)
     has_price = bool(set_price or remove_price_field)
 
-    if not has_routing and not has_price and not visibility:
+    if sync_price and has_price:
+        console.print(
+            "[red]--sync-price cannot be combined with --set-price / "
+            "--remove-price-field[/red] (sync resets to the listing price)."
+        )
+        raise typer.Exit(code=1)
+
+    if not has_routing and not has_price and not sync_price and not visibility:
         console.print(
             "[yellow]Nothing to do:[/yellow] provide --visibility,"
             " --set-routing-var, --remove-routing-var, --load-routing-vars,"
-            " --set-price, or --remove-price-field"
+            " --set-price, --remove-price-field, or --sync-price"
         )
         raise typer.Exit(code=0)
 
     # Build unified update body
     update_body: dict[str, Any] = {}
+
+    if sync_price:
+        update_body["sync_price"] = True
 
     if visibility:
         valid = {"public", "unlisted", "private"}
