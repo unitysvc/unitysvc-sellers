@@ -72,6 +72,7 @@ from .service_constraints import ServiceConstraints
 from .service_data_input import ServiceDataInput
 from .service_delete_response import ServiceDeleteResponse
 from .service_detail_response import ServiceDetailResponse
+from .service_detail_response_price_type_0 import ServiceDetailResponsePriceType0
 from .service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
 from .service_document_item import ServiceDocumentItem
 from .service_document_item_meta_type_0 import ServiceDocumentItemMetaType0
@@ -211,6 +212,7 @@ __all__ = (
     "ServiceDataInput",
     "ServiceDeleteResponse",
     "ServiceDetailResponse",
+    "ServiceDetailResponsePriceType0",
     "ServiceDetailResponseRoutingVarsType0",
     "ServiceDocumentItem",
     "ServiceDocumentItemMetaType0",

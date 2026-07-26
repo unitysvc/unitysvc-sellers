@@ -1,4 +1,4 @@
-"""Tests for ``usvc_seller secrets upload`` and its dotenv-style parser.
+"""Tests for ``usvc_seller secrets upload`` and its ``.env``-style manifest parser.
 
 The parser and dry-run path are fully offline. The actual upload loop is
 covered by monkeypatching ``async_client`` so no backend is required.
@@ -25,65 +25,87 @@ runner = CliRunner()
 
 
 # ---------------------------------------------------------------------------
-# parser
+# parser — (name, value, description) triples
 # ---------------------------------------------------------------------------
-def test_parse_handles_export_quotes_comments_and_blanks() -> None:
+def test_parse_extracts_values_and_descriptions() -> None:
     text = """
-    # a comment
-    export DISCORD_WEBHOOK_BASE="https://mock.unitysvc.dev/discord/api/webhooks"
+    # file header, attaches to nothing
 
+    # the webhook base url
+    export DISCORD_WEBHOOK_BASE="https://mock.unitysvc.dev/x"
     DISCORD_WEBHOOK_ID='demo'
-    export DISCORD_WEBHOOK_TOKEN=demotoken
     """
-    assert _parse_secrets_text(text) == [
-        ("DISCORD_WEBHOOK_BASE", "https://mock.unitysvc.dev/discord/api/webhooks"),
-        ("DISCORD_WEBHOOK_ID", "demo"),
-        ("DISCORD_WEBHOOK_TOKEN", "demotoken"),
+    assert _parse_secrets_text(text, environ={}) == [
+        ("DISCORD_WEBHOOK_BASE", "https://mock.unitysvc.dev/x", "the webhook base url"),
+        ("DISCORD_WEBHOOK_ID", "demo", None),
     ]
 
 
+def test_parse_multiline_description_and_header_separation() -> None:
+    text = "# header\n\n# line 1\n# line 2\nFOO=bar\n"
+    assert _parse_secrets_text(text, environ={}) == [("FOO", "bar", "line 1\nline 2")]
+
+
+def test_parse_resolves_env_expansion() -> None:
+    text = "# base\nBASE_URL=${BASE_URL:-https://default.example.com}\n# key\nAPI_KEY=${API_KEY:-}\n"
+    # env value wins when set; unset falls back to the default (here empty).
+    assert _parse_secrets_text(text, environ={"BASE_URL": "https://real.example.com"}) == [
+        ("BASE_URL", "https://real.example.com", "base"),
+        ("API_KEY", "", "key"),
+    ]
+
+
+def test_parse_env_default_used_when_unset() -> None:
+    text = "X=${X:-fallback}\n"
+    assert _parse_secrets_text(text, environ={}) == [("X", "fallback", None)]
+
+
 def test_parse_last_assignment_wins_and_keeps_position() -> None:
-    assert _parse_secrets_text("A=1\nB=2\nA=3\n") == [("A", "3"), ("B", "2")]
+    assert _parse_secrets_text("A=1\nB=2\nA=3\n", environ={}) == [
+        ("A", "3", None),
+        ("B", "2", None),
+    ]
 
 
 def test_parse_skips_invalid_names_and_non_assignments() -> None:
     text = "1BAD=x\nnot an assignment\nGOOD=ok\n"
-    assert _parse_secrets_text(text) == [("GOOD", "ok")]
+    assert _parse_secrets_text(text, environ={}) == [("GOOD", "ok", None)]
 
 
 def test_parse_preserves_empty_values() -> None:
-    # Empty values are kept (the command decides to skip them).
-    assert _parse_secrets_text("OPT=\nREQ=v\n") == [("OPT", ""), ("REQ", "v")]
+    assert _parse_secrets_text("OPT=\nREQ=v\n", environ={}) == [
+        ("OPT", "", None),
+        ("REQ", "v", None),
+    ]
 
 
 def test_parse_does_not_strip_inner_hash() -> None:
-    # '#' only starts a comment at the beginning of a (stripped) line.
-    assert _parse_secrets_text('TOK="a#b"\n') == [("TOK", "a#b")]
+    assert _parse_secrets_text('TOK="a#b"\n', environ={}) == [("TOK", "a#b", None)]
 
 
 # ---------------------------------------------------------------------------
 # dry-run (offline)
 # ---------------------------------------------------------------------------
-def test_dry_run_from_file_lists_names_without_network(tmp_path: Path) -> None:
-    f = tmp_path / "secrets.txt"
-    f.write_text("export A=1\nB=2\nEMPTY=\n")
+def test_dry_run_lists_all_entries_and_flags_descriptions(tmp_path: Path) -> None:
+    f = tmp_path / "secrets.env.example"
+    f.write_text("# guidance for A\nA=${A:-1}\nEMPTY=${EMPTY:-}\n")
     result = runner.invoke(app, ["upload", str(f), "--dry-run"])
     assert result.exit_code == 0, result.output
-    assert "A" in result.output and "B" in result.output
+    assert "A" in result.output and "EMPTY" in result.output
     assert "would set" in result.output
     assert "would upload 2" in result.output
-    assert "skipped 1" in result.output
+    assert "1 with a description" in result.output
 
 
 def test_dry_run_json(tmp_path: Path) -> None:
-    f = tmp_path / "secrets.txt"
-    f.write_text("A=1\nEMPTY=\n")
+    f = tmp_path / "secrets.env.example"
+    f.write_text("# d\nA=1\nEMPTY=\n")
     result = runner.invoke(app, ["upload", str(f), "--dry-run", "-f", "json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload == [
-        {"name": "A", "status": "would set"},
-        {"name": "EMPTY", "status": "skip (empty)"},
+        {"name": "A", "status": "would set (+desc)"},
+        {"name": "EMPTY", "status": "would set"},
     ]
 
 
@@ -94,7 +116,6 @@ def test_dry_run_reads_dash_stdin() -> None:
 
 
 def test_dry_run_reads_piped_stdin_by_default() -> None:
-    # No FILE arg + piped stdin (CliRunner stdin is not a tty) → read stdin.
     result = runner.invoke(app, ["upload", "--dry-run"], input="BAZ=qux\n")
     assert result.exit_code == 0, result.output
     assert "BAZ" in result.output
@@ -133,14 +154,14 @@ def test_no_file_and_interactive_terminal_errors(monkeypatch: pytest.MonkeyPatch
 # ---------------------------------------------------------------------------
 class _Sink:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str]] = []
+        self.calls: list[tuple[str, str, str | None]] = []
 
-    async def set(self, name: str, value: str) -> SimpleNamespace:
-        self.calls.append((name, value))
+    async def set(self, name: str, value: str, *, description: str | None = None) -> SimpleNamespace:
+        self.calls.append((name, value, description))
         return SimpleNamespace(name=name)
 
 
-def test_upload_sets_each_nonempty_secret_and_skips_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_upload_sets_every_entry_with_its_description(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     sink = _Sink()
 
     @asynccontextmanager
@@ -149,11 +170,12 @@ def test_upload_sets_each_nonempty_secret_and_skips_empty(tmp_path: Path, monkey
 
     monkeypatch.setattr("unitysvc_sellers.commands.secrets.async_client", fake_async_client)
 
-    f = tmp_path / "secrets.txt"
-    f.write_text("export A=1\nB=2\nEMPTY=\n")
+    f = tmp_path / "secrets.env.example"
+    # Source semantics: every declared entry is set, empties included (they carry
+    # the description); the description is the comment block above each var.
+    f.write_text("# guidance for A\nA=1\nEMPTY=\n")
     result = runner.invoke(app, ["upload", str(f)])
 
     assert result.exit_code == 0, result.output
-    assert sink.calls == [("A", "1"), ("B", "2")]  # EMPTY skipped, not sent
+    assert sink.calls == [("A", "1", "guidance for A"), ("EMPTY", "", None)]
     assert "uploaded 2" in result.output
-    assert "skipped 1" in result.output

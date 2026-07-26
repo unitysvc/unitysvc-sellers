@@ -12,8 +12,10 @@ Commands:
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
+from collections.abc import Mapping
 from getpass import getpass
 from pathlib import Path
 
@@ -65,37 +67,70 @@ def _resolve_value(value: str | None, *, name: str) -> str:
     return getpass(f"Value for secret '{name}': ")
 
 
-def _parse_secrets_text(text: str) -> list[tuple[str, str]]:
-    """Parse sourceable / dotenv-style text into ``(name, value)`` pairs.
+# ``${NAME}`` / ``${NAME:-default}`` / ``${NAME-default}`` — the one expansion
+# form the manifest resolves against the process environment. Anything else is
+# taken verbatim (opaque secret material: tokens, URLs, ids).
+_EXPANSION_RE = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)(?::?-(.*))?\}$")
+
+
+def _resolve_rhs(rhs: str, environ: Mapping[str, str]) -> str:
+    """Resolve one assignment's right-hand side.
+
+    ``${NAME:-default}`` (or ``${NAME-default}`` / ``${NAME}``) uses the process
+    env value for ``NAME`` when it is set and non-empty, else the default — the
+    same ``source``-compatible semantics that let one file seed a seller's local
+    test values AND, in CI, pick up GitHub-provided values. Any other RHS is
+    taken verbatim (one layer of surrounding quotes stripped).
+    """
+    rhs = rhs.strip()
+    if len(rhs) >= 2 and rhs[0] == rhs[-1] and rhs[0] in ("'", '"'):
+        return rhs[1:-1]
+    m = _EXPANSION_RE.match(rhs)
+    if not m:
+        return rhs
+    name, default = m.group(1), m.group(2)
+    env_val = environ.get(name)
+    if env_val:
+        return env_val
+    return default if default is not None else ""
+
+
+def _parse_secrets_text(text: str, environ: Mapping[str, str] | None = None) -> list[tuple[str, str, str | None]]:
+    """Parse a ``.env``-style manifest into ``(name, value, description)`` triples.
 
     Accepts the same lines you would ``source`` in a shell — ``NAME=value`` or
-    ``export NAME=value``. ``#`` comment lines and blank lines are ignored, one
-    layer of surrounding single/double quotes is stripped, and when a name is
-    assigned more than once the last assignment wins (``source`` semantics).
-
-    Values are taken verbatim after the first ``=`` (minus surrounding quotes);
-    no shell expansion or escape processing is performed, which is correct for
-    opaque secret material (tokens, URLs, ids). Lines that are not a valid
-    assignment are skipped.
+    ``export NAME=value``. The contiguous ``#`` comment lines directly above a
+    definition become its **description**; a blank line separates blocks, so a
+    file header (comments followed by a blank line) attaches to no secret. The
+    value is resolved by :func:`_resolve_rhs` — the ``${NAME:-default}`` form is
+    environment-aware, everything else is verbatim. When a name is assigned more
+    than once the last assignment (and its description) wins.
     """
-    pairs: dict[str, str] = {}
+    environ = os.environ if environ is None else environ
+    values: dict[str, tuple[str, str | None]] = {}
+    order: list[str] = []
+    comments: list[str] = []
     for raw in text.splitlines():
         line = raw.strip()
-        if not line or line.startswith("#"):
+        if not line:
+            comments = []  # blank line separates blocks
+            continue
+        if line.startswith("#"):
+            comments.append(line.lstrip("#").strip())
             continue
         if line.startswith(("export ", "export\t")):
             line = line[len("export") :].lstrip()
-        name, sep, value = line.partition("=")
-        if not sep:
-            continue
+        name, sep, rhs = line.partition("=")
         name = name.strip()
-        if not _VALID_NAME_RE.match(name):
+        if not sep or not _VALID_NAME_RE.match(name):
+            comments = []
             continue
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
-            value = value[1:-1]
-        pairs[name] = value
-    return list(pairs.items())
+        description = "\n".join(comments).strip() or None
+        if name not in values:
+            order.append(name)
+        values[name] = (_resolve_rhs(rhs, environ), description)
+        comments = []
+    return [(n, values[n][0], values[n][1]) for n in order]
 
 
 def _read_secrets_source(file: str | None) -> str:
@@ -125,7 +160,11 @@ def _read_secrets_source(file: str | None) -> str:
 
 
 def _print_upload_summary(rows: list[tuple[str, str]], output_format: str, *, dry_run: bool) -> None:
-    """Render the per-secret outcome table (or JSON) plus a one-line tally."""
+    """Render the per-secret outcome table (or JSON) plus a one-line tally.
+
+    ``status`` is ``set`` / ``would set``, suffixed ``(+desc)`` when the entry
+    also carried a description.
+    """
     if output_format == "json":
         console.print(json.dumps([{"name": n, "status": s} for n, s in rows], indent=2))
         return
@@ -135,12 +174,11 @@ def _print_upload_summary(rows: list[tuple[str, str]], output_format: str, *, dr
     for name, status in rows:
         table.add_row(name, status)
     console.print(table)
-    n_set = sum(1 for _, s in rows if s in ("set", "would set"))
-    n_skip = sum(1 for _, s in rows if s.startswith("skip"))
+    n_desc = sum(1 for _, s in rows if "(+desc)" in s)
     verb = "would upload" if dry_run else "uploaded"
-    summary = f"[green]✓[/green] {verb} {n_set} secret(s)"
-    if n_skip:
-        summary += f", skipped {n_skip} empty"
+    summary = f"[green]✓[/green] {verb} {len(rows)} secret(s)"
+    if n_desc:
+        summary += f", {n_desc} with a description"
     console.print(summary)
 
 
@@ -211,6 +249,7 @@ def show_secret(
     table.add_column(style="dim")
     table.add_column()
     table.add_row("name", secret.get("name", ""))
+    table.add_row("description", str(secret.get("description") or "—"))
     table.add_row("id", str(secret.get("id", "")))
     table.add_row("owner_type", str(secret.get("owner_type", "")))
     table.add_row("owner_id", str(secret.get("owner_id", "")))
@@ -234,6 +273,16 @@ def set_secret(
             "Secret value. If omitted: reads from stdin when piped, prompts with hidden input when run interactively."
         ),
     ),
+    description: str | None = typer.Option(
+        None,
+        "--description",
+        "-d",
+        help=(
+            "Customer-facing guidance for this secret (Markdown) — what it is "
+            "and how to obtain one. Stored on the row and shown to customers who "
+            "must supply it. Omit to leave any existing description untouched."
+        ),
+    ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
@@ -248,13 +297,15 @@ def set_secret(
       2. piped stdin        — ``echo v | usvc secrets set X``
       3. interactive prompt — TTY only; hidden input
 
-    Mirrors ``gh secret set`` and ``vault kv put``.
+    Pass ``--description`` to author the customer-facing guidance for the name;
+    for many secrets at once, keep them in a ``.env.example`` manifest and use
+    ``secrets upload``. Mirrors ``gh secret set`` and ``vault kv put``.
     """
     resolved_value = _resolve_value(value, name=name)
 
     async def _impl():
         async with async_client(api_key, base_url) as client:
-            return model_to_dict(await client.secrets.set(name, resolved_value))
+            return model_to_dict(await client.secrets.set(name, resolved_value, description=description))
 
     result = run_async(_impl(), error_prefix="Failed to set secret")
 
@@ -278,17 +329,29 @@ def upload_secrets(
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Bulk-set secrets from a sourceable file or stdin (idempotent).
+    """Bulk-set secrets from an ``.env``-style manifest (idempotent).
 
-    Reads the same shell-sourceable file you keep for local testing — ``export
-    NAME="value"`` / ``NAME=value`` lines, surrounding quotes stripped, ``#``
-    comments and blank lines ignored — and sets each via
-    ``PUT /v1/seller/secrets/{name}``. Entries with an empty value are skipped
-    (fine for OPTIONAL secrets); when a name repeats, the last assignment wins.
+    Reads a shell-sourceable ``.env.example`` — ``NAME=value`` / ``export
+    NAME=value`` lines — and sets each via ``PUT /v1/seller/secrets/{name}``,
+    with two conventions that make one file drive both local testing and
+    customer-facing documentation:
+
+    - **Environment-aware**: ``NAME=${NAME:-default}`` resolves ``NAME`` from the
+      process environment when set, else the default. So the file reuses values
+      already exported in your shell (and, in CI, GitHub-provided ones), falling
+      back to test defaults. Opaque literals (``NAME=sk-abc``) are taken verbatim.
+    - **Description-aware**: the contiguous ``#`` comment lines directly above a
+      definition become that secret's ``description`` — the guidance surfaced to
+      customers who must supply it (unitysvc#1618). A blank line ends a block, so
+      a file header attaches to no secret.
+
+    Every declared entry is set (source semantics: the manifest is authoritative),
+    so an empty value still creates the row that carries its description. When a
+    name repeats, the last assignment wins.
 
     Input is a file or a pipe — no implicit default:
 
-      - ``FILE`` argument — a path to a sourceable secrets file
+      - ``FILE`` argument — a path to the manifest (e.g. ``.env.example``)
       - ``-`` or piped stdin — decrypt on the fly, e.g.::
 
              sops -d .secrets | usvc_seller secrets upload
@@ -299,24 +362,24 @@ def upload_secrets(
         console.print("[yellow]No secrets found in input.[/yellow]")
         raise typer.Exit(code=0)
 
-    settable = [(n, v) for n, v in entries if v != ""]
-    skipped = [n for n, v in entries if v == ""]
+    def _status(description: str | None, *, done: bool) -> str:
+        return ("set" if done else "would set") + (" (+desc)" if description else "")
 
     if dry_run:
-        rows = [(n, "would set") for n, _ in settable] + [(n, "skip (empty)") for n in skipped]
+        rows = [(n, _status(d, done=False)) for n, _v, d in entries]
         _print_upload_summary(rows, output_format, dry_run=True)
         return
 
-    async def _impl() -> list[str]:
-        done: list[str] = []
+    async def _impl() -> list[tuple[str, str | None]]:
+        done: list[tuple[str, str | None]] = []
         async with async_client(api_key, base_url) as client:
-            for name, value in settable:
-                await client.secrets.set(name, value)
-                done.append(name)
+            for name, value, description in entries:
+                await client.secrets.set(name, value, description=description)
+                done.append((name, description))
         return done
 
     done = run_async(_impl(), error_prefix="Failed to upload secrets")
-    rows = [(n, "set") for n in done] + [(n, "skip (empty)") for n in skipped]
+    rows = [(n, _status(d, done=True)) for n, d in done]
     _print_upload_summary(rows, output_format, dry_run=False)
 
 

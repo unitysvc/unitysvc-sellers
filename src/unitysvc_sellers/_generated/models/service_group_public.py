@@ -42,20 +42,30 @@ class ServiceGroupPublic:
     user_access_interfaces: None | ServiceGroupPublicUserAccessInterfacesType0 | Unset = UNSET
     routing_policy: None | ServiceGroupPublicRoutingPolicyType0 | Unset = UNSET
     group_type: GroupTypeEnum | Unset = UNSET
-    """ Type of service group — derived from configuration, not set directly.
+    """ Type of service group. Derived from members, not authored (unitysvc#1686).
 
-    Derivation rules:
-    - No rules, no access interfaces → category (organizes descendants)
-    - Rules, no access interfaces → collection (curated set for browsing)
-    - Rules + access interfaces → group (has own API endpoint + routing)
-    - System-generated catch-all → misc
-    - Set explicitly (never derived, like misc) → capability_pool
+    Two of the five types are routable (a ``/g/<name>`` endpoint); the rest are
+    not:
 
-    ``capability_pool`` (#1244) backs the ``/p/<name>`` namespace: membership
-    is claim-driven — services instantiated from a ServiceTemplate whose
-    ``pool_name`` matches the group name — computed by a dedicated refresh,
-    not by ``membership_rules``. Distinct from ``routable`` (``/g/``), whose
-    membership is curated. """
+    - ``open``  — routable, and members share a common request format, so a
+      request with **no** routing key fans safely across them. A key may still
+      be passed to select one. (Also the single-member case.)
+    - ``keyed`` — routable, but members accept different formats, so a keyless
+      request is ambiguous: a routing key is **required**, and every key
+      resolves to a format-homogeneous set.
+    - ``collection`` — not a routing endpoint. A browse-only set, or a would-be
+      routable group demoted because some routing key spans incompatible
+      formats (a request to that key couldn't be served reliably).
+    - ``category`` — a parent with no members of its own; its membership is the
+      union of its descendants, for browsing only.
+    - ``capability_pool`` (#1244) — the ``/p/<name>`` namespace; membership is
+      claim-driven (services instantiated from a ServiceTemplate whose
+      ``pool_name`` matches), set by a dedicated refresh.
+
+    ``open`` / ``keyed`` / ``collection`` are derived from the members at
+    membership refresh; ``category`` and ``capability_pool`` are set explicitly
+    and never re-derived. (The former ``routable`` value was split into
+    ``open`` / ``keyed``, and the ``misc`` catch-all removed — unitysvc#1686.) """
     sort_order: int | Unset = 0
     ancestor_path: str | Unset = "/"
     service_count: int | None | Unset = UNSET

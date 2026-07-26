@@ -11,6 +11,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.access_interface_public import AccessInterfacePublic
     from ..models.provider_data import ProviderData
+    from ..models.service_detail_response_price_type_0 import ServiceDetailResponsePriceType0
     from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
     from ..models.service_document_item import ServiceDocumentItem
     from ..models.service_listing_data import ServiceListingData
@@ -47,6 +48,7 @@ class ServiceDetailResponse:
     interfaces: list[AccessInterfacePublic]
     service_name: None | str | Unset = UNSET
     status_message: None | str | Unset = UNSET
+    price: None | ServiceDetailResponsePriceType0 | Unset = UNSET
     routing_vars: None | ServiceDetailResponseRoutingVarsType0 | Unset = UNSET
     managed_by_template: None | str | Unset = UNSET
     provider: None | ProviderData | Unset = UNSET
@@ -57,6 +59,7 @@ class ServiceDetailResponse:
     def to_dict(self) -> dict[str, Any]:
         from ..models.access_interface_public import AccessInterfacePublic
         from ..models.provider_data import ProviderData
+        from ..models.service_detail_response_price_type_0 import ServiceDetailResponsePriceType0
         from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         from ..models.service_document_item import ServiceDocumentItem
         from ..models.service_listing_data import ServiceListingData
@@ -87,6 +90,14 @@ class ServiceDetailResponse:
             status_message = UNSET
         else:
             status_message = self.status_message
+
+        price: dict[str, Any] | None | Unset
+        if isinstance(self.price, Unset):
+            price = UNSET
+        elif isinstance(self.price, ServiceDetailResponsePriceType0):
+            price = self.price.to_dict()
+        else:
+            price = self.price
 
         routing_vars: dict[str, Any] | None | Unset
         if isinstance(self.routing_vars, Unset):
@@ -140,6 +151,8 @@ class ServiceDetailResponse:
             field_dict["service_name"] = service_name
         if status_message is not UNSET:
             field_dict["status_message"] = status_message
+        if price is not UNSET:
+            field_dict["price"] = price
         if routing_vars is not UNSET:
             field_dict["routing_vars"] = routing_vars
         if managed_by_template is not UNSET:
@@ -157,6 +170,7 @@ class ServiceDetailResponse:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.access_interface_public import AccessInterfacePublic
         from ..models.provider_data import ProviderData
+        from ..models.service_detail_response_price_type_0 import ServiceDetailResponsePriceType0
         from ..models.service_detail_response_routing_vars_type_0 import ServiceDetailResponseRoutingVarsType0
         from ..models.service_document_item import ServiceDocumentItem
         from ..models.service_listing_data import ServiceListingData
@@ -198,6 +212,23 @@ class ServiceDetailResponse:
             return cast(None | str | Unset, data)
 
         status_message = _parse_status_message(d.pop("status_message", UNSET))
+
+        def _parse_price(data: object) -> None | ServiceDetailResponsePriceType0 | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                price_type_0 = ServiceDetailResponsePriceType0.from_dict(data)
+
+                return price_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | ServiceDetailResponsePriceType0 | Unset, data)
+
+        price = _parse_price(d.pop("price", UNSET))
 
         def _parse_routing_vars(data: object) -> None | ServiceDetailResponseRoutingVarsType0 | Unset:
             if data is None:
@@ -283,6 +314,7 @@ class ServiceDetailResponse:
             interfaces=interfaces,
             service_name=service_name,
             status_message=status_message,
+            price=price,
             routing_vars=routing_vars,
             managed_by_template=managed_by_template,
             provider=provider,

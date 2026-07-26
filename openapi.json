@@ -349,11 +349,6 @@
         "summary": "List Seller Files",
         "description": "List the seller's account files (one folder level per call).\n\nReturned keys and prefixes are relative to the seller root. A missing\nbucket reads as an empty listing (the bucket is provisioned out of\nband).",
         "operationId": "seller-list_seller_files",
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "path",
@@ -393,6 +388,22 @@
                 }
               ],
               "title": "Continuation Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           },
           {
@@ -445,11 +456,6 @@
         "summary": "Download Seller File",
         "description": "Generate a short-TTL presigned download URL for one seller file.\n\nThe object must exist (404 otherwise) and always resolves under the\nseller's own root \u2014 ``key`` is relative, so other tenants' folders\ncannot be addressed.",
         "operationId": "seller-download_seller_file",
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "key",
@@ -472,6 +478,22 @@
               "minimum": 60,
               "default": 900,
               "title": "Expires In"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           },
           {
@@ -524,12 +546,23 @@
         "summary": "Upload Seller File",
         "description": "Mint a presigned-POST ticket for one direct-to-storage upload.\n\nBytes never transit this API: POST the returned ``fields`` plus the\nfile (last, field name ``file``) as multipart form data to ``url``.\nThe key lands under the seller root at ``{path}{filename}`` (existing\nobjects with the same key are overwritten, like a home directory);\nthe size ceiling is enforced by the signed policy, not the declared\n``size``.",
         "operationId": "seller-upload_seller_file",
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
         "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
           {
             "name": "x-role-id",
             "in": "header",
@@ -4412,12 +4445,12 @@
         "enum": [
           "category",
           "collection",
-          "routable",
-          "misc",
+          "open",
+          "keyed",
           "capability_pool"
         ],
         "title": "GroupTypeEnum",
-        "description": "Type of service group \u2014 derived from configuration, not set directly.\n\nDerivation rules:\n- No rules, no access interfaces \u2192 category (organizes descendants)\n- Rules, no access interfaces \u2192 collection (curated set for browsing)\n- Rules + access interfaces \u2192 group (has own API endpoint + routing)\n- System-generated catch-all \u2192 misc\n- Set explicitly (never derived, like misc) \u2192 capability_pool\n\n``capability_pool`` (#1244) backs the ``/p/<name>`` namespace: membership\nis claim-driven \u2014 services instantiated from a ServiceTemplate whose\n``pool_name`` matches the group name \u2014 computed by a dedicated refresh,\nnot by ``membership_rules``. Distinct from ``routable`` (``/g/``), whose\nmembership is curated."
+        "description": "Type of service group. Derived from members, not authored (unitysvc#1686).\n\nTwo of the five types are routable (a ``/g/<name>`` endpoint); the rest are\nnot:\n\n- ``open``  \u2014 routable, and members share a common request format, so a\n  request with **no** routing key fans safely across them. A key may still\n  be passed to select one. (Also the single-member case.)\n- ``keyed`` \u2014 routable, but members accept different formats, so a keyless\n  request is ambiguous: a routing key is **required**, and every key\n  resolves to a format-homogeneous set.\n- ``collection`` \u2014 not a routing endpoint. A browse-only set, or a would-be\n  routable group demoted because some routing key spans incompatible\n  formats (a request to that key couldn't be served reliably).\n- ``category`` \u2014 a parent with no members of its own; its membership is the\n  union of its descendants, for browsing only.\n- ``capability_pool`` (#1244) \u2014 the ``/p/<name>`` namespace; membership is\n  claim-driven (services instantiated from a ServiceTemplate whose\n  ``pool_name`` matches), set by a dedicated refresh.\n\n``open`` / ``keyed`` / ``collection`` are derived from the members at\nmembership refresh; ``category`` and ``capability_pool`` are set explicitly\nand never re-derived. (The former ``routable`` value was split into\n``open`` / ``keyed``, and the ``misc`` catch-all removed \u2014 unitysvc#1686.)"
       },
       "HTTPValidationError": {
         "properties": {
@@ -4859,6 +4892,19 @@
             "title": "Name",
             "description": "Secret name (e.g., OPENAI_API_KEY). Must be uppercase letters, digits, and underscores; must start with a letter or underscore."
           },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Markdown explaining what this secret is and how to obtain one. Shown to customers who must supply it; never contains a value."
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -4971,6 +5017,19 @@
             ],
             "title": "Sensitive",
             "description": "Whether the value is write-only. Defaults to true on create and cannot be changed after creation."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Markdown explaining how a customer obtains this secret. Omit to leave unchanged; send an empty string to clear."
           }
         },
         "type": "object",
@@ -5664,6 +5723,18 @@
               }
             ],
             "title": "Status Message"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
           },
           "routing_vars": {
             "anyOf": [
@@ -7352,17 +7423,6 @@
           "type"
         ],
         "title": "ValidationError"
-      }
-    },
-    "securitySchemes": {
-      "OAuth2PasswordBearer": {
-        "type": "oauth2",
-        "flows": {
-          "password": {
-            "scopes": {},
-            "tokenUrl": "http://localhost:8080/realms/unitysvc/protocol/openid-connect/token"
-          }
-        }
       }
     }
   },

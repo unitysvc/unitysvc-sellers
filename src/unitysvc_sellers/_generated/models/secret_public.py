@@ -36,6 +36,9 @@ class SecretPublic:
     created_at: datetime.datetime
     updated_at: datetime.datetime | None
     last_used_at: datetime.datetime | None
+    description: None | str | Unset = UNSET
+    """ Markdown explaining what this secret is and how to obtain one. Shown to customers who must supply it; never
+    contains a value. """
     value: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -74,6 +77,12 @@ class SecretPublic:
         else:
             last_used_at = self.last_used_at
 
+        description: None | str | Unset
+        if isinstance(self.description, Unset):
+            description = UNSET
+        else:
+            description = self.description
+
         value: None | str | Unset
         if isinstance(self.value, Unset):
             value = UNSET
@@ -95,6 +104,8 @@ class SecretPublic:
                 "last_used_at": last_used_at,
             }
         )
+        if description is not UNSET:
+            field_dict["description"] = description
         if value is not UNSET:
             field_dict["value"] = value
 
@@ -173,6 +184,15 @@ class SecretPublic:
 
         last_used_at = _parse_last_used_at(d.pop("last_used_at"))
 
+        def _parse_description(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        description = _parse_description(d.pop("description", UNSET))
+
         def _parse_value(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -192,6 +212,7 @@ class SecretPublic:
             created_at=created_at,
             updated_at=updated_at,
             last_used_at=last_used_at,
+            description=description,
             value=value,
         )
 
