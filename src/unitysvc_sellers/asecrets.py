@@ -41,19 +41,27 @@ class AsyncSecrets:
             )
         )
 
-    async def set(self, name: str, value: str) -> SecretPublic:
+    async def set(self, name: str, value: str, *, description: str | None = None) -> SecretPublic:
         """Set ``name`` to ``value`` (idempotent — creates or replaces).
+
+        When ``description`` is given, it is stored on the secret row as the
+        customer-facing guidance for that name (unitysvc#1618); ``None`` leaves
+        any existing description untouched.
 
         See :class:`unitysvc_sellers.secrets.Secrets.set`.
         """
         from ._generated.api.seller_secrets import seller_secrets_set_secret
         from ._generated.models.secret_update import SecretUpdate
+        from ._generated.types import UNSET
 
         return unwrap(
             await seller_secrets_set_secret.asyncio_detailed(
                 name=name,
                 client=self._client,
-                body=SecretUpdate(value=value),
+                body=SecretUpdate(
+                    value=value,
+                    description=UNSET if description is None else description,
+                ),
             )
         )
 

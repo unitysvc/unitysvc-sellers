@@ -8,11 +8,11 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="DocumentExecuteResponseTestType0")
+T = TypeVar("T", bound="ServiceDetailResponsePriceType0")
 
 
 @_attrs_define
-class DocumentExecuteResponseTestType0:
+class ServiceDetailResponsePriceType0:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -24,10 +24,10 @@ class DocumentExecuteResponseTestType0:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        document_execute_response_test_type_0 = cls()
+        service_detail_response_price_type_0 = cls()
 
-        document_execute_response_test_type_0.additional_properties = d
-        return document_execute_response_test_type_0
+        service_detail_response_price_type_0.additional_properties = d
+        return service_detail_response_price_type_0
 
     @property
     def additional_keys(self) -> list[str]:

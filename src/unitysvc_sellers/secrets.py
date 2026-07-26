@@ -55,20 +55,26 @@ class Secrets:
             )
         )
 
-    def set(self, name: str, value: str) -> SecretPublic:
+    def set(self, name: str, value: str, *, description: str | None = None) -> SecretPublic:
         """Set ``name`` to ``value`` (idempotent — creates or replaces).
 
         Maps to ``PUT /v1/seller/secrets/{name}``. Returns the secret's
-        public metadata; the value itself is never echoed back.
+        public metadata; the value itself is never echoed back. When
+        ``description`` is given it is stored as the customer-facing guidance
+        for that name (unitysvc#1618); ``None`` leaves it untouched.
         """
         from ._generated.api.seller_secrets import seller_secrets_set_secret
         from ._generated.models.secret_update import SecretUpdate
+        from ._generated.types import UNSET
 
         return unwrap(
             seller_secrets_set_secret.sync_detailed(
                 name=name,
                 client=self._client,
-                body=SecretUpdate(value=value),
+                body=SecretUpdate(
+                    value=value,
+                    description=UNSET if description is None else description,
+                ),
             )
         )
 

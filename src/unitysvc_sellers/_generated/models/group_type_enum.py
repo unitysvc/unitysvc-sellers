@@ -1,13 +1,13 @@
 from typing import Literal, cast
 
-GroupTypeEnum = Literal["capability_pool", "category", "collection", "misc", "routable"]
+GroupTypeEnum = Literal["capability_pool", "category", "collection", "keyed", "open"]
 
 GROUP_TYPE_ENUM_VALUES: set[GroupTypeEnum] = {
     "capability_pool",
     "category",
     "collection",
-    "misc",
-    "routable",
+    "keyed",
+    "open",
 }
 
 

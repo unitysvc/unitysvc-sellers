@@ -24,6 +24,9 @@ class SecretUpdate:
     """ Secret value (will be encrypted). May be empty. """
     sensitive: bool | None | Unset = UNSET
     """ Whether the value is write-only. Defaults to true on create and cannot be changed after creation. """
+    description: None | str | Unset = UNSET
+    """ Markdown explaining how a customer obtains this secret. Omit to leave unchanged; send an empty string to
+    clear. """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -35,6 +38,12 @@ class SecretUpdate:
         else:
             sensitive = self.sensitive
 
+        description: None | str | Unset
+        if isinstance(self.description, Unset):
+            description = UNSET
+        else:
+            description = self.description
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -44,6 +53,8 @@ class SecretUpdate:
         )
         if sensitive is not UNSET:
             field_dict["sensitive"] = sensitive
+        if description is not UNSET:
+            field_dict["description"] = description
 
         return field_dict
 
@@ -61,9 +72,19 @@ class SecretUpdate:
 
         sensitive = _parse_sensitive(d.pop("sensitive", UNSET))
 
+        def _parse_description(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        description = _parse_description(d.pop("description", UNSET))
+
         secret_update = cls(
             value=value,
             sensitive=sensitive,
+            description=description,
         )
 
         secret_update.additional_properties = d
