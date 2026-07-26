@@ -1174,7 +1174,7 @@ $ usvc_seller secrets [OPTIONS] COMMAND [ARGS]...
 * `list`: List the seller&#x27;s secrets (metadata only —...
 * `show`: Show metadata for a single secret by name.
 * `set`: Set a secret to ``value`` (idempotent —...
-* `upload`: Bulk-set secrets from a sourceable file or...
+* `upload`: Bulk-set secrets from an ``.env``-style...
 * `delete`: Permanently delete a secret.
 
 ### `usvc_seller secrets list`
@@ -1227,7 +1227,9 @@ server-side and cannot be retrieved later. Resolution order:
   2. piped stdin        — ``echo v | usvc secrets set X``
   3. interactive prompt — TTY only; hidden input
 
-Mirrors ``gh secret set`` and ``vault kv put``.
+Pass ``--description`` to author the customer-facing guidance for the name;
+for many secrets at once, keep them in a ``.env.example`` manifest and use
+``secrets upload``. Mirrors ``gh secret set`` and ``vault kv put``.
 
 **Usage**:
 
@@ -1242,6 +1244,7 @@ $ usvc_seller secrets set [OPTIONS] NAME
 **Options**:
 
 * `-v, --value TEXT`: Secret value. If omitted: reads from stdin when piped, prompts with hidden input when run interactively.
+* `-d, --description TEXT`: Customer-facing guidance for this secret (Markdown) — what it is and how to obtain one. Stored on the row and shown to customers who must supply it. Omit to leave any existing description untouched.
 * `-f, --format TEXT`: Output format: table | json.  [default: table]
 * `--api-key TEXT`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url TEXT`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
@@ -1249,17 +1252,29 @@ $ usvc_seller secrets set [OPTIONS] NAME
 
 ### `usvc_seller secrets upload`
 
-Bulk-set secrets from a sourceable file or stdin (idempotent).
+Bulk-set secrets from an ``.env``-style manifest (idempotent).
 
-Reads the same shell-sourceable file you keep for local testing — ``export
-NAME=&quot;value&quot;`` / ``NAME=value`` lines, surrounding quotes stripped, ``#``
-comments and blank lines ignored — and sets each via
-``PUT /v1/seller/secrets/{name}``. Entries with an empty value are skipped
-(fine for OPTIONAL secrets); when a name repeats, the last assignment wins.
+Reads a shell-sourceable ``.env.example`` — ``NAME=value`` / ``export
+NAME=value`` lines — and sets each via ``PUT /v1/seller/secrets/{name}``,
+with two conventions that make one file drive both local testing and
+customer-facing documentation:
+
+- **Environment-aware**: ``NAME=${NAME:-default}`` resolves ``NAME`` from the
+  process environment when set, else the default. So the file reuses values
+  already exported in your shell (and, in CI, GitHub-provided ones), falling
+  back to test defaults. Opaque literals (``NAME=sk-abc``) are taken verbatim.
+- **Description-aware**: the contiguous ``#`` comment lines directly above a
+  definition become that secret&#x27;s ``description`` — the guidance surfaced to
+  customers who must supply it (unitysvc#1618). A blank line ends a block, so
+  a file header attaches to no secret.
+
+Every declared entry is set (source semantics: the manifest is authoritative),
+so an empty value still creates the row that carries its description. When a
+name repeats, the last assignment wins.
 
 Input is a file or a pipe — no implicit default:
 
-  - ``FILE`` argument — a path to a sourceable secrets file
+  - ``FILE`` argument — a path to the manifest (e.g. ``.env.example``)
   - ``-`` or piped stdin — decrypt on the fly, e.g.::
 
          sops -d .secrets | usvc_seller secrets upload
