@@ -17,7 +17,7 @@ the data. The schemas (with their historical version names) are:
 
 Two terms recur throughout these schemas, and they name **orthogonal** axes — don't conflate them:
 
-- An **upstream access channel** ("channel") is one named entry in an offering's `upstream_access_config`. Each channel is a complete way for the gateway to reach the upstream: a wire protocol (`access_method`), an endpoint (`base_url`), a credential (`api_key`), a `routing_key`, and quality/restrictions (`rate_limits`). Channel names are free-form (e.g. `"managed"`, `"byok"`, `"managed-eu"`). The gateway selects one channel per request. A channel answers *how the request is fulfilled and billed*, and is gated by **secret** availability. A channel may optionally replace its flat `base_url` / `api_key` with a list of interchangeable **`servers`** (same `channel_type`) for capacity and failover — see [Multi-server channels](service-types.md#multi-server-channels-capacity-failover) (planned).
+- An **upstream access channel** ("channel") is one named entry in an offering's `upstream_access_config`. Each channel is a complete way for the gateway to reach the upstream: a wire protocol (`access_method`), an endpoint (`base_url`), a credential (`api_key`), a `routing_key`, and rate limits (`channel_rate_limit` — the aggregate cap all customers share against the one seller credential; `customer_rate_limit` — the per-customer cap). Channel entries are **free-form objects** — the platform reads them as opaque config, so protocol-specific shapes (SMTP host/port, S3 bucket/region, a `raw` passthrough block) live here too. Channel names are free-form (e.g. `"managed"`, `"byok"`, `"managed-eu"`). The gateway selects one channel per request. A channel answers *how the request is fulfilled and billed*, and is gated by **secret** availability. A channel may optionally replace its flat `base_url` / `api_key` with a list of interchangeable **`servers`** (same `channel_type`) for capacity and failover — see [Multi-server channels](service-types.md#multi-server-channels-capacity-failover) (planned).
 - A **user access interface** is one named entry in a listing's `user_access_interfaces` — the downstream, customer-facing endpoint the customer connects *to* (canonical, `/g/<group>`, `/p/<pool>`, `/e/<code>`). An interface answers *how you connect, and whether you may*, and is gated by **enrollment** / group membership.
 
 Channel selection happens per request regardless of which interface URL the customer hits, so the two are separable lists, not a matrix.
@@ -116,7 +116,7 @@ Service files define the service offering from the upstream provider's perspecti
 | ---------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `name`                       | string                      | Service identifier (must match directory name, allows slashes for hierarchy)                                                                                                      |
 | `service_type`               | enum                        | Service category (see [ServiceTypeEnum values](#servicetype-enum-values))                                                                                                         |
-| `upstream_access_config` | dict of AccessInterfaceData | How the gateway reaches the upstream, keyed by **channel name**; each entry is an **upstream access channel** (see [Upstream access channels vs. user access interfaces](#upstream-access-channels-vs-user-access-interfaces)). Supports Jinja2 templates (e.g. `{{ enrollment.code }}`); expanded at gateway routing time using enrollment context. |
+| `upstream_access_config` | dict of channel objects | How the gateway reaches the upstream, keyed by **channel name**; each entry is an **upstream access channel** (a free-form object — see [Upstream access channel object](#upstream-access-channel-object)) (see [Upstream access channels vs. user access interfaces](#upstream-access-channels-vs-user-access-interfaces)). Supports Jinja2 templates (e.g. `{{ enrollment.code }}`); expanded at gateway routing time using enrollment context. |
 | `time_created`               | datetime (ISO 8601)         | Timestamp when offering was created                                                                                                                                               |
 
 ### Optional Fields
@@ -208,7 +208,7 @@ Listing files define how a seller presents/sells a service to end users.
 
 | Field                    | Type                        | Description                                 |
 | ------------------------ | --------------------------- | ------------------------------------------- |
-| `user_access_interfaces` | dict of AccessInterfaceData | How users access the service, keyed by name |
+| `user_access_interfaces` | dict of AccessInterfaceData | How users access the service, keyed by name. A **pure routing object** (address + routing key + visibility) — see [User access interface object](#user-access-interface-object). |
 | `time_created`           | datetime (ISO 8601)         | Timestamp when listing was created          |
 
 ### Optional Fields
@@ -584,26 +584,60 @@ transformers).
 
 ## Data Types
 
-### AccessInterfaceData Object
+Access is described by **two different objects** — a customer-facing routing
+object and an upstream channel object. They were once a single shared shape;
+they are now separate. In both, the name is the **dict key**, not a field.
 
-The `AccessInterfaceData` object defines how to access a service (used in offerings and listings). The interface name is the dict key, not a field in the object.
+### User access interface object
+
+One named entry in a listing's `user_access_interfaces`. A **pure
+routing-resolution object**: it says *which candidate a request addresses* and
+*whether the customer may reach it* — nothing about the upstream. It carries no
+credentials, transformers, or rate limits (those are the channel's job).
+
+| Field           | Type    | Description                                                          |
+| --------------- | ------- | ------------------------------------------------------------------- |
+| `access_method` | enum    | Access method: `http` (default), `websocket`, `grpc`                |
+| `base_url`      | string  | Customer-facing endpoint URL (max 500 chars)                        |
+| `description`   | string  | Interface description (max 500 chars)                               |
+| `routing_key`   | object  | Optional routing key for request matching                           |
+| `is_active`     | boolean | Whether interface is active (default: true)                         |
+| `is_primary`    | boolean | Whether this is the primary interface (default: false)             |
+| `sort_order`    | integer | Display order (default: 0)                                          |
+
+> `rate_limits`, `constraints`, and `response_rules` are **no longer accepted**
+> on a user access interface (unitysvc/unitysvc#1717). Rate limits moved to the
+> channel (below); `constraints` was never enforced and was dropped.
+
+### Upstream access channel object
+
+One named entry in an offering's `upstream_access_config`. **Free-form** — the
+platform reads it as an opaque object, so nothing is required across channels
+(an `http` channel has `base_url`; `smtp` has host/port; `s3` has bucket/region;
+a `raw` channel wraps arbitrary passthrough fields). The keys the gateway
+recognizes:
 
 | Field                 | Type               | Description                                                                                               |
 | --------------------- | ------------------ | --------------------------------------------------------------------------------------------------------- |
-| `access_method`       | enum               | Access method: `http` (default), `websocket`, `grpc`                                                      |
-| `base_url`            | string             | API endpoint URL (max 500 chars)                                                                          |
-| `api_key`             | string             | API key using secrets format: `${ secrets.VAR_NAME }` (see [Secrets](#secrets-for-sensitive-information)) |
-| `description`         | string             | Interface description (max 500 chars)                                                                     |
-| `request_transformer` | object             | Request transformation config (keys: `proxy_rewrite`, `body_transformer`)                                 |
+| `access_method`       | enum               | Wire protocol: `http` (default), `websocket`, `grpc`, `smtp`                                              |
+| `base_url`            | string             | Upstream endpoint URL (optional — absent for `smtp`/`s3` and other non-HTTP channels)                     |
+| `api_key`             | string             | Upstream credential / svcpass disposition: `${ secrets.VAR }` (see [Secrets](#secrets-for-sensitive-information)) |
 | `routing_key`         | object             | Optional routing key for request matching                                                                 |
-| `rate_limits`         | array of RateLimit | Rate limiting rules                                                                                       |
+| `request_transformer` | object             | Request transformation config (keys: `proxy_rewrite`, `body_transformer`)                                 |
 | `response_rules`      | object             | Per-status-code triggers → `log` / `flag` / `notify`. See [Response rules](#response-rules).               |
-| `constraints`         | ServiceConstraints | Service constraints                                                                                       |
-| `is_active`           | boolean            | Whether interface is active (default: true)                                                               |
-| `is_primary`          | boolean            | Whether this is primary interface (default: false)                                                        |
-| `sort_order`          | integer            | Display order (default: 0)                                                                                |
+| `channel_rate_limit`  | array of RateLimit | **Aggregate** limit — all customers combined against this channel's one seller credential. The seller's contract with the upstream provider. |
+| `customer_rate_limit` | array of RateLimit | **Per-customer** limit — how the seller throttles each individual customer so one cannot consume the whole channel. |
+| `is_active`           | boolean            | Whether the channel is active (default: true)                                                             |
+| `is_primary`          | boolean            | Whether this is the primary channel (default: false)                                                     |
+| `sort_order`          | integer            | Channel selection order (default: 0)                                                                      |
 
-**Note:** The interface name is specified as the dict key, not as a field within the object.
+> **Rate limits are two-tier.** `channel_rate_limit` is the aggregate cap and
+> `customer_rate_limit` is the per-customer cap; both are arrays of
+> [RateLimit](#ratelimit-object) objects. They replace the former single
+> `rate_limits` channel key, which the platform no longer reads — author the
+> new keys directly.
+
+**Note:** The channel name is specified as the dict key, not as a field within the object.
 
 #### Response rules
 
@@ -845,7 +879,10 @@ Documents associated with entities (providers, offerings, listings). The documen
 
 ### RateLimit Object
 
-Rate limiting rules for services.
+Rate limiting rules for services. Used by both channel rate-limit tiers —
+`channel_rate_limit` (aggregate) and `customer_rate_limit` (per-customer) — on
+an [upstream access channel](#upstream-access-channel-object). Each tier is an
+array of these objects.
 
 | Field         | Type    | Description                                                                                   |
 | ------------- | ------- | --------------------------------------------------------------------------------------------- |
@@ -868,47 +905,14 @@ Rate limiting rules for services.
 }
 ```
 
-### ServiceConstraints Object
+### ServiceConstraints Object (removed)
 
-Comprehensive service constraints and policies. All fields are optional.
-
-**Usage Quotas:**
-
-- `monthly_quota`, `daily_quota` - Usage quotas
-- `quota_unit` - Unit for quotas (RateLimitUnitEnum)
-- `quota_reset_cycle` - Reset cycle: `daily`, `weekly`, `monthly`, `yearly`
-- `overage_policy` - Policy when exceeded: `block`, `throttle`, `charge`, `queue`
-
-**Authentication:**
-
-- `auth_methods` - Supported auth methods (array of AuthMethodEnum)
-- `ip_whitelist_required` - IP whitelisting required (boolean)
-- `tls_version_min` - Minimum TLS version (string)
-
-**Request/Response:**
-
-- `max_request_size_bytes`, `max_response_size_bytes` - Size limits
-- `timeout_seconds` - Request timeout
-- `max_batch_size` - Max batch items
-
-**Content:**
-
-- `content_filters` - Content filtering: `adult`, `violence`, `hate_speech`, `profanity`, `pii`
-- `input_languages`, `output_languages` - Supported languages (ISO 639-1)
-- `max_context_length` - Max context tokens
-- `region_restrictions` - Geographic restrictions (ISO country codes)
-
-**Availability:**
-
-- `uptime_sla_percent` - Uptime SLA (e.g., 99.9)
-- `response_time_sla_ms` - Response time SLA
-- `maintenance_windows` - Scheduled maintenance
-
-**Concurrency:**
-
-- `max_concurrent_requests` - Max concurrent requests
-- `connection_timeout_seconds` - Connection timeout
-- `max_connections_per_ip` - Max connections per IP
+The `constraints` field and the `ServiceConstraints` object have been **removed**
+(unitysvc/unitysvc#1717). They described a planned SLA/quota surface that was
+never enforced by the gateway or backend, and were authored in no seller data.
+Do not add a `constraints` block — it is now rejected on validation. If
+SLA/quota enforcement is introduced later it will get a purpose-built home
+(likely on the upstream channel).
 
 ## Secrets for Sensitive Information
 
