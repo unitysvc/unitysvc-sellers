@@ -20,9 +20,7 @@ def _write(path: Path, content: str) -> None:
 class TestFormatDataFiles:
     """Direct unit tests for the plain helper used by ``populate``."""
 
-    def test_rewrites_json_with_sorted_keys_and_trailing_newline(
-        self, tmp_path: Path
-    ) -> None:
+    def test_rewrites_json_with_sorted_keys_and_trailing_newline(self, tmp_path: Path) -> None:
         f = tmp_path / "listing.json"
         _write(f, '{"name":"x","a":1}')  # unsorted, no trailing newline
 
@@ -54,9 +52,7 @@ class TestFormatDataFiles:
         # …but the file is left exactly as we wrote it.
         assert f.read_text() == original
 
-    def test_check_only_passes_when_already_formatted(
-        self, tmp_path: Path
-    ) -> None:
+    def test_check_only_passes_when_already_formatted(self, tmp_path: Path) -> None:
         f = tmp_path / "listing.json"
         _write(f, '{\n  "a": 1\n}\n')
 
@@ -97,9 +93,7 @@ class TestFormatDataDoesNotLeakTyperDefaults:
     not a ``typer.Option`` default, and writes when ``check_only=False``.
     """
 
-    def test_helper_does_not_take_typer_option_defaults(
-        self, tmp_path: Path
-    ) -> None:
+    def test_helper_does_not_take_typer_option_defaults(self, tmp_path: Path) -> None:
         # Calling without the kwarg uses the helper's plain ``bool`` default
         # (``False``) and therefore writes — proving no Typer ``OptionInfo``
         # leak.
