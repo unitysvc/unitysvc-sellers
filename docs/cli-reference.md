@@ -1219,8 +1219,11 @@ $ usvc_seller secrets show [OPTIONS] {name}
 
 Set a secret to ``value`` (idempotent — creates or rotates).
 
-Maps to ``PUT /v1/seller/secrets/{name}``. The value is encrypted
-server-side and cannot be retrieved later. Resolution order:
+Maps to ``PUT /v1/seller/secrets/{name}``. A **secret** (default) is
+encrypted server-side and cannot be retrieved later; pass ``--variable`` to
+store a viewable **variable** instead (its value is returned by
+``list``/``show`` — useful for non-sensitive config). ``--variable`` is
+honored only when the row is created. Value resolution order:
 
   1. ``--value VALUE``  — explicit literal (or ``--value &quot;$ENV&quot;``
                           via shell expansion)
@@ -1229,7 +1232,8 @@ server-side and cannot be retrieved later. Resolution order:
 
 Pass ``--description`` to author the customer-facing guidance for the name;
 for many secrets at once, keep them in a ``.env.example`` manifest and use
-``secrets upload``. Mirrors ``gh secret set`` and ``vault kv put``.
+``secrets upload`` (mark a variable there with a trailing ``# variable``).
+Mirrors ``gh secret set`` and ``vault kv put``.
 
 **Usage**:
 
@@ -1244,6 +1248,7 @@ $ usvc_seller secrets set [OPTIONS] {name}
 **Options**:
 
 * `-v, --value <str>`: Secret value. If omitted: reads from stdin when piped, prompts with hidden input when run interactively.
+* `--variable`: Store as a viewable variable (its value is returned by list/show) rather than a write-only secret — useful for non-sensitive config like a base URL or from-address. Honored only when the row is created.
 * `-d, --description <str>`: Customer-facing guidance for this secret (Markdown) — what it is and how to obtain one. Stored on the row and shown to customers who must supply it. Omit to leave any existing description untouched.
 * `-f, --format <str>`: Output format: table | json.  [default: table]
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -1267,6 +1272,14 @@ customer-facing documentation:
   definition become that secret&#x27;s ``description`` — the guidance surfaced to
   customers who must supply it (unitysvc#1618). A blank line ends a block, so
   a file header attaches to no secret.
+- **Variable-aware**: a *trailing* ``# variable`` comment on an assignment
+  marks that one entry as a viewable variable (its value is returned by
+  ``list``/``show``); every other entry is a secret. This mirrors the
+  ``--variable`` flag on ``secrets set`` and is honored only on create::
+
+      # From address shown back to the customer
+      NOTIFY_FROM=alerts@acme.com   # variable
+      ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}   # (no marker) → secret
 
 Every declared entry is set (source semantics: the manifest is authoritative),
 so an empty value still creates the row that carries its description. When a

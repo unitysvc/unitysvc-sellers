@@ -25,7 +25,7 @@ runner = CliRunner()
 
 
 # ---------------------------------------------------------------------------
-# parser — (name, value, description) triples
+# parser — (name, value, description, sensitive) tuples
 # ---------------------------------------------------------------------------
 def test_parse_extracts_values_and_descriptions() -> None:
     text = """
@@ -36,51 +36,85 @@ def test_parse_extracts_values_and_descriptions() -> None:
     DISCORD_WEBHOOK_ID='demo'
     """
     assert _parse_secrets_text(text, environ={}) == [
-        ("DISCORD_WEBHOOK_BASE", "https://mock.unitysvc.dev/x", "the webhook base url"),
-        ("DISCORD_WEBHOOK_ID", "demo", None),
+        ("DISCORD_WEBHOOK_BASE", "https://mock.unitysvc.dev/x", "the webhook base url", None),
+        ("DISCORD_WEBHOOK_ID", "demo", None, None),
     ]
 
 
 def test_parse_multiline_description_and_header_separation() -> None:
     text = "# header\n\n# line 1\n# line 2\nFOO=bar\n"
-    assert _parse_secrets_text(text, environ={}) == [("FOO", "bar", "line 1\nline 2")]
+    assert _parse_secrets_text(text, environ={}) == [("FOO", "bar", "line 1\nline 2", None)]
 
 
 def test_parse_resolves_env_expansion() -> None:
     text = "# base\nBASE_URL=${BASE_URL:-https://default.example.com}\n# key\nAPI_KEY=${API_KEY:-}\n"
     # env value wins when set; unset falls back to the default (here empty).
     assert _parse_secrets_text(text, environ={"BASE_URL": "https://real.example.com"}) == [
-        ("BASE_URL", "https://real.example.com", "base"),
-        ("API_KEY", "", "key"),
+        ("BASE_URL", "https://real.example.com", "base", None),
+        ("API_KEY", "", "key", None),
     ]
 
 
 def test_parse_env_default_used_when_unset() -> None:
     text = "X=${X:-fallback}\n"
-    assert _parse_secrets_text(text, environ={}) == [("X", "fallback", None)]
+    assert _parse_secrets_text(text, environ={}) == [("X", "fallback", None, None)]
 
 
 def test_parse_last_assignment_wins_and_keeps_position() -> None:
     assert _parse_secrets_text("A=1\nB=2\nA=3\n", environ={}) == [
-        ("A", "3", None),
-        ("B", "2", None),
+        ("A", "3", None, None),
+        ("B", "2", None, None),
     ]
 
 
 def test_parse_skips_invalid_names_and_non_assignments() -> None:
     text = "1BAD=x\nnot an assignment\nGOOD=ok\n"
-    assert _parse_secrets_text(text, environ={}) == [("GOOD", "ok", None)]
+    assert _parse_secrets_text(text, environ={}) == [("GOOD", "ok", None, None)]
 
 
 def test_parse_preserves_empty_values() -> None:
     assert _parse_secrets_text("OPT=\nREQ=v\n", environ={}) == [
-        ("OPT", "", None),
-        ("REQ", "v", None),
+        ("OPT", "", None, None),
+        ("REQ", "v", None, None),
     ]
 
 
 def test_parse_does_not_strip_inner_hash() -> None:
-    assert _parse_secrets_text('TOK="a#b"\n', environ={}) == [("TOK", "a#b", None)]
+    # Unquoted or quoted, a ``#`` not preceded by whitespace is part of the value.
+    assert _parse_secrets_text('TOK="a#b"\n', environ={}) == [("TOK", "a#b", None, None)]
+    assert _parse_secrets_text("TOK=a#b\n", environ={}) == [("TOK", "a#b", None, None)]
+
+
+# ---------------------------------------------------------------------------
+# parser — trailing ``# variable`` marker
+# ---------------------------------------------------------------------------
+def test_parse_trailing_variable_marker_sets_sensitive_false() -> None:
+    text = "# from address\nNOTIFY_FROM=alerts@acme.com   # variable\nKEY=sk-abc\n"
+    assert _parse_secrets_text(text, environ={}) == [
+        ("NOTIFY_FROM", "alerts@acme.com", "from address", False),
+        ("KEY", "sk-abc", None, None),
+    ]
+
+
+def test_parse_variable_marker_is_case_insensitive_and_env_aware() -> None:
+    text = "BASE=${BASE:-https://d.example}  # Variable\n"
+    assert _parse_secrets_text(text, environ={"BASE": "https://real.example"}) == [
+        ("BASE", "https://real.example", None, False),
+    ]
+
+
+def test_parse_non_marker_trailing_comment_is_stripped_but_stays_secret() -> None:
+    # A trailing comment that is not the marker is dropped (shell semantics),
+    # and the entry stays a secret.
+    assert _parse_secrets_text("TOK=sk-abc   # rotate me\n", environ={}) == [
+        ("TOK", "sk-abc", None, None),
+    ]
+
+
+def test_parse_quoted_value_keeps_hash_but_honors_trailing_marker() -> None:
+    assert _parse_secrets_text('P="a b#c"   # variable\n', environ={}) == [
+        ("P", "a b#c", None, False),
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -154,14 +188,21 @@ def test_no_file_and_interactive_terminal_errors(monkeypatch: pytest.MonkeyPatch
 # ---------------------------------------------------------------------------
 class _Sink:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str, str | None]] = []
+        self.calls: list[tuple[str, str, str | None, bool | None]] = []
 
-    async def set(self, name: str, value: str, *, description: str | None = None) -> SimpleNamespace:
-        self.calls.append((name, value, description))
-        return SimpleNamespace(name=name)
+    async def set(
+        self,
+        name: str,
+        value: str,
+        *,
+        sensitive: bool | None = None,
+        description: str | None = None,
+    ) -> SimpleNamespace:
+        self.calls.append((name, value, description, sensitive))
+        return SimpleNamespace(name=name, sensitive=sensitive)
 
 
-def test_upload_sets_every_entry_with_its_description(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def _patch_sink(monkeypatch: pytest.MonkeyPatch) -> _Sink:
     sink = _Sink()
 
     @asynccontextmanager
@@ -169,6 +210,11 @@ def test_upload_sets_every_entry_with_its_description(tmp_path: Path, monkeypatc
         yield SimpleNamespace(secrets=sink)
 
     monkeypatch.setattr("unitysvc_sellers.commands.secrets.async_client", fake_async_client)
+    return sink
+
+
+def test_upload_sets_every_entry_with_its_description(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    sink = _patch_sink(monkeypatch)
 
     f = tmp_path / "secrets.env.example"
     # Source semantics: every declared entry is set, empties included (they carry
@@ -177,5 +223,40 @@ def test_upload_sets_every_entry_with_its_description(tmp_path: Path, monkeypatc
     result = runner.invoke(app, ["upload", str(f)])
 
     assert result.exit_code == 0, result.output
-    assert sink.calls == [("A", "1", "guidance for A"), ("EMPTY", "", None)]
+    assert sink.calls == [("A", "1", "guidance for A", None), ("EMPTY", "", None, None)]
     assert "uploaded 2" in result.output
+
+
+def test_upload_threads_variable_marker_as_sensitive_false(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    sink = _patch_sink(monkeypatch)
+
+    f = tmp_path / "secrets.env.example"
+    f.write_text("NOTIFY_FROM=alerts@acme.com  # variable\nKEY=sk-abc\n")
+    result = runner.invoke(app, ["upload", str(f)])
+
+    assert result.exit_code == 0, result.output
+    assert sink.calls == [
+        ("NOTIFY_FROM", "alerts@acme.com", None, False),
+        ("KEY", "sk-abc", None, None),
+    ]
+    assert "1 as variable(s)" in result.output
+
+
+def test_set_variable_flag_passes_sensitive_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    sink = _patch_sink(monkeypatch)
+
+    result = runner.invoke(app, ["set", "NOTIFY_FROM", "--value", "alerts@acme.com", "--variable"])
+
+    assert result.exit_code == 0, result.output
+    assert sink.calls == [("NOTIFY_FROM", "alerts@acme.com", None, False)]
+    assert "Set variable" in result.output
+
+
+def test_set_without_variable_leaves_sensitive_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    sink = _patch_sink(monkeypatch)
+
+    result = runner.invoke(app, ["set", "KEY", "--value", "sk-abc"])
+
+    assert result.exit_code == 0, result.output
+    assert sink.calls == [("KEY", "sk-abc", None, None)]
+    assert "Set secret" in result.output
