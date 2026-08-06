@@ -55,13 +55,26 @@ class Secrets:
             )
         )
 
-    def set(self, name: str, value: str, *, description: str | None = None) -> SecretPublic:
+    def set(
+        self,
+        name: str,
+        value: str,
+        *,
+        sensitive: bool | None = None,
+        description: str | None = None,
+    ) -> SecretPublic:
         """Set ``name`` to ``value`` (idempotent — creates or replaces).
 
-        Maps to ``PUT /v1/seller/secrets/{name}``. Returns the secret's
-        public metadata; the value itself is never echoed back. When
-        ``description`` is given it is stored as the customer-facing guidance
-        for that name (unitysvc#1618); ``None`` leaves it untouched.
+        Maps to ``PUT /v1/seller/secrets/{name}``. When ``description`` is
+        given it is stored as the customer-facing guidance for that name
+        (unitysvc#1618); ``None`` leaves it untouched.
+
+        ``sensitive`` controls whether this is a **secret** (write-only; the
+        value is never echoed back — the default) or a **variable** (its value
+        is returned to authorized callers, e.g. so you can confirm what you
+        stored). It is honored only when the row is **created** — an existing
+        row cannot switch between secret and variable. Leave it ``None`` to
+        accept the server default (a secret) or preserve an existing row's kind.
         """
         from ._generated.api.seller_secrets import seller_secrets_set_secret
         from ._generated.models.secret_update import SecretUpdate
@@ -73,6 +86,7 @@ class Secrets:
                 client=self._client,
                 body=SecretUpdate(
                     value=value,
+                    sensitive=UNSET if sensitive is None else sensitive,
                     description=UNSET if description is None else description,
                 ),
             )

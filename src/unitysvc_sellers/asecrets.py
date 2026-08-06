@@ -41,12 +41,21 @@ class AsyncSecrets:
             )
         )
 
-    async def set(self, name: str, value: str, *, description: str | None = None) -> SecretPublic:
+    async def set(
+        self,
+        name: str,
+        value: str,
+        *,
+        sensitive: bool | None = None,
+        description: str | None = None,
+    ) -> SecretPublic:
         """Set ``name`` to ``value`` (idempotent — creates or replaces).
 
         When ``description`` is given, it is stored on the secret row as the
         customer-facing guidance for that name (unitysvc#1618); ``None`` leaves
-        any existing description untouched.
+        any existing description untouched. ``sensitive=False`` creates a
+        viewable **variable** instead of a write-only secret (honored only on
+        create).
 
         See :class:`unitysvc_sellers.secrets.Secrets.set`.
         """
@@ -60,6 +69,7 @@ class AsyncSecrets:
                 client=self._client,
                 body=SecretUpdate(
                     value=value,
+                    sensitive=UNSET if sensitive is None else sensitive,
                     description=UNSET if description is None else description,
                 ),
             )
