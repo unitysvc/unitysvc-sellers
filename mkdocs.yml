@@ -83,6 +83,7 @@ nav:
       - Service Types: service-types.md
       - Service Templates: service-templates.md
       - Pricing: pricing.md
+      - Secrets & Variables: secrets-and-variables.md
       - Names & Routing: naming-conventions.md
       - After You Publish: seller-lifecycle.md
   - Guides:
