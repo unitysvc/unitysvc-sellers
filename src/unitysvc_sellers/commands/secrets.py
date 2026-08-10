@@ -42,6 +42,23 @@ app = typer.Typer(
 _VALID_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
+class ManifestResolutionError(ValueError):
+    """A required ``${NAME}`` expansion (no default) was unset/empty in the environment.
+
+    Raised while resolving a manifest line so ``upload``/``--dry-run`` fail loudly
+    instead of silently uploading an empty (or, worse, a literal ``${NAME}``)
+    value. Carries the offending ``name`` for a targeted message.
+    """
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__(
+            f"Secret '{name}' is required but is unset or empty in the environment. "
+            f"Export {name} before uploading, or write ${{{name}:-}} to allow an "
+            f"empty value (or ${{{name}:-default}} to supply a fallback)."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -104,17 +121,40 @@ def _split_trailing_comment(rhs: str) -> tuple[str, str | None]:
 
 
 def _resolve_rhs(rhs: str, environ: Mapping[str, str]) -> str:
-    """Resolve one assignment's right-hand side.
+    """Resolve one assignment's right-hand side, shell-``source``-style.
 
-    ``${NAME:-default}`` (or ``${NAME-default}`` / ``${NAME}``) uses the process
-    env value for ``NAME`` when it is set and non-empty, else the default — the
-    same ``source``-compatible semantics that let one file seed a seller's local
-    test values AND, in CI, pick up GitHub-provided values. Any other RHS is
-    taken verbatim (one layer of surrounding quotes stripped).
+    Quoting follows the shell, so a manifest behaves the same whether you
+    ``source`` it or upload it:
+
+    - **single-quoted** ``'...'`` → the inner text verbatim, no expansion.
+    - **double-quoted** ``"..."`` → the quotes are stripped and the inner text
+      is still expanded (this is the case the committed manifests use, e.g.
+      ``NAME="${NAME:-default}"``). Previously double quotes short-circuited
+      expansion and uploaded the literal ``${NAME:-default}`` string.
+    - **unquoted** → expanded directly.
+
+    Expansion covers the one whole-value form ``${NAME[:-default]}``:
+
+    - ``${NAME:-default}`` / ``${NAME:-}`` (a default is present, possibly empty)
+      → the env value for ``NAME`` when set and non-empty, else the default.
+      **Optional** — never errors.
+    - ``${NAME}`` (no default) → the env value for ``NAME``. **Required**: if
+      ``NAME`` is unset or empty this raises :class:`ManifestResolutionError`,
+      so a missing real credential fails the upload instead of silently
+      becoming empty. (This is ``set -u`` / ``${NAME:?}`` semantics, a
+      deliberate divergence from a bare ``source``, which would expand an unset
+      ``${NAME}`` to empty.)
+
+    Anything that is not a whole-value ``${...}`` expansion is taken verbatim
+    (after any surrounding quotes are handled as above).
     """
     rhs = rhs.strip()
-    if len(rhs) >= 2 and rhs[0] == rhs[-1] and rhs[0] in ("'", '"'):
+    # Single quotes are literal in the shell — no expansion inside them.
+    if len(rhs) >= 2 and rhs[0] == rhs[-1] == "'":
         return rhs[1:-1]
+    # Double quotes DO expand in the shell — strip them, then resolve the inner.
+    if len(rhs) >= 2 and rhs[0] == rhs[-1] == '"':
+        rhs = rhs[1:-1]
     m = _EXPANSION_RE.match(rhs)
     if not m:
         return rhs
@@ -122,7 +162,9 @@ def _resolve_rhs(rhs: str, environ: Mapping[str, str]) -> str:
     env_val = environ.get(name)
     if env_val:
         return env_val
-    return default if default is not None else ""
+    if default is not None:
+        return default
+    raise ManifestResolutionError(name)
 
 
 def _parse_secrets_text(
@@ -408,10 +450,14 @@ def upload_secrets(
     with two conventions that make one file drive both local testing and
     customer-facing documentation:
 
-    - **Environment-aware**: ``NAME=${NAME:-default}`` resolves ``NAME`` from the
-      process environment when set, else the default. So the file reuses values
-      already exported in your shell (and, in CI, GitHub-provided ones), falling
-      back to test defaults. Opaque literals (``NAME=sk-abc``) are taken verbatim.
+    - **Environment-aware**: ``NAME=${NAME:-default}`` (or the quoted
+      ``NAME="${NAME:-default}"``) resolves ``NAME`` from the process environment
+      when set, else the default. So the file reuses values already exported in
+      your shell (and, in CI, GitHub-provided ones), falling back to test
+      defaults. A defaultless ``NAME=${NAME}`` is **required** — an unset/empty
+      ``NAME`` aborts the upload rather than uploading an empty value; write
+      ``${NAME:-}`` to opt into empty. Opaque literals (``NAME=sk-abc``) are
+      taken verbatim.
     - **Description-aware**: the contiguous ``#`` comment lines directly above a
       definition become that secret's ``description`` — the guidance surfaced to
       customers who must supply it (unitysvc#1618). A blank line ends a block, so
@@ -437,7 +483,11 @@ def upload_secrets(
              sops -d .secrets | usvc_seller secrets upload
              gpg -d .secrets.gpg | usvc_seller secrets upload -
     """
-    entries = _parse_secrets_text(_read_secrets_source(file))
+    try:
+        entries = _parse_secrets_text(_read_secrets_source(file))
+    except ManifestResolutionError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
     if not entries:
         console.print("[yellow]No secrets found in input.[/yellow]")
         raise typer.Exit(code=0)

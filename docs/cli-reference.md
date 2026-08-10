@@ -1264,10 +1264,14 @@ NAME=value`` lines — and sets each via ``PUT /v1/seller/secrets/{name}``,
 with two conventions that make one file drive both local testing and
 customer-facing documentation:
 
-- **Environment-aware**: ``NAME=${NAME:-default}`` resolves ``NAME`` from the
-  process environment when set, else the default. So the file reuses values
-  already exported in your shell (and, in CI, GitHub-provided ones), falling
-  back to test defaults. Opaque literals (``NAME=sk-abc``) are taken verbatim.
+- **Environment-aware**: ``NAME=${NAME:-default}`` (or the quoted
+  ``NAME=&quot;${NAME:-default}&quot;``) resolves ``NAME`` from the process environment
+  when set, else the default. So the file reuses values already exported in
+  your shell (and, in CI, GitHub-provided ones), falling back to test
+  defaults. A defaultless ``NAME=${NAME}`` is **required** — an unset/empty
+  ``NAME`` aborts the upload rather than uploading an empty value; write
+  ``${NAME:-}`` to opt into empty. Opaque literals (``NAME=sk-abc``) are
+  taken verbatim.
 - **Description-aware**: the contiguous ``#`` comment lines directly above a
   definition become that secret&#x27;s ``description`` — the guidance surfaced to
   customers who must supply it (unitysvc#1618). A blank line ends a block, so
