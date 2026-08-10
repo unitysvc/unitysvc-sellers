@@ -31,7 +31,7 @@ OFFERING_J2 = """{
   "name": "resp{{ status }}",
   "service_type": "gateway",
   "capabilities": ["http_relay"],
-  "description": "Returns HTTP {{ status }} ({{ label }}).",
+  "description": "Returns HTTP {{ status }} ({{ label }}).\\n\\nA test gateway that always returns this HTTP status.",
   "status": "ready",
   "tags": ["gateway", "test"],
   "time_created": "2026-05-31T00:00:00Z",
