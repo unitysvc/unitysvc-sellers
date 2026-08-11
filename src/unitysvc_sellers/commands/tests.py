@@ -393,6 +393,28 @@ async def _resolve_service_ids_by_name(api_key: str | None, base_url: str, name:
     return matched
 
 
+async def _resolve_document_by_filename(client: Any, service_id: str, test_file: str) -> str:
+    """Resolve ``--test-file`` to a single document id for one service.
+
+    Matches a document whose ``filename`` equals or ends with ``test_file``
+    (mirrors ``specs run-tests --test-file`` suffix matching). Raises on no
+    match or ambiguity so the caller surfaces a clear error.
+    """
+    detail = model_to_dict(await client.services.get(service_id))
+    matches: list[dict[str, Any]] = []
+    for doc in detail.get("documents") or []:
+        d = doc if isinstance(doc, dict) else model_to_dict(doc)
+        filename = str(d.get("filename") or "")
+        if filename and (filename == test_file or filename.endswith(test_file)):
+            matches.append(d)
+    if not matches:
+        raise ValueError(f"no document with filename matching '{test_file}' on service {service_id[:8]}")
+    if len(matches) > 1:
+        names = ", ".join(sorted(str(d.get("filename")) for d in matches))
+        raise ValueError(f"--test-file '{test_file}' matches multiple documents ({names}); be more specific")
+    return str(matches[0].get("id"))
+
+
 @services_app.command("run-tests")
 def run_tests(
     name: str | None = typer.Argument(
@@ -434,7 +456,20 @@ def run_tests(
         None,
         "--document-id",
         "-d",
-        help="Run a single document instead of every executable doc on the service.",
+        help=(
+            "Run a single document instead of every executable doc on the service. "
+            "Accepts a full UUID or an 8+ character prefix (resolved like show-test)."
+        ),
+    ),
+    test_file: str | None = typer.Option(
+        None,
+        "--test-file",
+        "-t",
+        help=(
+            "Run only the document whose filename matches (e.g. 'code-example.py.j2'), "
+            "resolved per service. Mirrors `specs run-tests --test-file`. Mutually "
+            "exclusive with --document-id."
+        ),
     ),
     force: bool = typer.Option(
         False,
@@ -473,11 +508,20 @@ def run_tests(
     Targeting:
         usvc_seller services run-tests cohere/command-r-plus
         usvc_seller services run-tests 'cohere/*' --force
-        usvc_seller services run-tests --id 6c55d6d9          # disambiguate
+        usvc_seller services run-tests --id 6c55d6d9              # disambiguate
+        usvc_seller services run-tests cohere/command-r -d 6c55d6d9   # one doc (id prefix ok)
+        usvc_seller services run-tests cohere/command-r -t code-example.py.j2  # one doc by filename
     """
     modes = sum([name is not None, service_id is not None, local_ids])
     if modes != 1:
         console.print("[red]Error:[/red] provide exactly one of: positional NAME, ``--id``, or ``--local-ids``.")
+        raise typer.Exit(code=1)
+
+    if document_id is not None and test_file is not None:
+        console.print("[red]Error:[/red] --document-id and --test-file are mutually exclusive.")
+        raise typer.Exit(code=1)
+    if document_id is not None and len(document_id) < 8:
+        console.print("[red]✗[/red] --document-id prefix must be at least 8 characters.")
         raise typer.Exit(code=1)
 
     if name is not None:
@@ -512,9 +556,19 @@ def run_tests(
 
         async def _impl(_sid: str = sid) -> Any:
             async with async_client(api_key, base_url) as client:
+                # Resolve the target document id. --test-file is per-service
+                # (doc ids differ across services); --document-id is a global id
+                # whose prefix we expand to a full UUID (the run-tests endpoint,
+                # unlike GET /documents/{id}, does not complete prefixes itself).
+                doc_id = document_id
+                if test_file is not None:
+                    doc_id = await _resolve_document_by_filename(client, _sid, test_file)
+                elif document_id is not None:
+                    resolved = model_to_dict(await client.documents.get(document_id))
+                    doc_id = str(resolved.get("id"))
                 return await client.services.run_tests(
                     _sid,
-                    document_id=document_id,
+                    document_id=doc_id,
                     force=force,
                     poll_interval=poll_interval,
                     timeout=timeout,

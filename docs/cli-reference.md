@@ -855,7 +855,9 @@ to see full stdout/stderr for any failure.
 Targeting:
     usvc_seller services run-tests cohere/command-r-plus
     usvc_seller services run-tests &#x27;cohere/*&#x27; --force
-    usvc_seller services run-tests --id 6c55d6d9          # disambiguate
+    usvc_seller services run-tests --id 6c55d6d9              # disambiguate
+    usvc_seller services run-tests cohere/command-r -d 6c55d6d9   # one doc (id prefix ok)
+    usvc_seller services run-tests cohere/command-r -t code-example.py.j2  # one doc by filename
 
 **Usage**:
 
@@ -872,7 +874,8 @@ $ usvc_seller services run-tests [OPTIONS] [name]
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows (e.g. an active service plus its pending revision) and you need to pin one specific row.
 * `-l, --local-ids`: Run tests for every service whose backend id is recorded in a service.json under --data-dir (the local specs/ catalog). Mutually exclusive with NAME and --id.
 * `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
-* `-d, --document-id <str>`: Run a single document instead of every executable doc on the service.
+* `-d, --document-id <str>`: Run a single document instead of every executable doc on the service. Accepts a full UUID or an 8+ character prefix (resolved like show-test).
+* `-t, --test-file <str>`: Run only the document whose filename matches (e.g. &#x27;code-example.py.j2&#x27;), resolved per service. Mirrors `specs run-tests --test-file`. Mutually exclusive with --document-id.
 * `--force`: Re-execute documents whose previous per-iface result was &#x27;success&#x27;.
 * `--poll-interval <float>`: Seconds between task-status polls while waiting for the diagnostic.  [default: 2.0]
 * `--timeout <float>`: Hard cap on total wait, including queue time, in seconds.  [default: 600.0]
