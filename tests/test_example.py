@@ -246,6 +246,31 @@ def test_extract_code_examples_captures_meta_channels() -> None:
     assert by_title["Shared"]["channels"] is None
 
 
+def test_extract_code_examples_captures_meta_sleep_after_test() -> None:
+    """``meta.sleep_after_test`` is carried onto the discovered example so run-tests
+    can pause after executing it and avoid tripping an upstream rate limit."""
+    listing_data = {
+        "name": "demo/svc",
+        "documents": {
+            "Throttled": {
+                "category": DocumentCategoryEnum.code_example,
+                "file_path": "throttled.sh.j2",
+                "mime_type": "shell",
+                "meta": {"sleep_after_test": 5},
+            },
+            "Unthrottled": {
+                "category": DocumentCategoryEnum.code_example,
+                "file_path": "unthrottled.sh.j2",
+                "mime_type": "shell",
+                "meta": {},
+            },
+        },
+    }
+    by_title = {e["title"]: e for e in extract_code_examples_from_listing(listing_data, Path("/tmp/listing.json"))}
+    assert by_title["Throttled"]["sleep_after_test"] == 5
+    assert by_title["Unthrottled"]["sleep_after_test"] is None
+
+
 # --- resolve_secret_ref: in-place (embedded) substitution -------------------
 
 
