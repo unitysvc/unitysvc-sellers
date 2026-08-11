@@ -10,6 +10,7 @@ making it easy to track results in version control.
 import os
 import random
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -147,6 +148,7 @@ def extract_code_examples_from_listing(listing_data: dict[str, Any], listing_fil
                     "requirements": meta.get("requirements"),  # Required packages (from meta)
                     "category": category,  # Track which category this is
                     "channels": meta.get("channels"),  # Upstream channels this doc applies to (None/[] = all)
+                    "sleep_after_test": meta.get("sleep_after_test"),  # secs to pause after running (rate-limit guard)
                 }
                 code_examples.append(code_example)
 
@@ -1125,6 +1127,20 @@ def run_local(
 
         result = execute_code_example(example, credentials)
         result["skipped"] = False
+
+        # Honor meta.sleep_after_test: pause after executing this example so a
+        # rate-limited upstream (e.g. a low per-minute request cap) isn't
+        # tripped by the next test. Applies only to executed examples (the
+        # skip / previously-passed branches above already `continue`d).
+        sleep_secs = example.get("sleep_after_test")
+        if sleep_secs:
+            try:
+                delay = float(sleep_secs)
+            except (TypeError, ValueError):
+                delay = 0
+            if delay > 0:
+                console.print(f"  [dim]sleeping {delay:g}s (meta.sleep_after_test)[/dim]")
+                time.sleep(delay)
 
         results.append(
             {
