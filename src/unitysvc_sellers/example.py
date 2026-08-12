@@ -786,6 +786,14 @@ def record_upstream_test_status(results: list[dict[str, Any]]) -> list[tuple[str
     is therefore a deliberate, separate decision — see ``services withdraw`` /
     ``services set-visibility``.
 
+    A probe can also fail transiently (a rate-limited upstream timing out when
+    many services are tested back to back), which records a false ``fail``.
+    That is handled by ``--ignore-test-status`` rather than by retrying here:
+    if particular probes prove fragile, the retry belongs on the document as
+    ``meta`` — alongside the existing ``sleep_after_test`` / ``output_contains``
+    / ``requirements`` knobs — so it is opt-in per test rather than blanket
+    behaviour that would also mask a genuinely dead upstream.
+
     Returns ``[(service_name, status)]`` for reporting.
     """
     by_service: dict[str, dict[str, Any]] = {}
