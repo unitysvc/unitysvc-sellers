@@ -774,6 +774,18 @@ def record_upstream_test_status(results: list[dict[str, Any]]) -> list[tuple[str
     untouched, so a filtered run (``specs run-tests <one-service>``) never
     clears or invents status for the others.
 
+    **A recorded failure never takes an already-published service off the
+    shelf.** It only stops the *next* upload. A local probe is not evidence
+    about what customers experience: it authenticates with whatever credential
+    happens to be in the local/CI environment — typically the seller's own test
+    key — while a BYOK customer calls the same upstream with their key, under
+    their own entitlements, quota, region and rate limits. A model this key
+    cannot reach may serve that customer perfectly well. Local runs are also
+    prone to transient failures (a probe timing out behind a rate limit) that
+    say nothing about availability. Deactivating or suspending a live service
+    is therefore a deliberate, separate decision — see ``services withdraw`` /
+    ``services set-visibility``.
+
     Returns ``[(service_name, status)]`` for reporting.
     """
     by_service: dict[str, dict[str, Any]] = {}
@@ -1392,6 +1404,11 @@ def run_local(
             )
             console.print(
                 "[dim]  `specs upload` will skip these; pass --ignore-test-status to override.[/dim]"
+            )
+            console.print(
+                "[dim]  Already-published services are NOT taken off the shelf: this probe uses "
+                "the local credential, while a BYOK customer calls the upstream with their own "
+                "key and entitlements.[/dim]"
             )
 
     # Print summary table

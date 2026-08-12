@@ -369,6 +369,14 @@ def _upstream_test_blocked(listing_file: Path) -> str | None:
     ``service.json`` (round-tripped to the ``<name>.service.json`` sidecar for
     param-file services). Only ``"fail"`` blocks; a missing value means the test
     has never been run locally and is not treated as a failure.
+
+    This gate is deliberately **upload-only**: it withholds a new revision but
+    never touches a service that is already live. The local probe uses whatever
+    credential is in the local/CI environment (usually the seller's test key),
+    whereas a BYOK customer calls the upstream with their own key and
+    entitlements — so a failure here does not establish that the published
+    service is broken for anyone. Taking a live service down stays a separate,
+    explicit action.
     """
     service_json = listing_file.parent / "service.json"
     if not service_json.is_file():
