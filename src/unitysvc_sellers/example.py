@@ -989,6 +989,16 @@ def run_local(
         "-f",
         help="Force rerun all tests, ignoring existing .out and .err files",
     ),
+    connectivity_only: bool = typer.Option(
+        False,
+        "--connectivity-only",
+        help=(
+            "Run only connectivity_test documents. These are curl/bash probes with no "
+            "SDK dependencies (199 of 200 bundled presets are bash), which makes them "
+            "suitable for CI: run them before an automated upload so a service whose "
+            "upstream cannot serve it is recorded and skipped. See --ignore-test-status."
+        ),
+    ),
     fail_fast: bool = typer.Option(
         False,
         "--fail-fast",
@@ -1042,6 +1052,9 @@ def run_local(
     if test_file:
         console.print(f"[blue]Test file filter:[/blue] {test_file}\n")
 
+    if connectivity_only:
+        console.print("[blue]Category filter:[/blue] connectivity_test only\n")
+
     console.print(f"[blue]Scanning for listing files in:[/blue] {data_dir}\n")
 
     discovered = discover_code_examples(data_dir, name=name)
@@ -1049,6 +1062,16 @@ def run_local(
     # Filter by test file name if provided
     if test_file:
         discovered = [(e, p) for e, p in discovered if e.get("file_path", "").endswith(test_file)]
+
+    # Connectivity-only: the probe that decides whether the upstream can serve
+    # the model at all. It is also the only category that gates `specs upload`,
+    # so this is the cheap pre-upload check for CI.
+    if connectivity_only:
+        discovered = [
+            (e, p)
+            for e, p in discovered
+            if e.get("category") == DocumentCategoryEnum.connectivity_test.value
+        ]
 
     # Results accumulate from two sources: (a) tests that skip during the
     # credential-resolution pass because a required secret env var is missing,
