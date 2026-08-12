@@ -23,6 +23,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import re
 import shutil
 import tempfile
@@ -156,30 +157,67 @@ def _write_service_id(sidecar: Path, service_id: str) -> None:
 
 @contextmanager
 def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
-    """Render every param file under ``root`` into a sibling service folder for
-    the duration of the ``with`` block, then clean up.
+    """Render every param file into an **isolated temp copy** of the repo and
+    ``chdir`` into it for the duration of the ``with`` block, then restore the
+    cwd and remove the copy.
 
     Each ``specs/<provider>/<name>.json`` becomes ``specs/<provider>/<name>/``
-    (offering + listing + provider + bundled docs). On exit the
-    backend-assigned ``service_id`` written into the folder's ``service.json`` is
-    copied back to the committed ``<name>.service.json`` sidecar, and the folder
-    is removed. Yields the list of rendered folders.
+    (offering + listing + provider + bundled docs) **inside the copy** — never in
+    the real tree. Every ``specs`` command roots its scan at the cwd, so the
+    ``chdir`` transparently points the whole pipeline at the copy. This means:
+
+    - concurrent sessions can render / upload / test without colliding on the
+      real ``specs/`` (each gets its own temp), and
+    - a crashed run can't leave a stale in-place folder that trips the
+      "a service is one or the other" guard on the next run.
+
+    On exit the backend-assigned ``service_id`` (and the local
+    ``upstream_test_status`` recorded by ``specs run-tests``) written into a
+    rendered folder's ``service.json`` is merged back into the committed
+    ``<name>.service.json`` sidecar in the **real** repo. Yields the rendered
+    folder paths (inside the copy). Use ``specs expand`` for a persistent,
+    inspectable render.
+
+    No-op — no copy, no ``chdir`` — when the repo has no param files, so
+    concrete-only repos are unaffected.
 
     Local templates only: a param file whose ``template`` is not a local dir
     raises (it belongs to ``params instantiate``).
     """
     param_files = discover_param_files(root)
-    rendered: list[tuple[Path, Path]] = []  # (folder, sidecar)
+    if not param_files:
+        # Concrete-only repo: nothing to render, so don't copy or chdir.
+        yield []
+        return
+
+    repo_root = _repo_root_for(param_files[0])  # the dir that holds templates/
+    original_cwd = Path.cwd()
+    tmp = Path(tempfile.mkdtemp(prefix="usvc-specs-"))
+    rendered: list[tuple[Path, Path]] = []  # (folder in copy, REAL sidecar)
 
     try:
+        # A faithful mirror so every template, relative doc ref, and shared file
+        # resolves exactly as in the real tree — just in an isolated location.
+        shutil.copytree(
+            repo_root,
+            tmp,
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns(
+                ".git", ".venv", "node_modules", "__pycache__",
+                EXPANDED_DIRNAME, "*.out", "*.err", "*.status",
+            ),
+        )
+
         # Group by resolved template dir so one populate call renders all params
         # that share a template (and so a repo can mix templates).
         groups: dict[Path, list[tuple[Path, dict[str, Any]]]] = {}
-        for pf in param_files:
+        for pf in discover_param_files(tmp):
             data = _load_json(pf)
             tdir = _resolve_template_dir(pf, data.get("template"))
             folder = pf.with_suffix("")
             if folder.exists():
+                # A committed param file AND a hand-authored folder for the same
+                # service — a genuine authoring conflict (not a stale render).
                 raise ParamRenderError(
                     f"both {pf.name} and folder {folder.name}/ exist for service "
                     f"'{_service_name_for(pf)}' — a service is one or the other."
@@ -211,30 +249,37 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                 # so the folder is self-contained (provider.json already copied).
                 for f in extras:
                     shutil.copyfile(f, folder / f.name)
-                # Seed service.json from the committed sidecar so the upload
-                # updates the same service.
-                sidecar = _sidecar_for(pf)
+                # Seed service.json from the committed sidecar (copied in) so the
+                # upload updates the same service and honours the prior outcome.
+                sidecar_in_copy = _sidecar_for(pf)
                 seed: dict[str, Any] = {}
-                sid = _read_service_id(sidecar)
+                sid = _read_service_id(sidecar_in_copy)
                 if sid:
                     seed["service_id"] = sid
-                # Carry the recorded upstream connectivity outcome into the
-                # ephemeral folder so `specs upload` can honour it (and so a
-                # fresh `specs run-tests` can update it on the way back out).
-                prior = _read_sidecar_field(sidecar, "upstream_test_status")
+                prior = _read_sidecar_field(sidecar_in_copy, "upstream_test_status")
                 if prior is not None:
                     seed["upstream_test_status"] = prior
                 if seed:
                     (folder / "service.json").write_text(
                         json.dumps(seed, indent=2, sort_keys=True) + "\n"
                     )
-                rendered.append((folder, sidecar))
+                # The round-trip on exit must land in the REAL repo's sidecar
+                # (same relative path under repo_root), not the throwaway copy.
+                real_sidecar = repo_root / sidecar_in_copy.relative_to(tmp)
+                rendered.append((folder, real_sidecar))
+                # Drop the param file in the copy so the walk sees exactly one
+                # form (the rendered folder) per service.
+                pf.unlink()
 
+        # Point the whole cwd-rooted pipeline at the isolated copy.
+        os.chdir(tmp)
         yield [folder for folder, _ in rendered]
 
     finally:
-        for folder, sidecar in rendered:
-            # Round-trip any backend-assigned service_id back to the sidecar.
+        os.chdir(original_cwd)
+        for folder, real_sidecar in rendered:
+            # Round-trip the backend-assigned service_id and the local
+            # connectivity outcome recorded by `specs run-tests`.
             service_json = folder / "service.json"
             if service_json.is_file():
                 try:
@@ -243,16 +288,14 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                     rendered_data = {}
                 if not isinstance(rendered_data, dict):
                     rendered_data = {}
-                # Round-trip the backend-assigned service_id and the local
-                # connectivity outcome recorded by `specs run-tests`.
                 carry = {
                     k: rendered_data[k]
                     for k in ("service_id", "upstream_test_status")
                     if rendered_data.get(k)
                 }
                 if carry:
-                    _merge_into_sidecar(sidecar, carry)
-            shutil.rmtree(folder, ignore_errors=True)
+                    _merge_into_sidecar(real_sidecar, carry)
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _localize_file_paths(obj: Any, folder: Path) -> bool:
