@@ -705,6 +705,12 @@ def save_output_files(
     out_path, err_path = get_output_file_paths(code_example_path, listing_file)
     status_path = out_path.with_suffix(".status")
 
+    # Ensure the target directory exists. For param-file services the listing is
+    # rendered into an ephemeral folder that can already be gone by the time we
+    # persist results; without this, open() raised FileNotFoundError and aborted
+    # the whole test run instead of recording a single test's outcome.
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(stdout or "")
 

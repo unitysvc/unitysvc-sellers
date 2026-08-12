@@ -587,14 +587,16 @@ def determine_interpreter(script: str, mime_type: str) -> tuple[str | None, str,
         If failed, returns (None, "", error_message).
 
     Examples:
-        >>> determine_interpreter("print('hello')", "python")
-        ('python3', '.py', None)
+        >>> import sys
+        >>> determine_interpreter("print('hello')", "python") == (sys.executable, '.py', None)
+        True
         >>> determine_interpreter("console.log('hello')", "javascript")
         ('node', '.js', None)
         >>> determine_interpreter("curl http://example.com", "bash")
         ('bash', '.sh', None)
     """
     import shutil
+    import sys
 
     # Map MIME type to file suffix
     mime_to_suffix = {
@@ -647,5 +649,14 @@ def determine_interpreter(script: str, mime_type: str) -> tuple[str | None, str,
         # Shebang was found - verify the interpreter exists
         if not shutil.which(interpreter_cmd):
             return None, file_suffix, f"Interpreter '{interpreter_cmd}' from shebang not found."
+
+    # For Python, run rendered code examples with the interpreter running this
+    # CLI (sys.executable) rather than a bare `python3`/`python` on PATH. The
+    # PATH python is frequently a different (system) interpreter that lacks the
+    # example's declared requirements (e.g. `openai`), producing a spurious
+    # ModuleNotFoundError even when the CLI's own environment has them. A
+    # shebang pinning a specific interpreter path is left untouched.
+    if mime_type == "python" and interpreter_cmd in ("python", "python3"):
+        interpreter_cmd = sys.executable
 
     return interpreter_cmd, file_suffix, None
