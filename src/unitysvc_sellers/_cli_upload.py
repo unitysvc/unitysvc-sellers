@@ -123,10 +123,12 @@ def upload(
     table.add_column("Type", style="cyan", no_wrap=True)
     table.add_column("Success", justify="right", style="green")
     table.add_column("Failed", justify="right", style="red")
+    table.add_column("Skipped", justify="right", style="yellow")
     table.add_row(
         "Services",
         str(result.services.success),
         str(result.services.failed) if result.services.failed else "",
+        str(result.services.skipped) if result.services.skipped else "",
     )
     console.print(table)
 
@@ -143,5 +145,16 @@ def upload(
             style="bold yellow",
         )
         raise typer.Exit(code=1)
+
+    if result.services.skipped:
+        # Skipped services are not failures, but saying "all uploads completed"
+        # would hide that something deliberately did not ship.
+        console.print(
+            f"\n[yellow]⊘[/yellow]  Uploaded {result.services.success}, "
+            f"skipped {result.services.skipped} (failing local connectivity test); "
+            "pass --ignore-test-status to upload anyway",
+            style="bold yellow",
+        )
+        return
 
     console.print("\n[green]✓[/green] All uploads completed successfully", style="bold green")
