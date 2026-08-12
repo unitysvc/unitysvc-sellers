@@ -320,6 +320,7 @@ $ usvc_seller specs run-tests [OPTIONS] [name]
 * `-v, --verbose`: Show detailed output including stdout/stderr from scripts
 * `-f, --force`: Force rerun all tests, ignoring existing .out and .err files
 * `-c, --category <str>`: Only run documents in this category; repeatable. Accepts the full name (connectivity_test) or an unambiguous prefix (connectivity). `--category connectivity` is the cheap pre-upload check for CI: those probes are curl/bash with no SDK requirements, and connectivity is the only category that gates `specs upload`.
+* `--no-early-exit`: Run every document even when a service&#x27;s connectivity test fails. By default the remaining documents for that service are skipped, since a service whose upstream cannot answer a one-token probe will fail them all the same way — usually by burning the full timeout on each.
 * `-x, --fail-fast`: Stop testing on first failure
 * `--help`: Show this message and exit.
 

@@ -730,6 +730,20 @@ def save_output_files(
 UPSTREAM_TEST_STATUS_KEY = "upstream_test_status"
 
 
+def connectivity_first(items: list[Any]) -> list[Any]:
+    """Order connectivity probes ahead of every other document.
+
+    Stable, so everything else keeps the order its listing declared. Document
+    order is otherwise incidental — connectivity sits 8th of 9 in some
+    templates — and the early-exit in ``run_local`` is only useful once the
+    probe for a service has already run.
+    """
+    return sorted(
+        items,
+        key=lambda item: item[0].get("category") != DocumentCategoryEnum.connectivity_test.value,
+    )
+
+
 def _resolve_categories(values: list[str] | None) -> set[str] | None:
     """Resolve ``--category`` values to document-category names.
 
@@ -1052,6 +1066,16 @@ def run_local(
             "only category that gates `specs upload`."
         ),
     ),
+    no_early_exit: bool = typer.Option(
+        False,
+        "--no-early-exit",
+        help=(
+            "Run every document even when a service's connectivity test fails. By "
+            "default the remaining documents for that service are skipped, since a "
+            "service whose upstream cannot answer a one-token probe will fail them "
+            "all the same way — usually by burning the full timeout on each."
+        ),
+    ),
     fail_fast: bool = typer.Option(
         False,
         "--fail-fast",
@@ -1219,6 +1243,16 @@ def run_local(
     if all_code_examples:
         console.print(f"[cyan]Found {len(all_code_examples)} test case(s)[/cyan]\n")
 
+    # Run each service's connectivity probe before its other documents. Document
+    # order is otherwise whatever the listing declares (connectivity sits 8th of
+    # 9 in some templates), and the early-exit below is only useful if the probe
+    # has already run. Stable sort: everything else keeps its declared order.
+    all_code_examples = connectivity_first(all_code_examples)
+
+    # Services whose connectivity probe failed — their remaining documents are
+    # skipped unless --no-early-exit.
+    unreachable: set[str] = set()
+
     # Execute each test case (one entry per document × upstream interface).
     # `results` may already contain entries from the credential-resolution
     # pass above (tests skipped due to missing env vars) — do not shadow it.
@@ -1231,6 +1265,23 @@ def run_local(
         code_example_path = Path(example.get("file_path", ""))
 
         label = f"{service_name} - {example_title} [{iface_name}]"
+
+        if service_name in unreachable:
+            console.print(f"[bold]Testing:[/bold] {label}")
+            console.print("  [yellow]⊘ Skipped[/yellow] (connectivity test failed for this service)")
+            console.print()
+            results.append(
+                {
+                    "service_name": service_name,
+                    "provider": prov_name,
+                    "title": example_title,
+                    "channel": iface_name,
+                    "category": example.get("category"),
+                    "listing_file": example_listing_file,
+                    "result": {"success": True, "exit_code": None, "skipped": True},
+                }
+            )
+            continue
 
         # Check if test previously passed (skip if not forcing)
         if (
@@ -1306,6 +1357,19 @@ def run_local(
                 console.print(f"  [dim]Output saved to: {out_path.name}, {err_path.name}[/dim]")
         else:
             console.print(f"  [red]✗ Failed[/red] - {result['error']}")
+
+            # A service whose upstream cannot answer a one-token connectivity
+            # probe will fail its code examples the same way, usually by burning
+            # the full timeout on each. Stop testing it here unless asked not to.
+            if (
+                not no_early_exit
+                and example.get("category") == DocumentCategoryEnum.connectivity_test.value
+            ):
+                unreachable.add(service_name)
+                console.print(
+                    "  [dim]skipping this service's remaining documents "
+                    "(--no-early-exit to run them anyway)[/dim]"
+                )
             if verbose:
                 if result["stdout"]:
                     console.print(f"  [dim]stdout:[/dim] {result['stdout'][:200]}")

@@ -177,3 +177,44 @@ class TestLocalIdsUnaffected:
         (root / "legacy.service.json").write_text(json.dumps({"service_id": "def-456"}))
 
         assert sorted(read_local_service_ids(tmp_path)) == ["abc-123", "def-456"]
+
+
+class TestConnectivityFirst:
+    """Connectivity probes must run before a service's other documents.
+
+    Listing templates declare connectivity in arbitrary positions (8th of 9 in
+    some), and the early-exit only helps once the probe has run.
+    """
+
+    @staticmethod
+    def _doc(title: str, category: str):
+        return ({"title": title, "category": category}, "prov", {})
+
+    def test_connectivity_moves_to_front(self) -> None:
+        from unitysvc_sellers.example import connectivity_first
+
+        items = [
+            self._doc("How to use", "getting_started"),
+            self._doc("Python code example", "code_example"),
+            self._doc("Connectivity test", "connectivity_test"),
+            self._doc("cURL code example", "code_example"),
+        ]
+        assert [d[0]["title"] for d in connectivity_first(items)] == [
+            "Connectivity test",
+            "How to use",
+            "Python code example",
+            "cURL code example",
+        ]
+
+    def test_is_stable_for_everything_else(self) -> None:
+        """Non-connectivity documents keep their declared order."""
+        from unitysvc_sellers.example import connectivity_first
+
+        items = [self._doc(f"doc{i}", "code_example") for i in range(5)]
+        assert [d[0]["title"] for d in connectivity_first(items)] == [f"doc{i}" for i in range(5)]
+
+    def test_no_connectivity_document_is_a_no_op(self) -> None:
+        from unitysvc_sellers.example import connectivity_first
+
+        items = [self._doc("a", "code_example"), self._doc("b", "getting_started")]
+        assert [d[0]["title"] for d in connectivity_first(items)] == ["a", "b"]
