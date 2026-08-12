@@ -54,6 +54,16 @@ def upload(
             "drafts to submit later."
         ),
     ),
+    ignore_test_status: bool = typer.Option(
+        False,
+        "--ignore-test-status",
+        help=(
+            "Upload even when a service's last local connectivity test failed "
+            "(upstream_test_status=fail in service.json). Use when the failure is "
+            "environmental — a rate limit, a missing local SDK — rather than the "
+            "upstream being unable to serve the model."
+        ),
+    ),
 ) -> None:
     """Upload service specs to UnitySVC.
 
@@ -86,12 +96,20 @@ def upload(
                 if detail
                 else f"  [green]✓[/green] [green]ingested[/green] [cyan]{name}[/cyan]"
             )
+        elif status == "skipped":
+            console.print(f"  [yellow]⊘[/yellow] [yellow]skipped[/yellow] [cyan]{name}[/cyan] — {detail}")
         else:
             console.print(f"  [red]✗[/red] [red]failed[/red] [cyan]{name}[/cyan] — {detail}")
 
     try:
         with Client(api_key=api_key, base_url=base_url) as client:
-            result = client.upload(data_dir, on_progress=_on_progress, name=name, auto_submit=submit)
+            result = client.upload(
+                data_dir,
+                on_progress=_on_progress,
+                name=name,
+                auto_submit=submit,
+                ignore_test_status=ignore_test_status,
+            )
     except APIError as exc:
         console.print(f"[red]✗[/red] API error: {exc}", style="bold red")
         raise typer.Exit(code=1) from exc

@@ -126,7 +126,18 @@ def _read_service_id(sidecar: Path) -> str | None:
     return str(sid) if sid else None
 
 
-def _write_service_id(sidecar: Path, service_id: str) -> None:
+def _read_sidecar_field(sidecar: Path, key: str) -> Any:
+    if not sidecar.is_file():
+        return None
+    try:
+        data = json.loads(sidecar.read_text())
+    except Exception:
+        return None
+    return data.get(key) if isinstance(data, dict) else None
+
+
+def _merge_into_sidecar(sidecar: Path, fields: dict[str, Any]) -> None:
+    """Merge *fields* into the committed sidecar, preserving anything already there."""
     data: dict[str, Any] = {}
     if sidecar.is_file():
         try:
@@ -135,8 +146,12 @@ def _write_service_id(sidecar: Path, service_id: str) -> None:
                 data = loaded
         except Exception:
             data = {}
-    data["service_id"] = str(service_id)
+    data.update(fields)
     sidecar.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
+def _write_service_id(sidecar: Path, service_id: str) -> None:
+    _merge_into_sidecar(sidecar, {"service_id": str(service_id)})
 
 
 @contextmanager
@@ -199,10 +214,19 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                 # Seed service.json from the committed sidecar so the upload
                 # updates the same service.
                 sidecar = _sidecar_for(pf)
+                seed: dict[str, Any] = {}
                 sid = _read_service_id(sidecar)
                 if sid:
+                    seed["service_id"] = sid
+                # Carry the recorded upstream connectivity outcome into the
+                # ephemeral folder so `specs upload` can honour it (and so a
+                # fresh `specs run-tests` can update it on the way back out).
+                prior = _read_sidecar_field(sidecar, "upstream_test_status")
+                if prior is not None:
+                    seed["upstream_test_status"] = prior
+                if seed:
                     (folder / "service.json").write_text(
-                        json.dumps({"service_id": sid}, indent=2, sort_keys=True) + "\n"
+                        json.dumps(seed, indent=2, sort_keys=True) + "\n"
                     )
                 rendered.append((folder, sidecar))
 
@@ -214,11 +238,20 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
             service_json = folder / "service.json"
             if service_json.is_file():
                 try:
-                    sid = json.loads(service_json.read_text()).get("service_id")
+                    rendered_data = json.loads(service_json.read_text())
                 except Exception:
-                    sid = None
-                if sid:
-                    _write_service_id(sidecar, str(sid))
+                    rendered_data = {}
+                if not isinstance(rendered_data, dict):
+                    rendered_data = {}
+                # Round-trip the backend-assigned service_id and the local
+                # connectivity outcome recorded by `specs run-tests`.
+                carry = {
+                    k: rendered_data[k]
+                    for k in ("service_id", "upstream_test_status")
+                    if rendered_data.get(k)
+                }
+                if carry:
+                    _merge_into_sidecar(sidecar, carry)
             shutil.rmtree(folder, ignore_errors=True)
 
 

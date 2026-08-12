@@ -7,6 +7,7 @@ Test results are written to .out and .err files alongside the code example,
 making it easy to track results in version control.
 """
 
+import json
 import os
 import random
 import re
@@ -723,6 +724,62 @@ def save_output_files(
     return out_path, err_path
 
 
+#: Sidecar / ``service.json`` key holding the outcome of the last local
+#: (upstream-facing) connectivity test. ``specs upload`` refuses to publish a
+#: service whose value is ``"fail"`` unless ``--ignore-test-status`` is passed.
+UPSTREAM_TEST_STATUS_KEY = "upstream_test_status"
+
+
+def record_upstream_test_status(results: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """Persist each service's connectivity-test outcome into its ``service.json``.
+
+    Only the **connectivity test** counts. A code example can fail for reasons
+    that say nothing about the upstream — an SDK missing from the runner's
+    environment, a per-document rate limit — whereas a failing connectivity
+    probe means the upstream could not serve the model at all, which is exactly
+    what should stop an upload.
+
+    Services whose connectivity test did not run in this invocation are left
+    untouched, so a filtered run (``specs run-tests <one-service>``) never
+    clears or invents status for the others.
+
+    Returns ``[(service_name, status)]`` for reporting.
+    """
+    by_service: dict[str, dict[str, Any]] = {}
+    for entry in results:
+        if entry.get("category") != DocumentCategoryEnum.connectivity_test.value:
+            continue
+        listing_file = entry.get("listing_file")
+        if not listing_file:
+            continue
+        outcome = entry.get("result") or {}
+        if outcome.get("skipped"):
+            # "previously passed" — the recorded status already reflects it.
+            continue
+        state = by_service.setdefault(
+            entry["service_name"], {"listing_file": listing_file, "ok": True}
+        )
+        if not outcome.get("success"):
+            state["ok"] = False
+
+    written: list[tuple[str, str]] = []
+    for service_name, state in sorted(by_service.items()):
+        service_json = Path(state["listing_file"]).parent / "service.json"
+        data: dict[str, Any] = {}
+        if service_json.is_file():
+            try:
+                loaded = json.loads(service_json.read_text())
+                if isinstance(loaded, dict):
+                    data = loaded
+            except Exception:
+                data = {}
+        status = "pass" if state["ok"] else "fail"
+        data[UPSTREAM_TEST_STATUS_KEY] = status
+        service_json.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        written.append((service_name, status))
+    return written
+
+
 @app.command("list")
 def list_code_examples(
     name: str | None = typer.Argument(
@@ -1120,6 +1177,8 @@ def run_local(
                     "provider": prov_name,
                     "title": example_title,
                     "channel": iface_name,
+                    "category": example.get("category"),
+                    "listing_file": example_listing_file,
                     "result": {
                         "success": True,
                         "exit_code": None,
@@ -1154,6 +1213,8 @@ def run_local(
                 "provider": prov_name,
                 "title": example_title,
                 "channel": iface_name,
+                "category": example.get("category"),
+                "listing_file": example_listing_file,
                 "result": result,
             }
         )
@@ -1268,6 +1329,19 @@ def run_local(
                 break
 
         console.print()
+
+    # Persist the connectivity outcome so `specs upload` can refuse to publish
+    # a service whose upstream could not serve it (see --ignore-test-status).
+    recorded = record_upstream_test_status(results)
+    if recorded:
+        failed = [n for n, st in recorded if st == "fail"]
+        if failed:
+            console.print(
+                f"\n[yellow]⚠ upstream_test_status=fail recorded for:[/yellow] {', '.join(failed)}"
+            )
+            console.print(
+                "[dim]  `specs upload` will skip these; pass --ignore-test-status to override.[/dim]"
+            )
 
     # Print summary table
     console.print("\n" + "=" * 70)
