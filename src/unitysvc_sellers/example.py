@@ -1384,10 +1384,11 @@ def run_local(
     # a service whose upstream could not serve it (see --ignore-test-status).
     recorded = record_upstream_test_status(results)
     if recorded:
-        failed = [n for n, st in recorded if st == "fail"]
-        if failed:
+        failed_services = [n for n, st in recorded if st == "fail"]
+        if failed_services:
             console.print(
-                f"\n[yellow]⚠ upstream_test_status=fail recorded for:[/yellow] {', '.join(failed)}"
+                f"\n[yellow]⚠ upstream_test_status=fail recorded for:[/yellow] "
+                f"{', '.join(failed_services)}"
             )
             console.print(
                 "[dim]  `specs upload` will skip these; pass --ignore-test-status to override.[/dim]"

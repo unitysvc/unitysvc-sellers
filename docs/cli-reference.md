@@ -228,6 +228,7 @@ $ usvc_seller specs upload [OPTIONS] [name]
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--submit`: Also submit each freshly published service for review (validate → pending → run tests) in the same ingest task. Default: leave services as reviewable drafts to submit later.
+* `--ignore-test-status`: Upload even when a service&#x27;s last local connectivity test failed (upstream_test_status=fail in service.json). Use when the failure is environmental — a rate limit, a missing local SDK — rather than the upstream being unable to serve the model.
 * `--help`: Show this message and exit.
 
 ### `usvc_seller specs list-tests`
@@ -318,6 +319,7 @@ $ usvc_seller specs run-tests [OPTIONS] [name]
 * `-t, --test-file <str>`: Only run a specific test file by filename (e.g., &#x27;code-example.py.j2&#x27;)
 * `-v, --verbose`: Show detailed output including stdout/stderr from scripts
 * `-f, --force`: Force rerun all tests, ignoring existing .out and .err files
+* `-c, --category <str>`: Only run documents in this category; repeatable. Accepts the full name (connectivity_test) or an unambiguous prefix (connectivity). `--category connectivity` is the cheap pre-upload check for CI: those probes are curl/bash with no SDK requirements, and connectivity is the only category that gates `specs upload`.
 * `-x, --fail-fast`: Stop testing on first failure
 * `--help`: Show this message and exit.
 
