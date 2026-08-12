@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from unitysvc_sellers.example import record_upstream_test_status
 from unitysvc_sellers.upload import _upstream_test_blocked
 
@@ -108,3 +110,45 @@ class TestUploadGate:
         listing = _listing(tmp_path)
         (listing.parent / "service.json").write_text("{not json")
         assert _upstream_test_blocked(listing) is None
+
+
+class TestCategoryResolution:
+    """`--category` accepts a full name or an unambiguous prefix."""
+
+    def test_exact_and_prefix(self) -> None:
+        from unitysvc_sellers.example import _resolve_categories
+
+        assert _resolve_categories(["connectivity_test"]) == {"connectivity_test"}
+        assert _resolve_categories(["connectivity"]) == {"connectivity_test"}
+        assert _resolve_categories(["CONNECTIVITY"]) == {"connectivity_test"}
+
+    def test_repeatable(self) -> None:
+        from unitysvc_sellers.example import _resolve_categories
+
+        assert _resolve_categories(["connectivity", "request_template"]) == {
+            "connectivity_test",
+            "request_template",
+        }
+
+    def test_none_means_no_filter(self) -> None:
+        from unitysvc_sellers.example import _resolve_categories
+
+        assert _resolve_categories(None) is None
+        assert _resolve_categories([]) is None
+
+    def test_ambiguous_prefix_is_an_error(self) -> None:
+        import typer
+
+        from unitysvc_sellers.example import _resolve_categories
+
+        # code_example and code_example_output both start with "code_example"
+        with pytest.raises(typer.BadParameter, match="Ambiguous"):
+            _resolve_categories(["code_exam"])
+
+    def test_unknown_category_is_an_error(self) -> None:
+        import typer
+
+        from unitysvc_sellers.example import _resolve_categories
+
+        with pytest.raises(typer.BadParameter, match="Unknown document category"):
+            _resolve_categories(["nope"])

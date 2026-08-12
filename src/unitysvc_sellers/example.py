@@ -730,6 +730,37 @@ def save_output_files(
 UPSTREAM_TEST_STATUS_KEY = "upstream_test_status"
 
 
+def _resolve_categories(values: list[str] | None) -> set[str] | None:
+    """Resolve ``--category`` values to document-category names.
+
+    Accepts the exact enum value (``connectivity_test``) or any unambiguous
+    prefix (``connectivity``), so the common cases stay short without making
+    ``code_example`` vs ``code_example_output`` ambiguous — a prefix matching
+    several categories is an error rather than a silent pick.
+    """
+    if not values:
+        return None
+    valid = [e.value for e in DocumentCategoryEnum]
+    resolved: set[str] = set()
+    for raw in values:
+        want = raw.strip().lower()
+        if want in valid:
+            resolved.add(want)
+            continue
+        matches = [v for v in valid if v.startswith(want)]
+        if len(matches) == 1:
+            resolved.add(matches[0])
+        elif not matches:
+            raise typer.BadParameter(
+                f"Unknown document category '{raw}'. Valid categories: {', '.join(valid)}"
+            )
+        else:
+            raise typer.BadParameter(
+                f"Ambiguous document category '{raw}' — matches {', '.join(matches)}."
+            )
+    return resolved
+
+
 def record_upstream_test_status(results: list[dict[str, Any]]) -> list[tuple[str, str]]:
     """Persist each service's connectivity-test outcome into its ``service.json``.
 
@@ -989,14 +1020,16 @@ def run_local(
         "-f",
         help="Force rerun all tests, ignoring existing .out and .err files",
     ),
-    connectivity_only: bool = typer.Option(
-        False,
-        "--connectivity-only",
+    category: list[str] | None = typer.Option(
+        None,
+        "--category",
+        "-c",
         help=(
-            "Run only connectivity_test documents. These are curl/bash probes with no "
-            "SDK dependencies (199 of 200 bundled presets are bash), which makes them "
-            "suitable for CI: run them before an automated upload so a service whose "
-            "upstream cannot serve it is recorded and skipped. See --ignore-test-status."
+            "Only run documents in this category; repeatable. Accepts the full name "
+            "(connectivity_test) or an unambiguous prefix (connectivity). "
+            "`--category connectivity` is the cheap pre-upload check for CI: those "
+            "probes are curl/bash with no SDK requirements, and connectivity is the "
+            "only category that gates `specs upload`."
         ),
     ),
     fail_fast: bool = typer.Option(
@@ -1052,8 +1085,9 @@ def run_local(
     if test_file:
         console.print(f"[blue]Test file filter:[/blue] {test_file}\n")
 
-    if connectivity_only:
-        console.print("[blue]Category filter:[/blue] connectivity_test only\n")
+    selected_categories = _resolve_categories(category)
+    if selected_categories:
+        console.print(f"[blue]Category filter:[/blue] {', '.join(sorted(selected_categories))}\n")
 
     console.print(f"[blue]Scanning for listing files in:[/blue] {data_dir}\n")
 
@@ -1063,15 +1097,8 @@ def run_local(
     if test_file:
         discovered = [(e, p) for e, p in discovered if e.get("file_path", "").endswith(test_file)]
 
-    # Connectivity-only: the probe that decides whether the upstream can serve
-    # the model at all. It is also the only category that gates `specs upload`,
-    # so this is the cheap pre-upload check for CI.
-    if connectivity_only:
-        discovered = [
-            (e, p)
-            for e, p in discovered
-            if e.get("category") == DocumentCategoryEnum.connectivity_test.value
-        ]
+    if selected_categories:
+        discovered = [(e, p) for e, p in discovered if e.get("category") in selected_categories]
 
     # Results accumulate from two sources: (a) tests that skip during the
     # credential-resolution pass because a required secret env var is missing,
