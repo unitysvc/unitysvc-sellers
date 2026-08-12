@@ -43,6 +43,7 @@ This module deliberately ships a minimal subset of the original
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -68,6 +69,7 @@ class UploadCounts:
     total: int = 0
     success: int = 0
     failed: int = 0
+    skipped: int = 0
     errors: list[dict[str, str]] = field(default_factory=list)
 
 
@@ -360,6 +362,36 @@ def _build_service_payload(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+def _upstream_test_blocked(listing_file: Path) -> str | None:
+    """Return a reason string when this service's recorded connectivity test failed.
+
+    ``specs run-tests`` writes ``upstream_test_status`` into the service's
+    ``service.json`` (round-tripped to the ``<name>.service.json`` sidecar for
+    param-file services). Only ``"fail"`` blocks; a missing value means the test
+    has never been run locally and is not treated as a failure.
+
+    This gate is deliberately **upload-only**: it withholds a new revision but
+    never touches a service that is already live. The local probe uses whatever
+    credential is in the local/CI environment (usually the seller's test key),
+    whereas a BYOK customer calls the upstream with their own key and
+    entitlements — so a failure here does not establish that the published
+    service is broken for anyone. Taking a live service down stays a separate,
+    explicit action.
+    """
+    service_json = listing_file.parent / "service.json"
+    if not service_json.is_file():
+        return None
+    try:
+        data = json.loads(service_json.read_text())
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    if data.get("upstream_test_status") == "fail":
+        return "last local connectivity test failed (upstream_test_status=fail); --ignore-test-status to override"
+    return None
+
+
 def upload_directory(
     client: Client,
     data_dir: Path,
@@ -369,6 +401,7 @@ def upload_directory(
     task_poll_interval: float = 2.0,
     name: str | None = None,
     auto_submit: bool = False,
+    ignore_test_status: bool = False,
 ) -> UploadResult:
     """Upload service bundles under ``data_dir``.
 
@@ -425,6 +458,18 @@ def upload_directory(
     result.services.total = len(listing_files)
 
     for listing_file in listing_files:
+        # A service whose last local connectivity test failed cannot serve
+        # requests, so publishing it would only queue a broken revision.
+        # `specs run-tests` records the outcome in service.json; --ignore-test-status
+        # overrides (e.g. a known-environmental failure).
+        if not ignore_test_status:
+            blocked_reason = _upstream_test_blocked(listing_file)
+            if blocked_reason:
+                result.services.skipped += 1
+                if on_progress is not None:
+                    on_progress("service", "skipped", listing_file.parent.name, blocked_reason)
+                continue
+
         try:
             provider_data, offering_data, listing_data, service_data = _build_service_payload(
                 listing_file, client=client

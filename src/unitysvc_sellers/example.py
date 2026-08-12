@@ -7,6 +7,7 @@ Test results are written to .out and .err files alongside the code example,
 making it easy to track results in version control.
 """
 
+import json
 import os
 import random
 import re
@@ -723,6 +724,113 @@ def save_output_files(
     return out_path, err_path
 
 
+#: Sidecar / ``service.json`` key holding the outcome of the last local
+#: (upstream-facing) connectivity test. ``specs upload`` refuses to publish a
+#: service whose value is ``"fail"`` unless ``--ignore-test-status`` is passed.
+UPSTREAM_TEST_STATUS_KEY = "upstream_test_status"
+
+
+def _resolve_categories(values: list[str] | None) -> set[str] | None:
+    """Resolve ``--category`` values to document-category names.
+
+    Accepts the exact enum value (``connectivity_test``) or any unambiguous
+    prefix (``connectivity``), so the common cases stay short without making
+    ``code_example`` vs ``code_example_output`` ambiguous — a prefix matching
+    several categories is an error rather than a silent pick.
+    """
+    if not values:
+        return None
+    valid = [e.value for e in DocumentCategoryEnum]
+    resolved: set[str] = set()
+    for raw in values:
+        want = raw.strip().lower()
+        if want in valid:
+            resolved.add(want)
+            continue
+        matches = [v for v in valid if v.startswith(want)]
+        if len(matches) == 1:
+            resolved.add(matches[0])
+        elif not matches:
+            raise typer.BadParameter(
+                f"Unknown document category '{raw}'. Valid categories: {', '.join(valid)}"
+            )
+        else:
+            raise typer.BadParameter(
+                f"Ambiguous document category '{raw}' — matches {', '.join(matches)}."
+            )
+    return resolved
+
+
+def record_upstream_test_status(results: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """Persist each service's connectivity-test outcome into its ``service.json``.
+
+    Only the **connectivity test** counts. A code example can fail for reasons
+    that say nothing about the upstream — an SDK missing from the runner's
+    environment, a per-document rate limit — whereas a failing connectivity
+    probe means the upstream could not serve the model at all, which is exactly
+    what should stop an upload.
+
+    Services whose connectivity test did not run in this invocation are left
+    untouched, so a filtered run (``specs run-tests <one-service>``) never
+    clears or invents status for the others.
+
+    **A recorded failure never takes an already-published service off the
+    shelf.** It only stops the *next* upload. A local probe is not evidence
+    about what customers experience: it authenticates with whatever credential
+    happens to be in the local/CI environment — typically the seller's own test
+    key — while a BYOK customer calls the same upstream with their key, under
+    their own entitlements, quota, region and rate limits. A model this key
+    cannot reach may serve that customer perfectly well. Local runs are also
+    prone to transient failures (a probe timing out behind a rate limit) that
+    say nothing about availability. Deactivating or suspending a live service
+    is therefore a deliberate, separate decision — see ``services withdraw`` /
+    ``services set-visibility``.
+
+    A probe can also fail transiently (a rate-limited upstream timing out when
+    many services are tested back to back), which records a false ``fail``.
+    That is handled by ``--ignore-test-status`` rather than by retrying here:
+    if particular probes prove fragile, the retry belongs on the document as
+    ``meta`` — alongside the existing ``sleep_after_test`` / ``output_contains``
+    / ``requirements`` knobs — so it is opt-in per test rather than blanket
+    behaviour that would also mask a genuinely dead upstream.
+
+    Returns ``[(service_name, status)]`` for reporting.
+    """
+    by_service: dict[str, dict[str, Any]] = {}
+    for entry in results:
+        if entry.get("category") != DocumentCategoryEnum.connectivity_test.value:
+            continue
+        listing_file = entry.get("listing_file")
+        if not listing_file:
+            continue
+        outcome = entry.get("result") or {}
+        if outcome.get("skipped"):
+            # "previously passed" — the recorded status already reflects it.
+            continue
+        state = by_service.setdefault(
+            entry["service_name"], {"listing_file": listing_file, "ok": True}
+        )
+        if not outcome.get("success"):
+            state["ok"] = False
+
+    written: list[tuple[str, str]] = []
+    for service_name, state in sorted(by_service.items()):
+        service_json = Path(state["listing_file"]).parent / "service.json"
+        data: dict[str, Any] = {}
+        if service_json.is_file():
+            try:
+                loaded = json.loads(service_json.read_text())
+                if isinstance(loaded, dict):
+                    data = loaded
+            except Exception:
+                data = {}
+        status = "pass" if state["ok"] else "fail"
+        data[UPSTREAM_TEST_STATUS_KEY] = status
+        service_json.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        written.append((service_name, status))
+    return written
+
+
 @app.command("list")
 def list_code_examples(
     name: str | None = typer.Argument(
@@ -932,6 +1040,18 @@ def run_local(
         "-f",
         help="Force rerun all tests, ignoring existing .out and .err files",
     ),
+    category: list[str] | None = typer.Option(
+        None,
+        "--category",
+        "-c",
+        help=(
+            "Only run documents in this category; repeatable. Accepts the full name "
+            "(connectivity_test) or an unambiguous prefix (connectivity). "
+            "`--category connectivity` is the cheap pre-upload check for CI: those "
+            "probes are curl/bash with no SDK requirements, and connectivity is the "
+            "only category that gates `specs upload`."
+        ),
+    ),
     fail_fast: bool = typer.Option(
         False,
         "--fail-fast",
@@ -985,6 +1105,10 @@ def run_local(
     if test_file:
         console.print(f"[blue]Test file filter:[/blue] {test_file}\n")
 
+    selected_categories = _resolve_categories(category)
+    if selected_categories:
+        console.print(f"[blue]Category filter:[/blue] {', '.join(sorted(selected_categories))}\n")
+
     console.print(f"[blue]Scanning for listing files in:[/blue] {data_dir}\n")
 
     discovered = discover_code_examples(data_dir, name=name)
@@ -992,6 +1116,9 @@ def run_local(
     # Filter by test file name if provided
     if test_file:
         discovered = [(e, p) for e, p in discovered if e.get("file_path", "").endswith(test_file)]
+
+    if selected_categories:
+        discovered = [(e, p) for e, p in discovered if e.get("category") in selected_categories]
 
     # Results accumulate from two sources: (a) tests that skip during the
     # credential-resolution pass because a required secret env var is missing,
@@ -1120,6 +1247,8 @@ def run_local(
                     "provider": prov_name,
                     "title": example_title,
                     "channel": iface_name,
+                    "category": example.get("category"),
+                    "listing_file": example_listing_file,
                     "result": {
                         "success": True,
                         "exit_code": None,
@@ -1154,6 +1283,8 @@ def run_local(
                 "provider": prov_name,
                 "title": example_title,
                 "channel": iface_name,
+                "category": example.get("category"),
+                "listing_file": example_listing_file,
                 "result": result,
             }
         )
@@ -1268,6 +1399,25 @@ def run_local(
                 break
 
         console.print()
+
+    # Persist the connectivity outcome so `specs upload` can refuse to publish
+    # a service whose upstream could not serve it (see --ignore-test-status).
+    recorded = record_upstream_test_status(results)
+    if recorded:
+        failed_services = [n for n, st in recorded if st == "fail"]
+        if failed_services:
+            console.print(
+                f"\n[yellow]⚠ upstream_test_status=fail recorded for:[/yellow] "
+                f"{', '.join(failed_services)}"
+            )
+            console.print(
+                "[dim]  `specs upload` will skip these; pass --ignore-test-status to override.[/dim]"
+            )
+            console.print(
+                "[dim]  Already-published services are NOT taken off the shelf: this probe uses "
+                "the local credential, while a BYOK customer calls the upstream with their own "
+                "key and entitlements.[/dim]"
+            )
 
     # Print summary table
     console.print("\n" + "=" * 70)

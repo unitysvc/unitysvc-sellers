@@ -54,6 +54,16 @@ def upload(
             "drafts to submit later."
         ),
     ),
+    ignore_test_status: bool = typer.Option(
+        False,
+        "--ignore-test-status",
+        help=(
+            "Upload even when a service's last local connectivity test failed "
+            "(upstream_test_status=fail in service.json). Use when the failure is "
+            "environmental — a rate limit, a missing local SDK — rather than the "
+            "upstream being unable to serve the model."
+        ),
+    ),
 ) -> None:
     """Upload service specs to UnitySVC.
 
@@ -86,12 +96,20 @@ def upload(
                 if detail
                 else f"  [green]✓[/green] [green]ingested[/green] [cyan]{name}[/cyan]"
             )
+        elif status == "skipped":
+            console.print(f"  [yellow]⊘[/yellow] [yellow]skipped[/yellow] [cyan]{name}[/cyan] — {detail}")
         else:
             console.print(f"  [red]✗[/red] [red]failed[/red] [cyan]{name}[/cyan] — {detail}")
 
     try:
         with Client(api_key=api_key, base_url=base_url) as client:
-            result = client.upload(data_dir, on_progress=_on_progress, name=name, auto_submit=submit)
+            result = client.upload(
+                data_dir,
+                on_progress=_on_progress,
+                name=name,
+                auto_submit=submit,
+                ignore_test_status=ignore_test_status,
+            )
     except APIError as exc:
         console.print(f"[red]✗[/red] API error: {exc}", style="bold red")
         raise typer.Exit(code=1) from exc
@@ -105,10 +123,12 @@ def upload(
     table.add_column("Type", style="cyan", no_wrap=True)
     table.add_column("Success", justify="right", style="green")
     table.add_column("Failed", justify="right", style="red")
+    table.add_column("Skipped", justify="right", style="yellow")
     table.add_row(
         "Services",
         str(result.services.success),
         str(result.services.failed) if result.services.failed else "",
+        str(result.services.skipped) if result.services.skipped else "",
     )
     console.print(table)
 
@@ -125,5 +145,16 @@ def upload(
             style="bold yellow",
         )
         raise typer.Exit(code=1)
+
+    if result.services.skipped:
+        # Skipped services are not failures, but saying "all uploads completed"
+        # would hide that something deliberately did not ship.
+        console.print(
+            f"\n[yellow]⊘[/yellow]  Uploaded {result.services.success}, "
+            f"skipped {result.services.skipped} (failing local connectivity test); "
+            "pass --ignore-test-status to upload anyway",
+            style="bold yellow",
+        )
+        return
 
     console.print("\n[green]✓[/green] All uploads completed successfully", style="bold green")
