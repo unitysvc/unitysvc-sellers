@@ -152,3 +152,28 @@ class TestCategoryResolution:
 
         with pytest.raises(typer.BadParameter, match="Unknown document category"):
             _resolve_categories(["nope"])
+
+
+class TestLocalIdsUnaffected:
+    """`-l` / `--local-ids` must cope with the sidecar shapes this feature adds.
+
+    Recording `upstream_test_status` means a sidecar can now exist *without* a
+    `service_id` (tested locally but never uploaded) — a shape that previously
+    never occurred, since sidecars were only created by upload.
+    """
+
+    def test_status_only_sidecar_is_skipped_and_extra_key_ignored(self, tmp_path: Path) -> None:
+        from unitysvc_sellers.utils import read_local_service_ids
+
+        root = tmp_path / "specs" / "prov"
+        root.mkdir(parents=True)
+        # never uploaded, only tested — must not yield an id (and must not raise)
+        (root / "never-uploaded.service.json").write_text(json.dumps({"upstream_test_status": "fail"}))
+        # uploaded then tested — id still collected despite the extra key
+        (root / "uploaded.service.json").write_text(
+            json.dumps({"service_id": "abc-123", "upstream_test_status": "pass"})
+        )
+        # legacy id-only sidecar
+        (root / "legacy.service.json").write_text(json.dumps({"service_id": "def-456"}))
+
+        assert sorted(read_local_service_ids(tmp_path)) == ["abc-123", "def-456"]
