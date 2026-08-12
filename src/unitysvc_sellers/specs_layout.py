@@ -56,12 +56,22 @@ _DATA_SUFFIXES = (".json", ".toml")
 def resolve_specs_root(start: Path) -> Path:
     """Resolve the ``specs/`` root from a user-supplied path.
 
-    Accepts the repo root (with a ``specs/`` subdir), the ``specs/`` dir
-    itself, or any subtree of it.
+    Accepts, in order:
+
+    - a top-level ``specs/`` subdir (classic layout, or when *start* is the
+      ``services/`` wrapper itself),
+    - a ``services/specs/`` subdir (the post-migration layout, so
+      ``usvc_seller`` run from the **repo root** finds the catalog without a
+      ``cd services/``),
+    - otherwise *start* itself (the ``specs/`` dir, or a subtree of it).
+
+    Service names are computed relative to this root, so returning the true
+    ``specs/`` dir — not the repo root above it — is what keeps
+    ``<provider>/<service>`` names matching their folder paths.
     """
-    candidate = start / "specs"
-    if candidate.is_dir():
-        return candidate
+    for candidate in (start / "specs", start / "services" / "specs"):
+        if candidate.is_dir():
+            return candidate
     return start
 
 

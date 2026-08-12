@@ -68,6 +68,48 @@ def test_resolves_specs_subdir_or_root(specs_repo: Path) -> None:
     assert _run(specs_repo / "specs").exit_code == 0
 
 
+@pytest.fixture
+def migrated_specs_repo(tmp_path: Path) -> Path:
+    """Post-migration layout: the catalog lives under ``services/specs/``.
+
+    Layout::
+
+        <tmp>/services/specs/provider2/service2/{provider,offering,listing}.json
+    """
+    folder = tmp_path / "services" / "specs" / "provider2" / "service2"
+    folder.mkdir(parents=True)
+    src = EXAMPLE_DATA / "provider2" / "service2"
+    for f in src.iterdir():
+        if f.is_file():
+            shutil.copy2(f, folder / f.name)
+    for name in ("provider.json", "offering.json", "listing.json"):
+        _strip_schema(folder / name)
+    return tmp_path
+
+
+def test_resolves_services_specs_layout_from_repo_root(migrated_specs_repo: Path) -> None:
+    # Post-migration repos keep the catalog under services/specs/. Running from
+    # the repo root must root at services/specs so <provider>/<service> names
+    # match their folder paths (regression: names came out prefixed with
+    # 'services/specs/' and every service mismatched).
+    result = _run(migrated_specs_repo)
+    assert result.exit_code == 0, result.output
+    assert "valid" in result.output.lower()
+    # Pointing at the services/ wrapper directly also works.
+    assert _run(migrated_specs_repo / "services").exit_code == 0
+
+
+def test_resolve_specs_root_prefers_top_level_then_services_specs(tmp_path: Path) -> None:
+    from unitysvc_sellers.specs_layout import resolve_specs_root
+
+    (tmp_path / "services" / "specs").mkdir(parents=True)
+    # Migrated layout: root at services/specs/ when there is no top-level specs/.
+    assert resolve_specs_root(tmp_path) == tmp_path / "services" / "specs"
+    # A top-level specs/ still wins when both are present.
+    (tmp_path / "specs").mkdir()
+    assert resolve_specs_root(tmp_path) == tmp_path / "specs"
+
+
 def test_schema_field_is_rejected(specs_repo: Path) -> None:
     listing = specs_repo / "specs" / "provider2" / "service2" / "listing.json"
     data = json.loads(listing.read_text())
