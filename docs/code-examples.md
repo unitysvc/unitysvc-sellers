@@ -438,16 +438,41 @@ Replace a hand-written `documents` entry with a `$doc_preset` sentinel. On `usvc
 }
 ```
 
-Per-field overrides go inside `$with` — you may override `description`, `is_active`, `is_public`, and `meta`, but not `category`, `mime_type`, or `file_path` (those are tied to the bundled file):
+Per-field overrides come in two equivalent forms. You may override `description`, `is_active`, `is_public`, and `meta`, but not `category`, `mime_type`, or `file_path` (those are tied to the bundled file). `meta` is shallow-merged with the preset's own `meta` (so a preset's `requirements` survive alongside your additions), and your values win on conflict.
+
+**Sibling form** (unitysvc-core ≥ 0.2.12) — overrides sit next to the sentinel:
 
 ```json
 {
     "Python code example": {
         "$doc_preset": "s3_code_example_v1",
-        "$with": {
+        "description": "List objects in the acme-public bucket",
+        "meta": { "sleep_after_test": 5 }
+    }
+}
+```
+
+**Nested form** — overrides sit inside the sentinel value alongside `name`:
+
+```json
+{
+    "Python code example": {
+        "$doc_preset": {
+            "name": "s3_code_example_v1",
             "description": "List objects in the acme-public bucket",
-            "meta": { "requirements": ["boto3>=1.34"] }
+            "meta": { "sleep_after_test": 5 }
         }
+    }
+}
+```
+
+The two differ in one way: **preset parameters** (substitutions the preset declares, e.g. `llm_code_example_openai`'s `version_prefix`) are consumed while expanding the preset, so they only work in the **nested** form — a sibling key is always a record-level override merged after expansion, never a parameter:
+
+```json
+{
+    "Python code example": {
+        "$doc_preset": { "name": "llm_code_example_openai", "version_prefix": "" },
+        "meta": { "sleep_after_test": 5 }
     }
 }
 ```
