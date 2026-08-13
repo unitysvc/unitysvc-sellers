@@ -80,12 +80,20 @@ def _make_repo(tmp_path: Path, *, params: dict[str, dict] | None = None) -> Path
     return tmp_path
 
 
-def test_renders_self_contained_folder_then_cleans_up(tmp_path: Path) -> None:
+def test_renders_into_isolated_temp_not_in_place(tmp_path: Path) -> None:
     root = _make_repo(tmp_path, params={"resp200": {"status": 200, "label": "OK"}})
-    folder = root / "specs" / "unitysvc" / "resp200"
+    in_place = root / "specs" / "unitysvc" / "resp200"
+    outer_cwd = Path.cwd()
 
     with materialized_param_specs(root) as rendered:
-        assert rendered == [folder]
+        assert len(rendered) == 1
+        folder = rendered[0]
+        # Rendered into an isolated temp copy, NOT the real tree — so a second
+        # session can render/upload/test concurrently without colliding.
+        assert not folder.is_relative_to(root), folder
+        assert not in_place.exists(), "must not render in-place under real specs/"
+        # cwd is redirected into the copy so the whole pipeline scans it.
+        assert Path.cwd() != outer_cwd
         # self-contained: offering + listing + provider + bundled connectivity
         for f in ("offering.json", "listing.json", "provider.json", "connectivity.sh.j2"):
             assert (folder / f).exists(), f
@@ -96,9 +104,25 @@ def test_renders_self_contained_folder_then_cleans_up(tmp_path: Path) -> None:
         # listing.name == folder path under specs/ (from {{ service_name }})
         assert listing["name"] == "unitysvc/resp200"
 
-    # ephemeral: folder gone, param file untouched
+    # cwd restored; copy gone; real repo never touched (param file intact).
+    assert Path.cwd() == outer_cwd
     assert not folder.exists()
+    assert not in_place.exists()
     assert (root / "specs" / "unitysvc" / "resp200.json").exists()
+
+
+def test_no_param_files_is_noop(tmp_path: Path) -> None:
+    # A concrete-only repo has nothing to render: no copy, no chdir.
+    svc = tmp_path / "specs" / "unitysvc" / "svc"
+    svc.mkdir(parents=True)
+    (svc / "offering.json").write_text(json.dumps({"name": "svc"}) + "\n")
+    (tmp_path / "templates").mkdir()
+    outer_cwd = Path.cwd()
+
+    with materialized_param_specs(tmp_path) as rendered:
+        assert rendered == []
+        assert Path.cwd() == outer_cwd  # no chdir for concrete-only repos
+    assert Path.cwd() == outer_cwd
 
 
 def test_service_id_sidecar_roundtrip(tmp_path: Path) -> None:
@@ -106,14 +130,14 @@ def test_service_id_sidecar_roundtrip(tmp_path: Path) -> None:
     sidecar = root / "specs" / "unitysvc" / "resp200.service.json"
     sidecar.write_text(json.dumps({"service_id": "existing-id"}) + "\n")
 
-    with materialized_param_specs(root):
-        folder = root / "specs" / "unitysvc" / "resp200"
+    with materialized_param_specs(root) as rendered:
+        folder = rendered[0]  # inside the isolated copy
         # seeded from the committed sidecar so the upload updates the same service
         assert json.loads((folder / "service.json").read_text())["service_id"] == "existing-id"
         # simulate the backend assigning/refreshing the id during upload
         (folder / "service.json").write_text(json.dumps({"service_id": "new-id"}) + "\n")
 
-    # synced back to the committed sidecar; folder cleaned up
+    # synced back to the committed (real) sidecar; copy cleaned up
     assert json.loads(sidecar.read_text())["service_id"] == "new-id"
     assert not (root / "specs" / "unitysvc" / "resp200").exists()
 
