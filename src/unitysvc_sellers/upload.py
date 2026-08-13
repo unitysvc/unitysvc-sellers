@@ -87,6 +87,26 @@ class UploadResult:
 # ---------------------------------------------------------------------------
 
 
+def _sync_sidecar(service_dir: Path, service_record: dict[str, Any]) -> None:
+    """Write the canonical service_id into ``<service_dir>/service.json`` after a
+    completed ingest.
+
+    For a REVISION the canonical id is ``revision_of`` (the original active
+    service), NOT the revision's own ``service_id`` — so the next upload targets
+    the same service. When the local sidecar had diverged (a different/stale id),
+    the backend resolves by ``(seller, name)`` and returns that ``revision_of``,
+    so writing it here self-heals the sidecar. For a non-revision ingest the full
+    returned record is persisted as before. An empty record is a no-op.
+    """
+    if not service_record:
+        return
+    revision_of = service_record.get("revision_of")
+    if revision_of:
+        write_service_data(service_dir, {"service_id": str(revision_of)})
+    else:
+        write_service_data(service_dir, service_record)
+
+
 def _format_polling_error(exc: APIError) -> str:
     """Translate an APIError raised during task polling into a user-friendly hint.
 
@@ -559,14 +579,11 @@ def upload_directory(
                     revision_of = service_record.get("revision_of")
                     if revision_of:
                         detail = f"revision_created, service_id={revision_of} (revision={service_id})"
-                        if on_progress is not None:
-                            on_progress("service", "ok", name_val, detail)
                     else:
                         detail = f"service_id={service_id}" if service_id else f"task_id={task_id}"
-                        if on_progress is not None:
-                            on_progress("service", "ok", name_val, detail)
-                        if service_record:
-                            write_service_data(listing_file.parent, service_record)
+                    if on_progress is not None:
+                        on_progress("service", "ok", name_val, detail)
+                    _sync_sidecar(listing_file.parent, service_record)
                 else:
                     result.services.failed += 1
                     error_msg = (
