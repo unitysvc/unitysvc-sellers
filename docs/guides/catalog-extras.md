@@ -26,12 +26,12 @@ author a `promotion.*` file (it can live anywhere in the repo — it's keyed by
 Upload, then manage status:
 
 ```bash
-usvc_seller specs upload -t promotions      # upload just promotions
-usvc_seller promotions list
-usvc_seller promotions show launch-week
-usvc_seller promotions activate launch-week # status → active
-usvc_seller promotions pause    launch-week # status → paused
-usvc_seller promotions delete   launch-week
+usvc seller specs upload -t promotions      # upload just promotions
+usvc seller promotions list
+usvc seller promotions show launch-week
+usvc seller promotions activate launch-week # status → active
+usvc seller promotions pause    launch-week # status → paused
+usvc seller promotions delete   launch-week
 ```
 
 Key fields: `scope` (which services), `pricing` (the discount), `apply_at`,
@@ -56,10 +56,10 @@ member. You author a `service_group.*` file and upload it.
 ```
 
 ```bash
-usvc_seller specs upload -t groups
-usvc_seller groups list
-usvc_seller groups show llm
-usvc_seller groups delete llm
+usvc seller specs upload -t groups
+usvc seller groups list
+usvc seller groups show llm
+usvc seller groups delete llm
 ```
 
 Key fields: `group_type`, `membership_rules` (which services join),
@@ -74,10 +74,10 @@ referenced **by name** from your specs and params — the raw value never appear
 in your files or commands.
 
 ```bash
-usvc_seller secrets set UPSTREAM_API_KEY     # create or rotate (idempotent); prompts for the value
-usvc_seller secrets list                     # metadata only — values are never returned
-usvc_seller secrets show UPSTREAM_API_KEY
-usvc_seller secrets delete UPSTREAM_API_KEY  # services referencing it will stop resolving
+usvc seller secrets set UPSTREAM_API_KEY     # create or rotate (idempotent); prompts for the value
+usvc seller secrets list                     # metadata only — values are never returned
+usvc seller secrets show UPSTREAM_API_KEY
+usvc seller secrets delete UPSTREAM_API_KEY  # services referencing it will stop resolving
 ```
 
 Reference a secret from a service by name, using the namespace that declares who

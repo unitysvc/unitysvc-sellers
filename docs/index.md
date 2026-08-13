@@ -38,19 +38,19 @@ talk to the same `/v1/seller/*` HTTP API — mix and match freely:
 
 -   **`usvc_seller` CLI** — a local-first, version-controlled workflow for
     authoring, validating, uploading, testing, and operating your catalog from
-    the command line. *Local* commands live under `usvc_seller specs …`; *remote*
-    commands under `usvc_seller services | params | groups | promotions | secrets | templates …`.
+    the command line. *Local* commands live under `usvc seller specs …`; *remote*
+    commands under `usvc seller services | params | groups | promotions | secrets | templates …`.
 -   **Python SDK** — `unitysvc_sellers.Client` / `AsyncClient`, a typed HTTP
     client (the CLI is built on it) for embedding catalog operations in your own
     scripts, CI/CD jobs, or applications.
 
 ```bash
 # CLI: validate local specs, then upload them
-usvc_seller specs validate
-usvc_seller specs upload
+usvc seller specs validate
+usvc seller specs upload
 
 # CLI: or create a service from a platform template, no files needed
-usvc_seller params instantiate openai-compatible-llm \
+usvc seller params instantiate openai-compatible-llm \
     -P api_base_url=https://api.example.com/v1 -P input_price=1.00
 ```
 

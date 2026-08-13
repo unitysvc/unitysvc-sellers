@@ -1,8 +1,8 @@
-"""``usvc_seller params`` — system-template param files under ``params/``.
+"""``usvc seller params`` — system-template param files under ``params/``.
 
 A **param file** (``params/<name>.json`` = ``{ "template", "parameters" }``) is a
 compact, declarative service definition: a **system template** name (browse the
-catalog with ``usvc_seller templates``) plus the values to render it with. The
+catalog with ``usvc seller templates``) plus the values to render it with. The
 ``params/`` folder is the system-template mirror of ``specs/`` (which holds local
 spec folders and local-template param files):
 
@@ -176,7 +176,7 @@ def show_param(
     matches = [e for e in _entries(data_dir) if e["service_name"] == name]
     if not matches:
         console.print(
-            f"[red]Error:[/red] No param file for '{name}' under params/. Run [cyan]usvc_seller params list[/cyan]."
+            f"[red]Error:[/red] No param file for '{name}' under params/. Run [cyan]usvc seller params list[/cyan]."
         )
         raise typer.Exit(code=1)
     entry = matches[0]
@@ -205,7 +205,7 @@ def show_param(
         for key, value in params.items():
             ptable.add_row(key, value if isinstance(value, str) else json.dumps(value, default=str))
         console.print(ptable)
-    console.print("\n[dim]Instantiate with[/dim] [cyan]usvc_seller params instantiate[/cyan][dim].[/dim]")
+    console.print("\n[dim]Instantiate with[/dim] [cyan]usvc seller params instantiate[/cyan][dim].[/dim]")
 
 
 @app.command("instantiate")

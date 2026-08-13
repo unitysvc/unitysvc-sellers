@@ -1,9 +1,9 @@
-"""``usvc_seller groups`` — remote service group operations.
+"""``usvc seller groups`` — remote service group operations.
 
 Net-new command group (no equivalent in ``unitysvc-services``). Mirrors
 the structure of ``promotions``: name lookup with partial-id fallback,
 list / show / delete. Group definitions are committed as files under
-``groups/`` and pushed via ``usvc_seller groups upload``.
+``groups/`` and pushed via ``usvc seller groups upload``.
 """
 
 from __future__ import annotations
@@ -240,7 +240,7 @@ def upload_groups(
     console.print("\n[green]✓[/green] Groups uploaded successfully", style="bold green")
 
 
-# NOTE: ``usvc_seller groups refresh`` was removed alongside the
+# NOTE: ``usvc seller groups refresh`` was removed alongside the
 # backend endpoint it wrapped. Dynamic membership is now refreshed
 # automatically by a background worker whenever a group is mutated, so
 # there is no longer a manual refresh step for sellers to invoke.

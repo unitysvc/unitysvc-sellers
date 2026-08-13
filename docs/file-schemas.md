@@ -50,7 +50,7 @@ Provider files define the service provider's metadata and access configuration f
 
 ### services_populator Object
 
-Configuration for automatically populating service data, declared in **`templates/config.json`** (not in `provider.json`) and run by `usvc_seller specs populate`.
+Configuration for automatically populating service data, declared in **`templates/config.json`** (not in `provider.json`) and run by `usvc seller specs populate`.
 
 | Field          | Type                   | Description                                                                               |
 | -------------- | ---------------------- | ----------------------------------------------------------------------------------------- |
@@ -503,7 +503,7 @@ A service with user-configurable parameters (model, token limits, streaming):
 
 ### Validation Rules
 
-The SDK validates user parameters during `usvc_seller specs validate`:
+The SDK validates user parameters during `usvc seller specs validate`:
 
 1. All parameters in `user_parameters_schema.required` must have either a `default` in the schema or a value in `ops_testing_parameters`
 2. If required parameters exist without defaults, `service_options.ops_testing_parameters` must be defined
@@ -569,12 +569,12 @@ provides the credential.
 
 ### Local testing
 
-During `usvc_seller specs run-tests`, secret references (either namespace) are
+During `usvc seller specs run-tests`, secret references (either namespace) are
 resolved from **environment variables**:
 
 ```bash
 export COHERE_API_KEY="…your key…"
-usvc_seller specs run-tests cohere/command-r
+usvc seller specs run-tests cohere/command-r
 ```
 
 The test runner resolves `${ customer_secrets.COHERE_API_KEY }` (or
@@ -1148,18 +1148,18 @@ The `expression` field is a Python expression evaluated against each service.
 **Upload groups:**
 ```bash
 # Upload all group files in directory
-usvc_seller specs upload --type groups
+usvc seller specs upload --type groups
 
 # Upload a specific file
-usvc_seller specs upload specs/groups/my-llm-services.json
+usvc seller specs upload specs/groups/my-llm-services.json
 
 # Dry run (validate without uploading)
-usvc_seller specs upload --type groups --dryrun
+usvc seller specs upload --type groups --dryrun
 ```
 
 **Validate groups:**
 ```bash
-usvc_seller specs validate specs/groups/
+usvc seller specs validate specs/groups/
 ```
 
 ### File Organization

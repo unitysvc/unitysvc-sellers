@@ -117,7 +117,7 @@ def populate(
     fallback.
 
     After successful execution, automatically runs formatting on all generated
-    files (equivalent to ``usvc_seller specs format``).
+    files (equivalent to ``usvc seller specs format``).
     """
     # Set data directory
     if data_dir is None:

@@ -219,7 +219,7 @@ asyncio.run(main())
 ```
 
 Each async method has the exact same signature as its sync counterpart
-on `Client`. The remote `usvc_seller services|promotions|groups`
+on `Client`. The remote `usvc seller services|promotions|groups`
 commands all use `AsyncClient` under the hood.
 
 ### Errors
@@ -247,23 +247,23 @@ Each carries `status_code`, `detail` (parsed body if JSON), and
 
 The CLI has two sets of commands:
 
-- `usvc_seller specs ...` — **local** operations on a `specs/` repo (no network)
-- `usvc_seller services|params|templates|promotions|groups|secrets ...` —
+- `usvc seller specs ...` — **local** operations on a `specs/` repo (no network)
+- `usvc seller services|params|templates|promotions|groups|secrets ...` —
   **remote** operations against the seller backend, all using the SDK's
   `AsyncClient` under the hood
 
 ### Local commands (`specs`)
 
 ```
-usvc_seller specs validate [SPECS_DIR]           # schema + catalog-layout validation
-usvc_seller specs format   [SPECS_DIR]           # normalize JSON/TOML/MD files
-usvc_seller specs populate [SPECS_DIR]           # run the repo's populator (templates/config.json)
-usvc_seller specs show     SERVICE_NAME          # expanded data for one service
-usvc_seller specs list     services|providers|offerings|listings|sellers [SPECS_DIR]
-usvc_seller specs list-tests [NAME]              # list local code-example / connectivity tests
-usvc_seller specs run-tests  [NAME]              # run them locally
-usvc_seller specs show-test  SERVICE             # show last local test result
-usvc_seller specs upload     [NAME]              # upload services + promotions + groups
+usvc seller specs validate [SPECS_DIR]           # schema + catalog-layout validation
+usvc seller specs format   [SPECS_DIR]           # normalize JSON/TOML/MD files
+usvc seller specs populate [SPECS_DIR]           # run the repo's populator (templates/config.json)
+usvc seller specs show     SERVICE_NAME          # expanded data for one service
+usvc seller specs list     services|providers|offerings|listings|sellers [SPECS_DIR]
+usvc seller specs list-tests [NAME]              # list local code-example / connectivity tests
+usvc seller specs run-tests  [NAME]              # run them locally
+usvc seller specs show-test  SERVICE             # show last local test result
+usvc seller specs upload     [NAME]              # upload services + promotions + groups
         [--api-key svcpass_...]                  #   defaults to $UNITYSVC_SELLER_API_KEY
         [--base-url https://...]                 #   defaults to $UNITYSVC_SELLER_API_URL or staging
         [--type services|promotions|groups]      #   restrict to one resource kind
@@ -276,15 +276,15 @@ usvc_seller specs upload     [NAME]              # upload services + promotions 
 
 ```
 # Services — NAME is a service_name (= listing.name), literal or fnmatch pattern
-usvc_seller services list [NAME] [--status STATUS] [--provider NAME]
+usvc seller services list [NAME] [--status STATUS] [--provider NAME]
                           [--fields id,name,...] [--format table|json]
-usvc_seller services show           [NAME] [--format table|json]
-usvc_seller services submit         [NAME] | --all [--provider NAME] [--yes]
-usvc_seller services withdraw       [NAME] | --all [--provider NAME] [--yes]
-usvc_seller services deprecate      [NAME] | --all [--provider NAME] [--yes]
-usvc_seller services set-visibility VISIBILITY [NAME] | --all   # public|unlisted|private
-usvc_seller services delete         [NAME] | --all [--status STATUS] [--yes]
-usvc_seller services update [NAME]
+usvc seller services show           [NAME] [--format table|json]
+usvc seller services submit         [NAME] | --all [--provider NAME] [--yes]
+usvc seller services withdraw       [NAME] | --all [--provider NAME] [--yes]
+usvc seller services deprecate      [NAME] | --all [--provider NAME] [--yes]
+usvc seller services set-visibility VISIBILITY [NAME] | --all   # public|unlisted|private
+usvc seller services delete         [NAME] | --all [--status STATUS] [--yes]
+usvc seller services update [NAME]
         [--visibility public|unlisted|private]
         [--set-routing-var key=value | '{json}']        (repeatable)
         [--remove-routing-var key]                       (repeatable)
@@ -293,35 +293,35 @@ usvc_seller services update [NAME]
         [--remove-price-field key]                       (repeatable)
 
 # Document tests (registered under services; NAME selects services, doc ids select docs)
-usvc_seller services list-tests   [NAME] [--all] [--format table|json]
-usvc_seller services show-test    [DOCUMENT_ID] [--format table|json]
-usvc_seller services run-tests    [NAME] [--document-id DOC_ID] [--force]
-usvc_seller services skip-test    DOCUMENT_ID
-usvc_seller services unskip-test  DOCUMENT_ID
+usvc seller services list-tests   [NAME] [--all] [--format table|json]
+usvc seller services show-test    [DOCUMENT_ID] [--format table|json]
+usvc seller services run-tests    [NAME] [--document-id DOC_ID] [--force]
+usvc seller services skip-test    DOCUMENT_ID
+usvc seller services unskip-test  DOCUMENT_ID
 
 # Templates + params — create a service from a platform template
-usvc_seller templates list
-usvc_seller templates show NAME_OR_ID
-usvc_seller params instantiate TEMPLATE [-P key=value ...] [--name NAME]
+usvc seller templates list
+usvc seller templates show NAME_OR_ID
+usvc seller params instantiate TEMPLATE [-P key=value ...] [--name NAME]
                                [--submit | --no-submit]
 
 # Promotions
-usvc_seller promotions list   [--format table|json]
-usvc_seller promotions show     NAME_OR_ID [--format table|json]
-usvc_seller promotions activate NAME_OR_ID
-usvc_seller promotions pause    NAME_OR_ID
-usvc_seller promotions delete   NAME_OR_ID [--force]
+usvc seller promotions list   [--format table|json]
+usvc seller promotions show     NAME_OR_ID [--format table|json]
+usvc seller promotions activate NAME_OR_ID
+usvc seller promotions pause    NAME_OR_ID
+usvc seller promotions delete   NAME_OR_ID [--force]
 
 # Service groups
-usvc_seller groups list   [--status STATUS] [--format table|json]
-usvc_seller groups show    NAME_OR_ID [--format table|json]
-usvc_seller groups delete  NAME_OR_ID [--force]
+usvc seller groups list   [--status STATUS] [--format table|json]
+usvc seller groups show    NAME_OR_ID [--format table|json]
+usvc seller groups delete  NAME_OR_ID [--force]
 
 # Secrets
-usvc_seller secrets list   [--format table|json]
-usvc_seller secrets show   NAME [--format table|json]
-usvc_seller secrets set    NAME [--value VALUE | --value-file PATH | --value-stdin]   # create or rotate
-usvc_seller secrets delete NAME [--force]
+usvc seller secrets list   [--format table|json]
+usvc seller secrets show   NAME [--format table|json]
+usvc seller secrets set    NAME [--value VALUE | --value-file PATH | --value-stdin]   # create or rotate
+usvc seller secrets delete NAME [--force]
 ```
 
 `promotions activate` / `pause` are sugar over
@@ -332,7 +332,7 @@ The legacy `usvc services dedup` command is **not** ported because the
 backing endpoint was removed; use
 `services delete --all --status draft` instead.
 
-The legacy `usvc_seller groups refresh` command is **not** ported
+The legacy `usvc seller groups refresh` command is **not** ported
 either. Dynamic group membership is now refreshed automatically by a
 background worker whenever a group is mutated, so there's no manual
 refresh step for sellers to invoke.
@@ -378,21 +378,21 @@ src/unitysvc_sellers/
 ├── commands/            # Typer command groups for the remote CLI
 │   ├── _helpers.py      #   run_async, async_client, model_list,
 │   │                    #     resolve_promotion, resolve_service_id, ...
-│   ├── services.py      #   `usvc_seller services {list,show,submit,...}`
-│   ├── tests.py         #   `usvc_seller services {list,show,run,skip,unskip}-test`
-│   ├── templates.py     #   `usvc_seller templates {list,show}`
-│   ├── params.py        #   `usvc_seller params instantiate`
-│   ├── promotions.py    #   `usvc_seller promotions {list,show,activate,pause,delete}`
-│   ├── groups.py        #   `usvc_seller groups {list,show,delete}`
-│   └── secrets.py       #   `usvc_seller secrets {list,show,set,delete}`
+│   ├── services.py      #   `usvc seller services {list,show,submit,...}`
+│   ├── tests.py         #   `usvc seller services {list,show,run,skip,unskip}-test`
+│   ├── templates.py     #   `usvc seller templates {list,show}`
+│   ├── params.py        #   `usvc seller params instantiate`
+│   ├── promotions.py    #   `usvc seller promotions {list,show,activate,pause,delete}`
+│   ├── groups.py        #   `usvc seller groups {list,show,delete}`
+│   └── secrets.py       #   `usvc seller secrets {list,show,set,delete}`
 ├── cli.py               # `usvc_seller` Typer entry point
-├── data.py              # `usvc_seller specs` command group (local)
-├── _cli_upload.py       # `usvc_seller specs upload` Typer wrapper
+├── data.py              # `usvc seller specs` command group (local)
+├── _cli_upload.py       # `usvc seller specs upload` Typer wrapper
 ├── validator.py         # seller DataValidator (extends unitysvc_core.validator)
-├── format_data.py       # `usvc_seller specs format`
-├── populate.py          # `usvc_seller specs populate`
-├── example.py           # `usvc_seller specs {list,run,show}-test` (local)
-├── list.py              # `usvc_seller specs list *`
+├── format_data.py       # `usvc seller specs format`
+├── populate.py          # `usvc seller specs populate`
+├── example.py           # `usvc seller specs {list,run,show}-test` (local)
+├── list.py              # `usvc seller specs list *`
 ├── output.py            # shared Rich output helpers
 └── utils.py             # seller-only helpers + re-exports from unitysvc_core.utils
 ```

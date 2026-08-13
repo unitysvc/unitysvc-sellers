@@ -29,10 +29,10 @@ that matches what you're doing.
 
 | Use | Who authors the template | How you use it | Best for |
 |---|---|---|---|
-| **1. Platform templates** | The platform | Dashboard *Create from template*, or `usvc_seller params instantiate` | Offering a common service type with zero file authoring |
+| **1. Platform templates** | The platform | Dashboard *Create from template*, or `usvc seller params instantiate` | Offering a common service type with zero file authoring |
 | **2. Capability pools** | The platform (template carries a pool name) | Instantiate a pool template (dashboard or CLI); you provide only the upstream URL | Joining a fungible, uniformly-priced commodity pool |
-| **3. Your own template + param files** | You | A tiny param file per service + `usvc_seller specs upload` (rendered ephemerally) | A **few** services that share one shape, authored by hand |
-| **4. Your own templates + populate** | You | Author `.j2` templates + a populator script, then `usvc_seller specs populate` (materializes specs) | Generating **many** services programmatically from a source list |
+| **3. Your own template + param files** | You | A tiny param file per service + `usvc seller specs upload` (rendered ephemerally) | A **few** services that share one shape, authored by hand |
+| **4. Your own templates + populate** | You | Author `.j2` templates + a populator script, then `usvc seller specs populate` (materializes specs) | Generating **many** services programmatically from a source list |
 
 ### 1. Platform service templates — the easy path
 
@@ -52,9 +52,9 @@ files and refine them with this SDK.
 the catalog with `templates`, instantiate with `params`:
 
 ```bash
-usvc_seller templates list                        # active platform templates
-usvc_seller templates show openai-compatible-llm  # its parameters
-usvc_seller params instantiate openai-compatible-llm \
+usvc seller templates list                        # active platform templates
+usvc seller templates show openai-compatible-llm  # its parameters
+usvc seller params instantiate openai-compatible-llm \
     -P api_base_url=https://api.example.com/v1 \
     -P api_key_secret_name=UPSTREAM_API_KEY \
     -P input_price=1.00
@@ -81,8 +81,8 @@ with Client() as client:
 `instance_id` and the ingest `task_id` — and leaves it a reviewable draft by
 default (mirroring the backend's `auto_submit=false`). Pass `--submit` (CLI) /
 `auto_submit=True` (SDK) to also submit it for review in the same call (otherwise
-submit later with `usvc_seller services submit`). Secret-typed parameters take the **secret name**
-(create it first with `usvc_seller secrets`), never the key value. See the
+submit later with `usvc seller services submit`). Secret-typed parameters take the **secret name**
+(create it first with `usvc seller secrets`), never the key value. See the
 [SDK Guide → `client.instances`](sdk-guide.md#clientinstances) for the full API.
 
 ### 2. Capability pools — opt in with a pool name
@@ -104,7 +104,7 @@ A few consequences worth knowing:
   capability as a **separate, standalone service** at your own price; pool
   membership doesn't stop you.
 - **Membership comes only from a pool template.** A pool service can be created
-  *only* by instantiating a pool-named template — `usvc_seller specs upload` of a
+  *only* by instantiating a pool-named template — `usvc seller specs upload` of a
   hand-authored spec always produces a plain standalone service, never a pool
   member.
 
@@ -122,8 +122,8 @@ committed. The source of truth is the template plus the small param files.
 ```
 
 ```bash
-usvc_seller specs validate   # render param files × template → validate
-usvc_seller specs upload      # render → upload (identity round-trips via *.service.json)
+usvc seller specs validate   # render param files × template → validate
+usvc seller specs upload      # render → upload (identity round-trips via *.service.json)
 ```
 
 This is your *own* template rendered on your machine — distinct from #1, where the
@@ -131,7 +131,7 @@ platform owns and renders the template. The full how-to (param-file format,
 template resolution, identity sidecar, generating param files in bulk) is in
 [Compact Specs with Param Files](guides/param-files.md).
 
-### 4. Your own templates — `usvc_seller specs populate`
+### 4. Your own templates — `usvc seller specs populate`
 
 When you offer *many* similar services — every model your upstream serves, a
 region per endpoint, a tier per plan — author the template **yourself** and let
@@ -163,8 +163,8 @@ SDK-native way to **populate a group of services**:
 4. Run it:
 
    ```bash
-   usvc_seller specs populate           # render every service from the template
-   usvc_seller specs populate --dry-run # preview without writing files
+   usvc seller specs populate           # render every service from the template
+   usvc seller specs populate --dry-run # preview without writing files
    ```
 
    The generated `specs/<provider>/<service>/` folders — each self-contained with

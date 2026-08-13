@@ -1,4 +1,4 @@
-"""``usvc_seller promotions`` — remote promotion operations.
+"""``usvc seller promotions`` — remote promotion operations.
 
 Ports the legacy ``usvc promotions`` command group from
 ``unitysvc-services`` onto :class:`unitysvc_sellers.AsyncClient`.

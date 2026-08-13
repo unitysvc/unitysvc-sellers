@@ -47,7 +47,7 @@ JSON5, so comments and trailing commas are allowed while you edit:
 }
 ```
 
-`usvc_seller specs format` rewrites files to canonical JSON/TOML (it strips JSON
+`usvc seller specs format` rewrites files to canonical JSON/TOML (it strips JSON
 comments), giving clean, stable git diffs.
 
 ## Validate and format
@@ -56,25 +56,25 @@ Run both before uploading — they apply the same checks the platform runs on
 upload, so you catch problems locally:
 
 ```bash
-usvc_seller specs validate          # schema + layout checks
-usvc_seller specs validate --has-service-id   # also assert every service is linked (see below)
-usvc_seller specs format            # rewrite to canonical formatting
-usvc_seller specs format --check    # CI-style: report drift, write nothing
+usvc seller specs validate          # schema + layout checks
+usvc seller specs validate --has-service-id   # also assert every service is linked (see below)
+usvc seller specs format            # rewrite to canonical formatting
+usvc seller specs format --check    # CI-style: report drift, write nothing
 ```
 
 Inspect what the repo contains, and what a service expands to:
 
 ```bash
-usvc_seller specs list services     # also: providers · offerings · listings · sellers
-usvc_seller specs show acme/llama/8b
+usvc seller specs list services     # also: providers · offerings · listings · sellers
+usvc seller specs show acme/llama/8b
 ```
 
 ## How upload works
 
 ```bash
-usvc_seller specs upload                 # every service (+ promotions + groups) in the repo
-usvc_seller specs upload 'acme/*'        # only matching service_names (fnmatch)
-usvc_seller specs upload -t services     # restrict to one resource: services | promotions | groups
+usvc seller specs upload                 # every service (+ promotions + groups) in the repo
+usvc seller specs upload 'acme/*'        # only matching service_names (fnmatch)
+usvc seller specs upload -t services     # restrict to one resource: services | promotions | groups
 ```
 
 Upload is **listing-centric**. For each `listing` the uploader:
@@ -104,7 +104,7 @@ uploaded, and the SDK writes it back to that folder's `service.json`:
 Verify everything is linked before a release:
 
 ```bash
-usvc_seller specs validate --has-service-id
+usvc seller specs validate --has-service-id
 ```
 
 ### Multiple environments

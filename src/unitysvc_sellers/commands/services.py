@@ -1,4 +1,4 @@
-"""``usvc_seller services`` — remote service operations.
+"""``usvc seller services`` — remote service operations.
 
 Ports the legacy ``usvc services`` command group from
 ``unitysvc-services``, but routed through the seller HTTP SDK

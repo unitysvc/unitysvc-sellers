@@ -45,7 +45,7 @@ from unitysvc_core.utils import (
     find_files_by_pattern as _core_find_files_by_pattern,
 )
 
-# Top-level directory holding `usvc_seller specs expand` output: a static,
+# Top-level directory holding `usvc seller specs expand` output: a static,
 # user-owned tree of rendered services for inspection only. It is deliberately
 # NOT part of the formal catalog, so every discovery walk skips it (see the
 # `find_files_by_pattern` wrapper below). Lives beside `specs/` at the repo root;
@@ -415,7 +415,7 @@ def render_template_file(
         seller: Seller data for template rendering (optional)
         interface: AccessInterface data for template rendering (optional, contains base_url, routing_key, etc.)
         local_testing: When True, signals that the template is being rendered for a local
-            test run (``usvc_seller specs run-tests``).  Templates can use ``{% if local_testing %}``
+            test run (``usvc seller specs run-tests``).  Templates can use ``{% if local_testing %}``
             blocks to include request parameters that must be supplied directly to the
             upstream (no gateway / set_body transformer).  When False (default), templates
             render the clean, user-facing version where the gateway injects parameters from
