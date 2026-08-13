@@ -189,6 +189,77 @@ def test_execute_code_example_uses_resolved_credentials_for_template_context(
     assert "URL=https://upstream.test" in (result.get("stdout") or "")
 
 
+def _run_env_probe(tmp_path: Path, credentials: dict[str, str]) -> dict[str, str]:
+    """Execute a trivial example against ``credentials``; return env_vars."""
+    example_path = tmp_path / "probe.sh.j2"
+    example_path.write_text("#!/bin/bash\necho ok\n")
+    code_example = {
+        "service_name": "svc1",
+        "title": "probe",
+        "mime_type": "bash",
+        "file_path": str(example_path),
+        "listing_data": {},
+        "listing_file": None,
+        "interface": {},
+        "category": "connectivity_test",
+    }
+    result = execute_code_example(code_example, credentials)
+    assert result["exit_code"] == 0, result.get("error") or result.get("stderr")
+    return result["env_vars"]
+
+
+def test_execute_code_example_real_api_key_exported(tmp_path: Path) -> None:
+    env = _run_env_probe(tmp_path, {"base_url": "https://u.test", "api_key": "sk-real"})
+    assert env.get("UNITYSVC_API_KEY") == "sk-real"
+
+
+def test_execute_code_example_disposition_sentinels_not_exported(tmp_path: Path) -> None:
+    """A disposition sentinel is a routing instruction, not a credential —
+    exporting it as UNITYSVC_API_KEY hands the script a nonsense token."""
+    for sentinel in ("__strip__", "__forward__", "__sigv4__"):
+        env = _run_env_probe(tmp_path, {"base_url": "https://u.test", "api_key": sentinel})
+        assert "UNITYSVC_API_KEY" not in env, sentinel
+
+
+def test_execute_code_example_sigv4_exports_canonical_aws_env(tmp_path: Path) -> None:
+    """A __sigv4__ channel authenticates local runs with its (resolved) IAM
+    keys under the canonical AWS names — the same variables a gateway-routed
+    client fills with svcpass + placeholder. boto3's default credential chain
+    picks them up with no explicit wiring in the example."""
+    env = _run_env_probe(
+        tmp_path,
+        {
+            "base_url": "https://bedrock-runtime.us-east-1.amazonaws.com/model/m1",
+            "api_key": "__sigv4__",
+            "access_key": "AKIDEXAMPLE",
+            "secret_key": "sekret",
+            "region": "us-east-1",
+            "sigv4_service": "bedrock",
+        },
+    )
+    assert env.get("AWS_ACCESS_KEY_ID") == "AKIDEXAMPLE"
+    assert env.get("AWS_SECRET_ACCESS_KEY") == "sekret"
+    assert env.get("AWS_DEFAULT_REGION") == "us-east-1"
+    assert "AWS_SESSION_TOKEN" not in env  # optional, absent here
+    assert "UNITYSVC_API_KEY" not in env
+
+
+def test_execute_code_example_sigv4_aws_env_only_for_sigv4(tmp_path: Path) -> None:
+    """A bearer channel that happens to carry extra fields must not leak
+    them into the AWS env names."""
+    env = _run_env_probe(
+        tmp_path,
+        {
+            "base_url": "https://u.test",
+            "api_key": "sk-real",
+            "access_key": "AKIDEXAMPLE",
+            "secret_key": "sekret",
+        },
+    )
+    assert env.get("UNITYSVC_API_KEY") == "sk-real"
+    assert "AWS_ACCESS_KEY_ID" not in env
+
+
 def test_discover_code_examples_resolves_provider_from_sibling_file() -> None:
     """Provider comes from the sibling provider_v1 file (flat ``specs/`` layout),
     not the directory name — regression for the ``unknown`` provider column when

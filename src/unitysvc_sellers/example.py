@@ -20,6 +20,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from unitysvc_core.models.base import DocumentCategoryEnum
+from unitysvc_core.validator import DISPOSITION_VALUES
 
 from .output import format_output
 from .utils import (
@@ -594,14 +595,34 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
         result["listing_file"] = listing_file
         result["actual_filename"] = actual_filename
 
-        # The only environment variable the rendered script reads is the
-        # platform API key — every other upstream field is inlined at template
-        # render time (see ``upstream_context`` above).  Keys are deliberately
-        # never written into rendered output, so they have to come through env.
+        # Credentials come through env — keys are deliberately never written
+        # into rendered output (the rendered script is persisted on failure).
+        #
+        # ``api_key`` disposition sentinels ("", "__strip__", "__forward__",
+        # "__sigv4__") are routing instructions, not credentials: exporting
+        # one as UNITYSVC_API_KEY hands the script a nonsense token, so they
+        # are skipped — a script that needs the key then fails on a MISSING
+        # variable instead of a wrong value.
+        #
+        # For a "__sigv4__" channel the local run authenticates directly with
+        # the channel's (resolved) IAM keys, exported under the canonical AWS
+        # names so boto3's default credential chain finds them. This mirrors
+        # gateway-based testing, where the SAME variables carry svcpass and a
+        # placeholder and the gateway synthesizes the signature upstream.
         env_vars: dict[str, str] = {}
         api_key = credentials.get("api_key")
-        if api_key:
+        if api_key and api_key not in DISPOSITION_VALUES:
             env_vars["UNITYSVC_API_KEY"] = str(api_key)
+        if api_key == "__sigv4__":
+            for field, env_name in (
+                ("access_key", "AWS_ACCESS_KEY_ID"),
+                ("secret_key", "AWS_SECRET_ACCESS_KEY"),
+                ("session_token", "AWS_SESSION_TOKEN"),
+                ("region", "AWS_DEFAULT_REGION"),
+            ):
+                value = credentials.get(field)
+                if isinstance(value, str) and value:
+                    env_vars[env_name] = value
 
         # Expose the full env the subprocess actually sees so the caller
         # can persist it for reproduction (see failure-dump code).
