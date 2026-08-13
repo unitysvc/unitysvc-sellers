@@ -142,6 +142,22 @@ def test_service_id_sidecar_roundtrip(tmp_path: Path) -> None:
     assert not (root / "specs" / "unitysvc" / "resp200").exists()
 
 
+def test_render_copy_excludes_scratch_dirs(tmp_path: Path) -> None:
+    # The isolated copy must skip VCS/scratch dirs — `.claude` in particular
+    # holds git worktrees (whole-repo checkouts) that would make the copy crawl.
+    root = _make_repo(tmp_path)
+    (root / ".claude" / "worktrees" / "wt").mkdir(parents=True)
+    (root / ".claude" / "worktrees" / "wt" / "big.txt").write_text("x" * 1000)
+    (root / ".git").mkdir()
+    (root / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+
+    with materialized_param_specs(root) as rendered:
+        copy_root = Path.cwd()  # chdir'd into the isolated copy
+        assert not (copy_root / ".claude").exists(), "must not copy .claude/"
+        assert not (copy_root / ".git").exists(), "must not copy .git/"
+        assert rendered and rendered[0].exists()
+
+
 def test_bad_template_raises(tmp_path: Path) -> None:
     root = _make_repo(tmp_path)
     (root / "specs" / "unitysvc" / "bad.json").write_text(json.dumps({"template": "nope", "parameters": {}}))

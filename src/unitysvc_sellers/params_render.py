@@ -203,7 +203,10 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
             tmp,
             dirs_exist_ok=True,
             ignore=shutil.ignore_patterns(
-                ".git", ".venv", "node_modules", "__pycache__",
+                # VCS + scratch: `.claude` holds git worktrees (whole repo
+                # checkouts) that would balloon the copy and make it crawl.
+                ".git", ".claude", ".venv", "venv", "node_modules",
+                "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache",
                 EXPANDED_DIRNAME, "*.out", "*.err", "*.status",
             ),
         )
