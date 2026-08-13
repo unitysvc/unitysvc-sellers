@@ -857,16 +857,16 @@ def list_code_examples(
 
     Examples:
         # List all code examples
-        usvc_seller specs list-tests
+        usvc seller specs list-tests
 
         # List for a whole provider (fnmatch pattern on listing.name)
-        usvc_seller specs list-tests 'fireworks/*'
+        usvc seller specs list-tests 'fireworks/*'
 
         # List for one service (literal listing.name)
-        usvc_seller specs list-tests fireworks/llama-3-1-405b-instruct
+        usvc seller specs list-tests fireworks/llama-3-1-405b-instruct
 
         # List as JSON
-        usvc_seller specs list-tests --format json
+        usvc seller specs list-tests --format json
     """
     # Always operate on the current working directory — cd into your data
     # repo before running.  Keeps the CLI surface minimal; there's no
@@ -948,8 +948,8 @@ def show_test(
     for previously executed tests.
 
     Examples:
-        usvc_seller specs show-test llama-3-1-405b-instruct
-        usvc_seller specs show-test llama-3-1-405b-instruct --title "Quick Start"
+        usvc seller specs show-test llama-3-1-405b-instruct
+        usvc seller specs show-test llama-3-1-405b-instruct --title "Quick Start"
     """
     # Set data directory
     if data_dir is None:
@@ -1072,26 +1072,26 @@ def run_local(
 
     Examples:
         # Run all code examples in the current directory
-        usvc_seller specs run-tests
+        usvc seller specs run-tests
 
         # Run for a whole provider (fnmatch pattern on listing.name)
-        usvc_seller specs run-tests 'fireworks/*'
+        usvc seller specs run-tests 'fireworks/*'
 
         # Run a single service (literal listing.name)
-        usvc_seller specs run-tests fireworks/llama-3-1-405b-instruct
-        usvc_seller specs run-tests 'cohere/command-r-*'
+        usvc seller specs run-tests fireworks/llama-3-1-405b-instruct
+        usvc seller specs run-tests 'cohere/command-r-*'
 
         # Run specific file
-        usvc_seller specs run-tests --test-file "code-example.py.j2"
+        usvc seller specs run-tests --test-file "code-example.py.j2"
 
         # Show detailed output
-        usvc_seller specs run-tests --verbose
+        usvc seller specs run-tests --verbose
 
         # Force rerun all tests (ignore existing results)
-        usvc_seller specs run-tests --force
+        usvc seller specs run-tests --force
 
         # Stop on first failure
-        usvc_seller specs run-tests --fail-fast
+        usvc seller specs run-tests --fail-fast
     """
     # Always operate on the current working directory — cd into your data
     # repo before running.  Keeps the CLI surface minimal; there's no

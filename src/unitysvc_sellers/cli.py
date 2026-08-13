@@ -31,9 +31,9 @@ def version_callback(value: bool) -> None:
 app = typer.Typer(
     help=(
         "UnitySVC seller CLI — local catalog tools and remote API operations.\n\n"
-        "Local commands live under `usvc_seller specs ...`. Remote commands "
+        "Local commands live under `usvc seller specs ...`. Remote commands "
         "(against the seller backend, via the unitysvc-sellers HTTP SDK) live "
-        "under `usvc_seller services|promotions|groups`."
+        "under `usvc seller services|promotions|groups`."
     ),
 )
 
@@ -65,7 +65,7 @@ app.add_typer(templates_cmd.app, name="templates")
 app.add_typer(params_cmd.app, name="params")
 
 # Experimental command groups (unitysvc#1540) are registered only when the user
-# opts in via UNITYSVC_EXPERIMENTAL, so `usvc_seller --help` hides them by
+# opts in via UNITYSVC_EXPERIMENTAL, so `usvc seller --help` hides them by
 # default and they only work against a deployment that serves them (staging).
 # Pattern for future experimental sub-apps (e.g. the order-based S3 delivery
 # model):

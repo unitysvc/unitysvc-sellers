@@ -1,4 +1,4 @@
-"""``usvc_seller specs upload`` — push a local seller catalog to the backend.
+"""``usvc seller specs upload`` — push a local seller catalog to the backend.
 
 Thin Typer wrapper over :meth:`unitysvc_sellers.Client.upload`. Reads
 credentials from the environment::
@@ -67,7 +67,7 @@ def upload(
 ) -> None:
     """Upload service specs to UnitySVC.
 
-    Use ``usvc_seller promotions upload`` and ``usvc_seller groups upload``
+    Use ``usvc seller promotions upload`` and ``usvc seller groups upload``
     for promotions and service groups.
     """
     if not api_key:

@@ -9,7 +9,7 @@ async fan-out, etc.) without breaking existing seller catalogs.
 
 The validator that enforces these rules lives in
 [`unitysvc-core`](https://pypi.org/project/unitysvc-core/) and runs on
-every `usvc_seller specs validate` invocation. CI / upload pipelines
+every `usvc seller specs validate` invocation. CI / upload pipelines
 reject non-conformant catalogs before they reach the platform.
 
 ## `service_name` = `listing.name`
@@ -57,7 +57,7 @@ the name part contain a `/`?**
   so you cannot register `otherprovider/…` under your own provider.
 - **No `/` ⇒ top-level** (`ntfy`, `http-relay`): a request that an
   **admin must accept** (reserved-name allowlist). Sellers cannot
-  self-register top-level names; `usvc_seller specs validate` accepts the
+  self-register top-level names; `usvc seller specs validate` accepts the
   grammar locally, but the backend gates the name at registration.
 
 ```toml
@@ -192,16 +192,16 @@ in the repo (local) or every service you own (remote).
 
 ```bash
 # Local specs commands — exact name (one service) or a pattern (a set)
-usvc_seller specs run-tests  cohere/command-r-plus
-usvc_seller specs list-tests 'cohere/*'
-usvc_seller specs upload     'cohere/*'
-usvc_seller specs show-test  cohere/command-r-plus
+usvc seller specs run-tests  cohere/command-r-plus
+usvc seller specs list-tests 'cohere/*'
+usvc seller specs upload     'cohere/*'
+usvc seller specs show-test  cohere/command-r-plus
 
 # Remote service commands — every backend row whose service_name matches
 # (a name can also map to several rows, e.g. an active service + its
 # pending revision)
-usvc_seller services submit                'cohere/*'
-usvc_seller services set-visibility public cohere/command-r-plus
+usvc seller services submit                'cohere/*'
+usvc seller services set-visibility public cohere/command-r-plus
 ```
 
 `--provider` remains a separate axis: it scopes by the provider slug and
@@ -214,12 +214,12 @@ pattern can't reach them).
 Before uploading, run:
 
 ```bash
-usvc_seller specs validate          # schema + naming validation
-usvc_seller specs format --check    # CI-style formatting check
+usvc seller specs validate          # schema + naming validation
+usvc seller specs format --check    # CI-style formatting check
 ```
 
 Both run the same validators the platform uses on upload; catching
-issues locally avoids a round-trip through `usvc_seller specs upload` just
+issues locally avoids a round-trip through `usvc seller specs upload` just
 to see the rejection.
 
 ## Related

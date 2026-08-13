@@ -1,6 +1,6 @@
 # Operate Live Services
 
-Once a service exists on the platform you manage it with `usvc_seller services …`
+Once a service exists on the platform you manage it with `usvc seller services …`
 (or `client.services` from the SDK). Services are targeted by **`service_name`**
 (= `listing.name`) as a literal or fnmatch pattern, e.g. `acme/llama-8b` or
 `'acme/*'`; omit the name to act on everything you own. For *what happens after a
@@ -10,8 +10,8 @@ service goes live* (review, billing, payouts) see
 ## Inspect
 
 ```bash
-usvc_seller services list                 # everything you own, with status & visibility
-usvc_seller services show acme/llama-8b   # documents, access interfaces, full detail
+usvc seller services list                 # everything you own, with status & visibility
+usvc seller services show acme/llama-8b   # documents, access interfaces, full detail
 ```
 
 ## Move through review
@@ -19,9 +19,9 @@ usvc_seller services show acme/llama-8b   # documents, access interfaces, full d
 The status lifecycle (see [Services](../services.md#service-status-and-updates)):
 
 ```bash
-usvc_seller services submit    acme/llama-8b   # draft|rejected → pending
-usvc_seller services withdraw  acme/llama-8b   # pending|rejected → draft
-usvc_seller services deprecate acme/llama-8b   # mark a live service deprecated
+usvc seller services submit    acme/llama-8b   # draft|rejected → pending
+usvc seller services withdraw  acme/llama-8b   # pending|rejected → draft
+usvc seller services deprecate acme/llama-8b   # mark a live service deprecated
 ```
 
 Each accepts a pattern (`'acme/*'`) plus `--all`, `--provider`, and `--yes` for
@@ -33,9 +33,9 @@ Visibility is independent of status — set it any time; it takes effect once th
 service is active.
 
 ```bash
-usvc_seller services set-visibility public   acme/llama-8b   # listed in the marketplace
-usvc_seller services set-visibility unlisted acme/llama-8b   # reachable by link, not listed
-usvc_seller services set-visibility private  acme/llama-8b   # hidden entirely
+usvc seller services set-visibility public   acme/llama-8b   # listed in the marketplace
+usvc seller services set-visibility unlisted acme/llama-8b   # reachable by link, not listed
+usvc seller services set-visibility private  acme/llama-8b   # hidden entirely
 ```
 
 ## Update a live service
@@ -46,9 +46,9 @@ There are two ways to change a service that already exists:
 re-uploading files:
 
 ```bash
-usvc_seller services update acme/llama-8b --visibility public
-usvc_seller services update acme/llama-8b --set-routing-var model=llama-3.3-70b
-usvc_seller services update acme/llama-8b --set-price '{"type":"one_million_tokens","input":"0.9","output":"0.9"}'
+usvc seller services update acme/llama-8b --visibility public
+usvc seller services update acme/llama-8b --set-routing-var model=llama-3.3-70b
+usvc seller services update acme/llama-8b --set-price '{"type":"one_million_tokens","input":"0.9","output":"0.9"}'
 ```
 
 `services update` can change **visibility**, **routing vars**
@@ -74,11 +74,11 @@ Beyond the local `specs run-tests`, you can exercise a deployed service
 end-to-end through the gateway with a server-side diagnostic:
 
 ```bash
-usvc_seller services run-tests  acme/llama-8b   # run its testable documents server-side
-usvc_seller services list-tests acme/llama-8b   # which documents are testable
-usvc_seller services show-test  acme/llama-8b   # latest result for a document
-usvc_seller services skip-test  acme/llama-8b   # exclude a doc from testing…
-usvc_seller services unskip-test acme/llama-8b  # …and put it back
+usvc seller services run-tests  acme/llama-8b   # run its testable documents server-side
+usvc seller services list-tests acme/llama-8b   # which documents are testable
+usvc seller services show-test  acme/llama-8b   # latest result for a document
+usvc seller services skip-test  acme/llama-8b   # exclude a doc from testing…
+usvc seller services unskip-test acme/llama-8b  # …and put it back
 ```
 
 See [Test Services](../code-examples.md) for authoring the testable documents.

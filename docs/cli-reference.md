@@ -3,16 +3,16 @@
 
 # CLI Reference
 
-# `usvc_seller`
+# `usvc seller`
 
 UnitySVC seller CLI — local catalog tools and remote API operations.
 
-Local commands live under `usvc_seller specs ...`. Remote commands (against the seller backend, via the unitysvc-sellers HTTP SDK) live under `usvc_seller services|promotions|groups`.
+Local commands live under `usvc seller specs ...`. Remote commands (against the seller backend, via the unitysvc-sellers HTTP SDK) live under `usvc seller services|promotions|groups`.
 
 **Usage**:
 
 ```console
-$ usvc_seller [OPTIONS] COMMAND [ARGS]...
+$ usvc seller [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -33,14 +33,14 @@ $ usvc_seller [OPTIONS] COMMAND [ARGS]...
 * `templates`: Browse the platform service-template...
 * `params`: System-template param files under params/...
 
-## `usvc_seller specs`
+## `usvc seller specs`
 
 Local operations on the flat specs/ layout (validate, format, populate, upload, test, etc.)
 
 **Usage**:
 
 ```console
-$ usvc_seller specs [OPTIONS] COMMAND [ARGS]...
+$ usvc seller specs [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -60,7 +60,7 @@ $ usvc_seller specs [OPTIONS] COMMAND [ARGS]...
 * `show-test`: Show test results for a service&#x27;s code...
 * `list`: List local data files
 
-### `usvc_seller specs show`
+### `usvc seller specs show`
 
 Show expanded data for a service.
 
@@ -77,12 +77,12 @@ replaced with the expanded records from ``unitysvc-data``.
 **Usage**:
 
 ```console
-$ usvc_seller specs show [OPTIONS] {service_name}
+$ usvc seller specs show [OPTIONS] {service_name}
 ```
 
 **Arguments**:
 
-* `service_name`: Service name (first column of &#x27;usvc_seller specs list services&#x27; output).  [required]
+* `service_name`: Service name (first column of &#x27;usvc seller specs list services&#x27; output).  [required]
 
 **Options**:
 
@@ -93,7 +93,7 @@ $ usvc_seller specs show [OPTIONS] {service_name}
 * `-f, --format <str>`: Output format: json (syntax-highlighted) or text (plain).  [default: json]
 * `--help`: Show this message and exit.
 
-### `usvc_seller specs expand`
+### `usvc seller specs expand`
 
 Expand a service into the informal ``expanded/`` tree for inspection.
 
@@ -112,7 +112,7 @@ until you re-run ``expand``. Use ``--output-dir`` to expand elsewhere, or
 **Usage**:
 
 ```console
-$ usvc_seller specs expand [OPTIONS] {name}
+$ usvc seller specs expand [OPTIONS] {name}
 ```
 
 **Arguments**:
@@ -126,7 +126,7 @@ $ usvc_seller specs expand [OPTIONS] {name}
 * `-d, --data-dir <path>`: Repo root or specs/ directory (default: current directory).
 * `--help`: Show this message and exit.
 
-### `usvc_seller specs validate`
+### `usvc seller specs validate`
 
 Validate a repository in the flat ``specs/`` layout.
 
@@ -140,7 +140,7 @@ For every service folder (one containing a ``listing.{json,toml}``):
 **Usage**:
 
 ```console
-$ usvc_seller specs validate [OPTIONS] [specs_dir]
+$ usvc seller specs validate [OPTIONS] [specs_dir]
 ```
 
 **Arguments**:
@@ -152,7 +152,7 @@ $ usvc_seller specs validate [OPTIONS] [specs_dir]
 * `--has-service-id`: Also require each service folder to have a service.json with a service_id
 * `--help`: Show this message and exit.
 
-### `usvc_seller specs format`
+### `usvc seller specs format`
 
 Format data files (JSON, TOML, MD) to match pre-commit requirements.
 
@@ -165,7 +165,7 @@ This command:
 **Usage**:
 
 ```console
-$ usvc_seller specs format [OPTIONS] [data_dir]
+$ usvc seller specs format [OPTIONS] [data_dir]
 ```
 
 **Arguments**:
@@ -177,7 +177,7 @@ $ usvc_seller specs format [OPTIONS] [data_dir]
 * `--check`: Check if files are formatted without modifying them
 * `--help`: Show this message and exit.
 
-### `usvc_seller specs populate`
+### `usvc seller specs populate`
 
 Populate services by executing the repo&#x27;s populator script.
 
@@ -188,12 +188,12 @@ provider files carrying ``services_populator`` are still supported as a
 fallback.
 
 After successful execution, automatically runs formatting on all generated
-files (equivalent to ``usvc_seller specs format``).
+files (equivalent to ``usvc seller specs format``).
 
 **Usage**:
 
 ```console
-$ usvc_seller specs populate [OPTIONS] [data_dir]
+$ usvc seller specs populate [OPTIONS] [data_dir]
 ```
 
 **Arguments**:
@@ -206,17 +206,17 @@ $ usvc_seller specs populate [OPTIONS] [data_dir]
 * `--dry-run`: Show what would be executed without actually running commands
 * `--help`: Show this message and exit.
 
-### `usvc_seller specs upload`
+### `usvc seller specs upload`
 
 Upload service specs to UnitySVC.
 
-Use ``usvc_seller promotions upload`` and ``usvc_seller groups upload``
+Use ``usvc seller promotions upload`` and ``usvc seller groups upload``
 for promotions and service groups.
 
 **Usage**:
 
 ```console
-$ usvc_seller specs upload [OPTIONS] [name]
+$ usvc seller specs upload [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -231,7 +231,7 @@ $ usvc_seller specs upload [OPTIONS] [name]
 * `--ignore-test-status`: Upload even when a service&#x27;s last local connectivity test failed (upstream_test_status=fail in service.json). Use when the failure is environmental — a rate limit, a missing local SDK — rather than the upstream being unable to serve the model.
 * `--help`: Show this message and exit.
 
-### `usvc_seller specs list-tests`
+### `usvc seller specs list-tests`
 
 List available code examples without running them.
 
@@ -242,21 +242,21 @@ Useful for exploring available examples before running tests.
 
 Examples:
     # List all code examples
-    usvc_seller specs list-tests
+    usvc seller specs list-tests
 
     # List for a whole provider (fnmatch pattern on listing.name)
-    usvc_seller specs list-tests &#x27;fireworks/*&#x27;
+    usvc seller specs list-tests &#x27;fireworks/*&#x27;
 
     # List for one service (literal listing.name)
-    usvc_seller specs list-tests fireworks/llama-3-1-405b-instruct
+    usvc seller specs list-tests fireworks/llama-3-1-405b-instruct
 
     # List as JSON
-    usvc_seller specs list-tests --format json
+    usvc seller specs list-tests --format json
 
 **Usage**:
 
 ```console
-$ usvc_seller specs list-tests [OPTIONS] [name]
+$ usvc seller specs list-tests [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -268,7 +268,7 @@ $ usvc_seller specs list-tests [OPTIONS] [name]
 * `-f, --format <str>`: Output format: json, table, tsv, csv  [default: table]
 * `--help`: Show this message and exit.
 
-### `usvc_seller specs run-tests`
+### `usvc seller specs run-tests`
 
 Run code examples locally with upstream API credentials.
 
@@ -283,31 +283,31 @@ This command:
 
 Examples:
     # Run all code examples in the current directory
-    usvc_seller specs run-tests
+    usvc seller specs run-tests
 
     # Run for a whole provider (fnmatch pattern on listing.name)
-    usvc_seller specs run-tests &#x27;fireworks/*&#x27;
+    usvc seller specs run-tests &#x27;fireworks/*&#x27;
 
     # Run a single service (literal listing.name)
-    usvc_seller specs run-tests fireworks/llama-3-1-405b-instruct
-    usvc_seller specs run-tests &#x27;cohere/command-r-*&#x27;
+    usvc seller specs run-tests fireworks/llama-3-1-405b-instruct
+    usvc seller specs run-tests &#x27;cohere/command-r-*&#x27;
 
     # Run specific file
-    usvc_seller specs run-tests --test-file &quot;code-example.py.j2&quot;
+    usvc seller specs run-tests --test-file &quot;code-example.py.j2&quot;
 
     # Show detailed output
-    usvc_seller specs run-tests --verbose
+    usvc seller specs run-tests --verbose
 
     # Force rerun all tests (ignore existing results)
-    usvc_seller specs run-tests --force
+    usvc seller specs run-tests --force
 
     # Stop on first failure
-    usvc_seller specs run-tests --fail-fast
+    usvc seller specs run-tests --fail-fast
 
 **Usage**:
 
 ```console
-$ usvc_seller specs run-tests [OPTIONS] [name]
+$ usvc seller specs run-tests [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -323,7 +323,7 @@ $ usvc_seller specs run-tests [OPTIONS] [name]
 * `-x, --fail-fast`: Stop testing on first failure
 * `--help`: Show this message and exit.
 
-### `usvc_seller specs show-test`
+### `usvc seller specs show-test`
 
 Show test results for a service&#x27;s code examples.
 
@@ -331,13 +331,13 @@ Displays the status (.status), stdout (.out), and stderr (.err) files
 for previously executed tests.
 
 Examples:
-    usvc_seller specs show-test llama-3-1-405b-instruct
-    usvc_seller specs show-test llama-3-1-405b-instruct --title &quot;Quick Start&quot;
+    usvc seller specs show-test llama-3-1-405b-instruct
+    usvc seller specs show-test llama-3-1-405b-instruct --title &quot;Quick Start&quot;
 
 **Usage**:
 
 ```console
-$ usvc_seller specs show-test [OPTIONS] {service}
+$ usvc seller specs show-test [OPTIONS] {service}
 ```
 
 **Arguments**:
@@ -350,14 +350,14 @@ $ usvc_seller specs show-test [OPTIONS] {service}
 * `-d, --data-dir <path>`: Directory containing provider data files (default: current directory)
 * `--help`: Show this message and exit.
 
-### `usvc_seller specs list`
+### `usvc seller specs list`
 
 List local data files
 
 **Usage**:
 
 ```console
-$ usvc_seller specs list [OPTIONS] COMMAND [ARGS]...
+$ usvc seller specs list [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -373,14 +373,14 @@ $ usvc_seller specs list [OPTIONS] COMMAND [ARGS]...
 * `offerings`: List all service offering files found in...
 * `listings`: List all service listing files found in...
 
-#### `usvc_seller specs list services`
+#### `usvc seller specs list services`
 
 List all services with their provider, offering, and listing files.
 
 **Usage**:
 
 ```console
-$ usvc_seller specs list services [OPTIONS] [data_dir]
+$ usvc seller specs list services [OPTIONS] [data_dir]
 ```
 
 **Arguments**:
@@ -391,14 +391,14 @@ $ usvc_seller specs list services [OPTIONS] [data_dir]
 
 * `--help`: Show this message and exit.
 
-#### `usvc_seller specs list providers`
+#### `usvc seller specs list providers`
 
 List all provider files found in the data directory.
 
 **Usage**:
 
 ```console
-$ usvc_seller specs list providers [OPTIONS] [data_dir]
+$ usvc seller specs list providers [OPTIONS] [data_dir]
 ```
 
 **Arguments**:
@@ -409,14 +409,14 @@ $ usvc_seller specs list providers [OPTIONS] [data_dir]
 
 * `--help`: Show this message and exit.
 
-#### `usvc_seller specs list sellers`
+#### `usvc seller specs list sellers`
 
 List all seller files found in the data directory.
 
 **Usage**:
 
 ```console
-$ usvc_seller specs list sellers [OPTIONS] [data_dir]
+$ usvc seller specs list sellers [OPTIONS] [data_dir]
 ```
 
 **Arguments**:
@@ -427,14 +427,14 @@ $ usvc_seller specs list sellers [OPTIONS] [data_dir]
 
 * `--help`: Show this message and exit.
 
-#### `usvc_seller specs list offerings`
+#### `usvc seller specs list offerings`
 
 List all service offering files found in the data directory.
 
 **Usage**:
 
 ```console
-$ usvc_seller specs list offerings [OPTIONS] [data_dir]
+$ usvc seller specs list offerings [OPTIONS] [data_dir]
 ```
 
 **Arguments**:
@@ -445,14 +445,14 @@ $ usvc_seller specs list offerings [OPTIONS] [data_dir]
 
 * `--help`: Show this message and exit.
 
-#### `usvc_seller specs list listings`
+#### `usvc seller specs list listings`
 
 List all service listing files found in the data directory.
 
 **Usage**:
 
 ```console
-$ usvc_seller specs list listings [OPTIONS] [data_dir]
+$ usvc seller specs list listings [OPTIONS] [data_dir]
 ```
 
 **Arguments**:
@@ -463,14 +463,14 @@ $ usvc_seller specs list listings [OPTIONS] [data_dir]
 
 * `--help`: Show this message and exit.
 
-## `usvc_seller services`
+## `usvc seller services`
 
 Remote service operations (list, show, submit, withdraw, deprecate, set-visibility, delete, update).
 
 **Usage**:
 
 ```console
-$ usvc_seller services [OPTIONS] COMMAND [ARGS]...
+$ usvc seller services [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -494,7 +494,7 @@ $ usvc_seller services [OPTIONS] COMMAND [ARGS]...
 * `skip-test`: Mark a code-example document as skipped...
 * `unskip-test`: Unskip a previously-skipped document so it...
 
-### `usvc_seller services list`
+### `usvc seller services list`
 
 List services owned by the authenticated seller.
 
@@ -514,7 +514,7 @@ backend ``GET /services?ids=&lt;uuid&gt;`` endpoint.
 **Usage**:
 
 ```console
-$ usvc_seller services list [OPTIONS] [name]
+$ usvc seller services list [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -537,14 +537,14 @@ $ usvc_seller services list [OPTIONS] [name]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services show`
+### `usvc seller services show`
 
 Show details of a single service, including documents and access interfaces.
 
 **Usage**:
 
 ```console
-$ usvc_seller services show [OPTIONS] [name]
+$ usvc seller services show [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -559,7 +559,7 @@ $ usvc_seller services show [OPTIONS] [name]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services submit`
+### `usvc seller services submit`
 
 Submit services for review (draft|rejected|suspended → pending).
 
@@ -571,7 +571,7 @@ iterate — use ``enable-testing`` instead.
 **Usage**:
 
 ```console
-$ usvc_seller services submit [OPTIONS] [name]
+$ usvc seller services submit [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -590,7 +590,7 @@ $ usvc_seller services submit [OPTIONS] [name]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services enable-testing`
+### `usvc seller services enable-testing`
 
 Make services routable for on-wire testing (draft|rejected|suspended → pending).
 
@@ -603,7 +603,7 @@ NOT a submission for review.  Use ``submit`` when you&#x27;re ready for that.
 **Usage**:
 
 ```console
-$ usvc_seller services enable-testing [OPTIONS] [name]
+$ usvc seller services enable-testing [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -622,14 +622,14 @@ $ usvc_seller services enable-testing [OPTIONS] [name]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services withdraw`
+### `usvc seller services withdraw`
 
 Withdraw services back to draft (pending|rejected → draft).
 
 **Usage**:
 
 ```console
-$ usvc_seller services withdraw [OPTIONS] [name]
+$ usvc seller services withdraw [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -648,14 +648,14 @@ $ usvc_seller services withdraw [OPTIONS] [name]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services deprecate`
+### `usvc seller services deprecate`
 
 Mark services as deprecated.
 
 **Usage**:
 
 ```console
-$ usvc_seller services deprecate [OPTIONS] [name]
+$ usvc seller services deprecate [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -674,7 +674,7 @@ $ usvc_seller services deprecate [OPTIONS] [name]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services set-visibility`
+### `usvc seller services set-visibility`
 
 Set the visibility of one or more services.
 
@@ -697,7 +697,7 @@ with any review workflow.
 **Usage**:
 
 ```console
-$ usvc_seller services set-visibility [OPTIONS] {VISIBILITY} [name]
+$ usvc seller services set-visibility [OPTIONS] {VISIBILITY} [name]
 ```
 
 **Arguments**:
@@ -717,7 +717,7 @@ $ usvc_seller services set-visibility [OPTIONS] {VISIBILITY} [name]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services delete`
+### `usvc seller services delete`
 
 Permanently delete services.
 
@@ -734,7 +734,7 @@ non-deletable forever, even after a round-trip through
 **Usage**:
 
 ```console
-$ usvc_seller services delete [OPTIONS] [name]
+$ usvc seller services delete [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -755,7 +755,7 @@ $ usvc_seller services delete [OPTIONS] [name]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services update`
+### `usvc seller services update`
 
 Update visibility, routing vars, and/or list price on a live service.
 
@@ -764,7 +764,7 @@ All updates are sent in a single PATCH request.
 **Usage**:
 
 ```console
-$ usvc_seller services update [OPTIONS] [name]
+$ usvc seller services update [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -784,14 +784,14 @@ $ usvc_seller services update [OPTIONS] [name]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services list-tests`
+### `usvc seller services list-tests`
 
 List testable documents for one service or every service the seller owns.
 
 **Usage**:
 
 ```console
-$ usvc_seller services list-tests [OPTIONS] [name]
+$ usvc seller services list-tests [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -808,7 +808,7 @@ $ usvc_seller services list-tests [OPTIONS] [name]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services show-test`
+### `usvc seller services show-test`
 
 Show the latest test result for a single document.
 
@@ -821,7 +821,7 @@ call regardless of how many services the seller owns.
 **Usage**:
 
 ```console
-$ usvc_seller services show-test [OPTIONS] [DOCUMENT_ID]
+$ usvc seller services show-test [OPTIONS] [DOCUMENT_ID]
 ```
 
 **Arguments**:
@@ -836,7 +836,7 @@ $ usvc_seller services show-test [OPTIONS] [DOCUMENT_ID]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services run-tests`
+### `usvc seller services run-tests`
 
 Run a service&#x27;s testable documents via a server-side diagnostic.
 
@@ -851,20 +851,20 @@ result attributes the fault as ``platform_fault`` vs
 Replaces the previous local-execution path
 (unitysvc/unitysvc#1105).  Test results are persisted on the
 backend in ``Document.meta.test.tests[&lt;iface_id&gt;]``; the rendered
-table here is a summary.  Use ``usvc_seller services show-test --doc-id &lt;id&gt;``
+table here is a summary.  Use ``usvc seller services show-test --doc-id &lt;id&gt;``
 to see full stdout/stderr for any failure.
 
 Targeting:
-    usvc_seller services run-tests cohere/command-r-plus
-    usvc_seller services run-tests &#x27;cohere/*&#x27; --force
-    usvc_seller services run-tests --id 6c55d6d9              # disambiguate
-    usvc_seller services run-tests cohere/command-r -d 6c55d6d9   # one doc (id prefix ok)
-    usvc_seller services run-tests cohere/command-r -t code-example.py.j2  # one doc by filename
+    usvc seller services run-tests cohere/command-r-plus
+    usvc seller services run-tests &#x27;cohere/*&#x27; --force
+    usvc seller services run-tests --id 6c55d6d9              # disambiguate
+    usvc seller services run-tests cohere/command-r -d 6c55d6d9   # one doc (id prefix ok)
+    usvc seller services run-tests cohere/command-r -t code-example.py.j2  # one doc by filename
 
 **Usage**:
 
 ```console
-$ usvc_seller services run-tests [OPTIONS] [name]
+$ usvc seller services run-tests [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -885,14 +885,14 @@ $ usvc_seller services run-tests [OPTIONS] [name]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services skip-test`
+### `usvc seller services skip-test`
 
 Mark a code-example document as skipped (won&#x27;t run).
 
 **Usage**:
 
 ```console
-$ usvc_seller services skip-test [OPTIONS] {document_id}
+$ usvc seller services skip-test [OPTIONS] {document_id}
 ```
 
 **Arguments**:
@@ -905,14 +905,14 @@ $ usvc_seller services skip-test [OPTIONS] {document_id}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller services unskip-test`
+### `usvc seller services unskip-test`
 
 Unskip a previously-skipped document so it runs again.
 
 **Usage**:
 
 ```console
-$ usvc_seller services unskip-test [OPTIONS] {document_id}
+$ usvc seller services unskip-test [OPTIONS] {document_id}
 ```
 
 **Arguments**:
@@ -925,14 +925,14 @@ $ usvc_seller services unskip-test [OPTIONS] {document_id}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-## `usvc_seller promotions`
+## `usvc seller promotions`
 
 Remote promotion operations (list, show, activate, pause, delete, upload).
 
 **Usage**:
 
 ```console
-$ usvc_seller promotions [OPTIONS] COMMAND [ARGS]...
+$ usvc seller promotions [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -948,14 +948,14 @@ $ usvc_seller promotions [OPTIONS] COMMAND [ARGS]...
 * `delete`: Permanently delete a promotion.
 * `upload`: Upload all promotion files from...
 
-### `usvc_seller promotions list`
+### `usvc seller promotions list`
 
 List the seller&#x27;s promotions on the backend.
 
 **Usage**:
 
 ```console
-$ usvc_seller promotions list [OPTIONS]
+$ usvc seller promotions list [OPTIONS]
 ```
 
 **Options**:
@@ -965,14 +965,14 @@ $ usvc_seller promotions list [OPTIONS]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller promotions show`
+### `usvc seller promotions show`
 
 Show details of a single promotion.
 
 **Usage**:
 
 ```console
-$ usvc_seller promotions show [OPTIONS] {name_or_id}
+$ usvc seller promotions show [OPTIONS] {name_or_id}
 ```
 
 **Arguments**:
@@ -986,14 +986,14 @@ $ usvc_seller promotions show [OPTIONS] {name_or_id}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller promotions activate`
+### `usvc seller promotions activate`
 
 Set a promotion&#x27;s status to ``active``.
 
 **Usage**:
 
 ```console
-$ usvc_seller promotions activate [OPTIONS] {name_or_id}
+$ usvc seller promotions activate [OPTIONS] {name_or_id}
 ```
 
 **Arguments**:
@@ -1006,14 +1006,14 @@ $ usvc_seller promotions activate [OPTIONS] {name_or_id}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller promotions pause`
+### `usvc seller promotions pause`
 
 Set a promotion&#x27;s status to ``paused``.
 
 **Usage**:
 
 ```console
-$ usvc_seller promotions pause [OPTIONS] {name_or_id}
+$ usvc seller promotions pause [OPTIONS] {name_or_id}
 ```
 
 **Arguments**:
@@ -1026,14 +1026,14 @@ $ usvc_seller promotions pause [OPTIONS] {name_or_id}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller promotions delete`
+### `usvc seller promotions delete`
 
 Permanently delete a promotion.
 
 **Usage**:
 
 ```console
-$ usvc_seller promotions delete [OPTIONS] {name_or_id}
+$ usvc seller promotions delete [OPTIONS] {name_or_id}
 ```
 
 **Arguments**:
@@ -1047,14 +1047,14 @@ $ usvc_seller promotions delete [OPTIONS] {name_or_id}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller promotions upload`
+### `usvc seller promotions upload`
 
 Upload all promotion files from ``promotions/`` directory.
 
 **Usage**:
 
 ```console
-$ usvc_seller promotions upload [OPTIONS]
+$ usvc seller promotions upload [OPTIONS]
 ```
 
 **Options**:
@@ -1063,14 +1063,14 @@ $ usvc_seller promotions upload [OPTIONS]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-## `usvc_seller groups`
+## `usvc seller groups`
 
 Remote service group operations (list, show, delete, upload).
 
 **Usage**:
 
 ```console
-$ usvc_seller groups [OPTIONS] COMMAND [ARGS]...
+$ usvc seller groups [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -1084,14 +1084,14 @@ $ usvc_seller groups [OPTIONS] COMMAND [ARGS]...
 * `delete`: Permanently delete a service group.
 * `upload`: Upload all service-group files from...
 
-### `usvc_seller groups list`
+### `usvc seller groups list`
 
 List the seller&#x27;s service groups.
 
 **Usage**:
 
 ```console
-$ usvc_seller groups list [OPTIONS]
+$ usvc seller groups list [OPTIONS]
 ```
 
 **Options**:
@@ -1102,14 +1102,14 @@ $ usvc_seller groups list [OPTIONS]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller groups show`
+### `usvc seller groups show`
 
 Show details of a single service group.
 
 **Usage**:
 
 ```console
-$ usvc_seller groups show [OPTIONS] {name_or_id}
+$ usvc seller groups show [OPTIONS] {name_or_id}
 ```
 
 **Arguments**:
@@ -1123,14 +1123,14 @@ $ usvc_seller groups show [OPTIONS] {name_or_id}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller groups delete`
+### `usvc seller groups delete`
 
 Permanently delete a service group.
 
 **Usage**:
 
 ```console
-$ usvc_seller groups delete [OPTIONS] {name_or_id}
+$ usvc seller groups delete [OPTIONS] {name_or_id}
 ```
 
 **Arguments**:
@@ -1144,14 +1144,14 @@ $ usvc_seller groups delete [OPTIONS] {name_or_id}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller groups upload`
+### `usvc seller groups upload`
 
 Upload all service-group files from ``groups/`` directory.
 
 **Usage**:
 
 ```console
-$ usvc_seller groups upload [OPTIONS]
+$ usvc seller groups upload [OPTIONS]
 ```
 
 **Options**:
@@ -1160,14 +1160,14 @@ $ usvc_seller groups upload [OPTIONS]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-## `usvc_seller secrets`
+## `usvc seller secrets`
 
 Remote secret operations (list, show, set, upload, delete).
 
 **Usage**:
 
 ```console
-$ usvc_seller secrets [OPTIONS] COMMAND [ARGS]...
+$ usvc seller secrets [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -1182,14 +1182,14 @@ $ usvc_seller secrets [OPTIONS] COMMAND [ARGS]...
 * `upload`: Bulk-set secrets from an ``.env``-style...
 * `delete`: Permanently delete a secret.
 
-### `usvc_seller secrets list`
+### `usvc seller secrets list`
 
 List the seller&#x27;s secrets (metadata only — values are never returned).
 
 **Usage**:
 
 ```console
-$ usvc_seller secrets list [OPTIONS]
+$ usvc seller secrets list [OPTIONS]
 ```
 
 **Options**:
@@ -1199,14 +1199,14 @@ $ usvc_seller secrets list [OPTIONS]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller secrets show`
+### `usvc seller secrets show`
 
 Show metadata for a single secret by name.
 
 **Usage**:
 
 ```console
-$ usvc_seller secrets show [OPTIONS] {name}
+$ usvc seller secrets show [OPTIONS] {name}
 ```
 
 **Arguments**:
@@ -1220,7 +1220,7 @@ $ usvc_seller secrets show [OPTIONS] {name}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller secrets set`
+### `usvc seller secrets set`
 
 Set a secret to ``value`` (idempotent — creates or rotates).
 
@@ -1243,7 +1243,7 @@ Mirrors ``gh secret set`` and ``vault kv put``.
 **Usage**:
 
 ```console
-$ usvc_seller secrets set [OPTIONS] {name}
+$ usvc seller secrets set [OPTIONS] {name}
 ```
 
 **Arguments**:
@@ -1260,7 +1260,7 @@ $ usvc_seller secrets set [OPTIONS] {name}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller secrets upload`
+### `usvc seller secrets upload`
 
 Bulk-set secrets from an ``.env``-style manifest (idempotent).
 
@@ -1299,13 +1299,13 @@ Input is a file or a pipe — no implicit default:
   - ``FILE`` argument — a path to the manifest (e.g. ``.env.example``)
   - ``-`` or piped stdin — decrypt on the fly, e.g.::
 
-         sops -d .secrets | usvc_seller secrets upload
-         gpg -d .secrets.gpg | usvc_seller secrets upload -
+         sops -d .secrets | usvc seller secrets upload
+         gpg -d .secrets.gpg | usvc seller secrets upload -
 
 **Usage**:
 
 ```console
-$ usvc_seller secrets upload [OPTIONS] [file]
+$ usvc seller secrets upload [OPTIONS] [file]
 ```
 
 **Arguments**:
@@ -1320,14 +1320,14 @@ $ usvc_seller secrets upload [OPTIONS] [file]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller secrets delete`
+### `usvc seller secrets delete`
 
 Permanently delete a secret. Services referencing it will stop working.
 
 **Usage**:
 
 ```console
-$ usvc_seller secrets delete [OPTIONS] {name}
+$ usvc seller secrets delete [OPTIONS] {name}
 ```
 
 **Arguments**:
@@ -1341,14 +1341,14 @@ $ usvc_seller secrets delete [OPTIONS] {name}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-## `usvc_seller files`
+## `usvc seller files`
 
 Seller account files (ls, get, put, url).
 
 **Usage**:
 
 ```console
-$ usvc_seller files [OPTIONS] COMMAND [ARGS]...
+$ usvc seller files [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -1362,14 +1362,14 @@ $ usvc_seller files [OPTIONS] COMMAND [ARGS]...
 * `put`: Upload one file into a folder (bytes go...
 * `url`: Print a short-TTL presigned download URL...
 
-### `usvc_seller files ls`
+### `usvc seller files ls`
 
 List one folder level of your account files.
 
 **Usage**:
 
 ```console
-$ usvc_seller files ls [OPTIONS] [path]
+$ usvc seller files ls [OPTIONS] [path]
 ```
 
 **Arguments**:
@@ -1383,14 +1383,14 @@ $ usvc_seller files ls [OPTIONS] [path]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller files get`
+### `usvc seller files get`
 
 Download one file (bytes stream storage → disk directly).
 
 **Usage**:
 
 ```console
-$ usvc_seller files get [OPTIONS] {key} [dest]
+$ usvc seller files get [OPTIONS] {key} [dest]
 ```
 
 **Arguments**:
@@ -1404,7 +1404,7 @@ $ usvc_seller files get [OPTIONS] {key} [dest]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller files put`
+### `usvc seller files put`
 
 Upload one file into a folder (bytes go disk → storage directly).
 
@@ -1414,7 +1414,7 @@ uploading to an existing name overwrites it.
 **Usage**:
 
 ```console
-$ usvc_seller files put [OPTIONS] {src} [path]
+$ usvc seller files put [OPTIONS] {src} [path]
 ```
 
 **Arguments**:
@@ -1428,14 +1428,14 @@ $ usvc_seller files put [OPTIONS] {src} [path]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller files url`
+### `usvc seller files url`
 
 Print a short-TTL presigned download URL (for scripts / sharing).
 
 **Usage**:
 
 ```console
-$ usvc_seller files url [OPTIONS] {key}
+$ usvc seller files url [OPTIONS] {key}
 ```
 
 **Arguments**:
@@ -1449,14 +1449,14 @@ $ usvc_seller files url [OPTIONS] {key}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-## `usvc_seller templates`
+## `usvc seller templates`
 
 Browse the platform service-template catalog (list, show).
 
 **Usage**:
 
 ```console
-$ usvc_seller templates [OPTIONS] COMMAND [ARGS]...
+$ usvc seller templates [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -1468,14 +1468,14 @@ $ usvc_seller templates [OPTIONS] COMMAND [ARGS]...
 * `list`: List the active platform templates you can...
 * `show`: Show a template&#x27;s metadata and its...
 
-### `usvc_seller templates list`
+### `usvc seller templates list`
 
 List the active platform templates you can instantiate.
 
 **Usage**:
 
 ```console
-$ usvc_seller templates list [OPTIONS]
+$ usvc seller templates list [OPTIONS]
 ```
 
 **Options**:
@@ -1485,14 +1485,14 @@ $ usvc_seller templates list [OPTIONS]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-### `usvc_seller templates show`
+### `usvc seller templates show`
 
 Show a template&#x27;s metadata and its parameter schema.
 
 **Usage**:
 
 ```console
-$ usvc_seller templates show [OPTIONS] {name_or_id}
+$ usvc seller templates show [OPTIONS] {name_or_id}
 ```
 
 **Arguments**:
@@ -1506,14 +1506,14 @@ $ usvc_seller templates show [OPTIONS] {name_or_id}
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
-## `usvc_seller params`
+## `usvc seller params`
 
 System-template param files under params/ (list, show, instantiate).
 
 **Usage**:
 
 ```console
-$ usvc_seller params [OPTIONS] COMMAND [ARGS]...
+$ usvc seller params [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -1526,14 +1526,14 @@ $ usvc_seller params [OPTIONS] COMMAND [ARGS]...
 * `show`: Show one param file&#x27;s template,...
 * `instantiate`: Instantiate system-template param files...
 
-### `usvc_seller params list`
+### `usvc seller params list`
 
 List the system-template param files under ``params/`` (offline).
 
 **Usage**:
 
 ```console
-$ usvc_seller params list [OPTIONS] [name]
+$ usvc seller params list [OPTIONS] [name]
 ```
 
 **Arguments**:
@@ -1546,14 +1546,14 @@ $ usvc_seller params list [OPTIONS] [name]
 * `-f, --format <str>`: Output format: table | json.  [default: table]
 * `--help`: Show this message and exit.
 
-### `usvc_seller params show`
+### `usvc seller params show`
 
 Show one param file&#x27;s template, parameters, and recorded service_id.
 
 **Usage**:
 
 ```console
-$ usvc_seller params show [OPTIONS] {name}
+$ usvc seller params show [OPTIONS] {name}
 ```
 
 **Arguments**:
@@ -1566,12 +1566,12 @@ $ usvc_seller params show [OPTIONS] {name}
 * `-f, --format <str>`: Output format: table | json.  [default: table]
 * `--help`: Show this message and exit.
 
-### `usvc_seller params instantiate`
+### `usvc seller params instantiate`
 
 Instantiate system-template param files into services — all, or those
 matching ``NAME``.
 
-Each param file&#x27;s ``template`` (a system template — see ``usvc_seller
+Each param file&#x27;s ``template`` (a system template — see ``usvc seller
 templates``) is rendered with its ``parameters`` into a backend service. The
 returned ``service_id`` is written to a committed ``&lt;name&gt;.service.json``
 sidecar; an entry that already has one is skipped (re-instantiating to update
@@ -1580,7 +1580,7 @@ the same service needs backend support, unitysvc/unitysvc#1273).
 **Usage**:
 
 ```console
-$ usvc_seller params instantiate [OPTIONS] [name]
+$ usvc seller params instantiate [OPTIONS] [name]
 ```
 
 **Arguments**:

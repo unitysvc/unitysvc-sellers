@@ -69,8 +69,8 @@ A few rules make this layout unambiguous:
 Validate and format the repo before uploading:
 
 ```bash
-usvc_seller specs validate     # schema + layout checks
-usvc_seller specs format       # canonical JSON/TOML formatting
+usvc seller specs validate     # schema + layout checks
+usvc seller specs format       # canonical JSON/TOML formatting
 ```
 
 ## Two ways to create a service
@@ -93,7 +93,7 @@ them, all handled by the same `specs` commands:
   [Generate a Catalog](guides/generate-catalog.md)
 
 ```bash
-usvc_seller specs upload          # uploads every service in the repo
+usvc seller specs upload          # uploads every service in the repo
 ```
 
 Upload is **listing-centric**: for each listing the SDK gathers the offering and
@@ -112,9 +112,9 @@ author any files — you provide **parameters** and the platform renders the
 service for you:
 
 ```bash
-usvc_seller templates list                         # browse available templates
-usvc_seller templates show openai-compatible-llm   # see its parameters
-usvc_seller params instantiate openai-compatible-llm \
+usvc seller templates list                         # browse available templates
+usvc seller templates show openai-compatible-llm   # see its parameters
+usvc seller params instantiate openai-compatible-llm \
     -P api_base_url=https://api.example.com/v1 \
     -P api_key_secret_name=UPSTREAM_API_KEY \
     -P input_price=1.00
@@ -123,7 +123,7 @@ usvc_seller params instantiate openai-compatible-llm \
 `params instantiate` is the template analog of `specs upload`: it renders the
 template into a complete service, left as a reviewable draft by default (pass
 `--submit` to also submit it for review). Secret-typed parameters take a
-**secret name** — create it first with `usvc_seller secrets` — never the raw value.
+**secret name** — create it first with `usvc seller secrets` — never the raw value.
 
 → Platform templates, capability pools, and authoring your own are covered in
 **[Service Templates](service-templates.md)**.
@@ -131,7 +131,7 @@ template into a complete service, left as a reviewable draft by default (pass
 ## Service status and updates
 
 Once a service exists on the platform it moves through a status lifecycle. You
-drive the transitions with `usvc_seller services …` (or `client.services` from
+drive the transitions with `usvc seller services …` (or `client.services` from
 the SDK).
 
 ```mermaid
@@ -181,8 +181,8 @@ Services ship with testable documents (code examples, connectivity checks). Run
 them locally against your upstream, or as a server-side diagnostic:
 
 ```bash
-usvc_seller specs run-tests              # locally, with your upstream credentials
-usvc_seller services run-tests <name>    # server-side diagnostic on a live service
+usvc seller specs run-tests              # locally, with your upstream credentials
+usvc seller services run-tests <name>    # server-side diagnostic on a live service
 ```
 
 → See **[Code Examples](code-examples.md)** and

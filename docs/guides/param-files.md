@@ -119,9 +119,9 @@ otherwise it is treated as a **remote** platform template:
 
 | `template` | Resolves to | Realized by |
 |---|---|---|
-| omitted | local `templates/` | `usvc_seller specs …` |
-| `"<name>"` and `templates/<name>/` exists | local directory | `usvc_seller specs …` |
-| `"<name>"` with no matching directory | remote platform template | `usvc_seller params instantiate` (see [Create from a Template](create-from-template.md)) |
+| omitted | local `templates/` | `usvc seller specs …` |
+| `"<name>"` and `templates/<name>/` exists | local directory | `usvc seller specs …` |
+| `"<name>"` with no matching directory | remote platform template | `usvc seller params instantiate` (see [Create from a Template](create-from-template.md)) |
 
 ## Validate, test, upload
 
@@ -129,13 +129,13 @@ The `specs` commands render param files on the fly, then act on the result —
 exactly as they do for spec folders:
 
 ```bash
-usvc_seller specs validate  [NAME]   # render → schema + layout checks
-usvc_seller specs run-tests [NAME]   # render → run connectivity / code-example tests
-usvc_seller specs upload    [NAME]   # render → upload via the normal path
+usvc seller specs validate  [NAME]   # render → schema + layout checks
+usvc seller specs run-tests [NAME]   # render → run connectivity / code-example tests
+usvc seller specs upload    [NAME]   # render → upload via the normal path
 ```
 
 `NAME` fnmatches the service name (omit = all), exactly like spec folders.
-`usvc_seller specs format` formats the param files themselves (it does not render
+`usvc seller specs format` formats the param files themselves (it does not render
 them).
 
 ### Identity round-trips through the sidecar
@@ -161,7 +161,7 @@ can generate them with a script (commonly `scripts/update_params.py`) that write
 specs in git) while scaling past hand-authoring.
 
 The difference from [Generate a Catalog](generate-catalog.md): a **populator**
-(`usvc_seller specs populate`) *materializes* full spec folders into the repo and
+(`usvc seller specs populate`) *materializes* full spec folders into the repo and
 keeps them in sync with a source list; param-file generation stays compact and
 ephemeral. Reach for the populator when you want the generated specs committed and
 reviewable, or when the source list churns; reach for param files when the set is

@@ -30,7 +30,7 @@ for local testing). The upload workflows (`seller-upload-staging.yml` /
 ```bash
 if [ -f .env.example ]; then
   # export every GitHub variable, then secret, into the env …
-  usvc_seller secrets upload .env.example   # values AND descriptions, one call
+  usvc seller secrets upload .env.example   # values AND descriptions, one call
   exit 0
 fi
 # … otherwise fall back to grepping ${ customer_secrets.X } names out of specs/
@@ -69,7 +69,7 @@ export TELEGRAM_BOT_TOKEN="demotoken"
 
 Rules:
 
-- **Plain quoted literals** (`export NAME="value"`) — what `usvc_seller secrets
+- **Plain quoted literals** (`export NAME="value"`) — what `usvc seller secrets
   upload` parses today. (Env-aware `${NAME:-default}` and trailing `# variable`
   markers are a newer capability; see *Variables* below.)
 - **Descriptions are customer-facing.** Say what *the customer* sets and how they
@@ -116,11 +116,11 @@ export CHIME_WEBHOOK_BASE="https://mock.unitysvc.dev/chime"   # variable
 Caveats (until fully released, omit the marker and seed as secrets — the value is
 what matters for routing, and a masked base still passes tests):
 
-- `# variable` support in `usvc_seller secrets upload` ships with a specific seller
+- `# variable` support in `usvc seller secrets upload` ships with a specific seller
   SDK version; an older uploader mis-parses the trailing comment. Confirm the CI
   `usvc_seller` version before relying on it.
 - A row's `sensitive` flag **cannot be flipped in place**. Converting an existing
-  secret to a variable means **delete then re-create** (`usvc_seller secrets delete
+  secret to a variable means **delete then re-create** (`usvc seller secrets delete
   <NAME>`, then upload with `# variable`).
 
 ## What belongs in GitHub secrets
@@ -144,7 +144,7 @@ The two workflow-credential secrets (`UNITYSVC_SELLER_{STAGING,PRODUCTION}_API_K
    stays shell-sourceable and the workflow finds `.env.example`).
 3. Confirm no reference is unseeded:
    `grep -rho '\${ customer_secrets\.[A-Z_]*' specs/ | sort -u` vs. the manifest.
-4. Seed staging and validate: `usvc_seller secrets upload seller.secrets.txt`,
-   then `usvc_seller services run-tests '<name>' --force`.
+4. Seed staging and validate: `usvc seller secrets upload seller.secrets.txt`,
+   then `usvc seller services run-tests '<name>' --force`.
 5. Commit `.env.example` + the manifest; the merge-to-`main` workflow seeds the
    store from it thereafter.

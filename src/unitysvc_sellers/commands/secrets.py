@@ -228,8 +228,8 @@ def _read_secrets_source(file: str | None) -> str:
         if sys.stdin.isatty():
             console.print(
                 "[red]No input.[/red] Pass a file or pipe one in:\n"
-                "  usvc_seller secrets upload FILE\n"
-                "  <decrypt> | usvc_seller secrets upload"
+                "  usvc seller secrets upload FILE\n"
+                "  <decrypt> | usvc seller secrets upload"
             )
             raise typer.Exit(code=2)
         return sys.stdin.read()
@@ -480,8 +480,8 @@ def upload_secrets(
       - ``FILE`` argument — a path to the manifest (e.g. ``.env.example``)
       - ``-`` or piped stdin — decrypt on the fly, e.g.::
 
-             sops -d .secrets | usvc_seller secrets upload
-             gpg -d .secrets.gpg | usvc_seller secrets upload -
+             sops -d .secrets | usvc seller secrets upload
+             gpg -d .secrets.gpg | usvc seller secrets upload -
     """
     try:
         entries = _parse_secrets_text(_read_secrets_source(file))

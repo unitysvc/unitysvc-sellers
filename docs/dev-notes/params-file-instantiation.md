@@ -44,8 +44,8 @@ backend *as* a template. So we split by **command**, not by a hidden branch:
 
 | You have… | Command |
 |---|---|
-| spec folders, and/or param files with a **local** `template` | `usvc_seller specs …` |
-| a **remote** system template + values | `usvc_seller params instantiate` |
+| spec folders, and/or param files with a **local** `template` | `usvc seller specs …` |
+| a **remote** system template + values | `usvc seller params instantiate` |
 
 **Everything lives under `specs/` — no separate `params/` directory.** A service
 at `<provider>/<name>` is defined by exactly one of:
@@ -69,8 +69,8 @@ same path is an error.
 Instantiate a platform-published template server-side. Two input forms:
 
 ```bash
-usvc_seller params instantiate <system-template> -P key=value …   # inline (one-off)
-usvc_seller params instantiate [NAME]                             # from specs/<name>.json with a remote template
+usvc seller params instantiate <system-template> -P key=value …   # inline (one-off)
+usvc seller params instantiate [NAME]                             # from specs/<name>.json with a remote template
 ```
 
 The file form reads the same `specs/` tree as `specs`, processing only the
@@ -181,9 +181,9 @@ the path exactly as a spec folder's path binds its `listing.name`.
 ### Commands — the `specs` path renders on the fly
 
 ```bash
-usvc_seller specs validate  [NAME]   # render specs/<NAME>.json × its template → validate
-usvc_seller specs run-tests [NAME]   # render → run the connectivity / code-example tests
-usvc_seller specs upload    [NAME]   # render → upload via the normal path; read/write *.service.json
+usvc seller specs validate  [NAME]   # render specs/<NAME>.json × its template → validate
+usvc seller specs run-tests [NAME]   # render → run the connectivity / code-example tests
+usvc seller specs upload    [NAME]   # render → upload via the normal path; read/write *.service.json
 ```
 
 `specs` walks `specs/`, treating each `<name>/` as an explicit spec folder and

@@ -1,8 +1,8 @@
-"""``usvc_seller templates`` — browse the platform service-template catalog.
+"""``usvc seller templates`` — browse the platform service-template catalog.
 
 Read-only discovery: ``list`` the active platform templates and ``show`` one's
 parameter schema, so you know what you can instantiate. Creating a service from
-a template lives in ``usvc_seller instances create`` (see
+a template lives in ``usvc seller instances create`` (see
 ``commands/instances.py``).
 """
 
@@ -137,5 +137,5 @@ def show_template(
         console.print(ptable)
     console.print(
         "\n[dim]Create a service from this template with[/dim] "
-        "[cyan]usvc_seller instances create[/cyan][dim].[/dim]"
+        "[cyan]usvc seller instances create[/cyan][dim].[/dim]"
     )

@@ -208,7 +208,7 @@ def validate(
             if not isinstance(data, dict) or not data.get("service_id"):
                 rel = folder.relative_to(root).as_posix()
                 validation_errors.append(
-                    f"{rel}: missing service_id in service.json (run 'usvc_seller specs upload' first)"
+                    f"{rel}: missing service_id in service.json (run 'usvc seller specs upload' first)"
                 )
 
     if validation_errors:

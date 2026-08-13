@@ -3,7 +3,7 @@
 Seller-facing Python SDK + CLI for the UnitySVC platform. Lets sellers
 manage services, promotions, groups, secrets, and documents via
 `unitysvc_sellers.Client` (sync) / `AsyncClient` (async) or the
-`usvc_seller` CLI.
+`usvc seller` CLI.
 
 ## Key directories
 

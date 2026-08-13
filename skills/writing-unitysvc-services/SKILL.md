@@ -1,6 +1,6 @@
 ---
 name: writing-unitysvc-services
-description: Author UnitySVC service files (offering.json + listing.json + connectivity test + optional code examples) in the flat `specs/` layout, set up the `templates/` + param-file pattern when a repo will host many similar services, and drive each service through the validate → format → run-tests (local upstream) → upload → run-tests (gateway) pipeline. Use this skill whenever the user wants to add, modify, regenerate, or troubleshoot a service in a `unitysvc-services-*` repo, or asks for help writing an `offering.json` / `listing.json` / a `templates/<name>/*.j2` + param file, even if they don't name the skill explicitly. Also use when they mention connectivity tests, BYOK / BYOE / multi-channel (`plus`) patterns, gateway base_urls, customer secrets, or `usvc_seller specs` / `services` / `params` commands. The skill is **rigid** about the verification order (a service is not "ready" until `specs validate`, `specs format`, `specs run-tests`, AND `services run-tests` all pass) and about the connectivity-test requirement (every service must have at least one).
+description: Author UnitySVC service files (offering.json + listing.json + connectivity test + optional code examples) in the flat `specs/` layout, set up the `templates/` + param-file pattern when a repo will host many similar services, and drive each service through the validate → format → run-tests (local upstream) → upload → run-tests (gateway) pipeline. Use this skill whenever the user wants to add, modify, regenerate, or troubleshoot a service in a `unitysvc-services-*` repo, or asks for help writing an `offering.json` / `listing.json` / a `templates/<name>/*.j2` + param file, even if they don't name the skill explicitly. Also use when they mention connectivity tests, BYOK / BYOE / multi-channel (`plus`) patterns, gateway base_urls, customer secrets, or `usvc seller specs` / `services` / `params` commands. The skill is **rigid** about the verification order (a service is not "ready" until `specs validate`, `specs format`, `specs run-tests`, AND `services run-tests` all pass) and about the connectivity-test requirement (every service must have at least one).
 ---
 
 # Writing UnitySVC Services
@@ -9,10 +9,10 @@ A UnitySVC service is two pieces of declarative data — an **offering** (techni
 
 The skill assumes the local repos under `~/unitysvc/` are checked out and writable, and that `usvc_seller` is installed (via `uvx --from unitysvc-sellers usvc_seller …` if not on PATH).
 
-**Environment for staging access.** Anything that talks to the staging backend (`usvc_seller specs upload`, `usvc_seller services list/show/run-tests`, manual `curl https://api.staging.svcpass.com/…`) needs the seller API key and URL in env. Source `~/.zshrc` first:
+**Environment for staging access.** Anything that talks to the staging backend (`usvc seller specs upload`, `usvc seller services list/show/run-tests`, manual `curl https://api.staging.svcpass.com/…`) needs the seller API key and URL in env. Source `~/.zshrc` first:
 
 ```bash
-zsh -ic 'source ~/.zshrc && usvc_seller services list'
+zsh -ic 'source ~/.zshrc && usvc seller services list'
 # or, when starting an interactive session:
 source ~/.zshrc
 ```
@@ -85,7 +85,7 @@ specs/
     └── <name>.service.json           # identity sidecar for that param file
 ```
 
-Adding a service = adding one `<name>.json` param file. The pipeline renders it into a *temporary* `specs/<provider>/<name>/` folder (offering + listing + provider), runs against it, round-trips the backend `service_id` into `<name>.service.json`, and removes the folder. **Commit the param file + its `.service.json` sidecar — never the rendered folder.** A param file whose `template` doesn't resolve to a local `templates/<name>/` dir is a *system* template — instantiate it with `usvc_seller params instantiate` instead (§6).
+Adding a service = adding one `<name>.json` param file. The pipeline renders it into a *temporary* `specs/<provider>/<name>/` folder (offering + listing + provider), runs against it, round-trips the backend `service_id` into `<name>.service.json`, and removes the folder. **Commit the param file + its `.service.json` sidecar — never the rendered folder.** A param file whose `template` doesn't resolve to a local `templates/<name>/` dir is a *system* template — instantiate it with `usvc seller params instantiate` instead (§6).
 
 ### Hard rules — validator/uploader will reject violations
 
@@ -127,7 +127,7 @@ Set each listing's `name` explicitly (`<provider>/<service>@<variant>`). Note th
 
 ## 3. Naming conventions (listings, services, gateway paths)
 
-The validator at `usvc-core` runs on every `usvc_seller specs validate` and rejects non-conformant catalogs *before* upload. Three places where naming matters:
+The validator at `usvc-core` runs on every `usvc seller specs validate` and rejects non-conformant catalogs *before* upload. Three places where naming matters:
 
 ### Listing `name` grammar
 
@@ -243,21 +243,21 @@ The user's working definition of "ready": **`specs validate`, `specs format`, `s
 ```bash
 # 1. Schema + cross-file validation (fast, no network).
 #    Runs on every service under specs/.
-usvc_seller specs validate
+usvc seller specs validate
 
 # 2. JSON/TOML/MD canonical formatting (writes in-place; commit the result).
-usvc_seller specs format
+usvc seller specs format
 
 # 3. Upstream-side tests: render and execute the connectivity / code-example
 #    docs against the upstream URL directly (no gateway). Catches dead
 #    upstreams, wrong base_urls, broken auth before the gateway sees them.
 #    NAME is a restricted glob — see "Selector grammar" below.
-usvc_seller specs run-tests <name>
+usvc seller specs run-tests <name>
 
 # 4. Upload to staging so the gateway has a route to test against.
 #    A re-upload of an existing service creates a *revision* (admin-review
 #    queue) rather than mutating the active row in place — that's expected.
-usvc_seller specs upload <name>
+usvc seller specs upload <name>
 
 # 5. Gateway-side tests: the same documents executed from the platform,
 #    routed through the gateway, exercising the registered route +
@@ -265,7 +265,7 @@ usvc_seller specs upload <name>
 #    documents whose last per-iface result was 'success' — pass --force
 #    to re-run them. NAME may match the active row plus the pending
 #    revision; both rows get tested.
-usvc_seller services run-tests <name> --force
+usvc seller services run-tests <name> --force
 ```
 
 **Testing does NOT require the service to be public or active.** The gateway test runner authenticates as the seller and can route freshly-uploaded draft/pending revisions through the gateway just to verify routing + svcpass attribution + upstream chain work end-to-end. `set-visibility` and `submit` are about making a service *customer-facing* — that's a separate publishing step, **not** part of the verification pipeline. Don't run them just to test.
@@ -275,9 +275,9 @@ When you *are* ready to publish (after all four verification gates pass) — tha
 ```bash
 # Make the active row routable for customers (visibility public + status active).
 # This is publishing, not verifying — skip it when you're only testing.
-usvc_seller services set-visibility public --local-ids --yes
-usvc_seller services submit --local-ids --yes
-usvc_seller services list --local-ids   # confirm visibility/status flipped
+usvc seller services set-visibility public --local-ids --yes
+usvc seller services submit --local-ids --yes
+usvc seller services list --local-ids   # confirm visibility/status flipped
 ```
 
 ### Selector grammar (positional NAME)
@@ -299,7 +299,7 @@ Wildcards are only allowed at the **start, end, or both**. `?`, `[…]`, and mid
 For `services` subcommands that operate on **one** specific row (e.g. `services show`, `services update`, single-service `services run-tests`), if the positional NAME matches multiple rows (an active service plus its pending revision is the common case), the command errors and asks for **`--id <prefix>`** to disambiguate:
 
 ```bash
-usvc_seller services run-tests --id 6c55d6d9 --force
+usvc seller services run-tests --id 6c55d6d9 --force
 ```
 
 ### Why the pipeline order matters
@@ -309,7 +309,7 @@ If step 3 (`specs run-tests`) passes but step 5 (`services run-tests`) fails, th
 To upload a single service in isolation (faster than uploading the whole repo):
 
 ```bash
-usvc_seller specs upload <name>
+usvc seller specs upload <name>
 ```
 
 Do not declare a service done until you have actually run all four steps (`specs validate`, `specs format`, `specs run-tests`, `services run-tests`) and they all returned green. "It looks right" or "validate passed" alone has bitten this workflow more than once. The `specs run-tests` Python examples may fail with `ModuleNotFoundError: No module named 'requests'` if the test runner picks the system Python instead of the active venv (the workspace venv lives at `~/unitysvc/.venv` on this system — `source ~/unitysvc/.venv/bin/activate` before running) — that's a unitysvc-sellers runner issue, not your service data; if shell + connectivity tests pass, treat the Python failure as environmental.
@@ -334,8 +334,8 @@ specs/<provider>/
 - **Path-derived render vars.** The SDK injects `service_name` = `name` = the **full** `<provider>/<bare>` (from the file path) and `provider_name` (the first segment) into the template — **do not put these in `parameters`** (they shadow + drift). Need the bare name in the template? Pass your own param (e.g. `channel_name`) and build `offering.name = {{ channel_name }}`, `listing.name = "<provider>/{{ channel_name }}"`.
 - **Two ways to produce the param files:**
   - **Hand-write** them — the common case for a fixed catalog (e.g. notification channels): adding a service is adding one param file.
-  - **Generate** them from a live source — put a populator in `templates/<name>/config.json` (`services_populator`) and run `usvc_seller specs populate`; the script calls `write_params_from_iterator(...)`. Reference: `~/unitysvc/unitysvc-services-cohere` (fetches Cohere's model list → one param file per model).
-- **System templates** (defined platform-side, not a local `templates/` dir) are created with `usvc_seller params instantiate <name> -P key=value`; `usvc_seller params list/show` browse them.
+  - **Generate** them from a live source — put a populator in `templates/<name>/config.json` (`services_populator`) and run `usvc seller specs populate`; the script calls `write_params_from_iterator(...)`. Reference: `~/unitysvc/unitysvc-services-cohere` (fetches Cohere's model list → one param file per model).
+- **System templates** (defined platform-side, not a local `templates/` dir) are created with `usvc seller params instantiate <name> -P key=value`; `usvc seller params list/show` browse them.
 
 **Critical Jinja escaping rule.** The template's Jinja runs at *render* time and resolves the param/path vars (`{{ channel_name }}`, `{{ provider_name }}`). The gateway's Jinja is a *separate, later* pass that resolves from the live service row (`{{ service_name }}`, `{{ enrollment.code }}`, `{{ params.* }}`). For a gateway-time variable to survive the render pass, wrap it in `{% raw %}…{% endraw %}`:
 
@@ -376,7 +376,7 @@ The platform considers a service untestable (and therefore unfit to activate) wi
 
 ## 8. Tests must run in both modes — local upstream AND gateway
 
-`usvc_seller specs run-tests` renders templates pointing at the *upstream directly*; `usvc_seller services run-tests` renders the *same templates* pointing at the gateway URL. A test written for only one mode fails the other. The platform handles this with a `localtesting` flag exposed to the Jinja context:
+`usvc seller specs run-tests` renders templates pointing at the *upstream directly*; `usvc seller services run-tests` renders the *same templates* pointing at the gateway URL. A test written for only one mode fails the other. The platform handles this with a `localtesting` flag exposed to the Jinja context:
 
 ```jinja
 {# connectivity.sh.j2 #}
@@ -406,10 +406,10 @@ When the user says "add a service to repo X":
 3. **Fill in the offering** — name, service_type, capabilities, upstream_access_config, payout_price. Cross-check against `unitysvc-sellers/docs/file-schemas.md` for field semantics. **For secret references:** put sensitive values behind `${ customer_secrets.<NAME> }` with a service-specific prefix (`SMTP_RELAY_HOST`, not bare `SMTP_HOST`); put operational config in direct params or as literal fields with `?? default` fallbacks. See **§11**.
 4. **Fill in the listing** — name (per `naming-conventions.md`), list_price (per `pricing.md`), user_access_interfaces base_url (`${API_GATEWAY_BASE_URL}/{{ service_name }}` for normal services; bare top-level for platform-internal), documents block. **For `-plus` services**: `ops_testing_parameters` holds literal values (host, port, etc.); only `*_secret` keys name a seller secret. `user_parameters_schema` `*_secret` defaults point at the non-plus literal name. See **§11**.
 5. **Add the connectivity test** — preset if a stock one fits; local Jinja file otherwise. Make sure it handles both `localtesting` modes if it isn't purely env-var-driven.
-6. **Validate, format** — fix anything `usvc_seller specs validate` complains about; `usvc_seller specs format` to canonicalize.
-7. **Local run-tests** — `usvc_seller specs run-tests <name>` against the live upstream.
-8. **Upload** — `usvc_seller specs upload <name>` to staging. If this fails with `ValueError: Customer secret 'X' … requires a seller secret with the same name`, seed it: `usvc_seller secrets set X --value <v>` and retry. (In CI, the seed-secrets workflow step handles this automatically — see **§11**.)
-9. **Services run-tests** — `usvc_seller services run-tests <name> --force` through the gateway. No visibility / submit step needed: the test runner authenticates as the seller and can route freshly-uploaded draft/pending revisions. Add `--id <prefix>` only if the name matches more than one row *and* you want to scope to one.
+6. **Validate, format** — fix anything `usvc seller specs validate` complains about; `usvc seller specs format` to canonicalize.
+7. **Local run-tests** — `usvc seller specs run-tests <name>` against the live upstream.
+8. **Upload** — `usvc seller specs upload <name>` to staging. If this fails with `ValueError: Customer secret 'X' … requires a seller secret with the same name`, seed it: `usvc seller secrets set X --value <v>` and retry. (In CI, the seed-secrets workflow step handles this automatically — see **§11**.)
+9. **Services run-tests** — `usvc seller services run-tests <name> --force` through the gateway. No visibility / submit step needed: the test runner authenticates as the seller and can route freshly-uploaded draft/pending revisions. Add `--id <prefix>` only if the name matches more than one row *and* you want to scope to one.
 10. **Only after all four green:** report "ready". If anything failed, fix the underlying issue (don't skip the step) and re-run from the failing point. **Publishing** the service to customers (`set-visibility public` + `submit`) is a separate, explicit action — not part of verification.
 
 ## 10. Common failure modes and where to look
@@ -418,11 +418,11 @@ When the user says "add a service to repo X":
 |---|---|---|
 | `validate` fails with "base_url must route by service identifier" | Literal `<provider>/<service>` path in user_access_interfaces | `unitysvc-sellers/docs/naming-conventions.md` — switch to `${API_GATEWAY_BASE_URL}/{{ service_name }}` |
 | `validate` fails with "listing name … first segment must be the provider slug" | Namespaced name doesn't match provider | Rename to `<provider-slug>/<bare>` or use a bare top-level name |
-| `specs run-tests` succeeds, `services run-tests` 404s | Service not yet uploaded, or uploaded under a different name | Re-run `usvc_seller specs upload <name>` and check `usvc_seller services list <name>` |
+| `specs run-tests` succeeds, `services run-tests` 404s | Service not yet uploaded, or uploaded under a different name | Re-run `usvc seller specs upload <name>` and check `usvc seller services list <name>` |
 | Gateway returns 401 with "Missing svcpass API key" | Customer not authenticated; case-sensitive `Bearer` required | `Authorization: Bearer <svcpass_…>` (capital B) or `x-api-key: …` |
 | Test passes locally but fails in CI | Template uses generator-time Jinja for a runtime variable | Wrap in `{% raw %}…{% endraw %}` (see Section 4) |
-| Re-upload creates a draft revision instead of in-place update | Renamed `listing.name` or changed routing-affecting fields — backend treats as content change and queues admin review | Expected. Submit the revision: `usvc_seller services submit --local-ids` |
-| `specs upload` fails with `ValueError: Customer secret 'X' … requires a seller secret with the same name for testing` | Every `${ customer_secrets.X }` reference in a listing/offering needs a same-named seller secret in *your* seller-secrets store, because the platform's gateway-side tests plug in a real value | Seed it: `usvc_seller secrets set X --value <v>` locally, or via the CI seed-secrets workflow step that auto-derives names from `specs/`. See **§11**. |
+| Re-upload creates a draft revision instead of in-place update | Renamed `listing.name` or changed routing-affecting fields — backend treats as content change and queues admin review | Expected. Submit the revision: `usvc seller services submit --local-ids` |
+| `specs upload` fails with `ValueError: Customer secret 'X' … requires a seller secret with the same name for testing` | Every `${ customer_secrets.X }` reference in a listing/offering needs a same-named seller secret in *your* seller-secrets store, because the platform's gateway-side tests plug in a real value | Seed it: `usvc seller secrets set X --value <v>` locally, or via the CI seed-secrets workflow step that auto-derives names from `specs/`. See **§11**. |
 | `specs upload` fails with `[Errno 21] Is a directory: '.../<other-service>'` | A description / tutorial markdown contains a relative link to a sibling **directory** like `[label](../smtp-to-msg/)`. The uploader's markdown scanner picks up local refs as S3 assets and `open()` blows up on the directory | Replace directory-target links with prose, or point them at a specific file inside the sibling (e.g. `../smtp-to-msg/msg-description.md`). |
 | `validate` fails: "listing name 'X' does not match the folder path 'P'" | `listing.name` isn't `<provider>/<bare>` matching the folder under `specs/` | Set `listing.name` = the folder path; keep `offering.name` bare (§2) |
 
@@ -459,8 +459,8 @@ The first is for **fixed-name secrets** every customer of the service supplies u
 
 The upload validator rejects a listing whose `${ customer_secrets.X }` references don't have a same-named seller secret in *your* seller-secrets store. This is because the platform's gateway-side tests plug in a real value for the synthetic test enrollment. Two ways to satisfy it:
 
-- **Locally** (one-off): `usvc_seller secrets set <NAME> --value <value>` against staging or production.
-- **In CI** (the right answer at scale): the seed-secrets workflow step — grep `${ customer_secrets.X }` and `${ secrets.X }` out of `specs/`, look up each name in `toJSON(secrets)`, call `usvc_seller secrets set <NAME>` before `specs upload`. Auto-derive from the spec files; don't hand-maintain a manifest — it drifts. Reference implementation: `unitysvc-services-http/.github/workflows/upload-to-staging.yml` "Seed seller-secrets store".
+- **Locally** (one-off): `usvc seller secrets set <NAME> --value <value>` against staging or production.
+- **In CI** (the right answer at scale): the seed-secrets workflow step — grep `${ customer_secrets.X }` and `${ secrets.X }` out of `specs/`, look up each name in `toJSON(secrets)`, call `usvc seller secrets set <NAME>` before `specs upload`. Auto-derive from the spec files; don't hand-maintain a manifest — it drifts. Reference implementation: `unitysvc-services-http/.github/workflows/upload-to-staging.yml` "Seed seller-secrets store".
 
 Optional references with `?? ` fallback (e.g. `${ customer_secrets.HTTP_RELAY_API_KEY ?? }`) don't strictly require the seller-secret to exist, but the seed step will `::warning::` + skip them if unset, which is fine.
 
@@ -475,7 +475,7 @@ base_url = ${ customer_secrets.<SVC>_BASE_URL ?? https://api.realprovider.com }/
 It resolves to the right host in each context because, for the synthetic **ops_customer** the gateway uses in its tests, a missing `${ customer_secrets.X }` **falls back to your seller-secrets store** (`backend/app/core/route_mapping.py` — "customer_secrets … not found for ops_customer, falling back to seller secrets"):
 
 - **Production** — a normal customer hasn't set `<SVC>_BASE_URL`, so the `??` default (the real provider) is used. A customer running their own provider-compatible proxy may set it to point there.
-- **Gateway-side tests** — the ops_customer hasn't set it either, so the gateway falls back to **your** seller secret. Seed it to the mock: `usvc_seller secrets set <SVC>_BASE_URL --value https://mock.unitysvc.dev/<svc>/...`. Only ops-customer (test) traffic resolves to the mock; production customers are untouched.
+- **Gateway-side tests** — the ops_customer hasn't set it either, so the gateway falls back to **your** seller secret. Seed it to the mock: `usvc seller secrets set <SVC>_BASE_URL --value https://mock.unitysvc.dev/<svc>/...`. Only ops-customer (test) traffic resolves to the mock; production customers are untouched.
 - **Local upstream tests** — the runner reads `<SVC>_BASE_URL` from the environment; export it to the mock host.
 
 This is the **one** justified exception to the "operational URLs are direct params, not `customer_secrets`" rule above (§ *Three shapes a reference can take*): the indirection is precisely what buys the ops-customer→seller-secret fallback, so *you* own the mock/real switch from your seller-secrets store and never touch the service definition to test it. Do **not** use a seller-scope `${ secrets.X }` reference for the host — a seller secret is global, so a mock value would route *production* traffic to the mock too.

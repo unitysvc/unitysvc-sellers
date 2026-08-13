@@ -10,7 +10,7 @@ Requires **Python 3.11+**.
 
 ```bash
 pip install unitysvc-sellers      # or: uv pip install unitysvc-sellers
-usvc_seller --version
+usvc seller --version
 ```
 
 The CLI is `usvc_seller` (a shorter alias for `unitysvc_sellers`). All examples
@@ -77,10 +77,10 @@ assistant draft them (see the [Claude Code Skill](claude-code-skill.md)).
 Then validate, test, and upload:
 
 ```bash
-usvc_seller specs validate          # schema + layout checks
-usvc_seller specs format            # canonical formatting (cleaner git diffs)
-usvc_seller specs run-tests         # run code-example / connectivity tests vs your upstream
-usvc_seller specs upload            # upload every service in the repo
+usvc seller specs validate          # schema + layout checks
+usvc seller specs format            # canonical formatting (cleaner git diffs)
+usvc seller specs run-tests         # run code-example / connectivity tests vs your upstream
+usvc seller specs upload            # upload every service in the repo
 ```
 
 `run-tests` may need upstream credentials in the environment (e.g.
@@ -94,16 +94,16 @@ If the platform publishes a template for your service type, you author **no
 files** — you supply parameters and it renders the service for you:
 
 ```bash
-usvc_seller templates list                          # what's available
-usvc_seller templates show openai-compatible-llm    # its parameters
-usvc_seller params instantiate openai-compatible-llm \
+usvc seller templates list                          # what's available
+usvc seller templates show openai-compatible-llm    # its parameters
+usvc seller params instantiate openai-compatible-llm \
     -P api_base_url=https://api.example.com/v1 \
     -P api_key_secret_name=UPSTREAM_API_KEY \
     -P input_price=1.00
 ```
 
 Secret-typed parameters take a **secret name** (create it first with
-`usvc_seller secrets set …`), never the raw value. See
+`usvc seller secrets set …`), never the raw value. See
 [Service Templates](service-templates.md) for platform templates, capability
 pools, and authoring your own.
 
@@ -112,14 +112,14 @@ pools, and authoring your own.
 Uploaded/instantiated services start as drafts. Confirm and submit:
 
 ```bash
-usvc_seller services list                   # find your service by name
-usvc_seller services submit my-provider/my-service
+usvc seller services list                   # find your service by name
+usvc seller services submit my-provider/my-service
 ```
 
 Services are targeted by **`service_name`** (= `listing.name`, e.g.
 `my-provider/my-service`); a pattern like `'my-provider/*'` targets a whole
 provider. After review and approval the service goes live; set it public with
-`usvc_seller services set-visibility`. What happens next — marketplace listing,
+`usvc seller services set-visibility`. What happens next — marketplace listing,
 billing, payouts — is covered in [After You Publish](seller-lifecycle.md).
 
 !!! tip "Iterate until approved"
@@ -136,11 +136,11 @@ billing, payouts — is covered in [After You Publish](seller-lifecycle.md).
 
 ## Troubleshooting
 
-**Validation errors** — run `usvc_seller specs validate`; check that each service
+**Validation errors** — run `usvc seller specs validate`; check that each service
 folder has all three files and that the folder path matches `listing.name`.
 
 **Upload errors** — verify `UNITYSVC_SELLER_API_KEY` / `UNITYSVC_SELLER_API_URL`
 are set; confirm you're in (or pointing at) the `specs/` repo.
 
-**Format drift in CI** — run `usvc_seller specs format` locally (it rewrites
+**Format drift in CI** — run `usvc seller specs format` locally (it rewrites
 files); `specs format --check` reports what would change without writing.

@@ -12,8 +12,8 @@ commands work together:
 
 | Command | Role |
 |---|---|
-| **`usvc_seller templates`** | **Browse** the catalog — `list` the system templates, `show` one's parameters. Read-only. |
-| **`usvc_seller params`** | **Use** them — author `params/` files, `list` / `show` them, and `instantiate` them into services. |
+| **`usvc seller templates`** | **Browse** the catalog — `list` the system templates, `show` one's parameters. Read-only. |
+| **`usvc seller params`** | **Use** them — author `params/` files, `list` / `show` them, and `instantiate` them into services. |
 
 For the bigger picture (capability pools, authoring your *own* templates) see the
 [Service Templates](../service-templates.md) concept page.
@@ -21,8 +21,8 @@ For the bigger picture (capability pools, authoring your *own* templates) see th
 ## 1. Browse the catalog — `templates`
 
 ```bash
-usvc_seller templates list                        # active system templates
-usvc_seller templates show openai-compatible-llm  # its parameters: name, type, required?
+usvc seller templates list                        # active system templates
+usvc seller templates show openai-compatible-llm  # its parameters: name, type, required?
 ```
 
 `templates show` lists each parameter's name, type, and whether it's required —
@@ -65,8 +65,8 @@ params/
 Offline, no API call:
 
 ```bash
-usvc_seller params list                 # every param file under params/ (Service · Template · Service ID)
-usvc_seller params show acme/gpt        # one file's template, parameters, and recorded service_id
+usvc seller params list                 # every param file under params/ (Service · Template · Service ID)
+usvc seller params show acme/gpt        # one file's template, parameters, and recorded service_id
 ```
 
 ## 4. Instantiate — `params instantiate`
@@ -76,10 +76,10 @@ param file's system template with its parameters into a backend service, left as
 a reviewable **draft** by default.
 
 ```bash
-usvc_seller params instantiate           # all param files under params/
-usvc_seller params instantiate acme/gpt  # just this one (NAME is an fnmatch selector)
-usvc_seller params instantiate 'acme/*'  # everything under acme/
-usvc_seller params instantiate --submit  # render and submit for review in one go
+usvc seller params instantiate           # all param files under params/
+usvc seller params instantiate acme/gpt  # just this one (NAME is an fnmatch selector)
+usvc seller params instantiate 'acme/*'  # everything under acme/
+usvc seller params instantiate --submit  # render and submit for review in one go
 ```
 
 | Option | Meaning |
@@ -100,7 +100,7 @@ secret**, never the raw value. Create the secret first, then reference it by nam
 in the param file:
 
 ```bash
-usvc_seller secrets set UPSTREAM_API_KEY   # stores the value securely
+usvc seller secrets set UPSTREAM_API_KEY   # stores the value securely
 ```
 
 ```jsonc
@@ -135,6 +135,6 @@ with Client() as client:
 ## After instantiation
 
 The rendered service appears in your catalog like any other — manage it with
-`usvc_seller services …` ([Operate Live Services](operate-services.md)). If you
+`usvc seller services …` ([Operate Live Services](operate-services.md)). If you
 outgrow the template, download the rendered files and refine them as a normal
 [specs repo](author-specs.md).

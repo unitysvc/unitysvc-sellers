@@ -49,7 +49,7 @@ flowchart TD
 
 ## 1. Upload & Approval
 
-When you run `usvc_seller specs upload`, you submit:
+When you run `usvc seller specs upload`, you submit:
 
 | Data Type           | Purpose                    | Key Fields                                    |
 | ------------------- | -------------------------- | --------------------------------------------- |
@@ -86,21 +86,21 @@ Two seller actions move a service to `pending`, but they mean different things:
 
 | Action | CLI | What it does |
 |---|---|---|
-| **Submit for review** | `usvc_seller services submit <name>` | Validates the service, sets `pending`, and runs the activation test pipeline that drives it to `review` / `active` / `rejected`. This is how you get a service live. |
-| **Enable testing** | `usvc_seller services enable-testing <name>` | A pure status change (draft/rejected/suspended → `pending`) with **no** tests. Makes the service routable so you can test its code examples on-wire while you iterate. It is *not* a submission — the service won't progress on its own. |
+| **Submit for review** | `usvc seller services submit <name>` | Validates the service, sets `pending`, and runs the activation test pipeline that drives it to `review` / `active` / `rejected`. This is how you get a service live. |
+| **Enable testing** | `usvc seller services enable-testing <name>` | A pure status change (draft/rejected/suspended → `pending`) with **no** tests. Makes the service routable so you can test its code examples on-wire while you iterate. It is *not* a submission — the service won't progress on its own. |
 
 Status changes never run tests as a side effect — testing is always an explicit
 step. The typical debugging loop for a service that isn't passing yet:
 
 ```bash
 # 1. Make the draft routable (no tests, no auto-reject).
-usvc_seller services enable-testing my-provider/my-service
+usvc seller services enable-testing my-provider/my-service
 
 # 2. Run the gateway diagnostic as many times as you need while you fix things.
-usvc_seller services run-tests my-provider/my-service --force
+usvc seller services run-tests my-provider/my-service --force
 
 # 3. When it's healthy, submit for review to start the activation pipeline.
-usvc_seller services submit my-provider/my-service
+usvc seller services submit my-provider/my-service
 ```
 
 !!! note "SDK equivalents"
@@ -140,15 +140,15 @@ This means there are two valid publishing patterns:
 **Pattern A — soft launch (set visibility after activation).** The default visibility on activation is `unlisted`, so a freshly approved service is live and routable but not in the public catalog.  Use this period to verify billing, share with beta customers via the direct URL, and finalise docs.  Then explicitly switch to public when you're ready:
 
 ```bash
-usvc_seller services set-visibility public <service_name>
+usvc seller services set-visibility public <service_name>
 ```
 
 **Pattern B — declarative (set visibility before submission).** Set `visibility=public` while the service is still a draft, then submit for review.  When admin activates the service it becomes public immediately — no second step required.  This is what the CI-driven upload workflow does (see [Operate Live Services](guides/operate-services.md)):
 
 ```bash
-usvc_seller specs upload
-usvc_seller services set-visibility public --local-ids --data-dir specs --yes
-usvc_seller services submit --local-ids --data-dir specs --yes
+usvc seller specs upload
+usvc seller services set-visibility public --local-ids --data-dir specs --yes
+usvc seller services submit --local-ids --data-dir specs --yes
 ```
 
 ### Switching visibility
@@ -157,16 +157,16 @@ usvc_seller services submit --local-ids --data-dir specs --yes
 
 ```bash
 # Single service
-usvc_seller services set-visibility public <service_name>
+usvc seller services set-visibility public <service_name>
 
 # All active services that aren't already public
-usvc_seller services set-visibility public --all --yes
+usvc seller services set-visibility public --all --yes
 
 # Take a service back off the public catalog without breaking enrollments
-usvc_seller services set-visibility unlisted <service_name>
+usvc seller services set-visibility unlisted <service_name>
 
 # Hide entirely (also keeps it out of internal listings)
-usvc_seller services set-visibility private <service_name>
+usvc seller services set-visibility private <service_name>
 ```
 
 **SDK:**

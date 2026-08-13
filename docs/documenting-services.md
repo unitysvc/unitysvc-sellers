@@ -613,7 +613,7 @@ Use the validate command to check document references and template syntax:
 
 ```bash
 # Validate all files including documents
-usvc_seller specs validate
+usvc seller specs validate
 
 # Expected output:
 # ✓ All files validated successfully
@@ -697,8 +697,8 @@ Set `is_public: true` for user-facing documentation:
 Always validate documents before uploading:
 
 ```bash
-usvc_seller specs validate
-usvc_seller specs upload
+usvc seller specs validate
+usvc seller specs upload
 ```
 
 ## Next Steps

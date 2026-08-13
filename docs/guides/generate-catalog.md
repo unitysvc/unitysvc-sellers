@@ -39,9 +39,9 @@ copied verbatim into each generated service folder.
 ## Run it
 
 ```bash
-usvc_seller specs populate              # render every service from the template
-usvc_seller specs populate --dry-run    # preview without writing files
-usvc_seller specs populate --provider acme   # restrict to one provider
+usvc seller specs populate              # render every service from the template
+usvc seller specs populate --dry-run    # preview without writing files
+usvc seller specs populate --provider acme   # restrict to one provider
 ```
 
 `populate` finds `templates/config.json`, installs the declared requirements, and
@@ -91,7 +91,7 @@ Two shapes, depending on how much control you need:
 ## Automating in CI
 
 The `unitysvc-services-*` provider repos run their populator on a schedule: a
-GitHub Actions workflow runs `usvc_seller specs populate`, and if the `specs/`
+GitHub Actions workflow runs `usvc seller specs populate`, and if the `specs/`
 diff is non-empty it opens an **auto-populate pull request** with the new and
 deprecated services for review. That keeps the catalog current without anyone
 re-running the script by hand — review the PR, merge, and `specs upload` (or let

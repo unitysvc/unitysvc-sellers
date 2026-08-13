@@ -436,7 +436,7 @@ the gateway. To run **every** executable document on a service
 across **every** active interface — with gateway-then-upstream
 attribution on failures — use `client.services.run_tests(...)` (or
 the equivalent `svc.run_tests()` instance method) instead. The CLI
-`usvc_seller services run-tests <service_id>` is a thin wrapper
+`usvc seller services run-tests <service_id>` is a thin wrapper
 over the same SDK call.
 
 ## `client.secrets`
@@ -521,7 +521,7 @@ For the common case of "upload a whole seller catalog directory,
 wait for every task, write each folder's `service.json` so the next
 run knows what already exists", use the `upload_directory` helper from
 `unitysvc_sellers.upload`. This is the same code path the
-`usvc_seller specs upload` CLI command uses.
+`usvc seller specs upload` CLI command uses.
 
 ```python
 from pathlib import Path
@@ -570,7 +570,7 @@ Returns an `UploadResult` dataclass with per-resource `services` /
 
 ## Running connectivity tests
 
-The `usvc_seller services run-tests` CLI queues a server-side
+The `usvc seller services run-tests` CLI queues a server-side
 **diagnostic** that runs each executable document (connectivity
 tests and code examples) across every active access interface from
 inside the cluster — the same network path customers hit. On any
@@ -627,7 +627,7 @@ What the backend does under the hood:
     config drives all ifaces) for fault attribution.
 4.  Persists per-(doc × iface) results to
     `Document.meta.test.tests[<iface_id>]` (readable later via
-    `usvc_seller services show-test --doc-id <id>` for full
+    `usvc seller services show-test --doc-id <id>` for full
     stdout/stderr).
 5.  Restores the snapshotted status and returns the summary.
 

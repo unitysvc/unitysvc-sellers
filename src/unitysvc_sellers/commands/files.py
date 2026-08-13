@@ -1,14 +1,14 @@
-"""``usvc_seller files`` — seller account file browser (unitysvc#1533).
+"""``usvc seller files`` — seller account file browser (unitysvc#1533).
 
-- ``usvc_seller files ls [PATH]``      — list one folder level
-- ``usvc_seller files get KEY [DEST]`` — download a file
-- ``usvc_seller files put SRC [PATH]`` — upload into a folder
-- ``usvc_seller files url KEY``        — print a presigned URL
+- ``usvc seller files ls [PATH]``      — list one folder level
+- ``usvc seller files get KEY [DEST]`` — download a file
+- ``usvc seller files put SRC [PATH]`` — upload into a folder
+- ``usvc seller files url KEY``        — print a presigned URL
 
 Paths and keys are relative to the seller's own folder (sellers have no
 team structure, so there are no scopes). Upload and download bytes go
 directly between this machine and storage — never through the UnitySVC
-API. Distinct from ``usvc_seller upload``, which stores content-addressed
+API. Distinct from ``usvc seller upload``, which stores content-addressed
 *documents* referenced by service listings.
 """
 

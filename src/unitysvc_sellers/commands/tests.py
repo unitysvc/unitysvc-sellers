@@ -1,4 +1,4 @@
-"""``usvc_seller services {list,run,show,skip,unskip}-test`` — document test ops.
+"""``usvc seller services {list,run,show,skip,unskip}-test`` — document test ops.
 
 These commands operate on backend ``Document`` records that represent
 seller code-example or connectivity-test scripts. They use the
@@ -502,15 +502,15 @@ def run_tests(
     Replaces the previous local-execution path
     (unitysvc/unitysvc#1105).  Test results are persisted on the
     backend in ``Document.meta.test.tests[<iface_id>]``; the rendered
-    table here is a summary.  Use ``usvc_seller services show-test --doc-id <id>``
+    table here is a summary.  Use ``usvc seller services show-test --doc-id <id>``
     to see full stdout/stderr for any failure.
 
     Targeting:
-        usvc_seller services run-tests cohere/command-r-plus
-        usvc_seller services run-tests 'cohere/*' --force
-        usvc_seller services run-tests --id 6c55d6d9              # disambiguate
-        usvc_seller services run-tests cohere/command-r -d 6c55d6d9   # one doc (id prefix ok)
-        usvc_seller services run-tests cohere/command-r -t code-example.py.j2  # one doc by filename
+        usvc seller services run-tests cohere/command-r-plus
+        usvc seller services run-tests 'cohere/*' --force
+        usvc seller services run-tests --id 6c55d6d9              # disambiguate
+        usvc seller services run-tests cohere/command-r -d 6c55d6d9   # one doc (id prefix ok)
+        usvc seller services run-tests cohere/command-r -t code-example.py.j2  # one doc by filename
     """
     modes = sum([name is not None, service_id is not None, local_ids])
     if modes != 1:
@@ -634,7 +634,7 @@ def _render_run_tests_result(result: Any) -> int:
     if result.fail_count:
         console.print(
             f"[red]✗ Failed:[/red] {result.fail_count}/{total} "
-            f"(see [bold]usvc_seller services show-test --doc-id <id>[/bold] "
+            f"(see [bold]usvc seller services show-test --doc-id <id>[/bold] "
             f"for full stdout/stderr)"
         )
         return 1
