@@ -231,7 +231,7 @@ def instantiate(
     """Instantiate system-template param files into services — all, or those
     matching ``NAME``.
 
-    Each param file's ``template`` (a system template — see ``usvc_seller
+    Each param file's ``template`` (a system template — see ``usvc seller
     templates``) is rendered with its ``parameters`` into a backend service. The
     returned ``service_id`` is written to a committed ``<name>.service.json``
     sidecar; an entry that already has one is skipped (re-instantiating to update

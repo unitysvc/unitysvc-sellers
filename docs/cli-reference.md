@@ -7,7 +7,7 @@
 
 UnitySVC seller CLI — local catalog tools and remote API operations.
 
-Local commands live under `usvc_seller specs ...`. Remote commands (against the seller backend, via the unitysvc-sellers HTTP SDK) live under `usvc_seller services|promotions|groups`.
+Local commands live under `usvc seller specs ...`. Remote commands (against the seller backend, via the unitysvc-sellers HTTP SDK) live under `usvc seller services|promotions|groups`.
 
 **Usage**:
 
@@ -82,7 +82,7 @@ $ usvc seller specs show [OPTIONS] {service_name}
 
 **Arguments**:
 
-* `service_name`: Service name (first column of &#x27;usvc_seller specs list services&#x27; output).  [required]
+* `service_name`: Service name (first column of &#x27;usvc seller specs list services&#x27; output).  [required]
 
 **Options**:
 
@@ -188,7 +188,7 @@ provider files carrying ``services_populator`` are still supported as a
 fallback.
 
 After successful execution, automatically runs formatting on all generated
-files (equivalent to ``usvc_seller specs format``).
+files (equivalent to ``usvc seller specs format``).
 
 **Usage**:
 
@@ -210,7 +210,7 @@ $ usvc seller specs populate [OPTIONS] [data_dir]
 
 Upload service specs to UnitySVC.
 
-Use ``usvc_seller promotions upload`` and ``usvc_seller groups upload``
+Use ``usvc seller promotions upload`` and ``usvc seller groups upload``
 for promotions and service groups.
 
 **Usage**:
@@ -242,16 +242,16 @@ Useful for exploring available examples before running tests.
 
 Examples:
     # List all code examples
-    usvc_seller specs list-tests
+    usvc seller specs list-tests
 
     # List for a whole provider (fnmatch pattern on listing.name)
-    usvc_seller specs list-tests &#x27;fireworks/*&#x27;
+    usvc seller specs list-tests &#x27;fireworks/*&#x27;
 
     # List for one service (literal listing.name)
-    usvc_seller specs list-tests fireworks/llama-3-1-405b-instruct
+    usvc seller specs list-tests fireworks/llama-3-1-405b-instruct
 
     # List as JSON
-    usvc_seller specs list-tests --format json
+    usvc seller specs list-tests --format json
 
 **Usage**:
 
@@ -283,26 +283,26 @@ This command:
 
 Examples:
     # Run all code examples in the current directory
-    usvc_seller specs run-tests
+    usvc seller specs run-tests
 
     # Run for a whole provider (fnmatch pattern on listing.name)
-    usvc_seller specs run-tests &#x27;fireworks/*&#x27;
+    usvc seller specs run-tests &#x27;fireworks/*&#x27;
 
     # Run a single service (literal listing.name)
-    usvc_seller specs run-tests fireworks/llama-3-1-405b-instruct
-    usvc_seller specs run-tests &#x27;cohere/command-r-*&#x27;
+    usvc seller specs run-tests fireworks/llama-3-1-405b-instruct
+    usvc seller specs run-tests &#x27;cohere/command-r-*&#x27;
 
     # Run specific file
-    usvc_seller specs run-tests --test-file &quot;code-example.py.j2&quot;
+    usvc seller specs run-tests --test-file &quot;code-example.py.j2&quot;
 
     # Show detailed output
-    usvc_seller specs run-tests --verbose
+    usvc seller specs run-tests --verbose
 
     # Force rerun all tests (ignore existing results)
-    usvc_seller specs run-tests --force
+    usvc seller specs run-tests --force
 
     # Stop on first failure
-    usvc_seller specs run-tests --fail-fast
+    usvc seller specs run-tests --fail-fast
 
 **Usage**:
 
@@ -331,8 +331,8 @@ Displays the status (.status), stdout (.out), and stderr (.err) files
 for previously executed tests.
 
 Examples:
-    usvc_seller specs show-test llama-3-1-405b-instruct
-    usvc_seller specs show-test llama-3-1-405b-instruct --title &quot;Quick Start&quot;
+    usvc seller specs show-test llama-3-1-405b-instruct
+    usvc seller specs show-test llama-3-1-405b-instruct --title &quot;Quick Start&quot;
 
 **Usage**:
 
@@ -851,15 +851,15 @@ result attributes the fault as ``platform_fault`` vs
 Replaces the previous local-execution path
 (unitysvc/unitysvc#1105).  Test results are persisted on the
 backend in ``Document.meta.test.tests[&lt;iface_id&gt;]``; the rendered
-table here is a summary.  Use ``usvc_seller services show-test --doc-id &lt;id&gt;``
+table here is a summary.  Use ``usvc seller services show-test --doc-id &lt;id&gt;``
 to see full stdout/stderr for any failure.
 
 Targeting:
-    usvc_seller services run-tests cohere/command-r-plus
-    usvc_seller services run-tests &#x27;cohere/*&#x27; --force
-    usvc_seller services run-tests --id 6c55d6d9              # disambiguate
-    usvc_seller services run-tests cohere/command-r -d 6c55d6d9   # one doc (id prefix ok)
-    usvc_seller services run-tests cohere/command-r -t code-example.py.j2  # one doc by filename
+    usvc seller services run-tests cohere/command-r-plus
+    usvc seller services run-tests &#x27;cohere/*&#x27; --force
+    usvc seller services run-tests --id 6c55d6d9              # disambiguate
+    usvc seller services run-tests cohere/command-r -d 6c55d6d9   # one doc (id prefix ok)
+    usvc seller services run-tests cohere/command-r -t code-example.py.j2  # one doc by filename
 
 **Usage**:
 
@@ -1299,8 +1299,8 @@ Input is a file or a pipe — no implicit default:
   - ``FILE`` argument — a path to the manifest (e.g. ``.env.example``)
   - ``-`` or piped stdin — decrypt on the fly, e.g.::
 
-         sops -d .secrets | usvc_seller secrets upload
-         gpg -d .secrets.gpg | usvc_seller secrets upload -
+         sops -d .secrets | usvc seller secrets upload
+         gpg -d .secrets.gpg | usvc seller secrets upload -
 
 **Usage**:
 
@@ -1571,7 +1571,7 @@ $ usvc seller params show [OPTIONS] {name}
 Instantiate system-template param files into services — all, or those
 matching ``NAME``.
 
-Each param file&#x27;s ``template`` (a system template — see ``usvc_seller
+Each param file&#x27;s ``template`` (a system template — see ``usvc seller
 templates``) is rendered with its ``parameters`` into a backend service. The
 returned ``service_id`` is written to a committed ``&lt;name&gt;.service.json``
 sidecar; an entry that already has one is skipped (re-instantiating to update
