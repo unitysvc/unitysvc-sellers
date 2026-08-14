@@ -289,6 +289,13 @@ Code examples are referenced in your `listing.json` or `listing.toml` file under
     -   When set, `run-tests` only runs this document against the listed channels; channels not in the list are skipped
     -   **Omit it (the default)** for single-channel services, or whenever every channel behaves the same — the document then applies to all channels with no annotation
     -   Use it only when channels deliver differently (e.g., one channel posts an Apprise body, another a channel-native body) and each needs its own code example / connectivity test
+-   **`meta.interfaces`**: _(User-maintained, multi-interface services only)_ Restrict this document to specific user access interfaces — the interface-axis twin of `meta.channels`
+    -   A list of interface names from the listing's `user_access_interfaces` (e.g., `["converse_api"]`)
+    -   When set, the document renders and tests only against the listed interfaces: in gateway testing (`usvc seller services run-tests`) it runs once per listed interface instead of once per every interface; in upstream testing (`usvc seller specs run-tests`) its template context (`SERVICE_BASE_URL` / `{{ service_base_url }}`, routing key) comes from the first listed interface instead of the listing's first interface
+    -   **Omit it (the default)** for single-interface services, or whenever the example works against every interface URL — the document then runs against all interfaces with no annotation
+    -   Use it when interfaces expect different request shapes or URL forms, so each needs its own example — e.g. an Amazon Bedrock listing exposes an OpenAI-compatible `provider_api` interface (`…/bedrock` + `/v1/chat/completions`) and a native `converse_api` interface (`…/bedrock-runtime/model/<id>`, the boto3 SDK appends `/converse`); the boto3 example is scoped `"interfaces": ["converse_api"]` while the OpenAI/Anthropic examples are scoped `"interfaces": ["provider_api"]` — without the scoping each example would also run against the interface whose URL shape it cannot speak, and fail
+    -   A document scoped to interfaces the listing doesn't define is skipped (gateway testing) or dropped from the run (upstream testing) — never a spurious failure
+    -   Composes with `meta.channels`: a document may be scoped on both axes (e.g. the boto3 Converse example carries `"channels": ["converse"], "interfaces": ["converse_api"]`)
 
 **System-Maintained Fields (in `meta` object):**
 

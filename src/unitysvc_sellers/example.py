@@ -132,6 +132,22 @@ def extract_code_examples_from_listing(listing_data: dict[str, Any], listing_fil
             if test_meta.get("status") == "skip":
                 continue
 
+            # An interface-scoped document (meta.interfaces) renders with the
+            # context of ITS interface — e.g. a boto3 Converse example needs the
+            # native converse_api base_url (…/model/<id>), not the OpenAI
+            # provider_api one. Absent/empty means the (unchanged) default: the
+            # first interface. A doc scoped to interfaces the listing doesn't
+            # define is skipped — nothing sensible to render it against.
+            doc_interface = first_interface
+            allowed_ifaces = meta.get("interfaces")
+            if allowed_ifaces:
+                doc_interface = next(
+                    (interfaces[n] for n in allowed_ifaces if n in interfaces),
+                    None,  # type: ignore[arg-type]
+                )
+                if doc_interface is None:
+                    continue
+
             # Resolve file path relative to listing file
             file_path = doc.get("file_path")
             if file_path:
@@ -145,11 +161,12 @@ def extract_code_examples_from_listing(listing_data: dict[str, Any], listing_fil
                     "file_path": str(absolute_path),
                     "listing_data": listing_data,  # Full listing data for templates
                     "listing_file": listing_file,  # Path to listing file for loading related data
-                    "interface": first_interface,  # First interface for templates (base_url, routing_key, etc.)
+                    "interface": doc_interface,  # The doc's interface for templates (base_url, routing_key, etc.)
                     "output_contains": meta.get("output_contains"),  # Substring to check in output (from meta)
                     "requirements": meta.get("requirements"),  # Required packages (from meta)
                     "category": category,  # Track which category this is
                     "channels": meta.get("channels"),  # Upstream channels this doc applies to (None/[] = all)
+                    "interfaces": allowed_ifaces,  # Access interfaces this doc applies to (None/[] = all)
                     "sleep_after_test": meta.get("sleep_after_test"),  # secs to pause after running (rate-limit guard)
                 }
                 code_examples.append(code_example)
@@ -772,13 +789,9 @@ def _resolve_categories(values: list[str] | None) -> set[str] | None:
         if len(matches) == 1:
             resolved.add(matches[0])
         elif not matches:
-            raise typer.BadParameter(
-                f"Unknown document category '{raw}'. Valid categories: {', '.join(valid)}"
-            )
+            raise typer.BadParameter(f"Unknown document category '{raw}'. Valid categories: {', '.join(valid)}")
         else:
-            raise typer.BadParameter(
-                f"Ambiguous document category '{raw}' — matches {', '.join(matches)}."
-            )
+            raise typer.BadParameter(f"Ambiguous document category '{raw}' — matches {', '.join(matches)}.")
     return resolved
 
 
@@ -828,9 +841,7 @@ def record_upstream_test_status(results: list[dict[str, Any]]) -> list[tuple[str
         if outcome.get("skipped"):
             # "previously passed" — the recorded status already reflects it.
             continue
-        state = by_service.setdefault(
-            entry["service_name"], {"listing_file": listing_file, "ok": True}
-        )
+        state = by_service.setdefault(entry["service_name"], {"listing_file": listing_file, "ok": True})
         if not outcome.get("success"):
             state["ok"] = False
 
@@ -1427,13 +1438,8 @@ def run_local(
     if recorded:
         failed_services = [n for n, st in recorded if st == "fail"]
         if failed_services:
-            console.print(
-                f"\n[yellow]⚠ upstream_test_status=fail recorded for:[/yellow] "
-                f"{', '.join(failed_services)}"
-            )
-            console.print(
-                "[dim]  `specs upload` will skip these; pass --ignore-test-status to override.[/dim]"
-            )
+            console.print(f"\n[yellow]⚠ upstream_test_status=fail recorded for:[/yellow] {', '.join(failed_services)}")
+            console.print("[dim]  `specs upload` will skip these; pass --ignore-test-status to override.[/dim]")
             console.print(
                 "[dim]  Already-published services are NOT taken off the shelf: this probe uses "
                 "the local credential, while a BYOK customer calls the upstream with their own "
