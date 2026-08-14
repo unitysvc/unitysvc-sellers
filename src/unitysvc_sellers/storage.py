@@ -102,7 +102,9 @@ def _upload_one(client: AuthenticatedClient, path: Path) -> str:
 # (a 136-service repo would otherwise fetch the same logo 136 times), and the
 # storage is content-addressed so repeats would dedupe server-side anyway —
 # the cache just saves the round-trips.
-_MIRROR_CACHE: dict[str, tuple[str, str]] = {}
+_MIRROR_CACHE: dict[tuple[str, bool], tuple[str, str]] = {}
+
+_LOGO_BACKGROUND_RGB = (17, 24, 39)
 
 # Content types accepted when mirroring an external image (and the extension
 # used for the uploaded object when the URL path has none).
@@ -115,7 +117,39 @@ _IMAGE_CONTENT_TYPES = {
 }
 
 
-def mirror_external_image(client: AuthenticatedClient, url: str) -> tuple[str, str]:
+def _composite_transparent_logo(content: bytes, content_type: str) -> tuple[bytes, str, bool]:
+    """Return logo bytes composited onto a stable background when possible.
+
+    Only raster formats Pillow can decode are handled. SVG and any undecodable
+    image are left untouched so a logo mirror never becomes a blocker.
+    """
+    if content_type == "image/svg+xml":
+        return content, content_type, False
+
+    from io import BytesIO
+
+    from PIL import Image
+
+    try:
+        with Image.open(BytesIO(content)) as image:
+            rgba = image.convert("RGBA")
+    except Exception:
+        return content, content_type, False
+
+    alpha = rgba.getchannel("A")
+    if alpha.getextrema() == (255, 255):
+        return content, content_type, False
+
+    background = Image.new("RGBA", rgba.size, (*_LOGO_BACKGROUND_RGB, 255))
+    background.alpha_composite(rgba)
+    out = BytesIO()
+    background.convert("RGB").save(out, format="PNG")
+    return out.getvalue(), "image/png", True
+
+
+def mirror_external_image(
+    client: AuthenticatedClient, url: str, *, normalize_logo_background: bool = False
+) -> tuple[str, str]:
     """Fetch an external image and re-host it on platform S3 storage.
 
     Returns ``(object_key, content_type)`` — the content-addressed key (build
@@ -134,7 +168,8 @@ def mirror_external_image(client: AuthenticatedClient, url: str) -> tuple[str, s
     """
     import httpx
 
-    cached = _MIRROR_CACHE.get(url)
+    cache_key = (url, normalize_logo_background)
+    cached = _MIRROR_CACHE.get(cache_key)
     if cached is not None:
         return cached
 
@@ -146,12 +181,20 @@ def mirror_external_image(client: AuthenticatedClient, url: str) -> tuple[str, s
 
     from urllib.parse import urlparse
 
+    content = resp.content
+    if normalize_logo_background:
+        content, content_type, normalized = _composite_transparent_logo(content, content_type)
+    else:
+        normalized = False
+
     name = Path(urlparse(url).path).name or "image"
+    if normalized:
+        name = f"{Path(name).stem or 'image'}.png"
     if not Path(name).suffix:
         name += _IMAGE_CONTENT_TYPES[content_type]
 
-    key = upload_bytes(client, resp.content, name, content_type)
-    _MIRROR_CACHE[url] = (key, content_type)
+    key = upload_bytes(client, content, name, content_type)
+    _MIRROR_CACHE[cache_key] = (key, content_type)
     return key, content_type
 
 

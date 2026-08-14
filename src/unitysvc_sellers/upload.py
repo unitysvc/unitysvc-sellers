@@ -320,7 +320,11 @@ def _resolve_file_references(
             from .storage import mirror_external_image
 
             try:
-                object_key, content_type = mirror_external_image(client._client, value)
+                object_key, content_type = mirror_external_image(
+                    client._client,
+                    value,
+                    normalize_logo_background=data.get("category") == "logo",
+                )
             except Exception as exc:  # noqa: BLE001 — keep the URL on any failure
                 print(f"  Warning: could not mirror external image {value}: {exc}")
                 result[key] = value
