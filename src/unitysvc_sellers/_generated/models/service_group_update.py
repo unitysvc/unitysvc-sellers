@@ -10,9 +10,9 @@ from ..models.service_group_status_enum import ServiceGroupStatusEnum, check_ser
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.group_service_member import GroupServiceMember
     from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
     from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
-    from ..models.service_group_update_user_access_interfaces_type_0 import ServiceGroupUpdateUserAccessInterfacesType0
 
 
 T = TypeVar("T", bound="ServiceGroupUpdate")
@@ -25,7 +25,7 @@ class ServiceGroupUpdate:
     display_name: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
     membership_rules: None | ServiceGroupUpdateMembershipRulesType0 | Unset = UNSET
-    user_access_interfaces: None | ServiceGroupUpdateUserAccessInterfacesType0 | Unset = UNSET
+    services: list[GroupServiceMember] | None | Unset = UNSET
     routing_policy: None | ServiceGroupUpdateRoutingPolicyType0 | Unset = UNSET
     status: None | ServiceGroupStatusEnum | Unset = UNSET
     sort_order: int | None | Unset = UNSET
@@ -34,11 +34,9 @@ class ServiceGroupUpdate:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.group_service_member import GroupServiceMember
         from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
         from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
-        from ..models.service_group_update_user_access_interfaces_type_0 import (
-            ServiceGroupUpdateUserAccessInterfacesType0,
-        )
 
         display_name: None | str | Unset
         if isinstance(self.display_name, Unset):
@@ -60,13 +58,17 @@ class ServiceGroupUpdate:
         else:
             membership_rules = self.membership_rules
 
-        user_access_interfaces: dict[str, Any] | None | Unset
-        if isinstance(self.user_access_interfaces, Unset):
-            user_access_interfaces = UNSET
-        elif isinstance(self.user_access_interfaces, ServiceGroupUpdateUserAccessInterfacesType0):
-            user_access_interfaces = self.user_access_interfaces.to_dict()
+        services: list[dict[str, Any]] | None | Unset
+        if isinstance(self.services, Unset):
+            services = UNSET
+        elif isinstance(self.services, list):
+            services = []
+            for services_type_0_item_data in self.services:
+                services_type_0_item = services_type_0_item_data.to_dict()
+                services.append(services_type_0_item)
+
         else:
-            user_access_interfaces = self.user_access_interfaces
+            services = self.services
 
         routing_policy: dict[str, Any] | None | Unset
         if isinstance(self.routing_policy, Unset):
@@ -105,8 +107,8 @@ class ServiceGroupUpdate:
             field_dict["description"] = description
         if membership_rules is not UNSET:
             field_dict["membership_rules"] = membership_rules
-        if user_access_interfaces is not UNSET:
-            field_dict["user_access_interfaces"] = user_access_interfaces
+        if services is not UNSET:
+            field_dict["services"] = services
         if routing_policy is not UNSET:
             field_dict["routing_policy"] = routing_policy
         if status is not UNSET:
@@ -120,11 +122,9 @@ class ServiceGroupUpdate:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.group_service_member import GroupServiceMember
         from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
         from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
-        from ..models.service_group_update_user_access_interfaces_type_0 import (
-            ServiceGroupUpdateUserAccessInterfacesType0,
-        )
 
         d = dict(src_dict)
 
@@ -163,22 +163,27 @@ class ServiceGroupUpdate:
 
         membership_rules = _parse_membership_rules(d.pop("membership_rules", UNSET))
 
-        def _parse_user_access_interfaces(data: object) -> None | ServiceGroupUpdateUserAccessInterfacesType0 | Unset:
+        def _parse_services(data: object) -> list[GroupServiceMember] | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             try:
-                if not isinstance(data, dict):
+                if not isinstance(data, list):
                     raise TypeError()
-                user_access_interfaces_type_0 = ServiceGroupUpdateUserAccessInterfacesType0.from_dict(data)
+                services_type_0 = []
+                _services_type_0 = data
+                for services_type_0_item_data in _services_type_0:
+                    services_type_0_item = GroupServiceMember.from_dict(services_type_0_item_data)
 
-                return user_access_interfaces_type_0
+                    services_type_0.append(services_type_0_item)
+
+                return services_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(None | ServiceGroupUpdateUserAccessInterfacesType0 | Unset, data)
+            return cast(list[GroupServiceMember] | None | Unset, data)
 
-        user_access_interfaces = _parse_user_access_interfaces(d.pop("user_access_interfaces", UNSET))
+        services = _parse_services(d.pop("services", UNSET))
 
         def _parse_routing_policy(data: object) -> None | ServiceGroupUpdateRoutingPolicyType0 | Unset:
             if data is None:
@@ -236,7 +241,7 @@ class ServiceGroupUpdate:
             display_name=display_name,
             description=description,
             membership_rules=membership_rules,
-            user_access_interfaces=user_access_interfaces,
+            services=services,
             routing_policy=routing_policy,
             status=status,
             sort_order=sort_order,

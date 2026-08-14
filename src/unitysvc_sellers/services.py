@@ -110,6 +110,19 @@ class RunTestsResult:
         return self.status == "success" and self.fail_count == 0
 
 
+def _resolve_channel_type(channel_type: str | None, listing_type: str | None) -> str | None:
+    """Accept the retired ``listing_type`` name for the ``channel_type`` filter.
+
+    The backend renamed this query parameter, widening it from "listing type"
+    to "services offering a channel of this access method" (the value space
+    gained ``enrollable``). Callers passing ``listing_type`` were already
+    getting an unfiltered list — the backend had stopped reading the old name
+    — so mapping it here restores the behaviour they asked for rather than
+    preserving a silent no-op. ``channel_type`` wins if both are given.
+    """
+    return channel_type if channel_type is not None else listing_type
+
+
 def _parse_run_tests_payload(task_id: str, payload: dict[str, Any]) -> RunTestsResult:
     """Coerce the task-status dict from ``/tasks/{id}`` into a typed result.
 
@@ -364,6 +377,7 @@ class Services:
         status: str | None = None,
         visibility: str | None = None,
         service_type: str | None = None,
+        channel_type: str | None = None,
         listing_type: str | None = None,
         name: str | None = None,
         provider: str | None = None,
@@ -375,9 +389,14 @@ class Services:
         iterable over :class:`Service` items and exposes
         ``next_cursor`` / ``has_more`` for manual pagination.
         For "iterate all pages" use :meth:`iter_all`.
+
+        ``listing_type`` is the retired name for ``channel_type`` and is
+        still accepted; see :func:`_resolve_channel_type`.
         """
         from ._generated.api.seller_services import services_list
         from ._generated.types import UNSET
+
+        channel_type = _resolve_channel_type(channel_type, listing_type)
 
         raw = unwrap(
             services_list.sync_detailed(
@@ -387,7 +406,7 @@ class Services:
                 status=status if status is not None else UNSET,
                 visibility=visibility if visibility is not None else UNSET,
                 service_type=service_type if service_type is not None else UNSET,
-                listing_type=listing_type if listing_type is not None else UNSET,
+                channel_type=channel_type if channel_type is not None else UNSET,
                 name=name if name is not None else UNSET,
                 provider=provider if provider is not None else UNSET,
                 ids=ids if ids is not None else UNSET,
@@ -403,7 +422,7 @@ class Services:
                 "status": status,
                 "visibility": visibility,
                 "service_type": service_type,
-                "listing_type": listing_type,
+                "channel_type": channel_type,
                 "name": name,
                 "provider": provider,
                 "ids": ids,
@@ -417,6 +436,7 @@ class Services:
         status: str | None = None,
         visibility: str | None = None,
         service_type: str | None = None,
+        channel_type: str | None = None,
         listing_type: str | None = None,
         name: str | None = None,
         provider: str | None = None,
@@ -432,7 +452,7 @@ class Services:
             "status": status,
             "visibility": visibility,
             "service_type": service_type,
-            "listing_type": listing_type,
+            "channel_type": _resolve_channel_type(channel_type, listing_type),
             "name": name,
             "provider": provider,
         }

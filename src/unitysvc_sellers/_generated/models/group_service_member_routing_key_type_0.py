@@ -8,11 +8,11 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="ServiceGroupCreateUserAccessInterfacesType0")
+T = TypeVar("T", bound="GroupServiceMemberRoutingKeyType0")
 
 
 @_attrs_define
-class ServiceGroupCreateUserAccessInterfacesType0:
+class GroupServiceMemberRoutingKeyType0:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -24,10 +24,10 @@ class ServiceGroupCreateUserAccessInterfacesType0:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        service_group_create_user_access_interfaces_type_0 = cls()
+        group_service_member_routing_key_type_0 = cls()
 
-        service_group_create_user_access_interfaces_type_0.additional_properties = d
-        return service_group_create_user_access_interfaces_type_0
+        group_service_member_routing_key_type_0.additional_properties = d
+        return group_service_member_routing_key_type_0
 
     @property
     def additional_keys(self) -> list[str]:

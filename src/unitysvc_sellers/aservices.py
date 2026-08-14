@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from ._http import unwrap
-from .services import RunTestsResult, _parse_run_tests_payload
+from .services import RunTestsResult, _parse_run_tests_payload, _resolve_channel_type
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
@@ -151,6 +151,7 @@ class AsyncServices:
         status: str | None = None,
         visibility: str | None = None,
         service_type: str | None = None,
+        channel_type: str | None = None,
         listing_type: str | None = None,
         name: str | None = None,
         provider: str | None = None,
@@ -158,6 +159,8 @@ class AsyncServices:
     ) -> AsyncServiceList:
         from ._generated.api.seller_services import services_list
         from ._generated.types import UNSET
+
+        channel_type = _resolve_channel_type(channel_type, listing_type)
 
         raw = unwrap(
             await services_list.asyncio_detailed(
@@ -167,7 +170,7 @@ class AsyncServices:
                 status=status if status is not None else UNSET,
                 visibility=visibility if visibility is not None else UNSET,
                 service_type=service_type if service_type is not None else UNSET,
-                listing_type=listing_type if listing_type is not None else UNSET,
+                channel_type=channel_type if channel_type is not None else UNSET,
                 name=name if name is not None else UNSET,
                 provider=provider if provider is not None else UNSET,
                 ids=ids if ids is not None else UNSET,
@@ -183,7 +186,7 @@ class AsyncServices:
                 "status": status,
                 "visibility": visibility,
                 "service_type": service_type,
-                "listing_type": listing_type,
+                "channel_type": channel_type,
                 "name": name,
                 "provider": provider,
                 "ids": ids,
@@ -197,6 +200,7 @@ class AsyncServices:
         status: str | None = None,
         visibility: str | None = None,
         service_type: str | None = None,
+        channel_type: str | None = None,
         listing_type: str | None = None,
         name: str | None = None,
         provider: str | None = None,
@@ -207,7 +211,7 @@ class AsyncServices:
             "status": status,
             "visibility": visibility,
             "service_type": service_type,
-            "listing_type": listing_type,
+            "channel_type": _resolve_channel_type(channel_type, listing_type),
             "name": name,
             "provider": provider,
         }

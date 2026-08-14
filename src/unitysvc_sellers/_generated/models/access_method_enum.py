@@ -1,10 +1,11 @@
 from typing import Literal, cast
 
-AccessMethodEnum = Literal["grpc", "http", "smtp", "websocket"]
+AccessMethodEnum = Literal["grpc", "http", "mcp", "smtp", "websocket"]
 
 ACCESS_METHOD_ENUM_VALUES: set[AccessMethodEnum] = {
     "grpc",
     "http",
+    "mcp",
     "smtp",
     "websocket",
 }

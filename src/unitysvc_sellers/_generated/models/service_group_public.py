@@ -17,7 +17,6 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
     from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
-    from ..models.service_group_public_user_access_interfaces_type_0 import ServiceGroupPublicUserAccessInterfacesType0
 
 
 T = TypeVar("T", bound="ServiceGroupPublic")
@@ -39,7 +38,6 @@ class ServiceGroupPublic:
     owner_id: None | Unset | UUID = UNSET
     description: None | str | Unset = UNSET
     membership_rules: None | ServiceGroupPublicMembershipRulesType0 | Unset = UNSET
-    user_access_interfaces: None | ServiceGroupPublicUserAccessInterfacesType0 | Unset = UNSET
     routing_policy: None | ServiceGroupPublicRoutingPolicyType0 | Unset = UNSET
     group_type: GroupTypeEnum | Unset = UNSET
     """ Type of service group. Derived from members, not authored (unitysvc#1686).
@@ -47,15 +45,21 @@ class ServiceGroupPublic:
     Two of the five types are routable (a ``/g/<name>`` endpoint); the rest are
     not:
 
-    - ``open``  — routable, and members share a common request format, so a
-      request with **no** routing key fans safely across them. A key may still
-      be passed to select one. (Also the single-member case.)
-    - ``keyed`` — routable, but members accept different formats, so a keyless
-      request is ambiguous: a routing key is **required**, and every key
-      resolves to a format-homogeneous set.
-    - ``collection`` — not a routing endpoint. A browse-only set, or a would-be
-      routable group demoted because some routing key spans incompatible
-      formats (a request to that key couldn't be served reliably).
+    A quick-characterization spectrum derived from ``routable_keys``
+    (unitysvc#1730); the gateway routes off ``routable_keys`` itself, not this:
+
+    - ``keyed`` — one extreme: a clean menu, every service addressable by its own
+      distinct routing key (each key maps to a single service); keyless access an
+      optional feature. Serves ``/v1/models`` and is tool-explorable.
+    - ``open`` — the middle: routable, but not a clean per-service menu — a
+      keyless-only pool, partial keying, or a key that fans to several services.
+    - ``collection`` — the other extreme: **not** a routing endpoint at all
+      (empty ``routable_keys`` — no members, or every bucket format-collides).
+
+    Routability is exactly ``group_type in {open, keyed}`` (``collection`` =
+    empty ``routable_keys``), so the routing gate is unchanged; #1730 only re-cut
+    the open↔keyed boundary. Whether a keyless request is served is a
+    ``routable_keys`` fact, not a type fact.
     - ``category`` — a parent with no members of its own; its membership is the
       union of its descendants, for browsing only.
     - ``capability_pool`` (#1244) — the ``/p/<name>`` namespace; membership is
@@ -77,9 +81,6 @@ class ServiceGroupPublic:
     def to_dict(self) -> dict[str, Any]:
         from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
         from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
-        from ..models.service_group_public_user_access_interfaces_type_0 import (
-            ServiceGroupPublicUserAccessInterfacesType0,
-        )
 
         id = str(self.id)
 
@@ -116,14 +117,6 @@ class ServiceGroupPublic:
             membership_rules = self.membership_rules.to_dict()
         else:
             membership_rules = self.membership_rules
-
-        user_access_interfaces: dict[str, Any] | None | Unset
-        if isinstance(self.user_access_interfaces, Unset):
-            user_access_interfaces = UNSET
-        elif isinstance(self.user_access_interfaces, ServiceGroupPublicUserAccessInterfacesType0):
-            user_access_interfaces = self.user_access_interfaces.to_dict()
-        else:
-            user_access_interfaces = self.user_access_interfaces
 
         routing_policy: dict[str, Any] | None | Unset
         if isinstance(self.routing_policy, Unset):
@@ -186,8 +179,6 @@ class ServiceGroupPublic:
             field_dict["description"] = description
         if membership_rules is not UNSET:
             field_dict["membership_rules"] = membership_rules
-        if user_access_interfaces is not UNSET:
-            field_dict["user_access_interfaces"] = user_access_interfaces
         if routing_policy is not UNSET:
             field_dict["routing_policy"] = routing_policy
         if group_type is not UNSET:
@@ -211,9 +202,6 @@ class ServiceGroupPublic:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.service_group_public_membership_rules_type_0 import ServiceGroupPublicMembershipRulesType0
         from ..models.service_group_public_routing_policy_type_0 import ServiceGroupPublicRoutingPolicyType0
-        from ..models.service_group_public_user_access_interfaces_type_0 import (
-            ServiceGroupPublicUserAccessInterfacesType0,
-        )
 
         d = dict(src_dict)
         id = UUID(d.pop("id"))
@@ -272,23 +260,6 @@ class ServiceGroupPublic:
             return cast(None | ServiceGroupPublicMembershipRulesType0 | Unset, data)
 
         membership_rules = _parse_membership_rules(d.pop("membership_rules", UNSET))
-
-        def _parse_user_access_interfaces(data: object) -> None | ServiceGroupPublicUserAccessInterfacesType0 | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                user_access_interfaces_type_0 = ServiceGroupPublicUserAccessInterfacesType0.from_dict(data)
-
-                return user_access_interfaces_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(None | ServiceGroupPublicUserAccessInterfacesType0 | Unset, data)
-
-        user_access_interfaces = _parse_user_access_interfaces(d.pop("user_access_interfaces", UNSET))
 
         def _parse_routing_policy(data: object) -> None | ServiceGroupPublicRoutingPolicyType0 | Unset:
             if data is None:
@@ -373,7 +344,6 @@ class ServiceGroupPublic:
             owner_id=owner_id,
             description=description,
             membership_rules=membership_rules,
-            user_access_interfaces=user_access_interfaces,
             routing_policy=routing_policy,
             group_type=group_type,
             sort_order=sort_order,

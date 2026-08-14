@@ -9,9 +9,9 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.group_service_member import GroupServiceMember
     from ..models.service_group_create_membership_rules_type_0 import ServiceGroupCreateMembershipRulesType0
     from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
-    from ..models.service_group_create_user_access_interfaces_type_0 import ServiceGroupCreateUserAccessInterfacesType0
 
 
 T = TypeVar("T", bound="ServiceGroupCreate")
@@ -25,7 +25,9 @@ class ServiceGroupCreate:
     display_name: str
     description: None | str | Unset = UNSET
     membership_rules: None | ServiceGroupCreateMembershipRulesType0 | Unset = UNSET
-    user_access_interfaces: None | ServiceGroupCreateUserAccessInterfacesType0 | Unset = UNSET
+    services: list[GroupServiceMember] | None | Unset = UNSET
+    """ Explicit member list for a manually-curated (routable) group. Mutually exclusive with membership_rules;
+    reconciled on upload. """
     routing_policy: None | ServiceGroupCreateRoutingPolicyType0 | Unset = UNSET
     sort_order: int | Unset = 0
     parent_group_name: None | str | Unset = UNSET
@@ -33,11 +35,9 @@ class ServiceGroupCreate:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.group_service_member import GroupServiceMember
         from ..models.service_group_create_membership_rules_type_0 import ServiceGroupCreateMembershipRulesType0
         from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
-        from ..models.service_group_create_user_access_interfaces_type_0 import (
-            ServiceGroupCreateUserAccessInterfacesType0,
-        )
 
         name = self.name
 
@@ -57,13 +57,17 @@ class ServiceGroupCreate:
         else:
             membership_rules = self.membership_rules
 
-        user_access_interfaces: dict[str, Any] | None | Unset
-        if isinstance(self.user_access_interfaces, Unset):
-            user_access_interfaces = UNSET
-        elif isinstance(self.user_access_interfaces, ServiceGroupCreateUserAccessInterfacesType0):
-            user_access_interfaces = self.user_access_interfaces.to_dict()
+        services: list[dict[str, Any]] | None | Unset
+        if isinstance(self.services, Unset):
+            services = UNSET
+        elif isinstance(self.services, list):
+            services = []
+            for services_type_0_item_data in self.services:
+                services_type_0_item = services_type_0_item_data.to_dict()
+                services.append(services_type_0_item)
+
         else:
-            user_access_interfaces = self.user_access_interfaces
+            services = self.services
 
         routing_policy: dict[str, Any] | None | Unset
         if isinstance(self.routing_policy, Unset):
@@ -93,8 +97,8 @@ class ServiceGroupCreate:
             field_dict["description"] = description
         if membership_rules is not UNSET:
             field_dict["membership_rules"] = membership_rules
-        if user_access_interfaces is not UNSET:
-            field_dict["user_access_interfaces"] = user_access_interfaces
+        if services is not UNSET:
+            field_dict["services"] = services
         if routing_policy is not UNSET:
             field_dict["routing_policy"] = routing_policy
         if sort_order is not UNSET:
@@ -106,11 +110,9 @@ class ServiceGroupCreate:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.group_service_member import GroupServiceMember
         from ..models.service_group_create_membership_rules_type_0 import ServiceGroupCreateMembershipRulesType0
         from ..models.service_group_create_routing_policy_type_0 import ServiceGroupCreateRoutingPolicyType0
-        from ..models.service_group_create_user_access_interfaces_type_0 import (
-            ServiceGroupCreateUserAccessInterfacesType0,
-        )
 
         d = dict(src_dict)
         name = d.pop("name")
@@ -143,22 +145,27 @@ class ServiceGroupCreate:
 
         membership_rules = _parse_membership_rules(d.pop("membership_rules", UNSET))
 
-        def _parse_user_access_interfaces(data: object) -> None | ServiceGroupCreateUserAccessInterfacesType0 | Unset:
+        def _parse_services(data: object) -> list[GroupServiceMember] | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             try:
-                if not isinstance(data, dict):
+                if not isinstance(data, list):
                     raise TypeError()
-                user_access_interfaces_type_0 = ServiceGroupCreateUserAccessInterfacesType0.from_dict(data)
+                services_type_0 = []
+                _services_type_0 = data
+                for services_type_0_item_data in _services_type_0:
+                    services_type_0_item = GroupServiceMember.from_dict(services_type_0_item_data)
 
-                return user_access_interfaces_type_0
+                    services_type_0.append(services_type_0_item)
+
+                return services_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(None | ServiceGroupCreateUserAccessInterfacesType0 | Unset, data)
+            return cast(list[GroupServiceMember] | None | Unset, data)
 
-        user_access_interfaces = _parse_user_access_interfaces(d.pop("user_access_interfaces", UNSET))
+        services = _parse_services(d.pop("services", UNSET))
 
         def _parse_routing_policy(data: object) -> None | ServiceGroupCreateRoutingPolicyType0 | Unset:
             if data is None:
@@ -193,7 +200,7 @@ class ServiceGroupCreate:
             display_name=display_name,
             description=description,
             membership_rules=membership_rules,
-            user_access_interfaces=user_access_interfaces,
+            services=services,
             routing_policy=routing_policy,
             sort_order=sort_order,
             parent_group_name=parent_group_name,

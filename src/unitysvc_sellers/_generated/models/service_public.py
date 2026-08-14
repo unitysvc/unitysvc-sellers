@@ -52,7 +52,7 @@ class ServicePublic:
     display_name: None | str | Unset = UNSET
     service_type: None | str | Unset = UNSET
     provider_name: None | str | Unset = UNSET
-    listing_type: None | str | Unset = UNSET
+    channel_types: list[str] | None | Unset = UNSET
     status_message: None | str | Unset = UNSET
     is_featured: bool | Unset = False
     visibility: ServiceVisibilityEnum | Unset = UNSET
@@ -133,11 +133,14 @@ class ServicePublic:
         else:
             provider_name = self.provider_name
 
-        listing_type: None | str | Unset
-        if isinstance(self.listing_type, Unset):
-            listing_type = UNSET
+        channel_types: list[str] | None | Unset
+        if isinstance(self.channel_types, Unset):
+            channel_types = UNSET
+        elif isinstance(self.channel_types, list):
+            channel_types = self.channel_types
+
         else:
-            listing_type = self.listing_type
+            channel_types = self.channel_types
 
         status_message: None | str | Unset
         if isinstance(self.status_message, Unset):
@@ -223,8 +226,8 @@ class ServicePublic:
             field_dict["service_type"] = service_type
         if provider_name is not UNSET:
             field_dict["provider_name"] = provider_name
-        if listing_type is not UNSET:
-            field_dict["listing_type"] = listing_type
+        if channel_types is not UNSET:
+            field_dict["channel_types"] = channel_types
         if status_message is not UNSET:
             field_dict["status_message"] = status_message
         if is_featured is not UNSET:
@@ -352,14 +355,22 @@ class ServicePublic:
 
         provider_name = _parse_provider_name(d.pop("provider_name", UNSET))
 
-        def _parse_listing_type(data: object) -> None | str | Unset:
+        def _parse_channel_types(data: object) -> list[str] | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                channel_types_type_0 = cast(list[str], data)
 
-        listing_type = _parse_listing_type(d.pop("listing_type", UNSET))
+                return channel_types_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[str] | None | Unset, data)
+
+        channel_types = _parse_channel_types(d.pop("channel_types", UNSET))
 
         def _parse_status_message(data: object) -> None | str | Unset:
             if data is None:
@@ -481,7 +492,7 @@ class ServicePublic:
             display_name=display_name,
             service_type=service_type,
             provider_name=provider_name,
-            listing_type=listing_type,
+            channel_types=channel_types,
             status_message=status_message,
             is_featured=is_featured,
             visibility=visibility,

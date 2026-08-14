@@ -110,7 +110,10 @@ def sync_detailed(
     ``POST /services/{id}/submit``.
 
     **Visibility**: ``public`` / ``unlisted`` / ``private``.
-    Only active services can be set to ``public``.
+    Sellers can only switch between ``public`` and ``unlisted`` here.
+    ``private`` is upload-controlled via
+    ``listing.service_options.default_visibility`` and cannot be changed by
+    this endpoint.
 
     **Routing vars** and **list price** accept two forms:
 
@@ -193,7 +196,10 @@ def sync(
     ``POST /services/{id}/submit``.
 
     **Visibility**: ``public`` / ``unlisted`` / ``private``.
-    Only active services can be set to ``public``.
+    Sellers can only switch between ``public`` and ``unlisted`` here.
+    ``private`` is upload-controlled via
+    ``listing.service_options.default_visibility`` and cannot be changed by
+    this endpoint.
 
     **Routing vars** and **list price** accept two forms:
 
@@ -271,7 +277,10 @@ async def asyncio_detailed(
     ``POST /services/{id}/submit``.
 
     **Visibility**: ``public`` / ``unlisted`` / ``private``.
-    Only active services can be set to ``public``.
+    Sellers can only switch between ``public`` and ``unlisted`` here.
+    ``private`` is upload-controlled via
+    ``listing.service_options.default_visibility`` and cannot be changed by
+    this endpoint.
 
     **Routing vars** and **list price** accept two forms:
 
@@ -352,7 +361,10 @@ async def asyncio(
     ``POST /services/{id}/submit``.
 
     **Visibility**: ``public`` / ``unlisted`` / ``private``.
-    Only active services can be set to ``public``.
+    Sellers can only switch between ``public`` and ``unlisted`` here.
+    ``private`` is upload-controlled via
+    ``listing.service_options.default_visibility`` and cannot be changed by
+    this endpoint.
 
     **Routing vars** and **list price** accept two forms:
 
