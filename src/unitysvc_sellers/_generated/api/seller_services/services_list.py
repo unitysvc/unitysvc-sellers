@@ -20,7 +20,7 @@ def _get_kwargs(
     status: None | str | Unset = UNSET,
     visibility: None | str | Unset = UNSET,
     service_type: None | str | Unset = UNSET,
-    listing_type: None | str | Unset = UNSET,
+    channel_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
     ids: list[UUID] | None | Unset = UNSET,
@@ -66,12 +66,12 @@ def _get_kwargs(
         json_service_type = service_type
     params["service_type"] = json_service_type
 
-    json_listing_type: None | str | Unset
-    if isinstance(listing_type, Unset):
-        json_listing_type = UNSET
+    json_channel_type: None | str | Unset
+    if isinstance(channel_type, Unset):
+        json_channel_type = UNSET
     else:
-        json_listing_type = listing_type
-    params["listing_type"] = json_listing_type
+        json_channel_type = channel_type
+    params["channel_type"] = json_channel_type
 
     json_name: None | str | Unset
     if isinstance(name, Unset):
@@ -160,7 +160,7 @@ def sync_detailed(
     status: None | str | Unset = UNSET,
     visibility: None | str | Unset = UNSET,
     service_type: None | str | Unset = UNSET,
-    listing_type: None | str | Unset = UNSET,
+    channel_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
     ids: list[UUID] | None | Unset = UNSET,
@@ -182,7 +182,7 @@ def sync_detailed(
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
     - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
-    - listing_type: Filter by listing type (managed, byok, byoe)
+    - channel_type: Filter to services with a channel of this access method
     - name: Search by name, display name, or provider name (case-insensitive partial match)
     - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
       which also matches service name / display name.
@@ -197,7 +197,8 @@ def sync_detailed(
         status (None | str | Unset):
         visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
-        listing_type (None | str | Unset): Filter by listing type
+        channel_type (None | str | Unset): Filter to services offering a channel of this access
+            method (managed | byok | byoe | enrollable)
         name (None | str | Unset): Filter by ``service.name`` (= listing.name, #1138).  ``*`` and
             ``%`` are accepted as synonymous wildcards, anywhere in the pattern — ``cohere/command-r-
             plus`` matches exactly that row, ``cohere/*`` (or ``cohere/%``) matches the namespace,
@@ -228,7 +229,7 @@ def sync_detailed(
         status=status,
         visibility=visibility,
         service_type=service_type,
-        listing_type=listing_type,
+        channel_type=channel_type,
         name=name,
         provider=provider,
         ids=ids,
@@ -251,7 +252,7 @@ def sync(
     status: None | str | Unset = UNSET,
     visibility: None | str | Unset = UNSET,
     service_type: None | str | Unset = UNSET,
-    listing_type: None | str | Unset = UNSET,
+    channel_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
     ids: list[UUID] | None | Unset = UNSET,
@@ -273,7 +274,7 @@ def sync(
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
     - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
-    - listing_type: Filter by listing type (managed, byok, byoe)
+    - channel_type: Filter to services with a channel of this access method
     - name: Search by name, display name, or provider name (case-insensitive partial match)
     - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
       which also matches service name / display name.
@@ -288,7 +289,8 @@ def sync(
         status (None | str | Unset):
         visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
-        listing_type (None | str | Unset): Filter by listing type
+        channel_type (None | str | Unset): Filter to services offering a channel of this access
+            method (managed | byok | byoe | enrollable)
         name (None | str | Unset): Filter by ``service.name`` (= listing.name, #1138).  ``*`` and
             ``%`` are accepted as synonymous wildcards, anywhere in the pattern — ``cohere/command-r-
             plus`` matches exactly that row, ``cohere/*`` (or ``cohere/%``) matches the namespace,
@@ -320,7 +322,7 @@ def sync(
         status=status,
         visibility=visibility,
         service_type=service_type,
-        listing_type=listing_type,
+        channel_type=channel_type,
         name=name,
         provider=provider,
         ids=ids,
@@ -337,7 +339,7 @@ async def asyncio_detailed(
     status: None | str | Unset = UNSET,
     visibility: None | str | Unset = UNSET,
     service_type: None | str | Unset = UNSET,
-    listing_type: None | str | Unset = UNSET,
+    channel_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
     ids: list[UUID] | None | Unset = UNSET,
@@ -359,7 +361,7 @@ async def asyncio_detailed(
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
     - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
-    - listing_type: Filter by listing type (managed, byok, byoe)
+    - channel_type: Filter to services with a channel of this access method
     - name: Search by name, display name, or provider name (case-insensitive partial match)
     - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
       which also matches service name / display name.
@@ -374,7 +376,8 @@ async def asyncio_detailed(
         status (None | str | Unset):
         visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
-        listing_type (None | str | Unset): Filter by listing type
+        channel_type (None | str | Unset): Filter to services offering a channel of this access
+            method (managed | byok | byoe | enrollable)
         name (None | str | Unset): Filter by ``service.name`` (= listing.name, #1138).  ``*`` and
             ``%`` are accepted as synonymous wildcards, anywhere in the pattern — ``cohere/command-r-
             plus`` matches exactly that row, ``cohere/*`` (or ``cohere/%``) matches the namespace,
@@ -405,7 +408,7 @@ async def asyncio_detailed(
         status=status,
         visibility=visibility,
         service_type=service_type,
-        listing_type=listing_type,
+        channel_type=channel_type,
         name=name,
         provider=provider,
         ids=ids,
@@ -426,7 +429,7 @@ async def asyncio(
     status: None | str | Unset = UNSET,
     visibility: None | str | Unset = UNSET,
     service_type: None | str | Unset = UNSET,
-    listing_type: None | str | Unset = UNSET,
+    channel_type: None | str | Unset = UNSET,
     name: None | str | Unset = UNSET,
     provider: None | str | Unset = UNSET,
     ids: list[UUID] | None | Unset = UNSET,
@@ -448,7 +451,7 @@ async def asyncio(
     - status: Filter by service status (draft, pending, review, active, rejected, suspended)
     - visibility: Filter by catalog visibility (public, unlisted, private)
     - service_type: Filter by service type (e.g., llm, vectordb, embedding)
-    - listing_type: Filter by listing type (managed, byok, byoe)
+    - channel_type: Filter to services with a channel of this access method
     - name: Search by name, display name, or provider name (case-insensitive partial match)
     - provider: Strict provider-name filter (case-insensitive partial match) — narrower than ``name``,
       which also matches service name / display name.
@@ -463,7 +466,8 @@ async def asyncio(
         status (None | str | Unset):
         visibility (None | str | Unset): Filter by visibility (public/unlisted/private)
         service_type (None | str | Unset): Filter by service type
-        listing_type (None | str | Unset): Filter by listing type
+        channel_type (None | str | Unset): Filter to services offering a channel of this access
+            method (managed | byok | byoe | enrollable)
         name (None | str | Unset): Filter by ``service.name`` (= listing.name, #1138).  ``*`` and
             ``%`` are accepted as synonymous wildcards, anywhere in the pattern — ``cohere/command-r-
             plus`` matches exactly that row, ``cohere/*`` (or ``cohere/%``) matches the namespace,
@@ -496,7 +500,7 @@ async def asyncio(
             status=status,
             visibility=visibility,
             service_type=service_type,
-            listing_type=listing_type,
+            channel_type=channel_type,
             name=name,
             provider=provider,
             ids=ids,
