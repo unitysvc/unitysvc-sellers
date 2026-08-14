@@ -106,6 +106,10 @@ def runner() -> CliRunner:
 def env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UNITYSVC_SELLER_API_KEY", "svcpass_test_key")
     monkeypatch.setenv("UNITYSVC_SELLER_API_URL", BASE_URL)
+    # Wide console so Rich tables don't truncate cell values (the default
+    # 80-col non-tty width squeezes the 7-column services table and clips
+    # names, breaking substring assertions).
+    monkeypatch.setenv("COLUMNS", "200")
 
 
 # ---------------------------------------------------------------------------
