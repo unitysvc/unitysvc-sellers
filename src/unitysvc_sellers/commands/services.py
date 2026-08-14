@@ -97,6 +97,61 @@ app = typer.Typer(
 # ---------------------------------------------------------------------------
 # list
 # ---------------------------------------------------------------------------
+# Columns shown by default. ``revision_of`` is included so a pending revision is
+# visibly tied to its original (a revision's ``revision_of`` == the original's
+# ``id``); the list is sorted to place the two adjacently.
+_DEFAULT_LIST_FIELDS = [
+    "id",
+    "name",
+    "provider_name",
+    "service_type",
+    "status",
+    "visibility",
+    "revision_of",
+]
+# UUID columns rendered as an 8-char prefix so a revision's ``revision_of`` reads
+# the same as its original's ``id`` for eyeball matching.
+_ID_COLUMNS = {"id", "revision_of"}
+
+
+def _resolve_fields(spec: str) -> list[str]:
+    """Turn a ``--fields`` spec into an ordered column list.
+
+    Absolute form replaces the set: ``--fields id,name,status``. Delta form
+    edits the defaults when *every* token is signed: ``--fields +revision_of``
+    appends, ``--fields -visibility`` drops, ``--fields +created_at,-service_type``
+    does both. Mixing signed and bare tokens is treated as absolute (bare names).
+    """
+    tokens = [t.strip() for t in spec.split(",") if t.strip()]
+    if not tokens:
+        return list(_DEFAULT_LIST_FIELDS)
+    signed = [t for t in tokens if t[0] in "+-"]
+    if signed and len(signed) == len(tokens):
+        result = list(_DEFAULT_LIST_FIELDS)
+        for token in tokens:
+            op, field = token[0], token[1:].strip()
+            if not field:
+                continue
+            if op == "+":
+                if field not in result:
+                    result.append(field)
+            elif field in result:
+                result.remove(field)
+        return result
+    return tokens
+
+
+def _list_sort_key(svc: dict[str, Any]) -> tuple[str, int, str]:
+    """Group a service's original and its revision adjacently: sort by name, then
+    original-before-revision, then id. Original and revision share ``name``, so
+    the name key clusters them; ``revision_of`` breaks the tie."""
+    return (
+        str(svc.get("name") or "").lower(),
+        1 if svc.get("revision_of") else 0,
+        str(svc.get("id") or ""),
+    )
+
+
 @app.command("list")
 def list_services(
     limit: int = typer.Option(
@@ -138,9 +193,13 @@ def list_services(
         help="Filter by provider name (case-insensitive partial match).",
     ),
     fields: str = typer.Option(
-        "id,name,provider_name,service_type,status,visibility",
+        ",".join(_DEFAULT_LIST_FIELDS),
         "--fields",
-        help="Comma-separated list of columns to display.",
+        help=(
+            "Columns to display. Absolute list (id,name,status) replaces the "
+            "defaults; a fully-signed list edits them (+revision_of appends, "
+            "-visibility drops, +created_at,-service_type does both)."
+        ),
     ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
     local_ids: bool = _LOCAL_IDS_OPTION,
@@ -233,7 +292,9 @@ def list_services(
         console.print(json.dumps(services, indent=2, default=str))
         return
 
-    field_list = [f.strip() for f in fields.split(",")]
+    field_list = _resolve_fields(fields)
+    # Cluster each service's original + pending revision adjacently.
+    services = sorted(services, key=_list_sort_key)
     table = Table(title="Services")
     for col in field_list:
         table.add_column(col, style="bold" if col == "name" else "")
@@ -242,9 +303,9 @@ def list_services(
         row = []
         for col in field_list:
             value = svc.get(col, "")
-            if value is None:
+            if value is None or value == "":
                 row.append("-")
-            elif col == "id":
+            elif col in _ID_COLUMNS:
                 row.append(str(value)[:8] + "…")
             else:
                 row.append(str(value))
@@ -410,9 +471,7 @@ def show_service(
                 console.print(f"      customer_secrets_required: {', '.join(required)}")
             optional = cfg.get("customer_secrets_optional")
             if optional:
-                names = ", ".join(
-                    str(o.get("name")) if isinstance(o, dict) else str(o) for o in optional
-                )
+                names = ", ".join(str(o.get("name")) if isinstance(o, dict) else str(o) for o in optional)
                 console.print(f"      customer_secrets_optional: {names}")
 
     # Interfaces
@@ -826,9 +885,7 @@ def _resolve_or_fetch_ids(
 def submit_service(
     name: str | None = _NAME_ARGUMENT,
     service_id: str | None = _ID_OPTION,
-    all_drafts: bool = typer.Option(
-        False, "--all", help="Submit all draft, rejected, and suspended services."
-    ),
+    all_drafts: bool = typer.Option(False, "--all", help="Submit all draft, rejected, and suspended services."),
     local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
     provider: str | None = typer.Option(
