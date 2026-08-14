@@ -360,8 +360,11 @@ def show_test(
 # layer: parse typer args → call the SDK → render the result with rich.
 
 
-async def _resolve_service_ids_by_name(api_key: str | None, base_url: str, name: str) -> list[tuple[str, str | None]]:
-    """Resolve a ``--name`` fnmatch pattern to ``[(service_id, display_name), …]``.
+async def _resolve_service_ids_by_name(
+    api_key: str | None, base_url: str, name: str
+) -> list[tuple[str, str | None, str | None]]:
+    """Resolve a ``--name`` fnmatch pattern to ``[(service_id, display_name,
+    revision_of), …]``.
 
     Trimmed-down sibling of ``services.py:_resolve_or_fetch_ids``'s
     name path.  We don't apply a status / visibility filter here —
@@ -370,12 +373,13 @@ async def _resolve_service_ids_by_name(api_key: str | None, base_url: str, name:
     tested (e.g. no active interfaces).  The seller list endpoint's
     ``ids=`` expansion already auto-includes pending revisions of
     matched parents, so a literal name targets the active row plus
-    any draft revision under it.
+    any draft revision under it; ``revision_of`` lets the caller
+    prefer the revision over its already-validated original.
     """
     # Backend (unitysvc#1201) precise-matches ``service.name`` against
     # the strict ``*``/``%`` glob grammar — every returned row is a
     # genuine match, so no client-side narrowing step is needed.
-    matched: list[tuple[str, str | None]] = []
+    matched: list[tuple[str, str | None, str | None]] = []
     cursor: str | None = None
     async with async_client(api_key, base_url) as client:
         while True:
@@ -383,14 +387,34 @@ async def _resolve_service_ids_by_name(api_key: str | None, base_url: str, name:
             for svc in model_list(response):
                 row = svc if isinstance(svc, dict) else model_to_dict(svc)
                 row_name = row.get("name") or row.get("service_name")
+                revision_of = row.get("revision_of")
                 if row.get("id"):
-                    matched.append((str(row["id"]), row_name))
+                    matched.append((str(row["id"]), row_name, str(revision_of) if revision_of else None))
             next_cursor = getattr(response, "next_cursor", None)
             has_more = getattr(response, "has_more", False)
             if not has_more or not next_cursor:
                 break
             cursor = str(next_cursor)
     return matched
+
+
+def _prefer_revisions(
+    matched: list[tuple[str, str | None, str | None]],
+) -> tuple[list[tuple[str, str | None]], list[tuple[str, str | None]]]:
+    """Split name-matched rows into (targets, skipped_originals).
+
+    When a matched row is a pending revision of another matched row, the
+    ORIGINAL is skipped: the revision carries the new data awaiting
+    validation, while the original already passed at activation, its content
+    is frozen (revisions never mutate it), and the daily health sweep
+    watches it for upstream drift — re-testing it interactively spends real
+    upstream calls for information we already have. ``--include-original``
+    (or pinning with ``--id``) restores it.
+    """
+    superseded = {rev_of for _sid, _n, rev_of in matched if rev_of}
+    targets = [(sid, n) for sid, n, _rev in matched if sid not in superseded]
+    skipped = [(sid, n) for sid, n, _rev in matched if sid in superseded]
+    return targets, skipped
 
 
 async def _resolve_document_by_filename(client: Any, service_id: str, test_file: str) -> str:
@@ -476,6 +500,16 @@ def run_tests(
         "--force",
         help="Re-execute documents whose previous per-iface result was 'success'.",
     ),
+    include_original: bool = typer.Option(
+        False,
+        "--include-original",
+        help=(
+            "When a name matches both an active service and its pending revision, "
+            "also test the active original. By default only the revision runs — "
+            "the original already passed at activation and is monitored by the "
+            "daily health sweep."
+        ),
+    ),
     poll_interval: float = typer.Option(
         2.0,
         "--poll-interval",
@@ -525,14 +559,25 @@ def run_tests(
         raise typer.Exit(code=1)
 
     if name is not None:
-        targets = run_async(
+        matched = run_async(
             _resolve_service_ids_by_name(api_key, base_url, name),
             error_prefix="Failed to resolve services by name",
         )
-        if not targets:
+        if not matched:
             console.print(f"[yellow]No services match '{name}'.[/yellow]")
             raise typer.Exit(code=0)
-        console.print(f"[green]Found {len(targets)} service(s) matching '{name}'[/green]\n")
+        if include_original:
+            targets = [(sid, n) for sid, n, _rev in matched]
+            skipped_originals: list[tuple[str, str | None]] = []
+        else:
+            targets, skipped_originals = _prefer_revisions(matched)
+        console.print(f"[green]Found {len(matched)} service(s) matching '{name}'[/green]")
+        for sid, n in skipped_originals:
+            console.print(
+                f"[dim]Skipping active original {sid[:8]}… ({n}) — its pending "
+                f"revision supersedes it; use --include-original or --id to test it.[/dim]"
+            )
+        console.print()
     elif local_ids:
         # Read backend ids from the local specs/ catalog; the diagnostic runs
         # per id with no status filter (mirrors ``--id`` — the operator pointed
@@ -669,13 +714,9 @@ def _render_iface_row(row: Any, *, prefix: str) -> None:
         for ch_name, rec in channels.items():
             ustatus = (rec or {}).get("status")
             if ustatus == "success":
-                console.print(
-                    f"      [dim]↳ upstream[{ch_name}]: success (platform fault)[/dim]"
-                )
+                console.print(f"      [dim]↳ upstream[{ch_name}]: success (platform fault)[/dim]")
             elif ustatus:
-                console.print(
-                    f"      [dim]↳ upstream[{ch_name}]: {ustatus} (upstream fault)[/dim]"
-                )
+                console.print(f"      [dim]↳ upstream[{ch_name}]: {ustatus} (upstream fault)[/dim]")
     elif row.upstream:
         ustatus = row.upstream.get("status")
         if ustatus == "success":

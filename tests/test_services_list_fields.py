@@ -44,3 +44,37 @@ class TestListSortKey:
         rows = sorted([revision, other, original], key=_list_sort_key)
         # grouped by name ('another' < 'model'); within a name, original before revision
         assert [r["id"] for r in rows] == ["ccc", "aaa", "bbb"]
+
+
+class TestPreferRevisions:
+    def test_original_skipped_when_its_revision_matches(self) -> None:
+        from unitysvc_sellers.commands.tests import _prefer_revisions
+
+        matched = [
+            ("orig-id", "bedrock/m", None),
+            ("rev-id", "bedrock/m", "orig-id"),
+            ("other-id", "bedrock/n", None),
+        ]
+        targets, skipped = _prefer_revisions(matched)
+        assert ("rev-id", "bedrock/m") in targets
+        assert ("other-id", "bedrock/n") in targets
+        assert targets == [t for t in targets if t[0] != "orig-id"]
+        assert skipped == [("orig-id", "bedrock/m")]
+
+    def test_no_revisions_keeps_everything(self) -> None:
+        from unitysvc_sellers.commands.tests import _prefer_revisions
+
+        matched = [("a", "x", None), ("b", "y", None)]
+        targets, skipped = _prefer_revisions(matched)
+        assert targets == [("a", "x"), ("b", "y")]
+        assert skipped == []
+
+    def test_revision_whose_original_is_not_matched_runs(self) -> None:
+        # A revision matched alone (original filtered out server-side or named
+        # directly) still runs; nothing is skipped.
+        from unitysvc_sellers.commands.tests import _prefer_revisions
+
+        matched = [("rev-id", "bedrock/m", "unmatched-orig")]
+        targets, skipped = _prefer_revisions(matched)
+        assert targets == [("rev-id", "bedrock/m")]
+        assert skipped == []
