@@ -3,12 +3,14 @@ URLs are fetched and re-hosted on platform S3 during upload resolution."""
 
 from __future__ import annotations
 
+from io import BytesIO
 from typing import Any
 from unittest.mock import patch
 
 import httpx
 import pytest
 import respx
+from PIL import Image
 
 from unitysvc_sellers import storage
 from unitysvc_sellers.upload import _is_image_document, _resolve_file_references
@@ -79,6 +81,63 @@ class TestMirrorExternalImage:
             storage.mirror_external_image(object(), "https://example.com/logo.png")
         assert route.call_count == 1
 
+    @respx.mock
+    def test_transparent_logo_composited_to_png(self) -> None:
+        image = Image.new("RGBA", (1, 1), (255, 255, 255, 0))
+        buf = BytesIO()
+        image.save(buf, format="PNG")
+        respx.get("https://example.com/logo.png").mock(
+            return_value=httpx.Response(200, content=buf.getvalue(), headers={"content-type": "image/png"})
+        )
+
+        with patch.object(storage, "upload_bytes", return_value="k.png") as up:
+            key, content_type = storage.mirror_external_image(
+                object(), "https://example.com/logo.png", normalize_logo_background=True
+            )
+
+        assert key == "k.png"
+        assert content_type == "image/png"
+        args = up.call_args[0]
+        assert args[2] == "logo.png"
+        assert args[3] == "image/png"
+        uploaded = Image.open(BytesIO(args[1]))
+        assert uploaded.mode == "RGB"
+        assert uploaded.getpixel((0, 0)) == storage._LOGO_BACKGROUND_RGB
+
+    @respx.mock
+    def test_opaque_logo_left_byte_for_byte(self) -> None:
+        image = Image.new("RGB", (1, 1), (255, 255, 255))
+        buf = BytesIO()
+        image.save(buf, format="PNG")
+        original = buf.getvalue()
+        respx.get("https://example.com/logo.png").mock(
+            return_value=httpx.Response(200, content=original, headers={"content-type": "image/png"})
+        )
+
+        with patch.object(storage, "upload_bytes", return_value="k.png") as up:
+            storage.mirror_external_image(object(), "https://example.com/logo.png", normalize_logo_background=True)
+
+        assert up.call_args[0][1] == original
+
+    @respx.mock
+    def test_cache_keeps_normalized_and_raw_variants_separate(self) -> None:
+        image = Image.new("RGBA", (1, 1), (255, 255, 255, 0))
+        buf = BytesIO()
+        image.save(buf, format="PNG")
+        route = respx.get("https://example.com/logo.png").mock(
+            return_value=httpx.Response(200, content=buf.getvalue(), headers={"content-type": "image/png"})
+        )
+
+        with patch.object(storage, "upload_bytes", side_effect=["raw.png", "normalized.png"]):
+            raw = storage.mirror_external_image(object(), "https://example.com/logo.png")
+            normalized = storage.mirror_external_image(
+                object(), "https://example.com/logo.png", normalize_logo_background=True
+            )
+
+        assert raw == ("raw.png", "image/png")
+        assert normalized == ("normalized.png", "image/png")
+        assert route.call_count == 2
+
 
 class TestResolveFileReferencesMirroring:
     def _provider_with_logo(self, url: str) -> dict[str, Any]:
@@ -98,13 +157,18 @@ class TestResolveFileReferencesMirroring:
         with patch(
             "unitysvc_sellers.storage.mirror_external_image",
             return_value=("deadbeef.svg", "image/svg+xml"),
-        ):
+        ) as mirror:
             out = _resolve_file_references(
                 self._provider_with_logo("https://example.com/logo.svg"),
                 tmp_path,
                 client=_FakeClient(),
             )
         assert out["documents"]["Company Logo"]["external_url"] == "${UNITYSVC_S3_BASE_URL}/deadbeef.svg"
+        mirror.assert_called_once_with(
+            _FakeClient._client,
+            "https://example.com/logo.svg",
+            normalize_logo_background=True,
+        )
 
     def test_mirrored_logo_gets_real_mime_type(self, tmp_path: Any) -> None:
         # A CDN logo URL with no extension resolves to mime_type "url" in the
