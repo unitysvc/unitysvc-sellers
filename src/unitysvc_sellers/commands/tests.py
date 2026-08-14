@@ -360,22 +360,23 @@ def show_test(
 # layer: parse typer args → call the SDK → render the result with rich.
 
 
-async def _resolve_service_ids_by_name(api_key: str | None, base_url: str, name: str) -> list[tuple[str, str | None]]:
-    """Resolve a ``--name`` fnmatch pattern to ``[(service_id, display_name), …]``.
+async def _resolve_service_ids_by_name(
+    api_key: str | None, base_url: str, name: str
+) -> list[tuple[str, str | None, str | None]]:
+    """Resolve a ``--name`` fnmatch pattern to ``[(service_id, display_name,
+    status), …]``.
 
     Trimmed-down sibling of ``services.py:_resolve_or_fetch_ids``'s
     name path.  We don't apply a status / visibility filter here —
-    ``run-tests`` should attempt the diagnostic against whatever the
-    user named and let the backend explain if the service can't be
-    tested (e.g. no active interfaces).  The seller list endpoint's
-    ``ids=`` expansion already auto-includes pending revisions of
-    matched parents, so a literal name targets the active row plus
-    any draft revision under it.
+    the caller decides (active services are skipped by default, see
+    ``_skip_active``).  The seller list endpoint's ``ids=`` expansion
+    already auto-includes pending revisions of matched parents, so a
+    literal name targets the active row plus any draft revision under it.
     """
     # Backend (unitysvc#1201) precise-matches ``service.name`` against
     # the strict ``*``/``%`` glob grammar — every returned row is a
     # genuine match, so no client-side narrowing step is needed.
-    matched: list[tuple[str, str | None]] = []
+    matched: list[tuple[str, str | None, str | None]] = []
     cursor: str | None = None
     async with async_client(api_key, base_url) as client:
         while True:
@@ -383,14 +384,34 @@ async def _resolve_service_ids_by_name(api_key: str | None, base_url: str, name:
             for svc in model_list(response):
                 row = svc if isinstance(svc, dict) else model_to_dict(svc)
                 row_name = row.get("name") or row.get("service_name")
+                status = row.get("status")
                 if row.get("id"):
-                    matched.append((str(row["id"]), row_name))
+                    matched.append((str(row["id"]), row_name, str(status) if status else None))
             next_cursor = getattr(response, "next_cursor", None)
             has_more = getattr(response, "has_more", False)
             if not has_more or not next_cursor:
                 break
             cursor = str(next_cursor)
     return matched
+
+
+def _skip_active(
+    matched: list[tuple[str, str | None, str | None]],
+) -> tuple[list[tuple[str, str | None]], list[tuple[str, str | None]]]:
+    """Split name-matched rows into (targets, skipped_active).
+
+    ACTIVE services are skipped by default — mirroring ``submit``, which also
+    ignores them. An active service already passed its tests at activation,
+    its content is frozen (re-uploads become revisions instead of mutating
+    it), and the daily health sweep watches it for upstream drift — so
+    re-testing it interactively spends real upstream calls for information
+    we already have. When a name matches an active service plus its pending
+    revision, this naturally tests only the revision. ``--include-active``
+    (or pinning with ``--id``) restores active services.
+    """
+    targets = [(sid, n) for sid, n, status in matched if status != "active"]
+    skipped = [(sid, n) for sid, n, status in matched if status == "active"]
+    return targets, skipped
 
 
 async def _resolve_document_by_filename(client: Any, service_id: str, test_file: str) -> str:
@@ -476,6 +497,18 @@ def run_tests(
         "--force",
         help="Re-execute documents whose previous per-iface result was 'success'.",
     ),
+    include_active: bool = typer.Option(
+        False,
+        "--include-active",
+        help=(
+            "Also test ACTIVE services. By default they are skipped (mirroring "
+            "submit): an active service already passed its tests at activation, "
+            "its content is frozen, and the daily health sweep monitors it — so "
+            "a name matching an active service plus its pending revision tests "
+            "only the revision, and a name matching only active services tests "
+            "nothing. Pinning with --id always tests the pinned service."
+        ),
+    ),
     poll_interval: float = typer.Option(
         2.0,
         "--poll-interval",
@@ -525,14 +558,31 @@ def run_tests(
         raise typer.Exit(code=1)
 
     if name is not None:
-        targets = run_async(
+        matched = run_async(
             _resolve_service_ids_by_name(api_key, base_url, name),
             error_prefix="Failed to resolve services by name",
         )
-        if not targets:
+        if not matched:
             console.print(f"[yellow]No services match '{name}'.[/yellow]")
             raise typer.Exit(code=0)
-        console.print(f"[green]Found {len(targets)} service(s) matching '{name}'[/green]\n")
+        if include_active:
+            targets = [(sid, n) for sid, n, _status in matched]
+            skipped_active: list[tuple[str, str | None]] = []
+        else:
+            targets, skipped_active = _skip_active(matched)
+        console.print(f"[green]Found {len(matched)} service(s) matching '{name}'[/green]")
+        for sid, n in skipped_active:
+            console.print(
+                f"[dim]Skipping active service {sid[:8]}… ({n}) — already "
+                f"validated at activation; use --include-active or --id to test it.[/dim]"
+            )
+        if not targets:
+            console.print(
+                "[yellow]All matches are active services (skipped by default). "
+                "Use --include-active to test them anyway.[/yellow]"
+            )
+            raise typer.Exit(code=0)
+        console.print()
     elif local_ids:
         # Read backend ids from the local specs/ catalog; the diagnostic runs
         # per id with no status filter (mirrors ``--id`` — the operator pointed
@@ -669,13 +719,9 @@ def _render_iface_row(row: Any, *, prefix: str) -> None:
         for ch_name, rec in channels.items():
             ustatus = (rec or {}).get("status")
             if ustatus == "success":
-                console.print(
-                    f"      [dim]↳ upstream[{ch_name}]: success (platform fault)[/dim]"
-                )
+                console.print(f"      [dim]↳ upstream[{ch_name}]: success (platform fault)[/dim]")
             elif ustatus:
-                console.print(
-                    f"      [dim]↳ upstream[{ch_name}]: {ustatus} (upstream fault)[/dim]"
-                )
+                console.print(f"      [dim]↳ upstream[{ch_name}]: {ustatus} (upstream fault)[/dim]")
     elif row.upstream:
         ustatus = row.upstream.get("status")
         if ustatus == "success":

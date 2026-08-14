@@ -879,6 +879,7 @@ $ usvc seller services run-tests [OPTIONS] [name]
 * `-d, --document-id <str>`: Run a single document instead of every executable doc on the service. Accepts a full UUID or an 8+ character prefix (resolved like show-test).
 * `-t, --test-file <str>`: Run only the document whose filename matches (e.g. &#x27;code-example.py.j2&#x27;), resolved per service. Mirrors `specs run-tests --test-file`. Mutually exclusive with --document-id.
 * `--force`: Re-execute documents whose previous per-iface result was &#x27;success&#x27;.
+* `--include-active`: Also test ACTIVE services. By default they are skipped (mirroring submit): an active service already passed its tests at activation, its content is frozen, and the daily health sweep monitors it — so a name matching an active service plus its pending revision tests only the revision, and a name matching only active services tests nothing. Pinning with --id always tests the pinned service.
 * `--poll-interval <float>`: Seconds between task-status polls while waiting for the diagnostic.  [default: 2.0]
 * `--timeout <float>`: Hard cap on total wait, including queue time, in seconds.  [default: 600.0]
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]

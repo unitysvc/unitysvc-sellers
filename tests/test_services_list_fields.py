@@ -44,3 +44,34 @@ class TestListSortKey:
         rows = sorted([revision, other, original], key=_list_sort_key)
         # grouped by name ('another' < 'model'); within a name, original before revision
         assert [r["id"] for r in rows] == ["ccc", "aaa", "bbb"]
+
+
+class TestSkipActive:
+    def test_active_services_skipped_by_default(self) -> None:
+        from unitysvc_sellers.commands.tests import _skip_active
+
+        matched = [
+            ("orig-id", "bedrock/m", "active"),
+            ("rev-id", "bedrock/m", "draft"),
+            ("other-id", "bedrock/n", "rejected"),
+        ]
+        targets, skipped = _skip_active(matched)
+        assert targets == [("rev-id", "bedrock/m"), ("other-id", "bedrock/n")]
+        assert skipped == [("orig-id", "bedrock/m")]
+
+    def test_only_active_matches_yields_no_targets(self) -> None:
+        # Mirrors submit: a name matching only an active service tests nothing.
+        from unitysvc_sellers.commands.tests import _skip_active
+
+        matched = [("a", "x", "active")]
+        targets, skipped = _skip_active(matched)
+        assert targets == []
+        assert skipped == [("a", "x")]
+
+    def test_no_active_keeps_everything(self) -> None:
+        from unitysvc_sellers.commands.tests import _skip_active
+
+        matched = [("a", "x", "draft"), ("b", "y", "pending"), ("c", "z", None)]
+        targets, skipped = _skip_active(matched)
+        assert targets == [("a", "x"), ("b", "y"), ("c", "z")]
+        assert skipped == []
