@@ -20,7 +20,11 @@ import typer
 from typer.testing import CliRunner
 
 from unitysvc_sellers.cli import app as _cli_app
-from unitysvc_sellers.commands.services import _read_ids_from_data_dir, _resolve_or_fetch_ids
+from unitysvc_sellers.commands.services import (
+    _OTHER_VISIBILITIES,
+    _read_ids_from_data_dir,
+    _resolve_or_fetch_ids,
+)
 from unitysvc_sellers.utils import read_local_service_ids
 
 # ---------------------------------------------------------------------------
@@ -175,6 +179,35 @@ class TestMutualExclusivity:
         with pytest.raises(typer.Exit) as exc:
             self._call()
         assert exc.value.exit_code == 1
+
+
+class TestSetVisibilityPolicy:
+    def test_private_is_not_cli_settable(self, _runner: CliRunner, _env: None) -> None:
+        result = _runner.invoke(
+            _cli_app,
+            ["services", "set-visibility", "private", "--all", "--yes"],
+        )
+
+        assert result.exit_code == 2
+        assert "Private visibility" in result.stdout
+        assert "service_options.default_visibility" in result.stdout
+
+    def test_update_private_visibility_is_not_cli_settable(
+        self, _runner: CliRunner, _env: None
+    ) -> None:
+        result = _runner.invoke(
+            _cli_app,
+            ["services", "update", "--id", "svc-123", "--visibility", "private"],
+        )
+
+        assert result.exit_code == 1
+        assert "Private" in result.stdout
+        assert "visibility is controlled" in result.stdout
+        assert "service_options.default_visibility" in result.stdout
+
+    def test_bulk_visibility_skips_private_services(self) -> None:
+        assert _OTHER_VISIBILITIES["public"] == ["unlisted"]
+        assert _OTHER_VISIBILITIES["unlisted"] == ["public"]
 
 
 # ---------------------------------------------------------------------------

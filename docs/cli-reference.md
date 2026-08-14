@@ -686,8 +686,9 @@ Set the visibility of one or more services.
   service is activated).
 - ``unlisted`` — accessible by direct link, hidden from public
   catalog browse views.
-- ``private``  — hidden from every catalog view; only the seller
-  and admins can see it.
+``private`` is upload-controlled via
+``service_options.default_visibility``. To move a service into or out of
+private visibility, edit the service data and re-upload it.
 
 This command is a pure flag flip on the visibility column.  It
 does not transition status, does not validate that the service
@@ -702,7 +703,7 @@ $ usvc seller services set-visibility [OPTIONS] {VISIBILITY} [name]
 
 **Arguments**:
 
-* `VISIBILITY`: Target visibility: one of public, unlisted, private.  [required]
+* `VISIBILITY`: Target visibility: one of public, unlisted.  [required]
 * `name`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
@@ -759,7 +760,10 @@ $ usvc seller services delete [OPTIONS] [name]
 
 Update visibility, routing vars, and/or list price on a live service.
 
-All updates are sent in a single PATCH request.
+Seller-managed visibility updates are limited to ``public`` and
+``unlisted``. Use ``service_options.default_visibility`` and re-upload
+to move a service into or out of ``private`` visibility. All updates are
+sent in a single PATCH request.
 
 **Usage**:
 
@@ -774,7 +778,7 @@ $ usvc seller services update [OPTIONS] [name]
 **Options**:
 
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
-* `-v, --visibility <str>`: Set catalog visibility: public, unlisted, or private.
+* `-v, --visibility <str>`: Set catalog visibility: public or unlisted.
 * `--set-routing-var <str>`: Set routing var(s): key=value or JSON object &#x27;{...}&#x27; (repeatable).
 * `--remove-routing-var <str>`: Remove a routing var by key or dotted path (repeatable).
 * `--load-routing-vars <str>`: Replace all routing vars from a JSON file.

@@ -218,6 +218,7 @@ Listing files define how a seller presents/sells a service to end users.
 | `name`                      | string                | Listing identifier (defaults to filename without extension, max 255 chars)                       |
 | `display_name`              | string                | Customer-facing name (max 200 chars)                                                             |
 | `status`                    | enum                  | Status: `draft` (skip upload), `ready` (ready for review), `deprecated`                          |
+| `service_options`           | object                | Service lifecycle and testing options, including `default_visibility` and `ops_testing_parameters` |
 | `list_price`                | [Pricing](pricing.md) | Customer-facing pricing (what customer pays)                                                     |
 | `documents`                 | dict of DocumentData  | SLAs, documentation, guides, keyed by title                                                      |
 | `user_parameters_schema`    | object                | JSON schema defining user parameters for subscriptions (see [User Parameters](#user-parameters)) |
@@ -258,6 +259,7 @@ All enrollment-related options live under a single `enrollment` object:
 ```json
 {
     "service_options": {
+        "default_visibility": "public",
         "ops_testing_parameters": {
             "api_key": "${ secrets.SERVICE_API_KEY }",
             "region": "us-east-1"
@@ -274,6 +276,9 @@ All enrollment-related options live under a single `enrollment` object:
 **Example (TOML):**
 
 ```toml
+[service_options]
+default_visibility = "public"
+
 [service_options.ops_testing_parameters]
 api_key = "${ secrets.SERVICE_API_KEY }"
 region = "us-east-1"
@@ -283,6 +288,12 @@ limit = 100
 limit_per_customer = 5
 limit_per_user = 2
 ```
+
+`service_options.default_visibility` controls the service visibility applied by
+upload. Omit it for the default `unlisted` behavior, set it to `public` to
+publish on activation, or set it to `private` for services that should not be
+changed by `services set-visibility`. To move a private service back to
+`public` or `unlisted`, update this field and re-upload the service.
 
 ### Listing Name Field
 

@@ -35,8 +35,11 @@ service is active.
 ```bash
 usvc seller services set-visibility public   acme/llama-8b   # listed in the marketplace
 usvc seller services set-visibility unlisted acme/llama-8b   # reachable by link, not listed
-usvc seller services set-visibility private  acme/llama-8b   # hidden entirely
 ```
+
+`private` visibility is controlled by service data, not by `set-visibility`.
+Use `service_options.default_visibility = "private"` and re-upload the service
+to move it into or out of private visibility.
 
 ## Update a live service
 
