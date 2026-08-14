@@ -141,6 +141,21 @@ def _format_polling_error(exc: APIError) -> str:
     return f"task polling failed: {exc}"
 
 
+# Document mime_types treated as images for external-URL mirroring. The
+# category check catches logos whose mime slipped through as "url".
+_IMAGE_MIME_TYPES = {"svg", "png", "jpeg", "jpg", "gif", "webp"}
+
+
+def _is_image_document(doc: dict[str, Any]) -> bool:
+    """True when a document dict is an image asset worth mirroring: a logo
+    document, or any document with an image mime_type. Web-page links
+    (terms_of_service URLs, docs links) are NOT mirrored — they are pages,
+    not assets."""
+    if doc.get("category") == "logo":
+        return True
+    return str(doc.get("mime_type", "")).lower() in _IMAGE_MIME_TYPES
+
+
 def _resolve_file_references(
     data: dict[str, Any],
     base_path: Path,
@@ -279,6 +294,28 @@ def _resolve_file_references(
 
                 result["external_url"] = f"${{UNITYSVC_S3_BASE_URL}}/{object_key}"
                 result[key] = full_path.name if Path(value).is_absolute() else value
+        elif (
+            key == "external_url"
+            and client is not None
+            and isinstance(value, str)
+            and value.startswith(("http://", "https://"))
+            and _is_image_document(data)
+        ):
+            # Mirror external IMAGES onto platform storage so the catalog
+            # doesn't depend on third-party hosts (signed CDN URLs, hashed
+            # site-builder assets) and marketplace views don't leak to them.
+            # Same flow as Markdown-embedded assets, extended to remote URLs.
+            # Best-effort: a fetch/upload failure keeps the external URL —
+            # a stale logo host must never fail a service upload.
+            from .storage import mirror_external_image
+
+            try:
+                object_key = mirror_external_image(client._client, value)
+            except Exception as exc:  # noqa: BLE001 — keep the URL on any failure
+                print(f"  Warning: could not mirror external image {value}: {exc}")
+                result[key] = value
+            else:
+                result[key] = f"${{UNITYSVC_S3_BASE_URL}}/{object_key}"
         else:
             result[key] = value
 
@@ -469,9 +506,7 @@ def upload_directory(
         # service, ``cohere/*`` uploads the set.
         matched = [p for p, _, d in all_listings if service_name_matches(d.get("name"), name)]
         if not matched:
-            raise ValueError(
-                f"No service with service_name (listing.name) matching '{name}' found under {data_dir}."
-            )
+            raise ValueError(f"No service with service_name (listing.name) matching '{name}' found under {data_dir}.")
         listing_files = sorted(matched)
     else:
         listing_files = sorted(p for p, _, _ in all_listings)
@@ -556,9 +591,7 @@ def upload_directory(
             diagnostic = _format_polling_error(exc)
             for task_id, (listing_file, listing_data) in pending_tasks.items():
                 result.services.failed += 1
-                result.services.errors.append(
-                    {"file": str(listing_file), "task_id": task_id, "error": diagnostic}
-                )
+                result.services.errors.append({"file": str(listing_file), "task_id": task_id, "error": diagnostic})
                 if on_progress is not None:
                     on_progress("service", "error", listing_data.get("name", listing_file.name), diagnostic)
             pending_tasks.clear()

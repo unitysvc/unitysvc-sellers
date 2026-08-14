@@ -74,24 +74,83 @@ def _collect_local_refs(text: str, base: Path) -> dict[str, Path]:
     return result
 
 
-def _upload_one(client: AuthenticatedClient, path: Path) -> str:
-    """Upload a single file and return its object_key."""
+def upload_bytes(client: AuthenticatedClient, data: bytes, file_name: str, mime: str) -> str:
+    """Upload raw bytes to content-addressed S3 storage; return the object_key."""
     from io import BytesIO
 
     from ._generated.api.seller.seller_upload_file import sync_detailed
     from ._generated.models.body_seller_upload_file import BodySellerUploadFile
     from ._generated.types import File
 
-    mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     body = BodySellerUploadFile(
-        file=File(payload=BytesIO(path.read_bytes()), file_name=path.name, mime_type=mime),
+        file=File(payload=BytesIO(data), file_name=file_name, mime_type=mime),
     )
     response = sync_detailed(client=client, body=body)
     if response.parsed is None or not hasattr(response.parsed, "object_key"):
-        raise RuntimeError(
-            f"Upload failed for {path.name}: HTTP {response.status_code} — {response.content!r}"
-        )
+        raise RuntimeError(f"Upload failed for {file_name}: HTTP {response.status_code} — {response.content!r}")
     return response.parsed.object_key  # type: ignore[union-attr]
+
+
+def _upload_one(client: AuthenticatedClient, path: Path) -> str:
+    """Upload a single file and return its object_key."""
+    mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    return upload_bytes(client, path.read_bytes(), path.name, mime)
+
+
+# Per-process memo for mirrored external images: one fetch + upload per unique
+# URL per run. A provider logo is shared by every service folder in a catalog
+# (a 136-service repo would otherwise fetch the same logo 136 times), and the
+# storage is content-addressed so repeats would dedupe server-side anyway —
+# the cache just saves the round-trips.
+_MIRROR_CACHE: dict[str, str] = {}
+
+# Content types accepted when mirroring an external image (and the extension
+# used for the uploaded object when the URL path has none).
+_IMAGE_CONTENT_TYPES = {
+    "image/svg+xml": ".svg",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+}
+
+
+def mirror_external_image(client: AuthenticatedClient, url: str) -> str:
+    """Fetch an external image and re-host it on platform S3 storage.
+
+    Returns the content-addressed ``object_key``; build the stored reference
+    as ``${UNITYSVC_S3_BASE_URL}/{object_key}``. Raises on any fetch/upload
+    problem or when the URL does not serve an image content-type — the caller
+    decides whether that is fatal (for convenience-field logos it isn't: the
+    external URL is kept as-is).
+
+    Why mirror at all: external logo hosts are the fragile part of a catalog —
+    signed CDN URLs (LinkedIn), content-hashed site-builder assets (Framer),
+    third-party project pages — and every marketplace page view otherwise
+    leaks to the third-party host. Same idea as the Markdown asset flow above,
+    extended from local paths to remote URLs.
+    """
+    import httpx
+
+    cached = _MIRROR_CACHE.get(url)
+    if cached is not None:
+        return cached
+
+    resp = httpx.get(url, timeout=30.0, follow_redirects=True)
+    resp.raise_for_status()
+    content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+    if content_type not in _IMAGE_CONTENT_TYPES:
+        raise ValueError(f"not an image content-type: {content_type or 'unknown'}")
+
+    from urllib.parse import urlparse
+
+    name = Path(urlparse(url).path).name or "image"
+    if not Path(name).suffix:
+        name += _IMAGE_CONTENT_TYPES[content_type]
+
+    key = upload_bytes(client, resp.content, name, content_type)
+    _MIRROR_CACHE[url] = key
+    return key
 
 
 def _process_markdown(client: AuthenticatedClient, md_path: Path) -> bytes:
@@ -173,9 +232,7 @@ def upload_file(
         )
         response = sync_detailed(client=client, body=body)
         if response.parsed is None or not hasattr(response.parsed, "object_key"):
-            raise RuntimeError(
-                f"Upload failed for {path.name}: HTTP {response.status_code} — {response.content!r}"
-            )
+            raise RuntimeError(f"Upload failed for {path.name}: HTTP {response.status_code} — {response.content!r}")
         return response.parsed.object_key  # type: ignore[union-attr]
 
     return _upload_one(client, path)
