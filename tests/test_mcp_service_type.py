@@ -38,6 +38,32 @@ class TestMcpEnumMembers:
         assert "mcp" in ACCESS_METHOD_ENUM_VALUES
 
 
+class TestCoreDependencyFloor:
+    """The generated enums are only half the gate.
+
+    ``specs validate`` runs against unitysvc-core's bundled schema, which is a
+    separate package with its own release cadence. A client that accepts
+    ``mcp`` paired with a core that doesn't still fails — just one step
+    earlier, at validate rather than upload. These assert the *installed*
+    core satisfies what the declared floor promises.
+    """
+
+    def test_core_service_type_has_mcp(self) -> None:
+        from unitysvc_core.models.base import ServiceTypeEnum
+
+        assert hasattr(ServiceTypeEnum, "mcp")
+
+    def test_core_access_method_has_mcp(self) -> None:
+        from unitysvc_core.models.base import AccessMethodEnum
+
+        assert hasattr(AccessMethodEnum, "mcp")
+
+    def test_core_ships_the_mcp_offering_validator(self) -> None:
+        from unitysvc_core.models.validators import validate_mcp_offering
+
+        assert callable(validate_mcp_offering)
+
+
 class TestResolveChannelType:
     def test_channel_type_passes_through(self) -> None:
         assert _resolve_channel_type("managed", None) == "managed"
