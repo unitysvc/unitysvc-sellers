@@ -123,7 +123,7 @@ Every service has a visibility setting that controls catalog presence:
 |---|---|---|---|
 | **`unlisted`** (default) | No | Yes | Soft launch — test with beta customers via direct link |
 | **`public`** | Yes | Yes | Fully discoverable in the marketplace |
-| **`private`** | No | Yes | Internal/ops services, not for customers |
+| **`private`** | No | Yes | Internal/ops services, controlled by service data |
 
 !!! note "Unlisted services are fully functional"
     Unlisted services are not hidden — they are simply not listed in the catalog. Anyone with the direct URL can view the service page, enroll, and use the API without any additional restriction. This makes `unlisted` ideal for sharing with beta customers before a public launch: just send them the link.
@@ -143,12 +143,14 @@ This means there are two valid publishing patterns:
 usvc seller services set-visibility public <service_name>
 ```
 
-**Pattern B — declarative (set visibility before submission).** Set `visibility=public` while the service is still a draft, then submit for review.  When admin activates the service it becomes public immediately — no second step required.  This is what the CI-driven upload workflow does (see [Operate Live Services](guides/operate-services.md)):
+**Pattern B — declarative (set visibility during upload).** Set `service_options.default_visibility` in `listing.json`, then upload and submit.  When admin activates the service it uses the uploaded visibility intent — no second step required:
 
-```bash
-usvc seller specs upload
-usvc seller services set-visibility public --local-ids --data-dir specs --yes
-usvc seller services submit --local-ids --data-dir specs --yes
+```json
+{
+  "service_options": {
+    "default_visibility": "public"
+  }
+}
 ```
 
 ### Switching visibility
@@ -165,8 +167,6 @@ usvc seller services set-visibility public --all --yes
 # Take a service back off the public catalog without breaking enrollments
 usvc seller services set-visibility unlisted <service_name>
 
-# Hide entirely (also keeps it out of internal listings)
-usvc seller services set-visibility private <service_name>
 ```
 
 **SDK:**
@@ -177,7 +177,7 @@ client.services.update(service_id, {"visibility": "public"})
 
 **Web interface:** Use the visibility toggle on the service detail page.
 
-`unlisted` and `public` can be flipped freely at any time without affecting existing enrollments or routing.
+`unlisted` and `public` can be flipped freely at any time without affecting existing enrollments or routing. `private` is upload-controlled: to move a service into or out of private visibility, change `service_options.default_visibility` and re-upload the service.
 
 ### Once published
 

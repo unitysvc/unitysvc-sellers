@@ -152,7 +152,7 @@ flowchart LR
 | **Submit for review** | `services submit` | `draft` / `rejected` → `pending` |
 | **Withdraw** | `services withdraw` | `pending` / `rejected` → `draft` |
 | **Deprecate** | `services deprecate` | mark a live service `deprecated` |
-| **Set visibility** | `services set-visibility` | `public` (on the marketplace) or `unlisted` |
+| **Set visibility** | `services set-visibility` | `public` (on the marketplace) or `unlisted`; `private` is controlled by `service_options.default_visibility` and re-upload |
 | **Inspect** | `services list` / `services show` | see status, visibility, documents, access interfaces |
 
 ### Updating a service

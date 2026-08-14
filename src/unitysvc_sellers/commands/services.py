@@ -1045,14 +1045,13 @@ def deprecate_service(
 # ---------------------------------------------------------------------------
 # set-visibility
 # ---------------------------------------------------------------------------
-_VISIBILITIES: tuple[str, ...] = ("public", "unlisted", "private")
+_VISIBILITIES: tuple[str, ...] = ("public", "unlisted")
 
 # Per-target visibility, the *other* visibilities the ``--all`` filter
 # treats as candidates for change (everything except the target).
 _OTHER_VISIBILITIES: dict[str, list[str]] = {
-    "public": ["unlisted", "private"],
-    "unlisted": ["public", "private"],
-    "private": ["public", "unlisted"],
+    "public": ["unlisted"],
+    "unlisted": ["public"],
 }
 
 # Statuses where setting visibility is meaningful.  Visibility is a
@@ -1091,7 +1090,10 @@ def _set_visibility_impl(
     and the deprecated ``publish`` / ``unlist`` / ``hide`` aliases."""
     if visibility not in _VISIBILITIES:
         console.print(
-            f"[red]✗[/red] Invalid visibility {visibility!r}. Use one of: {', '.join(_VISIBILITIES)}.",
+            f"[red]✗[/red] Invalid visibility {visibility!r}. Use one of: {', '.join(_VISIBILITIES)}. "
+            "Private visibility is controlled by "
+            "service_options.default_visibility; re-upload the service to "
+            "change it.",
             style="bold red",
         )
         raise typer.Exit(code=2)
@@ -1123,7 +1125,7 @@ def _set_visibility_impl(
 def set_visibility(
     visibility: str = typer.Argument(
         ...,
-        help="Target visibility: one of public, unlisted, private.",
+        help="Target visibility: one of public, unlisted.",
         metavar="VISIBILITY",
     ),
     name: str | None = _NAME_ARGUMENT,
@@ -1158,8 +1160,9 @@ def set_visibility(
       service is activated).
     - ``unlisted`` — accessible by direct link, hidden from public
       catalog browse views.
-    - ``private``  — hidden from every catalog view; only the seller
-      and admins can see it.
+    ``private`` is upload-controlled via
+    ``service_options.default_visibility``. To move a service into or out of
+    private visibility, edit the service data and re-upload it.
 
     This command is a pure flag flip on the visibility column.  It
     does not transition status, does not validate that the service
@@ -1335,7 +1338,7 @@ def update_service(
         None,
         "--visibility",
         "-v",
-        help="Set catalog visibility: public, unlisted, or private.",
+        help="Set catalog visibility: public or unlisted.",
     ),
     set_routing_var: list[str] = typer.Option(
         None,
@@ -1367,10 +1370,11 @@ def update_service(
 ) -> None:
     """Update visibility, routing vars, and/or list price on a live service.
 
-    All updates are sent in a single PATCH request.
+    Seller-managed visibility updates are limited to ``public`` and
+    ``unlisted``. Use ``service_options.default_visibility`` and re-upload
+    to move a service into or out of ``private`` visibility. All updates are
+    sent in a single PATCH request.
     """
-    service_id = _resolve_single_target_id(api_key, base_url, name=name, service_id=service_id)
-
     has_routing = bool(set_routing_var or remove_routing_var or load_routing_vars)
     has_price = bool(set_price or remove_price_field)
 
@@ -1386,11 +1390,19 @@ def update_service(
     update_body: dict[str, Any] = {}
 
     if visibility:
-        valid = {"public", "unlisted", "private"}
-        if visibility not in valid:
-            console.print(f"[red]Invalid visibility '{visibility}'. Must be one of: {', '.join(sorted(valid))}[/red]")
+        if visibility not in _VISIBILITIES:
+            console.print(
+                f"[red]Invalid visibility '{visibility}'. Must be one of: "
+                f"{', '.join(_VISIBILITIES)}. Private visibility is "
+                "controlled by service_options.default_visibility; "
+                "re-upload the service to change it.[/red]"
+            )
             raise typer.Exit(code=1)
         update_body["visibility"] = visibility
+
+    service_id = _resolve_single_target_id(
+        api_key, base_url, name=name, service_id=service_id
+    )
 
     # Routing vars
     if has_routing:
