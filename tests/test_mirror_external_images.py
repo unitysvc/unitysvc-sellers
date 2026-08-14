@@ -43,8 +43,9 @@ class TestMirrorExternalImage:
             return_value=httpx.Response(200, content=b"<svg/>", headers={"content-type": "image/svg+xml"})
         )
         with patch.object(storage, "upload_bytes", return_value="abc123.svg") as up:
-            key = storage.mirror_external_image(object(), "https://example.com/brand/logo.svg")
+            key, content_type = storage.mirror_external_image(object(), "https://example.com/brand/logo.svg")
         assert key == "abc123.svg"
+        assert content_type == "image/svg+xml"
         args = up.call_args[0]
         assert args[1] == b"<svg/>"
         assert args[2] == "logo.svg"
@@ -94,13 +95,48 @@ class TestResolveFileReferencesMirroring:
         }
 
     def test_logo_external_url_rewritten(self, tmp_path: Any) -> None:
-        with patch("unitysvc_sellers.storage.mirror_external_image", return_value="deadbeef.svg"):
+        with patch(
+            "unitysvc_sellers.storage.mirror_external_image",
+            return_value=("deadbeef.svg", "image/svg+xml"),
+        ):
             out = _resolve_file_references(
                 self._provider_with_logo("https://example.com/logo.svg"),
                 tmp_path,
                 client=_FakeClient(),
             )
         assert out["documents"]["Company Logo"]["external_url"] == "${UNITYSVC_S3_BASE_URL}/deadbeef.svg"
+
+    def test_mirrored_logo_gets_real_mime_type(self, tmp_path: Any) -> None:
+        # A CDN logo URL with no extension resolves to mime_type "url" in the
+        # convenience-field converter; once mirrored it is a stored JPEG.
+        data = {
+            "documents": {
+                "Company Logo": {
+                    "category": "logo",
+                    "external_url": "https://cdn.example.com/dms/companylogo",
+                    "mime_type": "url",
+                }
+            }
+        }
+        with patch(
+            "unitysvc_sellers.storage.mirror_external_image",
+            return_value=("cafe.jpg", "image/jpeg"),
+        ):
+            out = _resolve_file_references(data, tmp_path, client=_FakeClient())
+        assert out["documents"]["Company Logo"]["mime_type"] == "jpeg"
+
+    def test_unrepresentable_mime_left_alone(self, tmp_path: Any) -> None:
+        # MimeTypeEnum has no gif member — keep what the document declared.
+        with patch(
+            "unitysvc_sellers.storage.mirror_external_image",
+            return_value=("cafe.gif", "image/gif"),
+        ):
+            out = _resolve_file_references(
+                self._provider_with_logo("https://example.com/logo.gif"),
+                tmp_path,
+                client=_FakeClient(),
+            )
+        assert out["documents"]["Company Logo"]["mime_type"] == "svg"
 
     def test_fetch_failure_keeps_external_url(self, tmp_path: Any) -> None:
         with patch(

@@ -102,7 +102,7 @@ def _upload_one(client: AuthenticatedClient, path: Path) -> str:
 # (a 136-service repo would otherwise fetch the same logo 136 times), and the
 # storage is content-addressed so repeats would dedupe server-side anyway —
 # the cache just saves the round-trips.
-_MIRROR_CACHE: dict[str, str] = {}
+_MIRROR_CACHE: dict[str, tuple[str, str]] = {}
 
 # Content types accepted when mirroring an external image (and the extension
 # used for the uploaded object when the URL path has none).
@@ -115,11 +115,13 @@ _IMAGE_CONTENT_TYPES = {
 }
 
 
-def mirror_external_image(client: AuthenticatedClient, url: str) -> str:
+def mirror_external_image(client: AuthenticatedClient, url: str) -> tuple[str, str]:
     """Fetch an external image and re-host it on platform S3 storage.
 
-    Returns the content-addressed ``object_key``; build the stored reference
-    as ``${UNITYSVC_S3_BASE_URL}/{object_key}``. Raises on any fetch/upload
+    Returns ``(object_key, content_type)`` — the content-addressed key (build
+    the stored reference as ``${UNITYSVC_S3_BASE_URL}/{object_key}``) and the
+    image type the host served, so the caller can record what the mirrored
+    object actually is instead of whatever the source URL implied. Raises on any fetch/upload
     problem or when the URL does not serve an image content-type — the caller
     decides whether that is fatal (for convenience-field logos it isn't: the
     external URL is kept as-is).
@@ -149,8 +151,8 @@ def mirror_external_image(client: AuthenticatedClient, url: str) -> str:
         name += _IMAGE_CONTENT_TYPES[content_type]
 
     key = upload_bytes(client, resp.content, name, content_type)
-    _MIRROR_CACHE[url] = key
-    return key
+    _MIRROR_CACHE[url] = (key, content_type)
+    return key, content_type
 
 
 def _process_markdown(client: AuthenticatedClient, md_path: Path) -> bytes:
