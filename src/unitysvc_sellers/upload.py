@@ -145,6 +145,15 @@ def _format_polling_error(exc: APIError) -> str:
 # category check catches logos whose mime slipped through as "url".
 _IMAGE_MIME_TYPES = {"svg", "png", "jpeg", "jpg", "gif", "webp"}
 
+# Served content-type → document ``mime_type``, for stamping a mirrored image
+# with what it actually is. ``MimeTypeEnum`` has no gif/webp member, so those
+# stay on whatever the document already declared.
+_MIME_BY_CONTENT_TYPE = {
+    "image/svg+xml": "svg",
+    "image/png": "png",
+    "image/jpeg": "jpeg",
+}
+
 
 def _is_image_document(doc: dict[str, Any]) -> bool:
     """True when a document dict is an image asset worth mirroring: a logo
@@ -205,6 +214,7 @@ def _resolve_file_references(
         current_interface = data
 
     result: dict[str, Any] = {}
+    mirrored_mime: str | None = None
 
     for key, value in data.items():
         if isinstance(value, dict):
@@ -310,14 +320,25 @@ def _resolve_file_references(
             from .storage import mirror_external_image
 
             try:
-                object_key = mirror_external_image(client._client, value)
+                object_key, content_type = mirror_external_image(client._client, value)
             except Exception as exc:  # noqa: BLE001 — keep the URL on any failure
                 print(f"  Warning: could not mirror external image {value}: {exc}")
                 result[key] = value
             else:
                 result[key] = f"${{UNITYSVC_S3_BASE_URL}}/{object_key}"
+                # The document is now a stored image, not a link: record what
+                # the host actually served. A logo URL with no file extension
+                # (LinkedIn's CDN, Framer assets) otherwise keeps the
+                # ``url`` mime the convenience-field converter had to guess.
+                mirrored_mime = _MIME_BY_CONTENT_TYPE.get(content_type)
         else:
             result[key] = value
+
+    # Applied after the loop: ``mime_type`` may be iterated either side of
+    # ``external_url``, and the pass-through branch would otherwise restore
+    # the authored value.
+    if mirrored_mime:
+        result["mime_type"] = mirrored_mime
 
     return result
 
