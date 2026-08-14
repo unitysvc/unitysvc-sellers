@@ -364,17 +364,14 @@ async def _resolve_service_ids_by_name(
     api_key: str | None, base_url: str, name: str
 ) -> list[tuple[str, str | None, str | None]]:
     """Resolve a ``--name`` fnmatch pattern to ``[(service_id, display_name,
-    revision_of), …]``.
+    status), …]``.
 
     Trimmed-down sibling of ``services.py:_resolve_or_fetch_ids``'s
     name path.  We don't apply a status / visibility filter here —
-    ``run-tests`` should attempt the diagnostic against whatever the
-    user named and let the backend explain if the service can't be
-    tested (e.g. no active interfaces).  The seller list endpoint's
-    ``ids=`` expansion already auto-includes pending revisions of
-    matched parents, so a literal name targets the active row plus
-    any draft revision under it; ``revision_of`` lets the caller
-    prefer the revision over its already-validated original.
+    the caller decides (active services are skipped by default, see
+    ``_skip_active``).  The seller list endpoint's ``ids=`` expansion
+    already auto-includes pending revisions of matched parents, so a
+    literal name targets the active row plus any draft revision under it.
     """
     # Backend (unitysvc#1201) precise-matches ``service.name`` against
     # the strict ``*``/``%`` glob grammar — every returned row is a
@@ -387,9 +384,9 @@ async def _resolve_service_ids_by_name(
             for svc in model_list(response):
                 row = svc if isinstance(svc, dict) else model_to_dict(svc)
                 row_name = row.get("name") or row.get("service_name")
-                revision_of = row.get("revision_of")
+                status = row.get("status")
                 if row.get("id"):
-                    matched.append((str(row["id"]), row_name, str(revision_of) if revision_of else None))
+                    matched.append((str(row["id"]), row_name, str(status) if status else None))
             next_cursor = getattr(response, "next_cursor", None)
             has_more = getattr(response, "has_more", False)
             if not has_more or not next_cursor:
@@ -398,22 +395,22 @@ async def _resolve_service_ids_by_name(
     return matched
 
 
-def _prefer_revisions(
+def _skip_active(
     matched: list[tuple[str, str | None, str | None]],
 ) -> tuple[list[tuple[str, str | None]], list[tuple[str, str | None]]]:
-    """Split name-matched rows into (targets, skipped_originals).
+    """Split name-matched rows into (targets, skipped_active).
 
-    When a matched row is a pending revision of another matched row, the
-    ORIGINAL is skipped: the revision carries the new data awaiting
-    validation, while the original already passed at activation, its content
-    is frozen (revisions never mutate it), and the daily health sweep
-    watches it for upstream drift — re-testing it interactively spends real
-    upstream calls for information we already have. ``--include-original``
-    (or pinning with ``--id``) restores it.
+    ACTIVE services are skipped by default — mirroring ``submit``, which also
+    ignores them. An active service already passed its tests at activation,
+    its content is frozen (re-uploads become revisions instead of mutating
+    it), and the daily health sweep watches it for upstream drift — so
+    re-testing it interactively spends real upstream calls for information
+    we already have. When a name matches an active service plus its pending
+    revision, this naturally tests only the revision. ``--include-active``
+    (or pinning with ``--id``) restores active services.
     """
-    superseded = {rev_of for _sid, _n, rev_of in matched if rev_of}
-    targets = [(sid, n) for sid, n, _rev in matched if sid not in superseded]
-    skipped = [(sid, n) for sid, n, _rev in matched if sid in superseded]
+    targets = [(sid, n) for sid, n, status in matched if status != "active"]
+    skipped = [(sid, n) for sid, n, status in matched if status == "active"]
     return targets, skipped
 
 
@@ -500,14 +497,16 @@ def run_tests(
         "--force",
         help="Re-execute documents whose previous per-iface result was 'success'.",
     ),
-    include_original: bool = typer.Option(
+    include_active: bool = typer.Option(
         False,
-        "--include-original",
+        "--include-active",
         help=(
-            "When a name matches both an active service and its pending revision, "
-            "also test the active original. By default only the revision runs — "
-            "the original already passed at activation and is monitored by the "
-            "daily health sweep."
+            "Also test ACTIVE services. By default they are skipped (mirroring "
+            "submit): an active service already passed its tests at activation, "
+            "its content is frozen, and the daily health sweep monitors it — so "
+            "a name matching an active service plus its pending revision tests "
+            "only the revision, and a name matching only active services tests "
+            "nothing. Pinning with --id always tests the pinned service."
         ),
     ),
     poll_interval: float = typer.Option(
@@ -566,17 +565,23 @@ def run_tests(
         if not matched:
             console.print(f"[yellow]No services match '{name}'.[/yellow]")
             raise typer.Exit(code=0)
-        if include_original:
-            targets = [(sid, n) for sid, n, _rev in matched]
-            skipped_originals: list[tuple[str, str | None]] = []
+        if include_active:
+            targets = [(sid, n) for sid, n, _status in matched]
+            skipped_active: list[tuple[str, str | None]] = []
         else:
-            targets, skipped_originals = _prefer_revisions(matched)
+            targets, skipped_active = _skip_active(matched)
         console.print(f"[green]Found {len(matched)} service(s) matching '{name}'[/green]")
-        for sid, n in skipped_originals:
+        for sid, n in skipped_active:
             console.print(
-                f"[dim]Skipping active original {sid[:8]}… ({n}) — its pending "
-                f"revision supersedes it; use --include-original or --id to test it.[/dim]"
+                f"[dim]Skipping active service {sid[:8]}… ({n}) — already "
+                f"validated at activation; use --include-active or --id to test it.[/dim]"
             )
+        if not targets:
+            console.print(
+                "[yellow]All matches are active services (skipped by default). "
+                "Use --include-active to test them anyway.[/yellow]"
+            )
+            raise typer.Exit(code=0)
         console.print()
     elif local_ids:
         # Read backend ids from the local specs/ catalog; the diagnostic runs
