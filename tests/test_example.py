@@ -317,6 +317,48 @@ def test_extract_code_examples_captures_meta_channels() -> None:
     assert by_title["Shared"]["channels"] is None
 
 
+def test_extract_code_examples_meta_interfaces_selects_interface_context() -> None:
+    """``meta.interfaces`` scopes a document to named user-access interfaces:
+    its render context uses THAT interface (base_url etc.), not the first one.
+    A doc scoped to interfaces the listing doesn't define is dropped."""
+    listing_data = {
+        "name": "bedrock/model-x",
+        "user_access_interfaces": {
+            "provider_api": {"base_url": "${API_GATEWAY_BASE_URL}/bedrock"},
+            "converse_api": {"base_url": "${API_GATEWAY_BASE_URL}/bedrock-runtime/model/model-x"},
+        },
+        "documents": {
+            "Converse example": {
+                "category": DocumentCategoryEnum.code_example,
+                "file_path": "converse.py.j2",
+                "mime_type": "python",
+                "meta": {"interfaces": ["converse_api"]},
+            },
+            "OpenAI example": {
+                "category": DocumentCategoryEnum.code_example,
+                "file_path": "openai.py.j2",
+                "mime_type": "python",
+                "meta": {},
+            },
+            "Orphaned example": {
+                "category": DocumentCategoryEnum.code_example,
+                "file_path": "orphan.py.j2",
+                "mime_type": "python",
+                "meta": {"interfaces": ["not_an_interface"]},
+            },
+        },
+    }
+    by_title = {e["title"]: e for e in extract_code_examples_from_listing(listing_data, Path("/tmp/listing.json"))}
+    # Interface-scoped doc renders with its own interface's base_url.
+    assert by_title["Converse example"]["interface"]["base_url"].endswith("/bedrock-runtime/model/model-x")
+    assert by_title["Converse example"]["interfaces"] == ["converse_api"]
+    # Unscoped doc keeps the first interface (unchanged default).
+    assert by_title["OpenAI example"]["interface"]["base_url"].endswith("/bedrock")
+    assert by_title["OpenAI example"]["interfaces"] is None
+    # A doc scoped to a nonexistent interface is dropped entirely.
+    assert "Orphaned example" not in by_title
+
+
 def test_extract_code_examples_captures_meta_sleep_after_test() -> None:
     """``meta.sleep_after_test`` is carried onto the discovered example so run-tests
     can pause after executing it and avoid tripping an upstream rate limit."""
