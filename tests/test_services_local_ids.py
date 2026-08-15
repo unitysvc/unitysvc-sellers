@@ -607,3 +607,86 @@ def test_read_local_service_ids_mixed_sidecar_shapes_one_repo(tmp_path: Path) ->
     (pdir / "claude-opus.service.json").write_text(json.dumps({"service_id": _UUID_B}))
     assert sorted(read_local_service_ids(tmp_path)) == sorted([_UUID_A, _UUID_B])
     assert sorted(read_local_service_ids(tmp_path, provider="anthropic")) == sorted([_UUID_A, _UUID_B])
+
+
+# ---------------------------------------------------------------------------
+# Bulk set-visibility vs. private services
+# ---------------------------------------------------------------------------
+#
+# `private` is upload-controlled (unitysvc#1801): the backend 400s a
+# visibility PATCH on a service that is already private. `_filter_ids_by_state`
+# drops private rows up front, but it reads state *before* the change lands —
+# the upload workflow runs `set-visibility public --local-ids` right after
+# `specs upload`, so an ingest that flips a service to private in between still
+# reaches the PATCH. That refusal is a no-op by design, not a failure.
+
+_PRIVATE_DETAIL = (
+    "Private services cannot be changed with set-visibility. Change "
+    "service_options.default_visibility in the service data and re-upload instead."
+)
+
+
+class TestBulkVisibilityPrivateRefusal:
+    @_respx.mock
+    def test_private_refusal_is_skipped_not_failed(self, tmp_path: Path, _runner: CliRunner, _env: None) -> None:
+        _write_listing(tmp_path / "acme" / "svc1" / "listing.json", {"service_id": _UUID_A})
+        _write_listing(tmp_path / "acme" / "svc2" / "listing.json", {"service_id": _UUID_B})
+        # Both look eligible (unlisted) when the filter runs...
+        _respx.get(f"{_BASE_URL}/services").mock(
+            return_value=_httpx.Response(
+                200,
+                json=_list_page(
+                    [
+                        _public_payload(_UUID_A, name="alpha", visibility="unlisted"),
+                        _public_payload(_UUID_B, name="beta", visibility="unlisted"),
+                    ]
+                ),
+            )
+        )
+        # ...but by PATCH time one of them is private.
+        _respx.patch(f"{_BASE_URL}/services/{_UUID_A}").mock(
+            return_value=_httpx.Response(200, json=_public_payload(_UUID_A, name="alpha")),
+        )
+        _respx.patch(f"{_BASE_URL}/services/{_UUID_B}").mock(
+            return_value=_httpx.Response(400, json={"detail": _PRIVATE_DETAIL}),
+        )
+
+        result = _runner.invoke(
+            _cli_app,
+            ["services", "set-visibility", "public", "--local-ids", "--data-dir", str(tmp_path), "--yes"],
+        )
+
+        assert result.exit_code == 0, result.stdout
+        assert "skipping" in result.stdout
+        assert "Skipped (private)" in result.stdout
+        assert "Failed" not in result.stdout
+
+    @_respx.mock
+    def test_other_errors_still_fail(self, tmp_path: Path, _runner: CliRunner, _env: None) -> None:
+        _write_listing(tmp_path / "acme" / "svc1" / "listing.json", {"service_id": _UUID_A})
+        _write_listing(tmp_path / "acme" / "svc2" / "listing.json", {"service_id": _UUID_B})
+        _respx.get(f"{_BASE_URL}/services").mock(
+            return_value=_httpx.Response(
+                200,
+                json=_list_page(
+                    [
+                        _public_payload(_UUID_A, name="alpha", visibility="unlisted"),
+                        _public_payload(_UUID_B, name="beta", visibility="unlisted"),
+                    ]
+                ),
+            )
+        )
+        _respx.patch(f"{_BASE_URL}/services/{_UUID_A}").mock(
+            return_value=_httpx.Response(200, json=_public_payload(_UUID_A, name="alpha")),
+        )
+        _respx.patch(f"{_BASE_URL}/services/{_UUID_B}").mock(
+            return_value=_httpx.Response(400, json={"detail": "something else went wrong"}),
+        )
+
+        result = _runner.invoke(
+            _cli_app,
+            ["services", "set-visibility", "public", "--local-ids", "--data-dir", str(tmp_path), "--yes"],
+        )
+
+        assert result.exit_code == 1, result.stdout
+        assert "Failed" in result.stdout
