@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "unitysvc-sellers"
-version = "0.2.30"
+version = "0.2.31"
 description = "Seller-facing tools for UnitySVC: HTTP SDK + `usvc seller` CLI"
 readme = "README.md"
 authors = [{ name = "Bo Peng", email = "bo.peng@unitysvc.com" }]
@@ -21,7 +21,7 @@ dependencies = [
   # AccessMethodEnum.mcp, and validate_mcp_offering. Below it, `specs
   # validate` rejects an MCP offering against the older bundled schema
   # ("'mcp' is not one of [...]") before upload is ever attempted.
-  "unitysvc-core>=0.2.15",
+  "unitysvc-core>=0.2.16",
   # Ships the `usvc` umbrella that mounts the usvc.commands entry point below,
   # so `usvc seller ...` works for anyone who installs this package. Adds no new
   # transitive dependencies — typer, rich, httpx, attrs and python-dateutil are

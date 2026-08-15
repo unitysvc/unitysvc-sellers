@@ -589,6 +589,21 @@ def _bulk_submit(
             raise typer.Exit(code=1)
 
 
+# The backend refuses a visibility change on a service whose current
+# visibility is ``private`` — that is upload-controlled through
+# ``service_options.default_visibility`` (unitysvc#1801). A bulk run hitting
+# one is a no-op by design, not a failure: ``_filter_ids_by_state`` drops
+# private rows up front, but it reads the state *before* the change lands, so
+# an ingest that flips a service to private between the filter and the PATCH
+# (e.g. the upload workflow's publish step, right after `specs upload`) still
+# reaches this. Report it as a skip and keep the exit status clean.
+_PRIVATE_REFUSAL_MARKER = "Private services cannot be changed with set-visibility"
+
+
+def _is_private_refusal(exc: Exception) -> bool:
+    return _PRIVATE_REFUSAL_MARKER in str(exc)
+
+
 def _bulk_visibility_change(
     *,
     api_key: str | None,
@@ -621,16 +636,25 @@ def _bulk_visibility_change(
 
     success = 0
     failed = 0
+    skipped = 0
     for sid, err in results:
         if err is None:
             console.print(f"  [green]✓[/green] {sid}: {success_verb}")
             success += 1
+        elif _is_private_refusal(err):
+            console.print(
+                f"  [dim]⊘ skipping[/dim] {sid}: [dim]private (upload-controlled via "
+                "service_options.default_visibility)[/dim]"
+            )
+            skipped += 1
         else:
             console.print(f"  [red]✗[/red] {sid}: {err}")
             failed += 1
 
     if count > 1:
         console.print(f"\n[green]✓ Success:[/green] {success}/{count}")
+        if skipped:
+            console.print(f"[dim]⊘ Skipped (private):[/dim] {skipped}/{count}")
         if failed:
             console.print(f"[red]✗ Failed:[/red] {failed}/{count}")
             raise typer.Exit(code=1)

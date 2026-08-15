@@ -41,6 +41,11 @@ usvc seller services set-visibility unlisted acme/llama-8b   # reachable by link
 Use `service_options.default_visibility = "private"` and re-upload the service
 to move it into or out of private visibility.
 
+A bulk run (`--all` / `--local-ids`) **skips** services that are already
+private rather than failing on them, so a catalog that mixes public and private
+services — or an upload workflow that publishes right after `specs upload` —
+still exits clean.
+
 ## Update a live service
 
 There are two ways to change a service that already exists:
