@@ -93,6 +93,7 @@ bundled with the rendered service, same as a hand-authored folder.
   "name": "resp{{ status }}",
   "service_type": "gateway",
   "status": "ready",
+  "summary": "Always returns HTTP {{ status }} ({{ label }}).",
   "description": "Always returns HTTP {{ status }} ({{ label }}) — {{ blurb }}.",
   "upstream_access_config": {
     "direct_response": { "access_method": "http", "base_url": "resp://{{ status }}" }

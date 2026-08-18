@@ -116,6 +116,8 @@ Service files define the service offering from the upstream provider's perspecti
 | ---------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `name`                       | string                      | Service identifier (must match directory name, allows slashes for hierarchy)                                                                                                      |
 | `service_type`               | enum                        | Service category (see [ServiceTypeEnum values](#servicetype-enum-values))                                                                                                         |
+| `summary`                    | string (max 200)            | One-line marketplace summary, shown on collapsed catalog rows and cards (unitysvc#1838)                                                                                          |
+| `description`                | string                      | Long-form service description (the summary carries the teaser; no paragraph conventions)                                                                                          |
 | `upstream_access_config` | dict of channel objects | How the gateway reaches the upstream, keyed by **channel name**; each entry is an **upstream access channel** (a free-form object — see [Upstream access channel object](#upstream-access-channel-object)) (see [Upstream access channels vs. user access interfaces](#upstream-access-channels-vs-user-access-interfaces)). Supports Jinja2 templates (e.g. `{{ enrollment.code }}`); expanded at gateway routing time using enrollment context. |
 | `time_created`               | datetime (ISO 8601)         | Timestamp when offering was created                                                                                                                                               |
 
@@ -124,10 +126,8 @@ Service files define the service offering from the upstream provider's perspecti
 | Field          | Type                  | Description                                                   |
 | -------------- | --------------------- | ------------------------------------------------------------- |
 | `display_name` | string                | Human-readable service name for display (e.g., 'GPT-4 Turbo') |
-| `description`  | string                | Service description                                           |
 | `capabilities` | array of string       | Specific features this service provides (see [Capabilities](#capabilities)) |
 | `logo`         | string/URL            | Path to logo or URL (converted to document)                   |
-| `tagline`      | string                | Short elevator pitch                                          |
 | `tags`         | array of enum         | Service tags (e.g., `["byok"]` for bring-your-own-provider)   |
 | `status`       | enum                  | Offering status: `draft` (default), `ready`, or `deprecated`  |
 | `details`      | object                | Service-specific features and information                     |
@@ -555,6 +555,7 @@ namespace:
 {
     "name": "command-r",
     "service_type": "llm",
+    "summary": "Cohere's Command R conversational model, via your own API key.",
     "upstream_access_config": {
         "Cohere API": {
             "access_method": "http",
