@@ -232,6 +232,7 @@ class TestResolveFileReferencesIntegration:
                     "name": "svc1",
                     "display_name": "Service 1",
                     "service_type": "llm",
+                    "summary": "Test offering summary.",
                     "status": "ready",
                     "upstream_access_config": {
                         "default": {
@@ -328,6 +329,7 @@ def _write_service(provider_dir: Path, svc: str, listing_name: str) -> None:
                 "name": svc,
                 "display_name": svc,
                 "service_type": "llm",
+                "summary": "Test offering summary.",
                 "status": "ready",
                 "upstream_access_config": {
                     "default": {"access_method": "http", "base_url": "https://api.acme.example"},
