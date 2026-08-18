@@ -257,6 +257,7 @@ def _write_catalog(tmp_path: Path) -> Path:
                 "name": "svc1",
                 "display_name": "Service 1",
                 "service_type": "llm",
+                "summary": "Test offering summary.",
                 "status": "ready",
                 "upstream_access_config": {
                     "default": {

@@ -5950,6 +5950,12 @@
             "title": "Capabilities",
             "description": "Specific features this service provides (e.g., 'text_to_speech', 'embedding')"
           },
+          "summary": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Summary",
+            "description": "One-line marketplace summary (max 200 characters) \u2014 shown on collapsed catalog rows and cards. Required everywhere, deliberately: the teaser is part of the offering, not an optional garnish. Renames the vestigial ``tagline`` field (unitysvc/unitysvc#1838)."
+          },
           "description": {
             "anyOf": [
               {
@@ -5960,19 +5966,7 @@
               }
             ],
             "title": "Description",
-            "description": "Service description"
-          },
-          "tagline": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tagline",
-            "description": "Short elevator pitch or description for the service"
+            "description": "Service description (long-form; the summary carries the teaser)"
           },
           "status": {
             "$ref": "#/components/schemas/OfferingStatusEnum",
@@ -6060,7 +6054,8 @@
         },
         "type": "object",
         "required": [
-          "name"
+          "name",
+          "summary"
         ],
         "title": "ServiceOfferingData",
         "description": "Base data structure for service offering information.\n\nThis model contains the core fields needed to describe a service offering,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `OfferingV1` in unitysvc-core (with additional\n   time_created field for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_service_offering()\n   - Publish operations from CLI\n\nKey characteristics:\n- status maps to database 'status' field\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)\n- Provider relationship is determined by file location (SDK mode) or\n  by being published together in a single API call (API mode)"
