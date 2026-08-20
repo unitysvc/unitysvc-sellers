@@ -72,7 +72,9 @@ def format_data_files(data_dir: Path | None, *, check_only: bool = False) -> boo
                 # Parse and reformat JSON
                 try:
                     data = json_lib.loads(original_content)
-                    formatted_json = json_lib.dumps(data, indent=2, sort_keys=True, separators=(",", ": "), ensure_ascii=False)
+                    formatted_json = json_lib.dumps(
+                        data, indent=2, sort_keys=True, separators=(",", ": "), ensure_ascii=False
+                    )
                     modified_content = formatted_json
                     if modified_content != original_content.rstrip("\n"):
                         changes.append("reformatted JSON")
