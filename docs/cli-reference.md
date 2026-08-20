@@ -529,7 +529,7 @@ $ usvc seller services list [OPTIONS] [name]
 * `--status <str>`: Filter by service status (draft, pending, review, active, rejected, suspended, deprecated).
 * `--visibility <str>`: Filter by catalog visibility (public, unlisted, private).
 * `--provider <str>`: Filter by provider name (case-insensitive partial match).
-* `--fields <str>`: Columns to display. Absolute list (id,name,status) replaces the defaults; a fully-signed list edits them (+revision_of appends, -visibility drops, +created_at,-service_type does both).  [default: id,name,provider_name,service_type,status,visibility,revision_of]
+* `--fields <str>`: Columns to display. Absolute list (id,name,status) replaces the defaults; a fully-signed list edits them (+revision_of appends, -visibility drops, +created_at,-service_type does both).  [default: id,name,provider_name,service_type,status,visibility,revision_of,updated_at]
 * `-f, --format <str>`: Output format: table | json.  [default: table]
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
