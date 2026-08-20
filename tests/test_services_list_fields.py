@@ -5,8 +5,10 @@ from datetime import UTC
 
 from unitysvc_sellers.commands.services import (
     _DEFAULT_LIST_FIELDS,
+    _apply_sort,
     _is_time_column,
     _list_sort_key,
+    _parse_sort,
     _relative_age,
     _resolve_fields,
 )
@@ -140,3 +142,64 @@ class TestUpdatedIsADefaultColumn:
         from unitysvc_sellers.commands.services import _COLUMN_LABELS
 
         assert _COLUMN_LABELS["updated_at"] == "updated"
+
+
+class TestParseSort:
+    """``--sort`` accepts the header name or the field name; ``-`` = newest first."""
+
+    def test_minus_is_descending(self) -> None:
+        assert _parse_sort("-updated") == ("updated_at", True)
+
+    def test_plus_and_bare_are_ascending(self) -> None:
+        assert _parse_sort("+updated") == ("updated_at", False)
+        assert _parse_sort("updated") == ("updated_at", False)
+
+    def test_field_name_works_too(self) -> None:
+        assert _parse_sort("-updated_at") == ("updated_at", True)
+        assert _parse_sort("created") == ("created_at", False)
+
+    def test_non_aliased_column_passes_through(self) -> None:
+        assert _parse_sort("-status") == ("status", True)
+
+    def test_absent_or_blank_means_no_sort(self) -> None:
+        assert _parse_sort(None) is None
+        assert _parse_sort("   ") is None
+
+
+class TestApplySort:
+    @staticmethod
+    def _rows() -> list[dict[str, object]]:
+        return [
+            {"name": "b", "updated_at": "2026-08-01T00:00:00+00:00"},
+            {"name": "a", "updated_at": "2026-08-18T00:00:00+00:00"},
+            {"name": "c", "updated_at": None},
+        ]
+
+    def test_latest_first(self) -> None:
+        rows = _apply_sort(self._rows(), "updated_at", reverse=True)
+        # Missing values stay last even when reversed — a row with no
+        # timestamp is not "the most recently updated".
+        assert [r["name"] for r in rows] == ["a", "b", "c"]
+
+    def test_oldest_first(self) -> None:
+        rows = _apply_sort(self._rows(), "updated_at", reverse=False)
+        assert [r["name"] for r in rows] == ["b", "a", "c"]
+
+    def test_mixed_offsets_compare_chronologically(self) -> None:
+        # Lexicographic string compare would order these wrongly: the +02:00
+        # stamp reads later as text but is earlier in absolute time.
+        rows = [
+            {"name": "east", "updated_at": "2026-08-18T09:00:00+02:00"},
+            {"name": "utc", "updated_at": "2026-08-18T08:30:00+00:00"},
+        ]
+        assert [r["name"] for r in _apply_sort(rows, "updated_at", reverse=False)] == [
+            "east",
+            "utc",
+        ]
+
+    def test_text_columns_sort_case_insensitively(self) -> None:
+        rows = [{"name": "Beta"}, {"name": "alpha"}]
+        assert [r["name"] for r in _apply_sort(rows, "name", reverse=False)] == [
+            "alpha",
+            "Beta",
+        ]

@@ -195,6 +195,62 @@ def _resolve_fields(spec: str) -> list[str]:
     return tokens
 
 
+# ``--sort`` accepts either the column header or the raw field name, so
+# ``-updated`` and ``-updated_at`` mean the same thing.
+_SORT_ALIASES = {"updated": "updated_at", "created": "created_at"}
+
+
+def _parse_sort(spec: str | None) -> tuple[str, bool] | None:
+    """``"-updated"`` → ``("updated_at", True)`` (field, newest/largest first).
+
+    ``-`` is descending, ``+`` or a bare name ascending — so "latest updated
+    first" is ``--sort -updated``. Returns ``None`` when no sort was asked
+    for, leaving the default revision-clustering order in place.
+    """
+    if spec is None:
+        return None
+    token = spec.strip()
+    if not token:
+        return None
+    reverse = token[0] == "-"
+    if token[0] in "+-":
+        token = token[1:].strip()
+    field = _SORT_ALIASES.get(token, token)
+    return (field, reverse)
+
+
+def _sort_value(svc: dict[str, Any], field: str) -> Any:
+    """Comparable key for one row's ``field`` (rows missing it never get here).
+
+    Timestamps are parsed rather than compared as strings: ISO text only
+    sorts chronologically while every value shares one UTC offset, which is
+    true of today's API but not a property worth depending on.
+    """
+    value = svc.get(field)
+    if _is_time_column(field):
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return 0.0
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.timestamp()
+    return str(value).lower()
+
+
+def _apply_sort(rows: list[dict[str, Any]], field: str, reverse: bool) -> list[dict[str, Any]]:
+    """Sort ``rows`` by ``field``, always leaving rows that lack it last.
+
+    Partitioned rather than sorted with a sentinel key: ``reverse=True``
+    flips a sentinel to the FRONT, which would present a service with no
+    timestamp as the most recently updated one.
+    """
+    present = [r for r in rows if r.get(field) not in (None, "")]
+    missing = [r for r in rows if r.get(field) in (None, "")]
+    present.sort(key=lambda svc: _sort_value(svc, field), reverse=reverse)
+    return present + missing
+
+
 def _list_sort_key(svc: dict[str, Any]) -> tuple[str, int, str]:
     """Group a service's original and its revision adjacently: sort by name, then
     original-before-revision, then id. Original and revision share ``name``, so
@@ -255,6 +311,17 @@ def list_services(
             "-visibility drops, +created_at,-service_type does both)."
         ),
     ),
+    sort: str | None = typer.Option(
+        None,
+        "--sort",
+        help=(
+            "Sort by a column: '-updated' (latest first), '+updated' (oldest "
+            "first), also 'name', 'status', 'created'. Sorts the seller's WHOLE "
+            "catalog — it follows cursors like --all, since sorting one page "
+            "would order an arbitrary slice. Replaces the default "
+            "original-then-revision grouping."
+        ),
+    ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
     local_ids: bool = _LOCAL_IDS_OPTION,
     data_dir: Path = _DATA_DIR_OPTION,
@@ -276,6 +343,8 @@ def list_services(
     are applied server-side via the ``ids`` query parameter added in the
     backend ``GET /services?ids=<uuid>`` endpoint.
     """
+
+    sort_spec = _parse_sort(sort)
 
     async def _impl() -> list[dict[str, Any]]:
         from uuid import UUID
@@ -326,7 +395,7 @@ def list_services(
                     provider=provider,
                 )
                 collected.extend(model_list(response))
-                if not all_pages:
+                if not all_pages and sort_spec is None:
                     break
                 next_cursor = getattr(response, "next_cursor", None)
                 has_more = getattr(response, "has_more", False)
@@ -347,8 +416,14 @@ def list_services(
         return
 
     field_list = _resolve_fields(fields)
-    # Cluster each service's original + pending revision adjacently.
-    services = sorted(services, key=_list_sort_key)
+    if sort_spec is not None:
+        # An explicit sort replaces the revision clustering — the caller asked
+        # for one order, so imposing a second would fight it.
+        sort_field, reverse = sort_spec
+        services = _apply_sort(services, sort_field, reverse)
+    else:
+        # Cluster each service's original + pending revision adjacently.
+        services = sorted(services, key=_list_sort_key)
     table = Table(title="Services")
     for col in field_list:
         table.add_column(_COLUMN_LABELS.get(col, col), style="bold" if col == "name" else "")
@@ -450,6 +525,17 @@ def show_service(
         ),
     ),
     service_id: str | None = _ID_OPTION,
+    sort: str | None = typer.Option(
+        None,
+        "--sort",
+        help=(
+            "Sort by a column: '-updated' (latest first), '+updated' (oldest "
+            "first), also 'name', 'status', 'created'. Sorts the seller's WHOLE "
+            "catalog — it follows cursors like --all, since sorting one page "
+            "would order an arbitrary slice. Replaces the default "
+            "original-then-revision grouping."
+        ),
+    ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),

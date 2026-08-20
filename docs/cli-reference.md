@@ -530,6 +530,7 @@ $ usvc seller services list [OPTIONS] [name]
 * `--visibility <str>`: Filter by catalog visibility (public, unlisted, private).
 * `--provider <str>`: Filter by provider name (case-insensitive partial match).
 * `--fields <str>`: Columns to display. Absolute list (id,name,status) replaces the defaults; a fully-signed list edits them (+revision_of appends, -visibility drops, +created_at,-service_type does both).  [default: id,name,provider_name,service_type,status,visibility,revision_of,updated_at]
+* `--sort <str>`: Sort by a column: &#x27;-updated&#x27; (latest first), &#x27;+updated&#x27; (oldest first), also &#x27;name&#x27;, &#x27;status&#x27;, &#x27;created&#x27;. Sorts the seller&#x27;s WHOLE catalog — it follows cursors like --all, since sorting one page would order an arbitrary slice. Replaces the default original-then-revision grouping.
 * `-f, --format <str>`: Output format: table | json.  [default: table]
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
 * `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
@@ -554,6 +555,7 @@ $ usvc seller services show [OPTIONS] [name]
 **Options**:
 
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
+* `--sort <str>`: Sort by a column: &#x27;-updated&#x27; (latest first), &#x27;+updated&#x27; (oldest first), also &#x27;name&#x27;, &#x27;status&#x27;, &#x27;created&#x27;. Sorts the seller&#x27;s WHOLE catalog — it follows cursors like --all, since sorting one page would order an arbitrary slice. Replaces the default original-then-revision grouping.
 * `-f, --format <str>`: Output format: table | json.  [default: table]
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
