@@ -555,7 +555,6 @@ $ usvc seller services show [OPTIONS] [name]
 **Options**:
 
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
-* `--sort <str>`: Sort by a column: &#x27;-updated&#x27; (latest first), &#x27;+updated&#x27; (oldest first), also &#x27;name&#x27;, &#x27;status&#x27;, &#x27;created&#x27;. Sorts the seller&#x27;s WHOLE catalog — it follows cursors like --all, since sorting one page would order an arbitrary slice. Replaces the default original-then-revision grouping.
 * `-f, --format <str>`: Output format: table | json.  [default: table]
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]

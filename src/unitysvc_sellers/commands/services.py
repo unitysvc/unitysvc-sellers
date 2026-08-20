@@ -525,17 +525,6 @@ def show_service(
         ),
     ),
     service_id: str | None = _ID_OPTION,
-    sort: str | None = typer.Option(
-        None,
-        "--sort",
-        help=(
-            "Sort by a column: '-updated' (latest first), '+updated' (oldest "
-            "first), also 'name', 'status', 'created'. Sorts the seller's WHOLE "
-            "catalog — it follows cursors like --all, since sorting one page "
-            "would order an arbitrary slice. Replaces the default "
-            "original-then-revision grouping."
-        ),
-    ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
