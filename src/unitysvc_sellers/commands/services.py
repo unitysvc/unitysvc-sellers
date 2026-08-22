@@ -236,29 +236,21 @@ def list_services(
                     )
                     return []
                 uuid_ids = [UUID(sid) for sid in raw_ids]
-                # Use the list endpoint with ids filter — single round-trip for the
-                # typical case (<= 200 services), follows cursors automatically for
-                # larger data dirs. All filters (status, visibility, name, provider)
-                # are applied server-side, so the returned records are ServicePublic
-                # with the correct field names for the table renderer.
-                page_limit = min(len(uuid_ids), 200)
-                current_cursor: str | None = None
-                while True:
-                    response = await client.services.list(
-                        ids=uuid_ids,
-                        limit=page_limit,
+                # Use the list endpoint with ids filter, batched so the query
+                # string stays under the proxy's URI limit. All filters (status,
+                # visibility, name, provider) are applied server-side, so the
+                # returned records are ServicePublic with the correct field
+                # names for the table renderer.
+                collected.extend(
+                    await _list_services_by_ids(
+                        client,
+                        uuid_ids,
                         status=status,
                         visibility=visibility,
                         name=name,
                         provider=provider,
-                        cursor=current_cursor,
                     )
-                    collected.extend(model_list(response))
-                    next_cursor = getattr(response, "next_cursor", None)
-                    has_more = getattr(response, "has_more", False)
-                    if not has_more or not next_cursor:
-                        break
-                    current_cursor = str(next_cursor)
+                )
                 return collected
 
             current_cursor = cursor
@@ -660,6 +652,43 @@ def _bulk_visibility_change(
             raise typer.Exit(code=1)
 
 
+# Each id costs len("ids=") + 36 (uuid) + 1 ("&") = 41 bytes of query string.
+# nginx's default large_client_header_buffers is 8 KB, so even 200 ids (~8.2 KB)
+# overflows the request line and the proxy answers 414 Request-URI Too Large
+# before the backend sees the call. unitysvc-services-ollama has 235 services.
+# Batch well under that: 80 ids is ~3.3 KB, leaving room for the base URL,
+# cursor and filters.
+_IDS_PER_REQUEST = 80
+
+
+async def _list_services_by_ids(client, uuid_ids: list, **filters) -> list:
+    """List services for `uuid_ids`, batching so the query string stays URL-safe.
+
+    The ids travel in the query string, so they cannot all go in one call.
+    Cursors are followed within each batch, since server-side filters can make
+    a batch return more rows than ids (e.g. a service plus its revisions).
+    """
+    collected: list = []
+    for start in range(0, len(uuid_ids), _IDS_PER_REQUEST):
+        batch = uuid_ids[start : start + _IDS_PER_REQUEST]
+        page_limit = min(max(len(batch) * 2, 50), 200)
+        current_cursor: str | None = None
+        while True:
+            response = await client.services.list(
+                ids=batch,
+                limit=page_limit,
+                cursor=current_cursor,
+                **filters,
+            )
+            collected.extend(model_list(response))
+            next_cursor = getattr(response, "next_cursor", None)
+            has_more = getattr(response, "has_more", False)
+            if not has_more or not next_cursor:
+                break
+            current_cursor = str(next_cursor)
+    return collected
+
+
 def _read_ids_from_data_dir(data_dir: Path) -> list[str]:
     """Collect service_ids from every service folder's service.json under data_dir.
 
@@ -700,36 +729,23 @@ async def _filter_ids_by_state(
     from uuid import UUID
 
     uuid_ids = [UUID(sid) for sid in ids]
-    # Page size is capped at 200 server-side; if the data dir + their
-    # revisions exceed that we'll follow cursors below.
-    page_limit = min(max(len(uuid_ids) * 2, 50), 200)
 
     eligible: list[str] = []
     skipped: list[tuple[str, str]] = []
-    current_cursor: str | None = None
     try:
-        while True:
-            response = await client.services.list(
-                ids=uuid_ids,
-                limit=page_limit,
-                cursor=current_cursor,
-            )
-            for svc in model_list(response):
-                row = svc if isinstance(svc, dict) else model_to_dict(svc)
-                status = (str(row.get("status") or "")) or None
-                vis = (str(row.get("visibility") or "")) or None
-                if status not in statuses:
-                    continue
-                if visibilities and vis not in visibilities:
-                    continue
-                sid = row.get("id")
-                if sid:
-                    eligible.append(str(sid))
-            next_cursor = getattr(response, "next_cursor", None)
-            has_more = getattr(response, "has_more", False)
-            if not has_more or not next_cursor:
-                break
-            current_cursor = str(next_cursor)
+        # Batched: the ids go in the query string, so a large data dir would
+        # otherwise build a URI the proxy rejects with 414.
+        for svc in await _list_services_by_ids(client, uuid_ids):
+            row = svc if isinstance(svc, dict) else model_to_dict(svc)
+            status = (str(row.get("status") or "")) or None
+            vis = (str(row.get("visibility") or "")) or None
+            if status not in statuses:
+                continue
+            if visibilities and vis not in visibilities:
+                continue
+            sid = row.get("id")
+            if sid:
+                eligible.append(str(sid))
     except SellerSDKError as exc:
         skipped.append(("?", f"could not list services: {exc}"))
 
