@@ -65,6 +65,76 @@ Pricing
 
 ---
 
+## Writing the `description`
+
+The marketplace styles the parts of your `description` differently — the amount, the unit, a superseded price, a badge — so a price tag reads cleanly in a narrow catalog column. It does that by **parsing your text**, so a small amount of wording convention is worth knowing.
+
+This matters most when `type` cannot express your unit. `type` *is* the unit for most pricing (`one_million_tokens` → "per 1M tokens"), but two cases carry no usable unit:
+
+- **`channel`** prices have no unit of their own — the units live on the sub-channel prices.
+- **`constant`** means "per request", which is often not what customers count. A notification service bills per request, but customers think **per message**.
+
+In both cases the unit can only live in your `description`.
+
+### The convention
+
+```
+[ "~~" old-price "~~" ]  amount  [ ("/" | "per") unit ]  [ "—" aside ]
+```
+
+Every part except `amount` is optional. Written out, a full example:
+
+```json
+{
+    "type": "constant",
+    "price": "0.001",
+    "description": "~~$0.002~~ $0.001 / message — SALE"
+}
+```
+
+renders as a struck-through `$0.002`, a green `$0.001`, a small dim `message` line beneath it, and a green `SALE` pill.
+
+### What each part does
+
+| You write | Result |
+| --------- | ------ |
+| `Free` | one green line |
+| `Free - $0.001 / message` | amount, then `message` on a small dim line |
+| `Free - $0.001 per message` | the same — `per` is honored as well as `/` |
+| `$0.01 per GB transferred` | amount + dim unit line |
+| `Free — customer provides own storage` | `Free`, with the aside on hover |
+| `$0.025 / message — 20% OFF` | amount + unit + a green `20% OFF` pill |
+| `~~$0.05~~ $0.025 / 1M tokens` | struck `$0.05`, green `$0.025`, dim unit |
+
+### Rules of thumb
+
+- **Put the unit after `/` or `per`, and keep it short** (`message`, `1M tokens`, `GB transferred`). Over 24 characters it reads as a sentence and is left alone.
+- **Put qualifiers after an em-dash (`—`).** They won't crowd the catalog column; customers see them on hover.
+- **Write a badge in CAPS** (`SALE`, `20% OFF`, `NEW`) and a note in sentence case. That capitalization is exactly how the marketplace tells a pill from prose — a lowercase aside is never rendered as a badge.
+- **Mark a superseded price with `~~…~~`, first in the string.**
+- **Don't put two prices in one description.** `"$1.00 / 1M input, $3.00 / 1M output"` will not split — use separate `input`/`output` fields, or a channel-keyed price.
+
+### Sale and discount copy is yours to write
+
+The platform never computes a discount for you. A customer's actual charge can be affected by a service-level `list_price` override, by discounting you already applied upstream, and by promotions applied on top at billing time — so the marketplace cannot derive a trustworthy "X% off" and won't try. `~~old~~ new` and a `SALE` pill are **your claim**, rendered as written.
+
+### When in doubt, nothing breaks
+
+The parser is conservative: anything it doesn't clearly recognize is displayed verbatim on one line, exactly as before. These all pass through untouched:
+
+```
+Free demo service
+Per notification
+$1 for every 10,000 requests
+$1 per 1,000 emails (1,000 emails per dollar)
+$1.00 / 1M input tokens, $3.00 / 1M output tokens
+Free - route to your own Ollama-compatible endpoint
+```
+
+So you never have to write to this convention — you only gain the nicer rendering when you do.
+
+---
+
 ## Per-Request Pricing Types
 
 These pricing types calculate cost based on usage data from a single API request. They are suitable for both `list_price` and `payout_price`.
