@@ -79,7 +79,7 @@ In both cases the unit can only live in your `description`.
 ### The convention
 
 ```
-[ "~~" old-price "~~" ]  amount  [ ("/" | "per") unit ]  [ "—" badge-or-note ]  [ "|" hover note ]
+[ "~~" old-price "~~" ]  amount  [ ("/" | "per") unit ]  [ "~"[intent] badge ]*  [ "|" hover note ]
 ```
 
 Every part except `amount` is optional. Written out, a full example:
@@ -88,23 +88,50 @@ Every part except `amount` is optional. Written out, a full example:
 {
     "type": "constant",
     "price": "0.001",
-    "description": "~~$0.002~~ $0.001 / message — SALE | first 1,000 messages each month are free"
+    "description": "~~$0.002~~ $0.001 / message ~deal SALE | first 1,000 messages each month are free"
 }
 ```
 
-renders as a struck-through `$0.002`, a green `$0.001`, a small dim `message` line beneath it, a green `SALE` pill, and the rest on hover.
+renders as a struck-through `$0.002`, a green `$0.001`, a small dim `message` line beneath it, a red `SALE` pill, and the rest on hover.
+
+### Badges say what they claim
+
+A badge is written `~intent text`, and the intent picks its colour. Colour is
+carrying meaning here, so pick the one that matches what you are claiming — a
+single colour for everything tells the customer nothing.
+
+| You write | Renders as | Use it for |
+| --------- | ---------- | ---------- |
+| `~ BYOK` | green pill, black text | a saving — this costs you less or nothing |
+| `~deal LIMITED` | red pill, white text | urgency — it expires |
+| `~coupon Save 10%` | copper pill, black text | something conditional, needing an action |
+| `~info BETA` | grey pill, light text | a plain label, not a claim about price |
+
+A bare `~` (with a space) is the default — the green "saving" register. An
+intent the marketplace doesn't recognise renders as `~info` rather than
+disappearing, so a typo costs you the colour, never the badge.
+
+Two things follow from naming the intent explicitly:
+
+- **Badge text may be lowercase.** `~coupon Save 10%` is fine. (Capitalization
+  used to be the only way to tell a badge from prose; it isn't any more.)
+- **A price may carry more than one badge**, rendered in the order you write
+  them: `Free ~ BYOK ~coupon SAVE10`.
+
+Keep badge text to 16 characters or fewer — beyond that it can't fit the
+catalog column, and it is left in the amount rather than truncated.
 
 ### `|` is always last
 
 Everything after the first `|` is hover text, taken **verbatim**. Because it is terminal, the other separators stop meaning anything inside it — a hover note is free to contain `/`, `per` and `—` without being re-parsed:
 
 ```
-Free — BYOK | $0.14 / 1M input — $0.28 / 1M output, billed by DeepSeek
+Free ~ BYOK | $0.14 / 1M input — $0.28 / 1M output, billed by DeepSeek
 ```
 
 That yields a green `Free`, a `BYOK` pill, and the whole rate card on hover — none of it mistaken for a unit.
 
-Use `|` whenever you want **both a badge and a note**. The em-dash aside can only be one or the other: written in caps it becomes a pill, otherwise it becomes hover text. `Free — BYOK — billed by DeepSeek` gives you no pill at all, because the aside as a whole contains lowercase.
+Use `|` for **any prose**: anything long, anything in sentence case, anything a badge can't hold. Badges and notes are independent, so a price can have both, either, or neither.
 
 ### What each part does
 
@@ -114,19 +141,28 @@ Use `|` whenever you want **both a badge and a note**. The em-dash aside can onl
 | `Free - $0.001 / message` | amount, then `message` on a small dim line |
 | `Free - $0.001 per message` | the same — `per` is honored as well as `/` |
 | `$0.01 per GB transferred` | amount + dim unit line |
-| `Free — customer provides own storage` | `Free`, with the aside on hover |
-| `$0.025 / message — 20% OFF` | amount + unit + a green `20% OFF` pill |
+| `Free \| customer provides own storage` | `Free`, with the note on hover |
+| `$0.025 / message ~ 20% OFF` | amount + unit + a green `20% OFF` pill |
 | `~~$0.05~~ $0.025 / 1M tokens` | struck `$0.05`, green `$0.025`, dim unit |
-| `Free — BYOK \| billed by DeepSeek directly` | `Free`, a `BYOK` pill, and the note on hover |
+| `Free ~ BYOK \| billed by DeepSeek directly` | `Free`, a `BYOK` pill, and the note on hover |
+| `Free ~ BYOK ~coupon SAVE10` | `Free` and two pills, green then copper |
 
 ### Rules of thumb
 
 - **Put the unit after `/` or `per`, and keep it short** (`message`, `1M tokens`, `GB transferred`). Over 24 characters it reads as a sentence and is left alone.
-- **Put a badge or a short qualifier after an em-dash (`—`).** It won't crowd the catalog column.
-- **Write a badge in CAPS** (`SALE`, `BYOK`, `20% OFF`, `NEW`) and a note in sentence case. That capitalization is exactly how the marketplace tells a pill from prose — a lowercase aside is never rendered as a badge.
-- **Use `|` for anything long, and to get a badge *and* a note.** It always comes last, and everything after it is hover text.
+- **Write a badge as `~intent text`**, choosing the intent that matches your claim (`~` saving, `~deal` urgency, `~coupon` conditional, `~info` label). Keep it to 16 characters.
+- **Use `|` for prose.** It always comes last, and everything after it is hover text.
 - **Mark a superseded price with `~~…~~`, first in the string.**
 - **Don't put two prices in one description.** `"$1.00 / 1M input, $3.00 / 1M output"` will not split — use separate `input`/`output` fields, a channel-keyed price, or put the rate card after a `|`.
+
+!!! note "The older em-dash spelling still works"
+
+    Before badges took an intent, a short **all-caps** aside after an em-dash
+    became a pill — `Free — BYOK`. That still renders, as the default green
+    badge, so existing descriptions keep working and nothing needs migrating.
+    Prefer `~` in new copy: it says which colour you mean, allows lowercase
+    text, and allows more than one badge. Note that an em-dash aside can be a
+    pill *or* prose but never both, which is the limitation `~` removes.
 
 ### Sale and discount copy is yours to write
 
