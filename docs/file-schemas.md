@@ -152,21 +152,95 @@ Service files define the service offering from the upstream provider's perspecti
 
 ### Capabilities
 
-The `capabilities` field lists the specific features a service provides. While `service_type` is a single broad category used for UI grouping, `capabilities` is an array that enables discovery and filtering across multiple features.
+A **capability is a concrete action with a defined input and output**: what your
+service does to what the caller sends it. One service may have several.
 
-- `service_type` answers: **"What kind of service is this?"** (e.g., `llm`)
-- `capabilities` answers: **"What can this service do?"** (e.g., `["llm", "vision_language_model"]`)
+Capabilities come from a **platform vocabulary**, not from your imagination. The
+marketplace uses them to filter the catalog and to explain your service to
+customers, so a capability only works if it means the same thing on every
+service that declares it.
 
-Capabilities are free-form strings. Well-known values include all `ServiceTypeEnum` values above, plus:
-`recommendation`, `search`, `classification`, `summarization`, `translation`, `code_generation`, `function_calling`, `fine_tuning`
+#### Keep the axes separate
+
+This is the mistake to avoid — each of these answers a different question, and
+collapsing them is what makes a catalog unsearchable:
+
+| Field | Question it answers | Example |
+|---|---|---|
+| `service_type` | What *kind* of service is this? (broad category, validated enum) | `llm` |
+| `capabilities` | What does it *do* to the input? (this vocabulary) | `["chat"]` |
+| `input_formats` | What wire contract must the caller speak? | `openai_chat` |
+| `details` | What *qualifies* the service? (attributes, free-form) | `{"vision": true}` |
+
+Concretely: an OpenAI-dialect and an Anthropic-dialect chat service offer the
+**same capability** (`chat`) and differ only in `input_formats`. And `vision`,
+`tools` and `thinking` are **not capabilities** — they have no contract of their
+own, they only qualify a chat call by changing what may appear in the request.
+They belong in `details`.
+
+#### The vocabulary
+
+Each capability below links to its topic on the marketplace, which spells out
+the full input/output contract customers will see.
+
+**Passthrough** — the platform does not interpret the payload:
+
+| Capability | Input | Output |
+|---|---|---|
+| [`http-relay`](https://unitysvc.com/topics/capability-http-relay) | an HTTP request of any shape | the upstream's HTTP response, unchanged |
+| [`notification-relay`](https://unitysvc.com/topics/capability-notification-relay) | a request in your messaging provider's own format | the provider's response, with the message sent |
+| [`smtp-relay`](https://unitysvc.com/topics/capability-smtp-relay) | an SMTP message | the same message, relayed on to an SMTP upstream |
+| [`smtp-to-http`](https://unitysvc.com/topics/capability-smtp-to-http) | an SMTP message | an HTTP POST to a configured destination |
+| [`mcp-delegation`](https://unitysvc.com/topics/capability-mcp-delegation) | a discovery request, or a tool call | the upstream server's tool list, or that call's result |
+| [`s3-read-proxied`](https://unitysvc.com/topics/capability-s3-read-proxied) | an S3 GET for an object (read only) | the object bytes, streamed through the gateway |
+| [`s3-read-redirect`](https://unitysvc.com/topics/capability-s3-read-redirect) | an S3 GET for an object (read only) | a presigned redirect; the client fetches the bytes |
+
+**Messaging and monitoring:**
+
+| Capability | Input | Output |
+|---|---|---|
+| [`deliver-message`](https://unitysvc.com/topics/capability-deliver-message) | a `msg` envelope (`{title, body, type, format}`) | the message delivered to the channel you configured |
+| [`deliver-to-mailbox`](https://unitysvc.com/topics/capability-deliver-to-mailbox) | a `msg` envelope, or an SMTP message | an email in your own verified UnitySVC mailbox |
+| [`probe-target`](https://unitysvc.com/topics/capability-probe-target) | a target to check — URL or host, check type, timeout | a verdict, with the measured response time |
+
+**Model inference:**
+
+| Capability | Input | Output |
+|---|---|---|
+| [`chat`](https://unitysvc.com/topics/capability-chat) | a conversation, optionally with images, tools or a system prompt | generated text, optionally including tool calls |
+| [`embed`](https://unitysvc.com/topics/capability-embed) | text, or an image, to be represented as a vector | an embedding vector |
+| [`rerank`](https://unitysvc.com/topics/capability-rerank) | a query and a set of candidate documents | the same documents ordered by relevance, with scores |
+| [`moderate`](https://unitysvc.com/topics/capability-moderate) | text or an image to be assessed | a safety classification, by category |
+| [`image-generate`](https://unitysvc.com/topics/capability-image-generate) | a text prompt | a generated image |
+| [`image-edit`](https://unitysvc.com/topics/capability-image-edit) | an existing image and a text instruction | a modified image |
+| [`video-generate`](https://unitysvc.com/topics/capability-video-generate) | a text prompt | a generated video |
+| [`speech-transcribe`](https://unitysvc.com/topics/capability-speech-transcribe) | recorded audio | a text transcript |
+| [`speech-synthesize`](https://unitysvc.com/topics/capability-speech-synthesize) | text, and a voice selection | synthesized audio |
+
+`chat` absorbs **every** chat variant — the OpenAI and Anthropic dialects, the
+Bedrock Converse and InvokeModel surfaces, provider SDKs, streaming, function
+calling and vision. All produce generated text, so all are one capability. Use
+it instead of `llm` or `text-generation`.
+
+#### If nothing fits
+
+The field still accepts any string, so an unrecognised value will validate and
+display. But it buys you nothing: it has no topic, no explanation in the
+catalog, and it fragments the capability filter — two spellings of the same idea
+(`http_relay` and `http-relay`) become two separate filter entries that split
+your services between them.
+
+So prefer an existing capability, and **open an issue** if your service genuinely
+does something this list does not cover. New capabilities are added
+deliberately.
 
 **Examples:**
 
 | Service | `service_type` | `capabilities` |
 |---------|---------------|----------------|
-| OpenAI GPT-4 | `llm` | `["llm", "vision_language_model"]` |
-| Deepgram Nova | `speech_to_text` | `["speech_to_text", "text_to_speech"]` |
-| Gorse Recommender | `undetermined` | `["recommendation"]` |
+| OpenAI GPT-4 (vision-capable) | `llm` | `["chat"]` — vision goes in `details` |
+| Deepgram Nova | `speech_to_text` | `["speech-transcribe"]` |
+| An SMTP gateway that POSTs to a webhook | `notification` | `["smtp-to-http"]` |
 
 ### Example (TOML)
 
@@ -175,11 +249,14 @@ name = "gpt-4"
 display_name = "GPT-4"
 description = "Most capable GPT-4 model for complex reasoning tasks"
 service_type = "llm"
-capabilities = ["llm", "vision_language_model"]
+capabilities = ["chat"]
 status = "ready"
 time_created = "2024-01-20T14:00:00Z"
 
+# Attributes that QUALIFY the capability — vision, tool use, context size —
+# belong here, not in `capabilities`.
 [details]
+vision = true
 context_window = 128000
 max_output_tokens = 4096
 supports_function_calling = true
