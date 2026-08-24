@@ -232,17 +232,82 @@ def show_test(
         console.print("[red]✗[/red] Document id prefix must be at least 8 characters.")
         raise typer.Exit(code=1)
 
-    async def _impl() -> dict[str, Any]:
+    async def _impl() -> tuple[dict[str, Any], dict[str, Any]]:
         # The backend's GET /seller/documents/{id} route already
         # accepts partial ids via complete_id() — a single indexed
         # prefix query on the document table resolves the UUID without
         # the client needing to enumerate services first.
         async with async_client(api_key, base_url) as client:
-            return model_to_dict(await client.documents.get(raw_id))
+            doc = model_to_dict(await client.documents.get(raw_id))
 
-    doc = run_async(_impl(), error_prefix="Failed to show test")
+            # Bulky execution details (stdout/stderr/env/rendered script)
+            # are served per result cell by GET /documents/{id}/test-details
+            # (unitysvc#1901); meta.test keeps only the records. Fetch one
+            # detail per cell the meta says exists. A failed fetch (older
+            # backend without the endpoint, transient error) leaves the
+            # cell to the inline fields below.
+            details: dict[str, Any] = {}
+            meta = doc.get("meta") or {}
+            test = meta.get("test") if isinstance(meta, dict) else None
+
+            async def fetch(key: str, **selectors: Any) -> None:
+                try:
+                    details[key] = model_to_dict(
+                        await client.documents.test_details(str(doc["id"]), **selectors)
+                    )
+                except Exception:  # noqa: BLE001 — any failure falls back to inline
+                    pass
+
+            if isinstance(test, dict):
+                tests_map = test.get("tests")
+                if isinstance(tests_map, dict) and tests_map:
+                    for iface_key, iface_data in tests_map.items():
+                        channels = iface_data.get("channels") if isinstance(iface_data, dict) else None
+                        if isinstance(channels, dict) and channels:
+                            for ch in channels:
+                                await fetch(f"iface:{iface_key}:{ch}", interface_id=iface_key, channel=ch)
+                        else:
+                            await fetch(f"iface:{iface_key}", interface_id=iface_key)
+                else:
+                    await fetch("flat")
+                upstream_channels = test.get("upstream_channels")
+                if isinstance(upstream_channels, dict) and upstream_channels:
+                    for ch in upstream_channels:
+                        await fetch(f"upstream:{ch}", upstream=True, channel=ch)
+                elif isinstance(test.get("upstream"), dict) and test["upstream"]:
+                    await fetch("upstream", upstream=True)
+            return doc, details
+
+    doc, cell_details = run_async(_impl(), error_prefix="Failed to show test")
+
+    _EXPIRED_HINT = (
+        "[yellow]details expired — re-run with "
+        "`usvc seller services run-tests --force` to reproduce them[/yellow]"
+    )
+
+    def _merged_cell(inline: dict[str, Any], key: str) -> tuple[dict[str, Any], bool]:
+        """Overlay endpoint-served streams onto the inline record.
+
+        Returns ``(cell, expired)``. The inline record always carries
+        status/exit_code/error; the endpoint adds (or, for pre-transition
+        rows, repeats) the streams. ``expired`` means the blob aged out —
+        the record survives, the streams don't.
+        """
+        detail = cell_details.get(key)
+        if not detail:
+            return inline, False
+        if detail.get("expired"):
+            return inline, True
+        overlay = {
+            k: v
+            for k, v in detail.items()
+            if v not in (None, "") and k not in ("source", "expired")
+        }
+        return {**inline, **overlay}, False
 
     if output_format == "json":
+        if cell_details:
+            doc = {**doc, "test_details": cell_details}
         console.print(json.dumps(doc, indent=2, default=str))
         return
 
@@ -272,17 +337,20 @@ def show_test(
     meta = doc.get("meta") or {}
     test = meta.get("test") if isinstance(meta, dict) else None
     if isinstance(test, dict):
-        if test.get("error"):
-            console.print(f"\n[bold red]Error:[/bold red] {test['error']}")
-        if test.get("exit_code") is not None:
-            console.print(f"[cyan]exit_code:[/cyan] {test['exit_code']}")
-        if test.get("stdout"):
+        flat, flat_expired = _merged_cell(test, "flat")
+        if flat_expired:
+            console.print(f"\n{_EXPIRED_HINT}")
+        if flat.get("error"):
+            console.print(f"\n[bold red]Error:[/bold red] {flat['error']}")
+        if flat.get("exit_code") is not None:
+            console.print(f"[cyan]exit_code:[/cyan] {flat['exit_code']}")
+        if flat.get("stdout"):
             console.print("\n[bold]stdout:[/bold]")
-            console.print(str(test["stdout"]))
-        if test.get("stderr"):
+            console.print(str(flat["stdout"]))
+        if flat.get("stderr"):
             console.print("\n[bold]stderr:[/bold]")
-            console.print(str(test["stderr"]))
-        env = test.get("env")
+            console.print(str(flat["stderr"]))
+        env = flat.get("env")
         if isinstance(env, dict) and env:
             console.print("\n[bold]env:[/bold]")
             env_table = Table(show_header=False, box=None, padding=(0, 2))
@@ -304,19 +372,32 @@ def show_test(
                     continue
                 display = iface_data.get("name") or iface_key
                 console.print(f"  • [cyan]{display}[/cyan] [dim]({iface_key})[/dim]")
-                for k in ("status", "exit_code", "stdout", "stderr", "error"):
-                    v = iface_data.get(k)
-                    if v not in (None, ""):
-                        console.print(f"      {k}: {v}")
-                # The rendered script that actually executed on this interface (#1268).
-                rendered = iface_data.get("rendered_script")
-                if rendered:
-                    console.print("      [bold]rendered script (executed):[/bold]")
-                    console.print(_truncate_for_display(str(rendered)))
-        elif test.get("rendered_script"):
+                channels = iface_data.get("channels")
+                cells: list[tuple[str | None, dict[str, Any], str]] = (
+                    [(ch, rec, f"iface:{iface_key}:{ch}") for ch, rec in channels.items() if isinstance(rec, dict)]
+                    if isinstance(channels, dict) and channels
+                    else [(None, iface_data, f"iface:{iface_key}")]
+                )
+                for ch_name, inline, detail_key in cells:
+                    if ch_name is not None:
+                        console.print(f"    [cyan]channel: {ch_name}[/cyan]")
+                    indent = "      " if ch_name is None else "        "
+                    cell, expired = _merged_cell(inline, detail_key)
+                    if expired:
+                        console.print(f"{indent}{_EXPIRED_HINT}")
+                    for k in ("status", "exit_code", "stdout", "stderr", "error"):
+                        v = cell.get(k)
+                        if v not in (None, ""):
+                            console.print(f"{indent}{k}: {v}")
+                    # The rendered script that actually executed on this interface (#1268).
+                    rendered = cell.get("rendered_script")
+                    if rendered:
+                        console.print(f"{indent}[bold]rendered script (executed):[/bold]")
+                        console.print(_truncate_for_display(str(rendered)))
+        elif flat.get("rendered_script"):
             # Single-doc result: the rendered script lives at the top level.
             console.print("\n[bold]rendered script (executed):[/bold]")
-            console.print(_truncate_for_display(str(test["rendered_script"])))
+            console.print(_truncate_for_display(str(flat["rendered_script"])))
 
         # Per-channel upstream probe results (#1281/#1297). A multi-channel
         # service is probed once per upstream access channel; the enrollment
@@ -329,14 +410,20 @@ def show_test(
                 if not isinstance(rec, dict):
                     continue
                 console.print(f"  • [cyan]{ch_name}[/cyan]")
+                cell, expired = _merged_cell(rec, f"upstream:{ch_name}")
+                if expired:
+                    console.print(f"      {_EXPIRED_HINT}")
                 for k in ("status", "exit_code", "stdout", "stderr", "error"):
-                    v = rec.get(k)
+                    v = cell.get(k)
                     if v not in (None, ""):
                         console.print(f"      {k}: {v}")
         elif isinstance(test.get("upstream"), dict) and test["upstream"]:
             console.print("\n[bold]Upstream result[/bold]")
+            cell, expired = _merged_cell(test["upstream"], "upstream")
+            if expired:
+                console.print(f"      {_EXPIRED_HINT}")
             for k in ("status", "exit_code", "stdout", "stderr", "error"):
-                v = test["upstream"].get(k)
+                v = cell.get(k)
                 if v not in (None, ""):
                     console.print(f"      {k}: {v}")
 
