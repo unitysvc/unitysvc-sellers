@@ -385,10 +385,26 @@ def show_test(
                     cell, expired = _merged_cell(inline, detail_key)
                     if expired:
                         console.print(f"{indent}{_EXPIRED_HINT}")
+                    # Sticky pass (unitysvc#1902): the cell may be an inherited
+                    # pass (never executed for this interface), and a later
+                    # transient failure never demotes it — it lands alongside
+                    # as ``last_attempt``.
+                    if cell.get("outcome") == "already_passed":
+                        console.print(
+                            f"{indent}[green]passed earlier[/green] "
+                            "[dim](inherited from an identical run)[/dim]"
+                        )
                     for k in ("status", "exit_code", "stdout", "stderr", "error"):
                         v = cell.get(k)
                         if v not in (None, ""):
                             console.print(f"{indent}{k}: {v}")
+                    attempt = cell.get("last_attempt")
+                    if isinstance(attempt, dict) and attempt:
+                        console.print(
+                            f"{indent}[yellow]last attempt: {attempt.get('status')}"
+                            f"{' — ' + str(attempt['error']) if attempt.get('error') else ''}"
+                            "[/yellow] [dim](earned pass retained)[/dim]"
+                        )
                     # The rendered script that actually executed on this interface (#1268).
                     rendered = cell.get("rendered_script")
                     if rendered:
