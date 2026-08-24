@@ -224,6 +224,153 @@
         }
       }
     },
+    "/documents/{document_id}/test-details": {
+      "get": {
+        "tags": [
+          "seller-documents"
+        ],
+        "summary": "Get Document Test Details",
+        "description": "Full execution details (stdout/stderr/masked env/rendered script) for\none test-result cell of a document (#1901).\n\nSelectors mirror how results are recorded: none \u2192 the single-document\nblock; ``interface_id`` (+ optional ``channel``) \u2192 that gateway cell;\n``upstream=true`` (+ optional ``channel``) \u2192 the upstream probe record.\n404 means no such cell was ever recorded; ``expired=true`` means the\ncell exists but its detail blob aged out of retention \u2014 re-run the test\nto reproduce the details.\n\nSupports partial document ID matching (minimum 8 characters).",
+        "operationId": "documents_test_details",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          },
+          {
+            "name": "interface_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Interface Id"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Channel"
+            }
+          },
+          {
+            "name": "upstream",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Upstream"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{document_id}/execute": {
       "post": {
         "tags": [
@@ -2132,7 +2279,7 @@
           "seller-secrets"
         ],
         "summary": "Set Secret",
-        "description": "Set a seller secret or variable to ``value``.\n\nReturns ``201 Created`` on insert and ``200 OK`` on update.\nThe value is encrypted at rest. Set ``sensitive=false`` on creation to make\nthe value viewable as a variable. Existing rows cannot change between\nsecret and variable in place.",
+        "description": "Set a seller secret or variable to ``value``.\n\nReturns ``201 Created`` on insert and ``200 OK`` on update.\nThe value is encrypted at rest. Set ``sensitive=false`` on creation to make\nthe value viewable as a variable. On update, sending ``sensitive`` replaces\nthe value and stores it with that type; omitting ``sensitive`` preserves the\nexisting type.",
         "operationId": "seller-secrets-set_secret",
         "parameters": [
           {
@@ -4856,7 +5003,7 @@
               }
             ],
             "title": "Sensitive",
-            "description": "Whether the value is write-only. Defaults to true on create and cannot be changed after creation."
+            "description": "Whether the value is write-only. Defaults to true on create and preserves the existing type when omitted on update."
           },
           "description": {
             "anyOf": [
@@ -4877,7 +5024,7 @@
           "value"
         ],
         "title": "SecretUpdate",
-        "description": "Request body for variable-capable ``PUT /secrets/{name}`` endpoints.\n\n``sensitive`` is only honored when creating rows; an existing row cannot be\nchanged between secret and variable in place."
+        "description": "Request body for variable-capable ``PUT /secrets/{name}`` endpoints.\n\n``sensitive`` controls the freshly submitted value. On update, omitting the\nfield preserves the existing row type; sending it replaces the value and\nstores the row with that sensitivity."
       },
       "SecretsPublic": {
         "properties": {
@@ -6118,6 +6265,17 @@
             ],
             "title": "Pending Revision Id"
           },
+          "pending_revision_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Revision Status"
+          },
           "name": {
             "anyOf": [
               {
@@ -6913,6 +7071,135 @@
         ],
         "title": "TemplateInstancesPublic",
         "description": "List envelope for TemplateInstances."
+      },
+      "TestDetailResponse": {
+        "properties": {
+          "expired": {
+            "type": "boolean",
+            "title": "Expired",
+            "default": false
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "blob",
+                  "inline"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "executed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed At"
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "stdout": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stdout"
+          },
+          "stderr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stderr"
+          },
+          "env": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Env"
+          },
+          "rendered_script": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rendered Script"
+          },
+          "rendered_mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rendered Mime Type"
+          }
+        },
+        "type": "object",
+        "title": "TestDetailResponse",
+        "description": "GET /seller/documents/{id}/test-details \u2014 one result cell's details.\n\nServes the bulky per-execution fields (stdout/stderr/masked env/rendered\nscript) for one ``meta.test`` cell. During the #1901 transition the\nfields come either from the cell's content-addressed S3 blob\n(``source=\"blob\"``) or from the legacy inline meta fields\n(``source=\"inline\"``). ``expired=True`` means the cell exists but its\nblob has aged out of ``TEST_DETAIL_RETENTION_DAYS`` \u2014 re-run the test to\nreproduce the details; ``status``/``executed_at`` still describe the\nrecorded outcome."
       },
       "ValidationError": {
         "properties": {

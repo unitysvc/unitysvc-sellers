@@ -48,6 +48,7 @@ class ServicePublic:
     provider_id: None | Unset | UUID = UNSET
     revision_of: None | Unset | UUID = UNSET
     pending_revision_id: None | Unset | UUID = UNSET
+    pending_revision_status: None | str | Unset = UNSET
     name: None | str | Unset = UNSET
     display_name: None | str | Unset = UNSET
     service_type: None | str | Unset = UNSET
@@ -108,6 +109,12 @@ class ServicePublic:
             pending_revision_id = str(self.pending_revision_id)
         else:
             pending_revision_id = self.pending_revision_id
+
+        pending_revision_status: None | str | Unset
+        if isinstance(self.pending_revision_status, Unset):
+            pending_revision_status = UNSET
+        else:
+            pending_revision_status = self.pending_revision_status
 
         name: None | str | Unset
         if isinstance(self.name, Unset):
@@ -218,6 +225,8 @@ class ServicePublic:
             field_dict["revision_of"] = revision_of
         if pending_revision_id is not UNSET:
             field_dict["pending_revision_id"] = pending_revision_id
+        if pending_revision_status is not UNSET:
+            field_dict["pending_revision_status"] = pending_revision_status
         if name is not UNSET:
             field_dict["name"] = name
         if display_name is not UNSET:
@@ -318,6 +327,15 @@ class ServicePublic:
             return cast(None | Unset | UUID, data)
 
         pending_revision_id = _parse_pending_revision_id(d.pop("pending_revision_id", UNSET))
+
+        def _parse_pending_revision_status(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        pending_revision_status = _parse_pending_revision_status(d.pop("pending_revision_status", UNSET))
 
         def _parse_name(data: object) -> None | str | Unset:
             if data is None:
@@ -488,6 +506,7 @@ class ServicePublic:
             provider_id=provider_id,
             revision_of=revision_of,
             pending_revision_id=pending_revision_id,
+            pending_revision_status=pending_revision_status,
             name=name,
             display_name=display_name,
             service_type=service_type,

@@ -127,6 +127,9 @@ from .template_instance_create_response import TemplateInstanceCreateResponse
 from .template_instance_public import TemplateInstancePublic
 from .template_instance_public_parameters import TemplateInstancePublicParameters
 from .template_instances_public import TemplateInstancesPublic
+from .test_detail_response import TestDetailResponse
+from .test_detail_response_env_type_0 import TestDetailResponseEnvType0
+from .test_detail_response_source_type_0 import TestDetailResponseSourceType0
 from .validation_error import ValidationError
 
 __all__ = (
@@ -243,5 +246,8 @@ __all__ = (
     "TemplateInstancePublic",
     "TemplateInstancePublicParameters",
     "TemplateInstancesPublic",
+    "TestDetailResponse",
+    "TestDetailResponseEnvType0",
+    "TestDetailResponseSourceType0",
     "ValidationError",
 )

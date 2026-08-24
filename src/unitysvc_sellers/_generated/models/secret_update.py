@@ -15,15 +15,17 @@ T = TypeVar("T", bound="SecretUpdate")
 class SecretUpdate:
     """Request body for variable-capable ``PUT /secrets/{name}`` endpoints.
 
-    ``sensitive`` is only honored when creating rows; an existing row cannot be
-    changed between secret and variable in place.
+    ``sensitive`` controls the freshly submitted value. On update, omitting the
+    field preserves the existing row type; sending it replaces the value and
+    stores the row with that sensitivity.
 
     """
 
     value: str
     """ Secret value (will be encrypted). May be empty. """
     sensitive: bool | None | Unset = UNSET
-    """ Whether the value is write-only. Defaults to true on create and cannot be changed after creation. """
+    """ Whether the value is write-only. Defaults to true on create and preserves the existing type when omitted on
+    update. """
     description: None | str | Unset = UNSET
     """ Markdown explaining how a customer obtains this secret. Omit to leave unchanged; send an empty string to
     clear. """
