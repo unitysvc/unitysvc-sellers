@@ -168,6 +168,31 @@ def _relative_age(value: Any) -> str:
     return f"{days // 365}y ago"
 
 
+def _pagination_summary(count: int, *, next_cursor: str | None, has_more: bool) -> str:
+    """Render the "are we done?" line printed under a list.
+
+    The list endpoint is keyset-paginated (``CursorPage``: ``data`` /
+    ``next_cursor`` / ``has_more``) and deliberately carries no total — a
+    count over the filtered set would be a second query per page and could
+    drift between pages. So ``has_more`` is the only honest completion
+    signal, and a bare table that omits it reads as "that's everything"
+    even when it isn't.
+
+    ``has_more`` without a ``next_cursor`` shouldn't happen (the backend
+    only omits the cursor for an empty page), but rendering
+    ``--cursor None`` would be worse than pointing at ``--all``.
+    """
+    noun = "service" if count == 1 else "services"
+    if has_more:
+        how = (
+            f"use [bold]--cursor {next_cursor}[/bold] to continue, or --all for every page"
+            if next_cursor
+            else "use [bold]--all[/bold] to fetch every page"
+        )
+        return f"{count} {noun} displayed — [dim]more available; {how}.[/dim]"
+    return f"{count} {noun} displayed — [dim]no more items.[/dim]"
+
+
 def _resolve_fields(spec: str) -> list[str]:
     """Turn a ``--fields`` spec into an ordered column list.
 
@@ -346,7 +371,7 @@ def list_services(
 
     sort_spec = _parse_sort(sort)
 
-    async def _impl() -> list[dict[str, Any]]:
+    async def _impl() -> tuple[list[dict[str, Any]], str | None, bool]:
         from uuid import UUID
 
         collected: list[dict[str, Any]] = []
@@ -357,7 +382,7 @@ def list_services(
                     console.print(
                         "[yellow]No service IDs found in listing_v1 files under the given directory.[/yellow]"
                     )
-                    return []
+                    return [], None, False
                 uuid_ids = [UUID(sid) for sid in raw_ids]
                 # Use the list endpoint with ids filter, batched so the query
                 # string stays under the proxy's URI limit. All filters (status,
@@ -374,9 +399,12 @@ def list_services(
                         provider=provider,
                     )
                 )
-                return collected
+                # An ids lookup is drained in full, so the result is complete.
+                return collected, None, False
 
             current_cursor = cursor
+            page_cursor: str | None = None
+            more = False
             while True:
                 response = await client.services.list(
                     cursor=current_cursor,
@@ -387,24 +415,32 @@ def list_services(
                     provider=provider,
                 )
                 collected.extend(model_list(response))
+                next_cursor = getattr(response, "next_cursor", None)
+                # Carry the last page's cursor/has_more out of the loop — it is
+                # what tells the caller whether the output is the whole answer.
+                page_cursor = next_cursor if isinstance(next_cursor, str) else None
+                more = bool(getattr(response, "has_more", False))
                 if not all_pages and sort_spec is None:
                     break
-                next_cursor = getattr(response, "next_cursor", None)
-                has_more = getattr(response, "has_more", False)
-                if not has_more or not next_cursor or isinstance(next_cursor, str) is False:
+                if not more or not page_cursor:
                     break
-                current_cursor = str(next_cursor)
+                current_cursor = page_cursor
 
-        return collected
+        return collected, page_cursor, more
 
-    services = run_async(_impl(), error_prefix="Failed to list services")
+    services, next_cursor, has_more = run_async(_impl(), error_prefix="Failed to list services")
 
     if not services:
         console.print("[dim]No services found[/dim]")
         return
 
+    summary = _pagination_summary(len(services), next_cursor=next_cursor, has_more=has_more)
+
     if output_format == "json":
         console.print(json.dumps(services, indent=2, default=str))
+        # Summary goes to stderr so stdout stays a clean JSON document for `| jq`,
+        # while a human still sees whether the page was truncated.
+        Console(stderr=True).print(summary, highlight=False)
         return
 
     field_list = _resolve_fields(fields)
@@ -434,6 +470,7 @@ def list_services(
                 row.append(str(value))
         table.add_row(*row)
     console.print(table)
+    console.print(summary, highlight=False)
 
 
 # ---------------------------------------------------------------------------
