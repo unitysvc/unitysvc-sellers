@@ -186,3 +186,35 @@ def test_older_backend_without_endpoint_falls_back_to_inline(monkeypatch):
     assert result.exit_code == 0, result.output
     assert "INLINE-STDOUT-MARKER" in result.output
     assert "details expired" not in result.output
+
+
+def test_already_passed_and_last_attempt_are_surfaced(monkeypatch):
+    """Sticky pass (unitysvc#1902): an inherited pass says so, and a later
+    transient failure shows as last_attempt without demoting the pass."""
+    monkeypatch.setenv("UNITYSVC_SELLER_API_KEY", "k")
+    monkeypatch.setenv("UNITYSVC_SELLER_API_URL", "http://test.local/v1")
+    doc = _base_doc(
+        {
+            "status": "success",
+            "tests": {
+                IFACE: {
+                    "name": "provider_api",
+                    "status": "success",
+                    "outcome": "already_passed",
+                    "last_attempt": {
+                        "status": "script_failed",
+                        "error": "HTTP 429: rate limited",
+                    },
+                }
+            },
+        }
+    )
+    result = _invoke(doc)
+    assert result.exit_code == 0, result.output
+    # Rich wraps at terminal width, so compare against whitespace-normalized
+    # output rather than raw lines.
+    flat_output = " ".join(result.output.split())
+    assert "passed earlier" in flat_output
+    assert "last attempt: script_failed" in flat_output
+    assert "429" in flat_output
+    assert "earned pass retained" in flat_output
