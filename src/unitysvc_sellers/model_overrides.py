@@ -72,6 +72,15 @@ RESERVED_KEYS = frozenset({"skip", "deprecated", "comment"})
 #: Reserved keys whose presence demands a ``comment`` explaining why.
 _COMMENT_REQUIRED = frozenset({"skip", "deprecated"})
 
+#: Sub-table names reserved for a future v2: spec-shaped deep merges applied
+#: to the RENDERED offering/listing JSON (``[models."x".offering.details]``
+#: context_length = 32768) rather than to template vars. Rejected today so a
+#: v1 file can never silently mean something different under v2. Flat keys
+#: stay template-var overrides in both versions — they are render *inputs*
+#: (template conditionals key on them, e.g. which documents attach), which a
+#: post-render merge cannot express.
+_SPEC_RESERVED = frozenset({"offering", "listing", "provider"})
+
 
 @dataclass
 class ModelOverrides:
@@ -150,6 +159,13 @@ def load_model_overrides(services_dir: str | Path) -> ModelOverrides:
         if any(entry.get(flag) for flag in _COMMENT_REQUIRED) and not str(entry.get("comment", "")).strip():
             raise ValueError(
                 f"{path}: models.{model_id!r} sets skip/deprecated and must carry a non-empty comment explaining why"
+            )
+        spec_shaped = _SPEC_RESERVED & set(entry)
+        if spec_shaped:
+            raise ValueError(
+                f"{path}: models.{model_id!r} uses {sorted(spec_shaped)} — these "
+                "sub-tables are reserved for future spec-shaped merges and are "
+                "not honored yet; use flat template-var keys instead"
             )
         entries[model_id] = dict(entry)
 

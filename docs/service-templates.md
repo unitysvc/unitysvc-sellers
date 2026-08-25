@@ -227,6 +227,15 @@ overrides.warn_unmatched(known_ids)   # flags stale entries to retire
 parsed silently would re-break whatever it was fixing), and a missing file is
 a no-op.
 
+Flat keys are deliberately **template-var** overrides, not spec-field paths:
+they are render *inputs*, and template conditionals key on them (e.g. whether
+the function-calling example document attaches at all — something a post-render
+patch cannot express). The `offering` / `listing` / `provider` sub-table names
+are reserved for a possible v2 that deep-merges spec-shaped patches into the
+*rendered* JSON (`[models."x".offering.details]` `context_length = 32768`);
+using them today is a hard error so a v1 file can never silently change meaning
+under v2.
+
 ## Which one should I use?
 
 - **One common service, fastest path?** → Platform template (use #1).

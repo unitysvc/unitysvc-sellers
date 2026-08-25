@@ -102,3 +102,16 @@ def test_default_object_is_empty() -> None:
     ov = ModelOverrides()
     assert ov.apply("m", {"a": 1}) == {"a": 1}
     assert ov.warn_unmatched(set()) == []
+
+
+def test_spec_shaped_subtables_rejected(tmp_path: Path) -> None:
+    """offering/listing/provider sub-tables are reserved for a future v2."""
+    _write(
+        tmp_path,
+        """
+[models."m1".offering.details]
+context_length = 32768
+""",
+    )
+    with pytest.raises(ValueError, match="reserved for future spec-shaped"):
+        load_model_overrides(tmp_path)
