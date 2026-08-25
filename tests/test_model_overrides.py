@@ -34,8 +34,9 @@ skip = true
 comment = "listed but 404s at inference (2026-08-25)"
 
 [models."Qwen/Qwen2.5-VL-72B-Instruct"]
-supports_tools = false
 comment = "deployment 400s on tools"
+[models."Qwen/Qwen2.5-VL-72B-Instruct".parameters]
+supports_tools = false
 
 [models."old-model"]
 deprecated = true
@@ -69,8 +70,9 @@ def test_unmatched_entries_warn(tmp_path: Path, caplog: pytest.LogCaptureFixture
             tmp_path,
             """
 [models."ghost-model"]
-supports_tools = false
 comment = "never existed"
+[models."ghost-model".parameters]
+supports_tools = false
 """,
         )
     )
@@ -114,4 +116,11 @@ context_length = 32768
 """,
     )
     with pytest.raises(ValueError, match="reserved for future spec-shaped"):
+        load_model_overrides(tmp_path)
+
+
+def test_flat_unknown_key_rejected(tmp_path: Path) -> None:
+    """Parameter overrides must sit under [models.<id>.parameters]."""
+    _write(tmp_path, '[models."m1"]\nsupports_tools = false\n')
+    with pytest.raises(ValueError, match=r"parameters"):
         load_model_overrides(tmp_path)

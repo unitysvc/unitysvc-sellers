@@ -12,6 +12,19 @@ This module defines the shared convention that replaces them: a repo-committed
 ``services/model_overrides.toml`` the populator re-applies on every run, so
 human observations of upstream reality always win over fetched metadata.
 
+An override can target one of two layers, and the file structure names the
+layer explicitly:
+
+1. ``[models."x".parameters]`` — the **param-file layer**: keys follow the
+   repo's own param-file convention (they are the template's render inputs,
+   so they are repo-specific by design) and shallow-merge over the parameters
+   the populator built. This is the layer template conditionals key on (e.g.
+   whether the function-calling example document attaches at all).
+2. ``[models."x".offering]`` / ``[models."x".listing]`` / ``…provider`` — the
+   **rendered-spec layer**: spec-shaped deep merges into the resulting
+   offering/listing JSON. Reserved for a future v2 and rejected today, so a
+   v1 file can never silently change meaning later.
+
 File format::
 
     # services/model_overrides.toml
@@ -24,22 +37,24 @@ File format::
     comment = "Not in our subscription tier"
 
     [models."Qwen/Qwen2.5-VL-72B-Instruct"]
-    supports_tools = false
     comment = "LiteLLM says true; deployment 400s on tools"
+    [models."Qwen/Qwen2.5-VL-72B-Instruct".parameters]
+    supports_tools = false
 
-Reserved keys per model entry:
+Reserved top-level keys per model entry:
 
 - ``skip`` (bool) — exclude the model from the fetched list entirely: never
   (re)created, and not counted "active" (so an existing catalog entry flows
   into the repo's deprecation/prune pass). Requires ``comment``.
-- ``deprecated`` (bool) — keep the entry but force ``status = "deprecated"``.
-  Requires ``comment``.
+- ``deprecated`` (bool) — keep the entry but force the ``status`` parameter to
+  ``"deprecated"``. Requires ``comment``.
 - ``comment`` (str) — why the entry exists. These are observations of upstream
   reality at a point in time; undated, uncommented entries rot.
+- ``parameters`` (table) — the param-file-layer overrides described above.
 
-Every other key is a **template-var override**, shallow-merged over the vars
-the populator built (``supports_tools = false``, ``supports_vision = false``,
-…). Overrides win over fetched metadata by definition.
+Unknown top-level keys in an entry are a hard error — the flat form was never
+released, and rejecting stray keys keeps ``comment``/``skip`` collisions with
+same-named template parameters impossible.
 
 Populator integration (two lines plus the filter)::
 
@@ -65,20 +80,16 @@ logger = logging.getLogger(__name__)
 
 OVERRIDES_FILENAME = "model_overrides.toml"
 
-#: Keys with reserved semantics — everything else in an entry is a
-#: template-var override.
-RESERVED_KEYS = frozenset({"skip", "deprecated", "comment"})
+#: The only keys an entry may carry at its top level.
+RESERVED_KEYS = frozenset({"skip", "deprecated", "comment", "parameters"})
 
 #: Reserved keys whose presence demands a ``comment`` explaining why.
 _COMMENT_REQUIRED = frozenset({"skip", "deprecated"})
 
 #: Sub-table names reserved for a future v2: spec-shaped deep merges applied
 #: to the RENDERED offering/listing JSON (``[models."x".offering.details]``
-#: context_length = 32768) rather than to template vars. Rejected today so a
-#: v1 file can never silently mean something different under v2. Flat keys
-#: stay template-var overrides in both versions — they are render *inputs*
-#: (template conditionals key on them, e.g. which documents attach), which a
-#: post-render merge cannot express.
+#: context_length = 32768) rather than to the param-file layer. Rejected today
+#: so a v1 file can never silently mean something different under v2.
 _SPEC_RESERVED = frozenset({"offering", "listing", "provider"})
 
 
@@ -96,9 +107,9 @@ class ModelOverrides:
     def apply(self, model_id: str, template_vars: dict[str, Any]) -> dict[str, Any]:
         """Return ``template_vars`` with this model's overrides merged in.
 
-        ``deprecated = true`` forces ``status = "deprecated"``; every
-        non-reserved key is shallow-merged over the built vars. The input dict
-        is not mutated.
+        ``deprecated = true`` forces the ``status`` parameter to
+        ``"deprecated"``; the ``parameters`` table is shallow-merged over the
+        built vars. The input dict is not mutated.
         """
         entry = self.entries.get(model_id)
         if not entry:
@@ -106,10 +117,7 @@ class ModelOverrides:
         merged = dict(template_vars)
         if entry.get("deprecated"):
             merged["status"] = "deprecated"
-        for key, value in entry.items():
-            if key in RESERVED_KEYS:
-                continue
-            merged[key] = value
+        merged.update(entry.get("parameters", {}))
         return merged
 
     def warn_unmatched(self, known_model_ids: set[str]) -> list[str]:
@@ -164,8 +172,18 @@ def load_model_overrides(services_dir: str | Path) -> ModelOverrides:
         if spec_shaped:
             raise ValueError(
                 f"{path}: models.{model_id!r} uses {sorted(spec_shaped)} — these "
-                "sub-tables are reserved for future spec-shaped merges and are "
-                "not honored yet; use flat template-var keys instead"
+                "sub-tables are reserved for future spec-shaped merges into the "
+                "rendered files and are not honored yet; use [models.<id>.parameters]"
+            )
+        params = entry.get("parameters", {})
+        if not isinstance(params, dict):
+            raise ValueError(f"{path}: models.{model_id!r}.parameters must be a table")
+        unknown = set(entry) - RESERVED_KEYS
+        if unknown:
+            raise ValueError(
+                f"{path}: models.{model_id!r} has unknown top-level key(s) "
+                f"{sorted(unknown)}; parameter overrides go under "
+                f"[models.{model_id!r}.parameters]"
             )
         entries[model_id] = dict(entry)
 

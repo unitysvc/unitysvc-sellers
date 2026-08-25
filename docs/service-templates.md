@@ -188,6 +188,14 @@ you don't have. Commit those observations to `services/model_overrides.toml`
 and have the populator re-apply them on every run — the file wins over fetched
 metadata, so a nightly populate can never regress a human correction:
 
+An override targets one of two layers, and the file structure names the layer
+explicitly: `[models."x".parameters]` overrides the **param-file layer** (keys
+follow the repo's own param-file convention — they are the template's render
+inputs, so repo-specific by design, and template conditionals key on them),
+while `[models."x".offering]` / `.listing` / `.provider` are **reserved** for a
+future v2 of spec-shaped deep merges into the rendered files (using them today
+is a hard error).
+
 ```toml
 # services/model_overrides.toml
 [models."greg-1-mini"]
@@ -199,16 +207,17 @@ deprecated = true
 comment = "Delisted upstream 2026-08; existing enrollments wind down"
 
 [models."Qwen/Qwen2.5-VL-72B-Instruct"]
-supports_tools = false
 comment = "LiteLLM says true; deployment 400s on tools"
+[models."Qwen/Qwen2.5-VL-72B-Instruct".parameters]
+supports_tools = false
 ```
 
-Reserved keys: `skip` (exclude from the fetched list entirely — neither
-created nor counted active, so an existing entry flows into your deprecation
-pass), `deprecated` (keep the entry, force `status = "deprecated"`), and
-`comment` (required for `skip`/`deprecated` — these are dated observations of
-upstream reality). Every other key is a template-var override, shallow-merged
-over what the populator built.
+Reserved top-level keys: `skip` (exclude from the fetched list entirely —
+neither created nor counted active, so an existing entry flows into your
+deprecation pass), `deprecated` (keep the entry, force the `status` parameter
+to `"deprecated"`), `comment` (required for `skip`/`deprecated` — these are
+dated observations of upstream reality), and `parameters` (the overrides
+table). Anything else at an entry's top level is a hard error.
 
 Populator integration:
 
@@ -227,14 +236,13 @@ overrides.warn_unmatched(known_ids)   # flags stale entries to retire
 parsed silently would re-break whatever it was fixing), and a missing file is
 a no-op.
 
-Flat keys are deliberately **template-var** overrides, not spec-field paths:
-they are render *inputs*, and template conditionals key on them (e.g. whether
-the function-calling example document attaches at all — something a post-render
-patch cannot express). The `offering` / `listing` / `provider` sub-table names
-are reserved for a possible v2 that deep-merges spec-shaped patches into the
-*rendered* JSON (`[models."x".offering.details]` `context_length = 32768`);
-using them today is a hard error so a v1 file can never silently change meaning
-under v2.
+`parameters` overrides are deliberately param-file-shaped, not spec-field
+paths: they are render *inputs*, and template conditionals key on them (e.g.
+whether the function-calling example document attaches at all — something a
+post-render patch cannot express). The reserved `offering` / `listing` /
+`provider` sub-tables are the future spec-shaped counterpart
+(`[models."x".offering.details]` `context_length = 32768`), deep-merged into
+the *rendered* JSON once implemented.
 
 ## Which one should I use?
 
