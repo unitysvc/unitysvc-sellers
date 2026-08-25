@@ -178,6 +178,55 @@ The full, step-by-step guide — converting a working service into templates,
 writing the populator, filtering, and CI automation — lives in
 [Generate a Catalog](guides/generate-catalog.md).
 
+## Correcting fetched metadata: `model_overrides.toml`
+
+Populators build catalogs from sources that are sometimes wrong about
+individual models: a provider's model list advertises a model that 404s at
+inference, a registry (LiteLLM, OpenRouter) marks a model tool-capable when the
+actual deployment rejects `tools`, or a model sits behind a subscription tier
+you don't have. Commit those observations to `services/model_overrides.toml`
+and have the populator re-apply them on every run — the file wins over fetched
+metadata, so a nightly populate can never regress a human correction:
+
+```toml
+# services/model_overrides.toml
+[models."greg-1-mini"]
+skip = true
+comment = "Listed in /v2/models but inference 404s 'Model Not Known' (2026-08-25)"
+
+[models."old-large-model"]
+deprecated = true
+comment = "Delisted upstream 2026-08; existing enrollments wind down"
+
+[models."Qwen/Qwen2.5-VL-72B-Instruct"]
+supports_tools = false
+comment = "LiteLLM says true; deployment 400s on tools"
+```
+
+Reserved keys: `skip` (exclude from the fetched list entirely — neither
+created nor counted active, so an existing entry flows into your deprecation
+pass), `deprecated` (keep the entry, force `status = "deprecated"`), and
+`comment` (required for `skip`/`deprecated` — these are dated observations of
+upstream reality). Every other key is a template-var override, shallow-merged
+over what the populator built.
+
+Populator integration:
+
+```python
+from unitysvc_sellers.model_overrides import load_model_overrides
+
+overrides = load_model_overrides(services_dir)
+models = [m for m in models if not overrides.skip(m["id"])]
+...
+template_vars = overrides.apply(model_id, template_vars)
+...
+overrides.warn_unmatched(known_ids)   # flags stale entries to retire
+```
+
+`load_model_overrides` fails loudly on a malformed file (a typo'd entry that
+parsed silently would re-break whatever it was fixing), and a missing file is
+a no-op.
+
 ## Which one should I use?
 
 - **One common service, fastest path?** → Platform template (use #1).
