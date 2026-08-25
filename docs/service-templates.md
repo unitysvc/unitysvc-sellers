@@ -178,71 +178,39 @@ The full, step-by-step guide — converting a working service into templates,
 writing the populator, filtering, and CI automation — lives in
 [Generate a Catalog](guides/generate-catalog.md).
 
-## Correcting fetched metadata: `model_overrides.toml`
+## Correcting generated params: `<name>.override.json`
 
 Populators build catalogs from sources that are sometimes wrong about
-individual models: a provider's model list advertises a model that 404s at
-inference, a registry (LiteLLM, OpenRouter) marks a model tool-capable when the
-actual deployment rejects `tools`, or a model sits behind a subscription tier
-you don't have. Commit those observations to `services/model_overrides.toml`
-and have the populator re-apply them on every run — the file wins over fetched
-metadata, so a nightly populate can never regress a human correction:
+individual models: a registry marks a model tool-capable when the actual
+deployment rejects `tools`, a price needs a manual floor, a display name reads
+badly. Rather than patching the populator per correction, commit a companion
+**override file** next to the generated param file:
 
-An override targets one of two layers, and the file structure names the layer
-explicitly: `[models."x".parameters]` overrides the **param-file layer** (keys
-follow the repo's own param-file convention — they are the template's render
-inputs, so repo-specific by design, and template conditionals key on them),
-while `[models."x".offering]` / `.listing` / `.provider` are **reserved** for a
-future v2 of spec-shaped deep merges into the rendered files (using them today
-is a hard error).
-
-```toml
-# services/model_overrides.toml
-[models."greg-1-mini"]
-skip = true
-comment = "Listed in /v2/models but inference 404s 'Model Not Known' (2026-08-25)"
-
-[models."old-large-model"]
-deprecated = true
-comment = "Delisted upstream 2026-08; existing enrollments wind down"
-
-[models."Qwen/Qwen2.5-VL-72B-Instruct"]
-comment = "LiteLLM says true; deployment 400s on tools"
-[models."Qwen/Qwen2.5-VL-72B-Instruct".parameters]
-supports_tools = false
+```
+specs/<provider>/<name>.json            # script-generated — rewritten by every populate run
+specs/<provider>/<name>.override.json   # hand-written — survives every populate run
 ```
 
-Reserved top-level keys: `skip` (exclude from the fetched list entirely —
-neither created nor counted active, so an existing entry flows into your
-deprecation pass), `deprecated` (keep the entry, force the `status` parameter
-to `"deprecated"`), `comment` (required for `skip`/`deprecated` — these are
-dated observations of upstream reality), and `parameters` (the overrides
-table). Anything else at an entry's top level is a hard error.
+The override file has the **same shape as the param file** (typically just a
+`parameters` table) and is deep-merged over it — dicts merge per key, scalars
+and lists replace — by every `specs` command (validate / upload / run-tests /
+expand) at render time. The populator needs no changes and never has to run
+again for a tweak to land:
 
-Populator integration:
-
-```python
-from unitysvc_sellers.model_overrides import load_model_overrides
-
-overrides = load_model_overrides(services_dir)
-models = [m for m in models if not overrides.skip(m["id"])]
-...
-template_vars = overrides.apply(model_id, template_vars)
-...
-overrides.warn_unmatched(known_ids)   # flags stale entries to retire
+```jsonc
+// specs/parasail/parasail-mythomax-13b.override.json
+{
+  "parameters": {
+    // deployment 500s on tools requests (2026-08-25)
+    "supports_tools": false
+  }
+}
 ```
 
-`load_model_overrides` fails loudly on a malformed file (a typo'd entry that
-parsed silently would re-break whatever it was fixing), and a missing file is
-a no-op.
-
-`parameters` overrides are deliberately param-file-shaped, not spec-field
-paths: they are render *inputs*, and template conditionals key on them (e.g.
-whether the function-calling example document attaches at all — something a
-post-render patch cannot express). The reserved `offering` / `listing` /
-`provider` sub-tables are the future spec-shaped counterpart
-(`[models."x".offering.details]` `context_length = 32768`), deep-merged into
-the *rendered* JSON once implemented.
+Keys follow the repo's own param-file convention (they are the template's
+render inputs, so repo-specific by design). An override whose base param file
+does not exist is a hard error — a typo'd filename must not silently stop
+applying — as is a non-object override file.
 
 ## Which one should I use?
 
