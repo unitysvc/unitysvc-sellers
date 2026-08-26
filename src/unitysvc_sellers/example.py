@@ -23,6 +23,7 @@ from unitysvc_core.models.base import DocumentCategoryEnum
 from unitysvc_core.validator import DISPOSITION_VALUES
 
 from .output import format_output
+from .params_render import invocation_cwd
 from .utils import (
     execute_script_content,
     find_files_by_pattern,
@@ -1366,32 +1367,37 @@ def run_local(
                 safe_iface = iface_name.replace(" ", "_").replace("/", "_")
                 safe_service = service_name.replace(" ", "_").replace("/", "_")
                 failed_filename = f"failed_{safe_service}_{result_listing_stem}_{safe_iface}_{result_actual_filename}"
+                # Anchor at the directory the CLI was invoked from, NOT the
+                # live cwd: for param repos the whole command runs chdir'd into
+                # the ephemeral render copy, and a relative write there is
+                # deleted with the copy before the user can read it.
+                failed_path = invocation_cwd() / failed_filename
 
-                # Write failed test script content to current directory (for debugging)
+                # Write failed test script content (for debugging)
                 try:
-                    with open(failed_filename, "w", encoding="utf-8") as f:
+                    with open(failed_path, "w", encoding="utf-8") as f:
                         f.write(result["rendered_content"])
-                    console.print(f"  [yellow]→ Test script saved to:[/yellow] {failed_filename}")
+                    console.print(f"  [yellow]→ Test script saved to:[/yellow] {failed_path}")
                 except Exception as e:
                     console.print(f"  [yellow]⚠ Failed to save test script: {e}[/yellow]")
 
                 # Write stdout to .out file
                 stdout = result.get("stdout", "") or ""
-                out_filename = f"{failed_filename}.out"
+                out_path = failed_path.with_name(failed_path.name + ".out")
                 try:
-                    with open(out_filename, "w", encoding="utf-8") as f:
+                    with open(out_path, "w", encoding="utf-8") as f:
                         f.write(stdout)
-                    console.print(f"  [yellow]→ stdout saved to:[/yellow] {out_filename}")
+                    console.print(f"  [yellow]→ stdout saved to:[/yellow] {out_path}")
                 except Exception as e:
                     console.print(f"  [yellow]⚠ Failed to save stdout: {e}[/yellow]")
 
                 # Write stderr to .err file
                 stderr = result.get("stderr", "") or ""
-                err_filename = f"{failed_filename}.err"
+                err_path = failed_path.with_name(failed_path.name + ".err")
                 try:
-                    with open(err_filename, "w", encoding="utf-8") as f:
+                    with open(err_path, "w", encoding="utf-8") as f:
                         f.write(stderr)
-                    console.print(f"  [yellow]→ stderr saved to:[/yellow] {err_filename}")
+                    console.print(f"  [yellow]→ stderr saved to:[/yellow] {err_path}")
                 except Exception as e:
                     console.print(f"  [yellow]⚠ Failed to save stderr: {e}[/yellow]")
 
@@ -1401,13 +1407,13 @@ def run_local(
                 # `source failed_*.env` reproduces the run. Fall back
                 # to the minimum pair when env_vars isn't populated
                 # (e.g. rendering failed before execution).
-                env_filename = f"{failed_filename}.env"
+                env_path = failed_path.with_name(failed_path.name + ".env")
                 try:
                     dumped = result.get("env_vars") or {
                         "UNITYSVC_API_KEY": credentials.get("api_key", ""),
                         "SERVICE_BASE_URL": credentials.get("base_url", ""),
                     }
-                    with open(env_filename, "w", encoding="utf-8") as f:
+                    with open(env_path, "w", encoding="utf-8") as f:
                         for k, v in dumped.items():
                             f.write(f"{k}={v}\n")
                         # Include enrollment_vars so reproductions of
@@ -1419,8 +1425,8 @@ def run_local(
                             except MissingSecretEnvVar:
                                 resolved = ""
                             f.write(f"{k.upper()}={resolved}\n")
-                    console.print(f"  [yellow]→ Environment variables saved to:[/yellow] {env_filename}")
-                    console.print(f"  [dim]  (source this file to reproduce: source {env_filename})[/dim]")
+                    console.print(f"  [yellow]→ Environment variables saved to:[/yellow] {env_path}")
+                    console.print(f"  [dim]  (source this file to reproduce: source {env_path})[/dim]")
                 except Exception as e:
                     console.print(f"  [yellow]⚠ Failed to save environment file: {e}[/yellow]")
 

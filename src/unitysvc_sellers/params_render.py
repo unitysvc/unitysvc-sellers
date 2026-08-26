@@ -43,6 +43,24 @@ class ParamRenderError(ValueError):
     """A param file could not be resolved or rendered (bad template, name clash, …)."""
 
 
+# The directory the CLI was invoked from, recorded by
+# ``materialized_param_specs`` before it chdirs into the ephemeral render copy.
+# ``None`` outside that window (concrete repos, non-CLI callers).
+_invocation_cwd: Path | None = None
+
+
+def invocation_cwd() -> Path:
+    """Where the user ran the command from — the directory they will look in
+    for debugging artifacts.
+
+    While ``materialized_param_specs`` has the process chdir'd into its
+    ephemeral copy, ``Path.cwd()`` points at a directory that is deleted when
+    the command finishes; anything a user is meant to find afterwards (e.g.
+    ``failed_*`` test artifacts) must be written here instead.
+    """
+    return _invocation_cwd if _invocation_cwd is not None else Path.cwd()
+
+
 # Filenames that are never param files (they're the spec/aux files themselves).
 _RESERVED_STEMS = {"provider", "offering", "listing", "service", "promotion", "service_group", "config"}
 # Template-dir files that must NOT be copied verbatim into a rendered folder:
@@ -319,11 +337,15 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                 # form (the rendered folder) per service.
                 pf.unlink()
 
-        # Point the whole cwd-rooted pipeline at the isolated copy.
+        # Point the whole cwd-rooted pipeline at the isolated copy, keeping
+        # the real invocation dir reachable for user-facing artifact writes.
+        global _invocation_cwd
+        _invocation_cwd = original_cwd
         os.chdir(tmp)
         yield [folder for folder, _ in rendered]
 
     finally:
+        _invocation_cwd = None
         os.chdir(original_cwd)
         for folder, real_sidecar in rendered:
             # Round-trip the backend-assigned service_id and the local

@@ -220,3 +220,27 @@ def test_validate_command_accepts_param_repo(tmp_path: Path, monkeypatch: pytest
     assert "2 service folder(s) are valid" in result.output
     # no rendered folders left behind
     assert not (root / "specs" / "unitysvc" / "resp200").exists()
+
+
+def test_failed_artifacts_land_in_invocation_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Debug artifacts from a failed test must survive the ephemeral render.
+
+    ``specs run-tests`` writes failed_* (script/.out/.err/.env) "to the current
+    directory" — but for a param repo the whole command runs chdir'd into the
+    ephemeral copy, so relative writes landed in the temp dir and were deleted
+    with it. They must land in the directory the user invoked the CLI from.
+    """
+    root = _make_repo(tmp_path, params={"resp200": {"status": 200, "label": "OK"}})
+    # Make the connectivity test fail so the artifact block runs.
+    (root / "templates" / "resp" / "connectivity.sh.j2").write_text("echo boom >&2\nexit 1\n")
+    monkeypatch.chdir(root)
+    from typer.testing import CliRunner
+
+    from unitysvc_sellers.cli import app
+
+    result = CliRunner().invoke(app, ["specs", "run-tests", "unitysvc/resp200"])
+    # The command reports failure via its summary; artifacts must be in root.
+    artifacts = sorted(p.name for p in root.glob("failed_*"))
+    assert artifacts, f"no failed_* artifacts in invocation cwd; output:\n{result.output}"
+    stems = {p.suffix for p in root.glob("failed_*")}
+    assert {".out", ".err", ".env"} <= stems, artifacts
