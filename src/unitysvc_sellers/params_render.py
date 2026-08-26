@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 import json5
+from unitysvc_core.utils import deep_merge_dicts
 
 from .template_populate import _sanitize_dirname, populate_from_iterator
 from .utils import EXPANDED_DIRNAME, load_data_file
@@ -55,8 +56,11 @@ def _load_json(path: Path) -> Any:
 
 def is_param_file(path: Path) -> bool:
     """True if ``path`` looks like a param file: a ``<name>.json`` under ``specs/``
-    that is not a reserved spec/aux file and carries a ``parameters`` key."""
-    if path.suffix != ".json" or path.name.endswith(".service.json"):
+    that is not a reserved spec/aux file and carries a ``parameters`` key.
+
+    ``<name>.override.json`` files are companions to a param file, never param
+    files themselves (see :func:`load_param_data`)."""
+    if path.suffix != ".json" or path.name.endswith((".service.json", ".override.json")):
         return False
     if path.stem in _RESERVED_STEMS:
         return False
@@ -65,6 +69,36 @@ def is_param_file(path: Path) -> bool:
     except Exception:
         return False
     return isinstance(data, dict) and "parameters" in data
+
+
+def override_file_for(param_file: Path) -> Path:
+    """The companion override file: ``specs/<name>.json`` → ``specs/<name>.override.json``."""
+    return param_file.with_name(param_file.stem + ".override.json")
+
+
+def load_param_data(param_file: Path) -> dict[str, Any]:
+    """Load a param file, deep-merging its ``<name>.override.json`` companion.
+
+    The override file carries **manual corrections that survive regeneration**:
+    a populator script (``update_params.py``) rewrites the base param file on
+    every run, while the committed override — same shape as the param file,
+    typically just ``{"parameters": {…}}`` — is merged over it at render time
+    by every ``specs`` command. Tweak a generated service by writing the
+    override; the next populate run can no longer clobber it.
+
+    Dicts merge recursively; scalars and lists in the override replace the
+    base value.
+    """
+    data = _load_json(param_file)
+    override = override_file_for(param_file)
+    if override.is_file():
+        patch = _load_json(override)
+        if not isinstance(patch, dict):
+            raise ParamRenderError(f"{override}: override file must be a JSON object")
+        if not isinstance(data, dict):
+            raise ParamRenderError(f"{param_file}: param file must be a JSON object")
+        data = deep_merge_dicts(data, patch)
+    return data
 
 
 def discover_param_files(root: Path) -> list[Path]:
@@ -203,16 +237,32 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
             tmp,
             dirs_exist_ok=True,
             ignore=shutil.ignore_patterns(
-                ".git", ".venv", "node_modules", "__pycache__",
-                EXPANDED_DIRNAME, "*.out", "*.err", "*.status",
+                ".git",
+                ".venv",
+                "node_modules",
+                "__pycache__",
+                EXPANDED_DIRNAME,
+                "*.out",
+                "*.err",
+                "*.status",
             ),
         )
+
+        # An override without its base param file is a typo'd filename —
+        # fail loud, or the correction it carries silently stops applying.
+        for ov in sorted(tmp.rglob("*.override.json")):
+            base = ov.with_name(ov.name[: -len(".override.json")] + ".json")
+            if not base.is_file():
+                rel = ov.relative_to(tmp)
+                raise ParamRenderError(
+                    f"{rel}: override file has no matching param file ({base.name}) — check the name"
+                )
 
         # Group by resolved template dir so one populate call renders all params
         # that share a template (and so a repo can mix templates).
         groups: dict[Path, list[tuple[Path, dict[str, Any]]]] = {}
         for pf in discover_param_files(tmp):
-            data = _load_json(pf)
+            data = load_param_data(pf)
             tdir = _resolve_template_dir(pf, data.get("template"))
             folder = pf.with_suffix("")
             if folder.exists():
@@ -260,9 +310,7 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                 if prior is not None:
                     seed["upstream_test_status"] = prior
                 if seed:
-                    (folder / "service.json").write_text(
-                        json.dumps(seed, indent=2, sort_keys=True) + "\n"
-                    )
+                    (folder / "service.json").write_text(json.dumps(seed, indent=2, sort_keys=True) + "\n")
                 # The round-trip on exit must land in the REAL repo's sidecar
                 # (same relative path under repo_root), not the throwaway copy.
                 real_sidecar = repo_root / sidecar_in_copy.relative_to(tmp)
@@ -288,11 +336,7 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                     rendered_data = {}
                 if not isinstance(rendered_data, dict):
                     rendered_data = {}
-                carry = {
-                    k: rendered_data[k]
-                    for k in ("service_id", "upstream_test_status")
-                    if rendered_data.get(k)
-                }
+                carry = {k: rendered_data[k] for k in ("service_id", "upstream_test_status") if rendered_data.get(k)}
                 if carry:
                     _merge_into_sidecar(real_sidecar, carry)
         shutil.rmtree(tmp, ignore_errors=True)
@@ -474,8 +518,13 @@ def _render_test_variants(folder: Path) -> None:
     for j2 in sorted(folder.glob("*.j2")):
         for mode, (local_testing, iface, flat_ctx) in modes.items():
             content, rendered_name = render_template_file(
-                j2, listing=listing, offering=offering, provider=provider,
-                interface=iface, local_testing=local_testing, **flat_ctx,
+                j2,
+                listing=listing,
+                offering=offering,
+                provider=provider,
+                interface=iface,
+                local_testing=local_testing,
+                **flat_ctx,
             )
             if mode == "local":
                 # Local run-tests reads secrets from env vars; don't leak ${ customer_secrets.X }.
@@ -545,7 +594,7 @@ def expand_param_file(
     Returns the rendered folder path (the ``<service_name>/`` leaf, or the
     directory itself when ``flat``).
     """
-    data = _load_json(param_file)
+    data = load_param_data(param_file)
     tdir = _resolve_template_dir(param_file, data.get("template"))
     specs_root = _specs_root_for(param_file)
     service_name = _service_name_for(param_file)

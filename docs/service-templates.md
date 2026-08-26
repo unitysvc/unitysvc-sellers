@@ -178,6 +178,40 @@ The full, step-by-step guide — converting a working service into templates,
 writing the populator, filtering, and CI automation — lives in
 [Generate a Catalog](guides/generate-catalog.md).
 
+## Correcting generated params: `<name>.override.json`
+
+Populators build catalogs from sources that are sometimes wrong about
+individual models: a registry marks a model tool-capable when the actual
+deployment rejects `tools`, a price needs a manual floor, a display name reads
+badly. Rather than patching the populator per correction, commit a companion
+**override file** next to the generated param file:
+
+```
+specs/<provider>/<name>.json            # script-generated — rewritten by every populate run
+specs/<provider>/<name>.override.json   # hand-written — survives every populate run
+```
+
+The override file has the **same shape as the param file** (typically just a
+`parameters` table) and is deep-merged over it — dicts merge per key, scalars
+and lists replace — by every `specs` command (validate / upload / run-tests /
+expand) at render time. The populator needs no changes and never has to run
+again for a tweak to land:
+
+```jsonc
+// specs/parasail/parasail-mythomax-13b.override.json
+{
+  "parameters": {
+    // deployment 500s on tools requests (2026-08-25)
+    "supports_tools": false
+  }
+}
+```
+
+Keys follow the repo's own param-file convention (they are the template's
+render inputs, so repo-specific by design). An override whose base param file
+does not exist is a hard error — a typo'd filename must not silently stop
+applying — as is a non-object override file.
+
 ## Which one should I use?
 
 - **One common service, fastest path?** → Platform template (use #1).
