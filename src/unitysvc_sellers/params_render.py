@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 import json5
+from unitysvc_core.utils import deep_merge_dicts
 
 from .template_populate import _sanitize_dirname, populate_from_iterator
 from .utils import EXPANDED_DIRNAME, load_data_file
@@ -70,18 +71,6 @@ def is_param_file(path: Path) -> bool:
     return isinstance(data, dict) and "parameters" in data
 
 
-def _deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
-    """Recursively merge ``patch`` over ``base`` (dicts merge; anything else —
-    scalars, lists — is replaced). Returns a new dict; inputs are untouched."""
-    merged = dict(base)
-    for key, value in patch.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _deep_merge(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
-
-
 def override_file_for(param_file: Path) -> Path:
     """The companion override file: ``specs/<name>.json`` → ``specs/<name>.override.json``."""
     return param_file.with_name(param_file.stem + ".override.json")
@@ -108,7 +97,7 @@ def load_param_data(param_file: Path) -> dict[str, Any]:
             raise ParamRenderError(f"{override}: override file must be a JSON object")
         if not isinstance(data, dict):
             raise ParamRenderError(f"{param_file}: param file must be a JSON object")
-        data = _deep_merge(data, patch)
+        data = deep_merge_dicts(data, patch)
     return data
 
 
