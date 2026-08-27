@@ -1,9 +1,10 @@
-"""Tests for the upstream connectivity-test gate on ``specs upload``.
+"""Tests for recording the local connectivity-test outcome.
 
 ``specs run-tests`` records the connectivity-test outcome in a service's
 ``service.json`` (round-tripped to the ``<name>.service.json`` sidecar for
-param-file services), and ``specs upload`` refuses to publish a service whose
-recorded outcome is ``fail`` unless ``--ignore-test-status`` is passed.
+param-file services). The value is advisory local feedback — it does NOT gate
+``specs upload``; the platform's own ``check_service_tests_passed`` is the
+authoritative gate, and it runs on gateway-side results.
 """
 
 from __future__ import annotations
@@ -14,7 +15,6 @@ from pathlib import Path
 import pytest
 
 from unitysvc_sellers.example import record_upstream_test_status
-from unitysvc_sellers.upload import _upstream_test_blocked
 
 CONNECTIVITY = "connectivity_test"
 
@@ -85,31 +85,6 @@ class TestRecordUpstreamTestStatus:
         listing = _listing(tmp_path)
         assert record_upstream_test_status([_result("p/svc", listing, "code_example", False)]) == []
         assert not (listing.parent / "service.json").exists()
-
-
-class TestUploadGate:
-    def test_blocks_on_recorded_failure(self, tmp_path: Path) -> None:
-        listing = _listing(tmp_path)
-        (listing.parent / "service.json").write_text(json.dumps({"upstream_test_status": "fail"}))
-        reason = _upstream_test_blocked(listing)
-        assert reason and "connectivity" in reason
-
-    def test_allows_on_pass(self, tmp_path: Path) -> None:
-        listing = _listing(tmp_path)
-        (listing.parent / "service.json").write_text(json.dumps({"upstream_test_status": "pass"}))
-        assert _upstream_test_blocked(listing) is None
-
-    def test_never_tested_is_not_a_failure(self, tmp_path: Path) -> None:
-        """A service that has never been tested locally must still upload."""
-        listing = _listing(tmp_path)
-        assert _upstream_test_blocked(listing) is None
-        (listing.parent / "service.json").write_text(json.dumps({"service_id": "abc"}))
-        assert _upstream_test_blocked(listing) is None
-
-    def test_malformed_service_json_does_not_block(self, tmp_path: Path) -> None:
-        listing = _listing(tmp_path)
-        (listing.parent / "service.json").write_text("{not json")
-        assert _upstream_test_blocked(listing) is None
 
 
 class TestCategoryResolution:

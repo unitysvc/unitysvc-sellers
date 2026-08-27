@@ -253,7 +253,6 @@ class Client:
         on_progress: Callable[[str, str, str, str], None] | None = None,
         name: str | None = None,
         auto_submit: bool = False,
-        ignore_test_status: bool = False,
     ) -> UploadResult:
         """Upload services from a seller catalog directory.
 
@@ -269,7 +268,6 @@ class Client:
             on_progress=on_progress,
             name=name,
             auto_submit=auto_submit,
-            ignore_test_status=ignore_test_status,
         )
 
     def upload_promotions(

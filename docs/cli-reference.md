@@ -228,7 +228,6 @@ $ usvc seller specs upload [OPTIONS] [name]
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--submit`: Also submit each freshly published service for review (validate → pending → run tests) in the same ingest task. Default: leave services as reviewable drafts to submit later.
-* `--ignore-test-status`: Upload even when a service&#x27;s last local connectivity test failed (upstream_test_status=fail in service.json). Use when the failure is environmental — a rate limit, a missing local SDK — rather than the upstream being unable to serve the model.
 * `--help`: Show this message and exit.
 
 ### `usvc seller specs list-tests`
