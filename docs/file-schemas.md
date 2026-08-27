@@ -17,7 +17,7 @@ the data. The schemas (with their historical version names) are:
 
 Two terms recur throughout these schemas, and they name **orthogonal** axes — don't conflate them:
 
-- An **upstream access channel** ("channel") is one named entry in an offering's `upstream_access_config`. Each channel is a complete way for the gateway to reach the upstream: a wire protocol (`access_method`), an endpoint (`base_url`), a credential (`api_key`), a `routing_key`, and rate limits (`channel_rate_limit` — the aggregate cap all customers share against the one seller credential; `customer_rate_limit` — the per-customer cap). Channel entries are **free-form objects** — the platform reads them as opaque config, so protocol-specific shapes (SMTP host/port, S3 bucket/region, a `raw` passthrough block) live here too. Channel names are free-form (e.g. `"managed"`, `"byok"`, `"managed-eu"`). The gateway selects one channel per request. A channel answers *how the request is fulfilled and billed*, and is gated by **secret** availability. A channel may optionally replace its flat `base_url` / `api_key` with a list of interchangeable **`servers`** (same `channel_type`) for capacity and failover — see [Multi-server channels](service-types.md#multi-server-channels-capacity-failover) (planned).
+- An **upstream access channel** ("channel") is one named entry in an offering's `upstream_access_config`. Each channel is a complete way for the gateway to reach the upstream: a wire protocol (`access_method`), an endpoint (`base_url`), a credential (`api_key`), and a `routing_key`. Channel entries are **free-form objects** — the platform reads them as opaque config, so protocol-specific shapes (SMTP host/port, S3 bucket/region, a `raw` passthrough block) live here too. Channel names are free-form (e.g. `"managed"`, `"byok"`, `"managed-eu"`). The gateway selects one channel per request. A channel answers *how the request is fulfilled and billed*, and is gated by **secret** availability. A channel may optionally replace its flat `base_url` / `api_key` with a list of interchangeable **`servers`** (same `channel_type`) for capacity and failover — see [Multi-server channels](service-types.md#multi-server-channels-capacity-failover) (planned).
 - A **user access interface** is one named entry in a listing's `user_access_interfaces` — the downstream, customer-facing endpoint the customer connects *to* (canonical, `/g/<group>`, `/p/<pool>`, `/e/<code>`). An interface answers *how you connect, and whether you may*, and is gated by **enrollment** / group membership.
 
 Channel selection happens per request regardless of which interface URL the customer hits, so the two are separable lists, not a matrix.
@@ -47,6 +47,7 @@ Provider files define the service provider's metadata and access configuration f
 | `documents`               | dict of DocumentData | Documents keyed by title                                        |
 | `services_populator`      | object               | Automated service generation configuration                      |
 | `status`                  | enum                 | Provider status: `draft` (default), `ready`, or `deprecated`    |
+| `rate_limits`             | array of RateLimit   | What this provider grants **your account** — see [RateLimit Object](#ratelimit-object) |
 
 ### services_populator Object
 
@@ -95,6 +96,10 @@ SERVICE_BASE_URL = "https://api.openai.com/v1"
     "homepage": "https://openai.com",
     "time_created": "2024-01-15T10:00:00Z",
     "status": "ready",
+    "rate_limits": [
+        { "limit": 10, "unit": "concurrent" },
+        { "limit": 600, "unit": "requests", "window": "minute" }
+    ],
     "services_populator": {
         "command": "populate_services.py",
         "requirements": ["httpx", "openai"],
@@ -682,7 +687,7 @@ they are now separate. In both, the name is the **dict key**, not a field.
 One named entry in a listing's `user_access_interfaces`. A **pure
 routing-resolution object**: it says *which candidate a request addresses* and
 *whether the customer may reach it* — nothing about the upstream. It carries no
-credentials, transformers, or rate limits (those are the channel's job).
+credentials or transformers (those are the channel's job).
 
 | Field           | Type    | Description                                                          |
 | --------------- | ------- | ------------------------------------------------------------------- |
@@ -695,8 +700,8 @@ credentials, transformers, or rate limits (those are the channel's job).
 | `sort_order`    | integer | Display order (default: 0)                                          |
 
 > `rate_limits`, `constraints`, and `response_rules` are **no longer accepted**
-> on a user access interface (unitysvc/unitysvc#1717). Rate limits moved to the
-> channel (below); `constraints` was never enforced and was dropped.
+> on a user access interface (unitysvc/unitysvc#1717). `constraints` was never
+> enforced and was dropped.
 
 ### Upstream access channel object
 
@@ -714,17 +719,9 @@ recognizes:
 | `routing_key`         | object             | Optional routing key for request matching                                                                 |
 | `request_transformer` | object             | Request transformation config (keys: `proxy_rewrite`, `body_transformer`)                                 |
 | `response_rules`      | object             | Per-status-code triggers → `log` / `flag` / `notify`. See [Response rules](#response-rules).               |
-| `channel_rate_limit`  | array of RateLimit | **Aggregate** limit — all customers combined against this channel's one seller credential. The seller's contract with the upstream provider. |
-| `customer_rate_limit` | array of RateLimit | **Per-customer** limit — how the seller throttles each individual customer so one cannot consume the whole channel. |
 | `is_active`           | boolean            | Whether the channel is active (default: true)                                                             |
 | `is_primary`          | boolean            | Whether this is the primary channel (default: false)                                                     |
 | `sort_order`          | integer            | Channel selection order (default: 0)                                                                      |
-
-> **Rate limits are two-tier.** `channel_rate_limit` is the aggregate cap and
-> `customer_rate_limit` is the per-customer cap; both are arrays of
-> [RateLimit](#ratelimit-object) objects. They replace the former single
-> `rate_limits` channel key, which the platform no longer reads — author the
-> new keys directly.
 
 **Note:** The channel name is specified as the dict key, not as a field within the object.
 
@@ -968,31 +965,49 @@ Documents associated with entities (providers, offerings, listings). The documen
 
 ### RateLimit Object
 
-Rate limiting rules for services. Used by both channel rate-limit tiers —
-`channel_rate_limit` (aggregate) and `customer_rate_limit` (per-customer) — on
-an [upstream access channel](#upstream-access-channel-object). Each tier is an
-array of these objects.
+One ceiling your provider grants **your account**, declared in
+[`provider.json`](#schema-provider_v1) under `rate_limits`.
 
 | Field         | Type    | Description                                                                                   |
 | ------------- | ------- | --------------------------------------------------------------------------------------------- |
-| `limit`       | integer | Maximum allowed in time window                                                                |
+| `limit`       | integer | Maximum allowed — in flight for `concurrent`, per window otherwise                            |
 | `unit`        | enum    | What is limited: `requests`, `tokens`, `input_tokens`, `output_tokens`, `bytes`, `concurrent` |
-| `window`      | enum    | Time window: `second`, `minute`, `hour`, `day`, `month`                                       |
-| `description` | string  | Human-readable description (max 255 chars)                                                    |
-| `burst_limit` | integer | Short-term burst allowance                                                                    |
-| `is_active`   | boolean | Whether limit is active (default: true)                                                       |
+| `window`      | enum    | Time window: `second`, `minute`, `hour`, `day`, `month`. Required for every unit **except** `concurrent`, which takes none. |
+| `description` | string  | Where the number came from, e.g. the provider's published limit for your tier (max 255 chars) |
 
-**Example:**
+**Example** — a provider granting 10 in-flight requests, 600 requests a minute
+and 60K input tokens a minute:
 
 ```json
-{
-    "limit": 10000,
-    "unit": "requests",
-    "window": "hour",
-    "description": "10K requests per hour limit",
-    "burst_limit": 1000
-}
+"rate_limits": [
+    { "limit": 10, "unit": "concurrent", "description": "engine capacity" },
+    { "limit": 600, "unit": "requests", "window": "minute" },
+    { "limit": 60000, "unit": "input_tokens", "window": "minute" }
+]
 ```
+
+#### Why `concurrent` takes no window
+
+`concurrent` is a **gauge** — a count of requests in flight right now. A slot is
+returned the moment a request finishes, so it has nothing to reset. Every other
+unit is a **counter** accumulated over a window and reset when the window rolls.
+Declaring a window on `concurrent`, or omitting one elsewhere, is rejected at
+validation: the two are enforced by different mechanisms and a limit that mixes
+them cannot be honoured as written.
+
+#### What to put here, and what not to
+
+Declare **what your provider actually granted the account behind your
+credential** — the org, workspace or account limit from your provider dashboard.
+It is shared by every service and every customer routed through that credential,
+which is why it belongs to the provider record and not to any one service.
+
+Do **not** try to express a per-customer allowance. How much any one customer may
+use depends on how many others are active at that moment, which you cannot know
+when authoring a file. The gateway derives each customer's share from the ceiling
+you declare here.
+
+Omitting `rate_limits` means "not declared", and no limit is applied.
 
 ### ServiceConstraints Object (removed)
 
