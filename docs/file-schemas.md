@@ -97,8 +97,8 @@ SERVICE_BASE_URL = "https://api.openai.com/v1"
     "time_created": "2024-01-15T10:00:00Z",
     "status": "ready",
     "rate_limits": [
-        { "limit": 10, "unit": "concurrent" },
-        { "limit": 600, "unit": "requests", "window": "minute" }
+        { "name": "openai_concurrency", "limit": 10, "unit": "concurrent" },
+        { "name": "openai_perminute", "limit": 600, "unit": "requests", "window": "minute" }
     ],
     "services_populator": {
         "command": "populate_services.py",
@@ -717,6 +717,7 @@ recognizes:
 | `base_url`            | string             | Upstream endpoint URL (optional — absent for `smtp`/`s3` and other non-HTTP channels)                     |
 | `api_key`             | string             | Upstream credential / svcpass disposition: `${ secrets.VAR }` (see [Secrets](#secrets-for-sensitive-information)) |
 | `routing_key`         | object             | Optional routing key for request matching                                                                 |
+| `rate_limit_refs`    | array of string    | Seller-scoped provider-account buckets to consume whenever this channel is selected. Names must come from provider `rate_limits[].name`. |
 | `request_transformer` | object             | Request transformation config (keys: `proxy_rewrite`, `body_transformer`)                                 |
 | `response_rules`      | object             | Per-status-code triggers → `log` / `flag` / `notify`. See [Response rules](#response-rules).               |
 | `is_active`           | boolean            | Whether the channel is active (default: true)                                                             |
@@ -724,6 +725,52 @@ recognizes:
 | `sort_order`          | integer            | Channel selection order (default: 0)                                                                      |
 
 **Note:** The channel name is specified as the dict key, not as a field within the object.
+
+#### Provider-account rate-limit refs
+
+Provider-level `rate_limits` define **named seller-scoped buckets**. A channel
+opts into those buckets with `rate_limit_refs`:
+
+Provider file:
+
+```json
+{
+  "name": "fireworks",
+  "contact_email": "ops@example.com",
+  "homepage": "https://fireworks.ai",
+  "time_created": "2026-01-01T00:00:00Z",
+  "rate_limits": [
+    { "name": "fireworks_concurrency", "unit": "concurrent", "limit": 8 },
+    { "name": "fireworks_perminute", "unit": "requests", "limit": 60, "window": "minute" }
+  ]
+}
+```
+
+Offering file:
+
+```json
+{
+  "upstream_access_config": {
+    "managed": {
+      "access_method": "http",
+      "base_url": "https://api.fireworks.ai/inference/v1",
+      "api_key": "${ secrets.FIREWORKS_API_KEY }",
+      "rate_limit_refs": ["fireworks_concurrency", "fireworks_perminute"]
+    }
+  }
+}
+```
+
+Any selected channel referencing `fireworks_perminute` consumes the same seller
+bucket for that seller, even across services or provider records. Use the same
+name when multiple channels spend the same upstream account quota; use different
+names when different API keys/accounts have independent quotas.
+
+Do not put normal `rate_limit_refs` on a true production BYOK channel unless the
+channel should always consume seller-owned upstream quota. During UnitySVC
+seller/ops testing, the synthetic ops customer uses seller-owned credentials, so
+the gateway observes the selected provider's declared rate limits without a
+separate per-channel testing field.
 
 #### Response rules
 
@@ -970,6 +1017,7 @@ One ceiling your provider grants **your account**, declared in
 
 | Field         | Type    | Description                                                                                   |
 | ------------- | ------- | --------------------------------------------------------------------------------------------- |
+| `name`        | string  | Seller-scoped bucket name referenced by channel `rate_limit_refs` |
 | `limit`       | integer | Maximum allowed — in flight for `concurrent`, per window otherwise                            |
 | `unit`        | enum    | What is limited: `requests`, `tokens`, `input_tokens`, `output_tokens`, `bytes`, `concurrent` |
 | `window`      | enum    | Time window: `second`, `minute`, `hour`, `day`, `month`. Required for every unit **except** `concurrent`, which takes none. |
@@ -980,9 +1028,9 @@ and 60K input tokens a minute:
 
 ```json
 "rate_limits": [
-    { "limit": 10, "unit": "concurrent", "description": "engine capacity" },
-    { "limit": 600, "unit": "requests", "window": "minute" },
-    { "limit": 60000, "unit": "input_tokens", "window": "minute" }
+    { "name": "fireworks_concurrency", "limit": 10, "unit": "concurrent", "description": "engine capacity" },
+    { "name": "fireworks_perminute", "limit": 600, "unit": "requests", "window": "minute" },
+    { "name": "fireworks_input_tokens", "limit": 60000, "unit": "input_tokens", "window": "minute" }
 ]
 ```
 
@@ -999,8 +1047,14 @@ them cannot be honoured as written.
 
 Declare **what your provider actually granted the account behind your
 credential** — the org, workspace or account limit from your provider dashboard.
-It is shared by every service and every customer routed through that credential,
-which is why it belongs to the provider record and not to any one service.
+Each limit needs a stable `name`; that name is the live gateway bucket that
+channels reference. It is shared by every service and every customer routed
+through a channel that references it, which is why the definition belongs to the
+provider record and the reference belongs to the upstream channel.
+
+The `name` is scoped to you as the seller, not to one provider file. If two
+provider records or channels spend the same upstream quota, point them at the
+same name. If two API keys have independent quota, give them different names.
 
 Do **not** try to express a per-customer allowance. How much any one customer may
 use depends on how many others are active at that moment, which you cannot know

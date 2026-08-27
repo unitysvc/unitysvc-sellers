@@ -76,7 +76,8 @@ A **managed channel** uses the seller's key (`${ secrets.* }`), so the seller pr
         "OpenAI API": {
             "access_method": "http",
             "base_url": "https://api.openai.com/v1",
-            "api_key": "${ secrets.OPENAI_API_KEY }"
+            "api_key": "${ secrets.OPENAI_API_KEY }",
+            "rate_limit_refs": ["openai_perminute", "openai_concurrency"]
         }
     }
 }
@@ -96,6 +97,11 @@ A **managed channel** uses the seller's key (`${ secrets.* }`), so the seller pr
 ```
 
 Request flow: `Customer → API key → Gateway → seller's upstream creds → Provider`
+
+Managed channels usually spend quota from your provider account. Define the
+quota once in `provider.json` under named `rate_limits`, then reference those
+names from seller-owned channels with `rate_limit_refs`. See
+[Provider-account rate-limit refs](file-schemas.md#provider-account-rate-limit-refs).
 
 ### BYOK (Bring Your Own Key)
 
@@ -123,6 +129,11 @@ The **namespace** of the reference — not its location — declares who owns th
 | `${ customer_secrets.NAME }` | Customer (BYOK) | Customer's secret store |
 
 A `${ customer_secrets.X }` reference is also its own declaration — the platform auto-detects the customer-required secret by scanning for it; no separate `user_parameters_schema` entry is needed. See [File Schemas](file-schemas.md) for the full BYOK model.
+
+True production BYOK traffic spends the customer's provider quota, not yours, so
+do not add normal `rate_limit_refs` to a BYOK channel. During UnitySVC seller/ops
+testing, the ops customer uses seller-owned credentials, so provider-level
+limits declared on the provider are observed without a separate channel field.
 
 ### BYOE (Bring Your Own Endpoint)
 
