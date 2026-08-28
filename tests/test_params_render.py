@@ -188,6 +188,7 @@ def test_write_params_replaces_expanded_folders(tmp_path: Path) -> None:
         "total": 1,
         "written": 1,
         "new": 0,
+        "preserved": 0,
         "errors": 0,
         "deprecated": 1,
         "already_deprecated": 0,
@@ -423,3 +424,183 @@ def test_service_name_is_required(tmp_path: Path) -> None:
         write_params_from_iterator(it(), specs)
 
     assert not (specs / "p" / "legacy-key.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# A null must never overwrite a value we already have.
+#
+# Enrichment metadata is fetched from third-party APIs over the network, and by
+# the time a value reaches the iterator the reason for a None is gone: the HF
+# lookup keeps only `status_code == 200`, so a 429, a timeout and a genuine 404
+# all arrive as the same None. 45 parasail services had `parameter_count`
+# silently nulled this way in one run, from values HuggingFace still serves.
+#
+# Since "unknown" cannot be told from "definitively nothing", the known value
+# wins: it is strictly more informative than either.
+# ---------------------------------------------------------------------------
+
+
+def _committed(specs: Path, name: str, params: dict) -> Path:
+    p = specs / f"{name}.json"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({"parameters": params}) + "\n")
+    return p
+
+
+def _params_of(specs: Path, name: str) -> dict:
+    return json.loads((specs / f"{name}.json").read_text())["parameters"]
+
+
+def test_null_does_not_overwrite_a_committed_value(tmp_path: Path) -> None:
+    specs = tmp_path / "specs"
+    _committed(specs, "p/m", {"offering_name": "m", "parameter_count": 27432406640})
+
+    def it():
+        yield {"service_name": "p/m", "offering_name": "m", "parameter_count": None}
+
+    stats = write_params_from_iterator(it(), specs)
+
+    assert _params_of(specs, "p/m")["parameter_count"] == 27432406640
+    assert stats["preserved"] == 1
+
+
+def test_null_preservation_reaches_nested_values(tmp_path: Path) -> None:
+    """The enrichment that actually broke lives under `details`."""
+    specs = tmp_path / "specs"
+    _committed(
+        specs,
+        "p/m",
+        {"offering_name": "m", "details": {"parameter_count": 27432406640, "context_length": 262144}},
+    )
+
+    def it():
+        yield {
+            "service_name": "p/m",
+            "offering_name": "m",
+            "details": {"parameter_count": None, "context_length": 131072},
+        }
+
+    write_params_from_iterator(it(), specs)
+
+    d = _params_of(specs, "p/m")["details"]
+    assert d["parameter_count"] == 27432406640, "unknown must not clobber known"
+    assert d["context_length"] == 131072, "a real new value still wins"
+
+
+def test_a_real_value_always_wins(tmp_path: Path) -> None:
+    specs = tmp_path / "specs"
+    _committed(specs, "p/m", {"offering_name": "m", "parameter_count": 1})
+
+    def it():
+        yield {"service_name": "p/m", "offering_name": "m", "parameter_count": 2}
+
+    stats = write_params_from_iterator(it(), specs)
+
+    assert _params_of(specs, "p/m")["parameter_count"] == 2
+    assert stats["preserved"] == 0
+
+
+def test_null_over_null_is_not_counted_as_preserved(tmp_path: Path) -> None:
+    specs = tmp_path / "specs"
+    _committed(specs, "p/m", {"offering_name": "m", "parameter_count": None})
+
+    def it():
+        yield {"service_name": "p/m", "offering_name": "m", "parameter_count": None}
+
+    stats = write_params_from_iterator(it(), specs)
+
+    assert _params_of(specs, "p/m")["parameter_count"] is None
+    assert stats["preserved"] == 0
+
+
+def test_a_new_service_keeps_its_nulls(tmp_path: Path) -> None:
+    """Nothing committed means nothing to preserve — null is the value."""
+    specs = tmp_path / "specs"
+
+    def it():
+        yield {"service_name": "p/fresh", "offering_name": "fresh", "parameter_count": None}
+
+    stats = write_params_from_iterator(it(), specs)
+
+    assert _params_of(specs, "p/fresh")["parameter_count"] is None
+    assert stats["preserved"] == 0
+
+
+def test_the_override_companion_is_not_consulted(tmp_path: Path) -> None:
+    """Overrides are merged at RENDER time, not baked into the param file; if a
+    value came from the override the param file must not silently absorb it."""
+    specs = tmp_path / "specs"
+    _committed(specs, "p/m", {"offering_name": "m", "parameter_count": None})
+    (specs / "p" / "m.override.json").write_text(json.dumps({"parameters": {"parameter_count": 999}}) + "\n")
+
+    def it():
+        yield {"service_name": "p/m", "offering_name": "m", "parameter_count": None}
+
+    write_params_from_iterator(it(), specs)
+
+    assert _params_of(specs, "p/m")["parameter_count"] is None
+
+
+# ---------------------------------------------------------------------------
+# Crucial fields fail the run; they are not quietly preserved.
+#
+# Preserving a stale value is right for enrichment metadata, where "unknown"
+# is a real state and a slightly old parameter_count harms nobody. It is wrong
+# for a price: most repos derive list_price from an `input_cost_per_token`
+# lookup that can fail over the network, and shipping yesterday's price for a
+# model whose price changed is worse than not shipping at all.
+# ---------------------------------------------------------------------------
+
+
+def test_a_missing_required_field_fails_the_run(tmp_path: Path) -> None:
+    specs = tmp_path / "specs"
+
+    def it():
+        yield {"service_name": "p/m", "list_price": {"price": None, "type": "constant"}}
+
+    with pytest.raises(ParamRenderError, match="list_price.price"):
+        write_params_from_iterator(it(), specs, required_fields=("list_price.price",))
+
+    assert not (specs / "p" / "m.json").exists(), "nothing written for a failed run"
+
+
+def test_a_required_field_that_is_absent_also_fails(tmp_path: Path) -> None:
+    specs = tmp_path / "specs"
+
+    def it():
+        yield {"service_name": "p/m", "offering_name": "m"}
+
+    with pytest.raises(ParamRenderError, match="list_price"):
+        write_params_from_iterator(it(), specs, required_fields=("list_price",))
+
+
+def test_a_required_field_is_not_rescued_by_the_committed_value(tmp_path: Path) -> None:
+    """The preserve rule must NOT quietly satisfy a required field: a stale
+    price shipped as current is the outcome this guard exists to prevent."""
+    specs = tmp_path / "specs"
+    _committed(specs, "p/m", {"list_price": {"price": "0.50", "type": "constant"}})
+
+    def it():
+        yield {"service_name": "p/m", "list_price": {"price": None, "type": "constant"}}
+
+    with pytest.raises(ParamRenderError, match="list_price.price"):
+        write_params_from_iterator(it(), specs, required_fields=("list_price.price",))
+
+
+def test_a_present_required_field_passes(tmp_path: Path) -> None:
+    specs = tmp_path / "specs"
+
+    def it():
+        yield {"service_name": "p/m", "list_price": {"price": "0.50", "type": "constant"}}
+
+    stats = write_params_from_iterator(it(), specs, required_fields=("list_price.price",))
+    assert stats["written"] == 1
+
+
+def test_no_required_fields_is_the_default(tmp_path: Path) -> None:
+    specs = tmp_path / "specs"
+
+    def it():
+        yield {"service_name": "p/m", "list_price": None}
+
+    assert write_params_from_iterator(it(), specs)["written"] == 1
