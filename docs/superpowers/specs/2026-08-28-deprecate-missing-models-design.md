@@ -2,6 +2,7 @@
 
 **Date:** 2026-08-28
 **Status:** design, approved in chat; not yet implemented
+**Issue:** unitysvc/unitysvc-sellers#181
 **Affects:** `unitysvc-sellers` (SDK + upload), all 17 `unitysvc-services-*` LLM repos
 
 ## Problem
