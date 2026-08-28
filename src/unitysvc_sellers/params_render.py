@@ -779,42 +779,6 @@ def preserve_known_values(new: Any, committed: Any, stats: dict[str, int] | None
     return new
 
 
-def _resolve_dotted(data: Any, path: str) -> Any:
-    """``"list_price.price"`` → ``data["list_price"]["price"]``, or None."""
-    cur = data
-    for part in path.split("."):
-        if not isinstance(cur, dict):
-            return None
-        cur = cur.get(part)
-    return cur
-
-
-def _check_required_fields(name: str, parameters: dict[str, Any], required_fields: tuple[str, ...]) -> None:
-    """Fail the run when a field too important to guess at is missing.
-
-    The counterpart to :func:`preserve_known_values`, and deliberately the
-    opposite behaviour. Preserving a stale value is right for enrichment
-    metadata: "unknown" is a real state there, and a slightly old
-    ``parameter_count`` harms nobody. It is wrong for a price — most repos
-    derive ``list_price`` from an ``input_cost_per_token`` lookup that can fail
-    over the network, and shipping yesterday's price for a model whose price
-    changed is worse than not shipping at all.
-
-    So a required field is checked against what the ITERATOR produced, before
-    any preservation: being rescued by the committed value is exactly the
-    silent staleness this guard exists to prevent.
-    """
-    missing = [f for f in required_fields if _resolve_dotted(parameters, f) is None]
-    if missing:
-        raise ParamRenderError(
-            f"{name}: required field(s) {', '.join(missing)} are missing or null. "
-            "These are too important to fall back on a committed value — a "
-            "stale price shipped as current is worse than a failed run. Fix the "
-            "upstream lookup, or drop the field from required_fields if it is "
-            "genuinely optional here."
-        )
-
-
 def _deprecate_param_file(path: Path) -> bool:
     """Set ``parameters.status = "deprecated"``. False if already deprecated."""
     try:
@@ -871,7 +835,6 @@ def write_params_from_iterator(
     *,
     template: str | None = None,
     deprecate_missing: bool = True,
-    required_fields: tuple[str, ...] = (),
 ) -> dict[str, int]:
     """Write one **param file** per yielded var-dict (the params mirror of
     :func:`populate_from_iterator`).
@@ -975,12 +938,6 @@ def write_params_from_iterator(
         param_path.parent.mkdir(parents=True, exist_ok=True)
 
         parameters = {k: v for k, v in model_data.items() if k not in _PATH_DERIVED_KEYS}
-
-        # Checked against what the iterator produced, before any preservation:
-        # letting the committed value satisfy a required field is precisely the
-        # silent staleness this guard exists to prevent.
-        if required_fields:
-            _check_required_fields(name, parameters, required_fields)
 
         # A null must not overwrite a value we already have — an enrichment
         # lookup that failed is indistinguishable from one that found nothing.
