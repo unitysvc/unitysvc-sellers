@@ -746,6 +746,39 @@ def _committed_service_names(root: Path) -> dict[str, Path]:
     return found
 
 
+def preserve_known_values(new: Any, committed: Any, stats: dict[str, int] | None = None) -> Any:
+    """Merge ``new`` over ``committed`` so a ``None`` never replaces a value.
+
+    Populate scripts enrich each service from third-party APIs, and by the time
+    a value reaches the writer the reason for a ``None`` is gone. The
+    HuggingFace lookup, for instance, tries several URL variations and keeps
+    only ``status_code == 200``, so a 429, a timeout and a genuine 404 all
+    arrive as the same ``None``. One parasail run silently nulled
+    ``parameter_count`` on 45 services from values HuggingFace still serves.
+
+    Since "we could not find out" cannot be told from "there is definitively
+    nothing", the committed value wins: it is strictly more informative than
+    either reading of ``None``. The code that produces these fields already
+    says as much — ``null is the sentinel for "unknown"``.
+
+    Only ``None`` is affected. A real new value always overwrites, including a
+    falsy one (``0``, ``""``, ``False``), and a key the iterator drops entirely
+    still disappears — this rule is about unknown values, not about making
+    fields immortal.
+    """
+    if isinstance(new, dict) and isinstance(committed, dict):
+        merged = dict(new)
+        for key, value in new.items():
+            if key in committed:
+                merged[key] = preserve_known_values(value, committed[key], stats)
+        return merged
+    if new is None and committed is not None:
+        if stats is not None:
+            stats["preserved"] += 1
+        return committed
+    return new
+
+
 def _deprecate_param_file(path: Path) -> bool:
     """Set ``parameters.status = "deprecated"``. False if already deprecated."""
     try:
@@ -845,8 +878,9 @@ def write_params_from_iterator(
             populator covers only part of its catalog).
 
     Returns:
-        Stats dict: ``{"total", "written", "new", "errors", "deprecated",
-        "already_deprecated"}``.
+        Stats dict: ``{"total", "written", "new", "preserved", "errors",
+        "deprecated", "already_deprecated"}``. ``preserved`` counts values the
+        iterator yielded as ``None`` that were kept from the committed file.
 
     Raises:
         UpstreamEnumerationError: the iterator matched none of the committed
@@ -859,6 +893,7 @@ def write_params_from_iterator(
         "total": 0,
         "written": 0,
         "new": 0,
+        "preserved": 0,
         "errors": 0,
         "deprecated": 0,
         "already_deprecated": 0,
@@ -903,6 +938,21 @@ def write_params_from_iterator(
         param_path.parent.mkdir(parents=True, exist_ok=True)
 
         parameters = {k: v for k, v in model_data.items() if k not in _PATH_DERIVED_KEYS}
+
+        # A null must not overwrite a value we already have — an enrichment
+        # lookup that failed is indistinguishable from one that found nothing.
+        # Read the committed param file directly rather than via
+        # ``load_param_data``: that merges the ``.override.json`` companion,
+        # and absorbing an override's value into the generated file would make
+        # the override look redundant and invite its deletion.
+        if param_path.is_file():
+            try:
+                previous = (json.loads(param_path.read_text()) or {}).get("parameters")
+            except (json.JSONDecodeError, OSError):
+                previous = None
+            if isinstance(previous, dict):
+                parameters = preserve_known_values(parameters, previous, stats)
+
         payload: dict[str, Any] = {}
         if template is not None:
             payload["template"] = template
