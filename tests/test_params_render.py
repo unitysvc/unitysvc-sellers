@@ -161,7 +161,8 @@ def test_folder_and_param_file_conflict_raises(tmp_path: Path) -> None:
 
 def test_write_params_replaces_expanded_folders(tmp_path: Path) -> None:
     """write_params_from_iterator turns rendered folders into param files,
-    preserves service_id via the sidecar, and prunes models the iterator drops."""
+    preserves service_id via the sidecar, and deprecates models the iterator
+    no longer yields."""
     specs = tmp_path / "specs"
     # An existing expanded render with an identity record (to be replaced).
     old = specs / "cohere" / "command-r"
@@ -183,16 +184,12 @@ def test_write_params_replaces_expanded_folders(tmp_path: Path) -> None:
 
     stats = write_params_from_iterator(it(), specs)
 
-    # Default keeps stale services (never lose a service_id).
     assert stats == {
         "total": 1,
         "written": 1,
+        "new": 0,
         "errors": 0,
-        "pruned": 0,
-        "kept": 1,
-        # Reported unconditionally so the shape does not depend on whether
-        # existing_service_names was passed; both stay 0 without it.
-        "deprecated": 0,
+        "deprecated": 1,
         "already_deprecated": 0,
     }
     # Expanded folder replaced by a param file.
@@ -205,15 +202,12 @@ def test_write_params_replaces_expanded_folders(tmp_path: Path) -> None:
     # service_id lifted into the committed sidecar.
     sidecar = specs / "cohere" / "command-r.service.json"
     assert json.loads(sidecar.read_text())["service_id"] == "keep-me"
-    # Stale model kept (curated / off-API) by default.
+    # The stale model is marked, never deleted: its service_id must survive so
+    # the upload can retire the REMOTE service rather than orphaning it.
     assert stale.exists()
+    assert json.loads((stale / "offering.json").read_text())["status"] == "deprecated"
     # Keys are sorted with a trailing newline (format-clean).
     assert param.read_text().endswith("}\n")
-
-    # Opt-in pruning deletes the stale folder.
-    pruned = write_params_from_iterator(it(), specs, prune_missing=True)
-    assert pruned["pruned"] == 1
-    assert not stale.exists()
 
 
 def test_validate_command_accepts_param_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -259,10 +253,10 @@ def test_failed_artifacts_land_in_invocation_cwd(tmp_path: Path, monkeypatch: py
 # ---------------------------------------------------------------------------
 # Deprecating models the upstream no longer serves (#181).
 #
-# The comparison is committed local service names against the provider's RAW,
-# pre-filter enumeration. What the iterator yielded is never consulted: it
-# yields post-filter models, so matching on it would deprecate every family a
-# script deliberately drops.
+# The set of committed services is read from output_dir up front and drained as
+# the iterator yields; whatever remains never appeared this run. Nothing is
+# passed in: a model the script filters out is filtered on EVERY run, so it was
+# never committed and cannot be in the remainder.
 # ---------------------------------------------------------------------------
 
 
@@ -286,80 +280,77 @@ def _iter(*names: str):
     return it()
 
 
-def test_absent_from_enumeration_is_deprecated(tmp_path: Path) -> None:
+def test_service_not_yielded_is_deprecated(tmp_path: Path) -> None:
     specs = tmp_path / "specs"
     _seed(specs, ["p/live", "p/retired"])
 
-    stats = write_params_from_iterator(
-        _iter("p/live"),
-        specs,
-        existing_service_names={"p/live"},  # p/retired is gone upstream
-    )
+    stats = write_params_from_iterator(_iter("p/live"), specs)
 
     assert _status_of(specs, "p/retired") == "deprecated"
     assert _status_of(specs, "p/live") != "deprecated"
     assert stats["deprecated"] == 1
+    assert stats["new"] == 0
 
 
-def test_filtered_but_still_upstream_is_untouched(tmp_path: Path) -> None:
-    """The defect a naive fix ships: iterators yield POST-filter models.
-
-    ``p/filtered`` is committed and still served upstream, but the script
-    filters it out of what it yields. Comparing against the iterator would
-    deprecate it; comparing against the enumeration must not.
-    """
+def test_a_brand_new_service_counts_as_new_not_deprecated(tmp_path: Path) -> None:
     specs = tmp_path / "specs"
-    _seed(specs, ["p/live", "p/filtered"])
+    _seed(specs, ["p/live"])
 
-    stats = write_params_from_iterator(
-        _iter("p/live"),  # yields only p/live
-        specs,
-        existing_service_names={"p/live", "p/filtered"},  # but BOTH are served
-    )
+    stats = write_params_from_iterator(_iter("p/live", "p/fresh"), specs)
 
-    assert _status_of(specs, "p/filtered") == "ready"
+    assert stats["new"] == 1
     assert stats["deprecated"] == 0
 
 
-def test_disjoint_enumeration_raises_and_writes_nothing(tmp_path: Path) -> None:
-    """Zero overlap is a broken call — wrong key, wrong tier, wholesale rename —
-    not a catalog that retired all at once."""
+def test_matching_nothing_committed_raises(tmp_path: Path) -> None:
+    """A populate that errored, authenticated wrongly, or hit an endpoint
+    serving nobody's models looks exactly like a catalog that retired all at
+    once. Only one of those is real."""
     from unitysvc_sellers.params_render import UpstreamEnumerationError
 
     specs = tmp_path / "specs"
     _seed(specs, ["p/a", "p/b"])
 
-    with pytest.raises(UpstreamEnumerationError):
-        write_params_from_iterator(_iter("p/a"), specs, existing_service_names={"q/x", "q/y"})
-
-    assert _status_of(specs, "p/a") == "ready"
-    assert _status_of(specs, "p/b") == "ready"
+    with pytest.raises(UpstreamEnumerationError, match="failed populate"):
+        write_params_from_iterator(_iter("q/x"), specs)
 
 
-def test_empty_enumeration_raises(tmp_path: Path) -> None:
+def test_yielding_nothing_at_all_raises(tmp_path: Path) -> None:
     from unitysvc_sellers.params_render import UpstreamEnumerationError
 
     specs = tmp_path / "specs"
     _seed(specs, ["p/a"])
 
-    with pytest.raises(UpstreamEnumerationError):
-        write_params_from_iterator(_iter("p/a"), specs, existing_service_names=set())
+    def empty():
+        return
+        yield  # pragma: no cover
 
-    assert _status_of(specs, "p/a") == "ready"
+    with pytest.raises(UpstreamEnumerationError):
+        write_params_from_iterator(empty(), specs)
+
+
+def test_first_run_on_an_empty_repo_is_not_a_failure(tmp_path: Path) -> None:
+    """Nothing committed means nothing to explain — the guard must not fire."""
+    specs = tmp_path / "specs"
+    specs.mkdir()
+
+    stats = write_params_from_iterator(_iter("p/first"), specs)
+
+    assert stats["new"] == 1
+    assert stats["deprecated"] == 0
 
 
 def test_sidecars_and_override_companions_are_not_services(tmp_path: Path) -> None:
-    """36 ``<name>.override.json`` companions exist across six repos; a naive
-    ``*.json`` glob deprecates every one of them."""
+    """36 ``<name>.override.json`` companions exist across six repos; counting
+    one as a service would deprecate it every run."""
     specs = tmp_path / "specs"
     _seed(specs, ["p/live"])
     (specs / "p" / "live.service.json").write_text(json.dumps({"service_id": "sid"}) + "\n")
     (specs / "p" / "live.override.json").write_text(json.dumps({"tool_calling": False}) + "\n")
 
-    stats = write_params_from_iterator(_iter("p/live"), specs, existing_service_names={"p/live"})
+    stats = write_params_from_iterator(_iter("p/live"), specs)
 
     assert stats["deprecated"] == 0
-    # Companions untouched — no status injected, still valid JSON of their own shape.
     assert json.loads((specs / "p" / "live.service.json").read_text()) == {"service_id": "sid"}
     assert json.loads((specs / "p" / "live.override.json").read_text()) == {"tool_calling": False}
 
@@ -374,7 +365,7 @@ def test_expanded_folder_contributes_its_name(tmp_path: Path) -> None:
     (folder / "offering.json").write_text(json.dumps({"name": "old-shape", "status": "ready"}) + "\n")
     (folder / "listing.json").write_text(json.dumps({"name": "p/old-shape", "status": "ready"}) + "\n")
 
-    write_params_from_iterator(_iter("p/live"), specs, existing_service_names={"p/live"})
+    write_params_from_iterator(_iter("p/live"), specs)
 
     assert json.loads((folder / "offering.json").read_text())["status"] == "deprecated"
     assert json.loads((folder / "listing.json").read_text())["status"] == "deprecated"
@@ -384,14 +375,24 @@ def test_deprecation_is_idempotent(tmp_path: Path) -> None:
     specs = tmp_path / "specs"
     _seed(specs, ["p/live", "p/retired"])
 
-    first = write_params_from_iterator(_iter("p/live"), specs, existing_service_names={"p/live"})
+    first = write_params_from_iterator(_iter("p/live"), specs)
     before = (specs / "p" / "retired.json").read_text()
-    second = write_params_from_iterator(_iter("p/live"), specs, existing_service_names={"p/live"})
+    second = write_params_from_iterator(_iter("p/live"), specs)
 
     assert first["deprecated"] == 1
     assert second["deprecated"] == 0
     assert second["already_deprecated"] == 1
     assert (specs / "p" / "retired.json").read_text() == before
+
+
+def test_deprecate_missing_can_be_switched_off(tmp_path: Path) -> None:
+    specs = tmp_path / "specs"
+    _seed(specs, ["p/live", "p/retired"])
+
+    stats = write_params_from_iterator(_iter("p/live"), specs, deprecate_missing=False)
+
+    assert _status_of(specs, "p/retired") == "ready"
+    assert stats["deprecated"] == 0
 
 
 def test_name_that_would_be_sanitised_is_rejected(tmp_path: Path) -> None:
@@ -404,16 +405,6 @@ def test_name_that_would_be_sanitised_is_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(ParamRenderError, match="llama3:8b"):
         write_params_from_iterator(it(), specs)
-
-
-def test_no_existing_service_names_leaves_behaviour_unchanged(tmp_path: Path) -> None:
-    specs = tmp_path / "specs"
-    _seed(specs, ["p/live", "p/retired"])
-
-    stats = write_params_from_iterator(_iter("p/live"), specs)
-
-    assert _status_of(specs, "p/retired") == "ready"
-    assert stats["deprecated"] == 0
 
 
 def test_service_name_is_required(tmp_path: Path) -> None:

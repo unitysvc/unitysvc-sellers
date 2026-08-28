@@ -49,22 +49,26 @@ ollama explicitly opted into, is a no-op in both. **Dead in 16 of the 17
 repos.** The exception is cohere's single un-migrated folder
 (`cohere/embed-v4.0`).
 
-### The second defect, which a naive fix would ship
+### A defect I argued for, then disproved
 
-The iterator yields **post-filter** models. `unitysvc-services-openai`'s
-script drops roughly fifteen substrings (`embed`, `whisper`, `tts`,
-`realtime`, `dall-e`, `image`, `sora`, `moderation`, `-pro`, `instruct`,
-`preview`, …) and prefers alias ids over dated snapshots. Repos also carry
-curated entries that never appear in a provider's enumeration.
+An earlier draft of this design claimed a second bug: that comparing against
+what the iterator *yielded* would deprecate every model a script filters out,
+and that the comparison therefore had to be against a raw, pre-filter
+enumeration passed in by the caller.
 
-"Missing from the iterator" therefore does **not** mean "missing from
-upstream". Comparing against what the iterator yielded — which is what
-`deprecate_missing` does today — would deprecate every deliberately filtered
-family and every curated entry. That is why `prune_missing` defaults to
-keeping, with the comment *"curated; not in live source … so its service_id
-is never lost."*
+**That is wrong, and the repo data says so.** A script's filter is applied on
+*every* run, so a filtered model is never written as a param file — it cannot
+be in `committed − yielded`. Checked against openai, whose script drops ~15
+substrings (`embed`, `whisper`, `tts`, `realtime`, `dall-e`, `-pro`,
+`preview`, …): of its 26 committed services, **none** matches any of them.
 
-The comparison has to be against the **raw enumeration, before filtering**.
+So the reference set the function already has — what the iterator yielded — is
+the right one, and no new parameter is needed. The only real bug was the dead
+scan.
+
+The genuine edge that remains is a **curated** entry: hand-added, never
+yielded by any run, and therefore deprecated. That is handled by PR review,
+with a `parameters.curated: true` opt-out held in reserve.
 
 ## Goals
 
@@ -85,24 +89,91 @@ The comparison has to be against the **raw enumeration, before filtering**.
 
 ## Design
 
-### Part 1 — SDK: real deprecation in `write_params_from_iterator`
+### Part 1 — SDK: revive `deprecate_missing`, don't reinvent it
 
-One new keyword argument, and one removed (`name_field` — see the contract
-and sequencing below):
+`populate_from_iterator` already has the right argument, with the right
+default and the right meaning:
+
+```python
+deprecate_missing: bool = True   # template_populate.py
+```
+
+The params path never got it and grew `prune_missing` instead — a different
+name, a different default, a different action (delete), and a scan that no
+longer matches anything. The fix is to give `write_params_from_iterator` the
+**same argument as its sibling**, not a third mechanism:
 
 ```python
 def write_params_from_iterator(
     iterator, output_dir, *,
     template=None,
-    prune_missing=False,
-    existing_service_names: set[str] | None = None,
+    deprecate_missing=True,
 ) -> dict[str, int]:
 ```
 
-**`existing_service_names`** — the set of **service names**, in the same namespace as
-the contract below, that the provider's raw (pre-filter) enumeration maps to.
-`None` (default) preserves today's behaviour exactly, so rollout is per-repo
-and explicit.
+Nothing is passed in. The function reads what it needs from disk:
+
+1. **Before the loop**, collect every committed service under `output_dir`
+   into `remaining` — keyed by service name, which *is* the path.
+2. **In the loop**, each yielded service is written as usual and then
+   `remaining.pop(name)`. A name that was not there counts as `new`.
+3. **After the loop**, whatever is still in `remaining` never appeared this
+   run. Guard, then mark each `status = "deprecated"`.
+
+`prune_missing` is removed rather than fixed. Deleting a local param file was
+never a working retirement: it orphans the sidecar holding the `service_id`
+and leaves the **remote** service live forever — precisely the drift that let
+`GLM-5.1` linger. Marking it deprecated retires it properly, because the
+upload then acts on the remote (Part 2). Fixing prune's scan instead would
+have armed deletion of 37 param files in bedrock and 235 in ollama, both of
+which opted in while it was a no-op.
+
+#### The guard
+
+If **every** committed service would be deprecated, the run did not find a few
+retirements — it failed. A populator that errored, authenticated wrongly, or
+hit an endpoint serving nobody's models is indistinguishable from a catalog
+that retired all at once, and only one of those is real. So:
+
+```python
+if committed_total and len(remaining) == committed_total:
+    raise UpstreamEnumerationError(...)
+```
+
+The error prints a sample of the committed names and points at the likeliest
+cause — a `service_name` in the wrong namespace (raw model id `Qwen/Qwen3-32B`
+instead of service name `nebius/Qwen/Qwen3-32B`), which would make everything
+look absent.
+
+**Nothing needs unwinding when it raises.** The workflow's `git add specs/`
+and PR-creation steps never run once the populate step exits non-zero, so a
+half-written tree is discarded with the runner. That is why the check sits
+after the loop, where it is cheap and exact, rather than guessing before it.
+
+#### What counts as a service
+
+`output_dir` holds four kinds of `.json`, and only two carry a service:
+
+| file | count | contributes a name? |
+| --- | --- | --- |
+| `<NAME>.json` param file | 688 | **yes** → `<NAME>` |
+| `<NAME>/{offering,listing,…}.json` expanded folder | 1 repo | **yes** → `<NAME>` |
+| `<NAME>.service.json` identity sidecar | 688 | no |
+| `<NAME>.override.json` companion | 36 | no |
+
+The override companions matter: 36 exist across parasail (14), ollama (11),
+huggingface (6), groq (2), mistral (2) and nebius (1). A naive `*.json` glob
+counts each as a service that no run ever yields, and deprecates it every
+time.
+
+Both service shapes share one namespace, so cohere's un-migrated
+`cohere/embed-v4.0` folder needs no special case: `_deprecate_service` marks
+its `offering.json`/`listing.json`, `_deprecate_param_file` marks a param
+file's `parameters`.
+
+`status` needs no schema change — it is already a parameter in every repo and
+`deprecated` is already in use (parasail 2, mistral 2). `specs.py` folds it
+into the service status via `draft > deprecated > ready`.
 
 #### The iterator contract
 
@@ -172,7 +243,7 @@ So there is no generic rule that reconstructs a service name from
 parameters, and any attempt to infer one is wrong for at least one repo
 today. The only unambiguous source is the iterator stating it. Requiring
 `service_name` collapses three computations into one authoritative value
-that the path, `listing.name`, and `existing_service_names` all derive from.
+that the path, `listing.name`, and the deprecation match all derive from.
 
 **Cost today: none.** `_sanitize_dirname` is
 `name.strip("/").replace(":", "_")` and is a no-op on every name in every
@@ -210,9 +281,14 @@ strict SDK to `main` changes nothing for the repos — they keep resolving
 3. **Cut the release.** *This is the gate*: it must not happen until step 2
    is complete for all 17, because the next 02:00 cron picks it up
    everywhere at once.
-4. **Opt repos into `existing_service_names`**, parasail first.
+There is no step 4. `deprecate_missing` defaults to True, so deprecation
+switches on for **all 17 repos at once** when the release lands — the same
+02:00 cron that picks up the strict `service_name`. Expect the first
+post-release populate PR in each repo to carry deprecations; that is the
+point, and each is reviewed before merge. A repo that is not ready passes
+`deprecate_missing=False` in step 2.
 
-Templates are independent of all four: the render context already supplies
+Templates are independent of all three: the render context already supplies
 `service_name`, so `"name": "{{ service_name }}"` can land whenever.
 
 #### Why the service name, and not a model-id parameter
@@ -255,47 +331,6 @@ do not:
 | `<NAME>/{offering,listing,service,provider}.json` expanded folder | 1 repo | **yes** → `<NAME>` |
 | `<NAME>.service.json` identity sidecar | 688 | no |
 | `<NAME>.override.json` companion | 36 | no |
-
-Because the contract puts both service shapes in one namespace, the pass
-handles them uniformly — including cohere's single un-migrated
-`cohere/embed-v4.0` folder, which needs no special case.
-
-The override companions matter: 36 exist across parasail (14), ollama (11),
-huggingface (6), groq (2), mistral (2) and nebius (1). A naive `*.json` glob
-treats each as a service with no upstream match and marks it deprecated.
-
-#### Algorithm
-
-Runs after the write loop, only when `existing_service_names is not None`:
-
-1. **Collect local names.** Walk `output_dir` for both service shapes,
-   applying the exclusions above. A param file contributes its path minus
-   `.json`; an expanded folder contributes its directory path.
-2. **Validate the enumeration — hard failure.** Raise
-   `UpstreamEnumerationError`, writing nothing, when either holds:
-   - `existing_service_names` is empty, or
-   - it is disjoint from the local names.
-
-   Zero overlap with a catalog we already publish means the call was wrong —
-   wrong key, wrong tier, wrong endpoint, a wholesale rename — not that
-   every model retired at once. An admin investigates.
-3. **Mark the missing.** For each local name absent from `existing_service_names`,
-   set `status = "deprecated"` — in `parameters` for a param file, in
-   `offering.json`/`listing.json` for an expanded folder (what
-   `_deprecate_service` already does). Idempotent: one already `deprecated`
-   is counted, not rewritten.
-4. **Report.** Extend the stats dict with `deprecated` and
-   `already_deprecated`, and name each affected service so the job log and
-   the PR body both carry it.
-
-What the iterator yielded is never consulted — only committed local names
-against raw upstream names. A model the script filters out is still in
-`existing_service_names`, so it is never marked. That is the defect described above,
-and step 4 is where it would otherwise land.
-
-`parameters.status` needs no schema change: `status` is already a parameter
-in every repo and `deprecated` is already in use (parasail 2, mistral 2).
-`specs.py` folds it into the service status via `draft > deprecated > ready`.
 
 #### Curated entries
 
@@ -367,63 +402,48 @@ overall exit code, and every repo has a single populator today.
 
 ### Part 4 — Rollout
 
-Per repo, one edit to `services/scripts/update_params.py`: derive service
-names from the raw enumeration the script already fetches, and pass them.
+Per repo, one edit to `services/scripts/update_params.py`: state
+`service_name` in what the iterator yields. Nothing else — `deprecate_missing`
+defaults to True, and the function reads the committed set from disk itself.
 
 ```python
-raw = fetch_models()                       # already happens
-# The same id -> service-name mapping the script already applies when it
-# yields, but over the UNFILTERED enumeration.
-existing_service_names = {service_name_for(m) for m in raw}
+#   {"name": f"{PROVIDER_NAME}/{model_id}", ...}
+# -> {"service_name": f"{PROVIDER_NAME}/{model_id}", ...}
 
-# The yield states service_name (sequencing step 2; `name` may sit
-# alongside it until the release, then be dropped):
-#   {"service_name": f"{PROVIDER_NAME}/{model_id}", ...}
-
-write_params_from_iterator(
-    iter_models(raw),                      # unchanged, still filters
-    output_dir=SPECS_DIR,
-    existing_service_names=existing_service_names,
-)
+write_params_from_iterator(iter_models(raw), output_dir=SPECS_DIR)
 ```
 
-No per-repo configuration: every repo passes the same argument, and the
-mapping stays in the script that already owns it.
-
-This is sequencing step 4 — it follows the release, so every script already
-yields `service_name` by the time a repo opts in.
+The two repos passing `prune_missing=True` (bedrock, ollama) drop that
+argument; it has been a no-op in both, and deprecation now covers the intent
+behind it.
 
 Order: `parasail` first — it has four known-retired models, so its first PR
-is the end-to-end proof. Then `openai` and `nebius`, whose heavy filtering
-exercises the filtered-model case hardest. Then the rest. Cohere last, since
-it is the one repo where a param file and an expanded folder coexist.
+is the end-to-end proof. Then the rest. Cohere last, since it is the one repo
+where a param file and an expanded folder coexist.
 
-Ollama is local-only; confirm its enumeration is meaningful before enabling
-it, and leave it off if not.
+Ollama is local-only; confirm its enumeration is meaningful before relying on
+it, and pass `deprecate_missing=False` there if not.
 
 ## Testing
 
-**SDK unit tests** — the guard, the filter defect, and the file-class
-exclusions are the ones that matter:
+**SDK unit tests** — the guard, the file-class exclusions, and the two
+service shapes are what matter:
 
-- disjoint `existing_service_names` raises and writes nothing
-- empty `existing_service_names` raises and writes nothing
-- overlap present → only the genuinely absent names are marked
-- a model the iterator filtered out but that IS in `existing_service_names` is
-  untouched — the regression test for the second defect
-- `<NAME>.service.json` and `<NAME>.override.json` are never treated as
-  services and never marked — the regression test for the 36 override
-  companions
+- a committed service the iterator does not yield is deprecated
+- a yielded service that was not committed counts as `new`, not deprecated
+- matching **none** of the committed services raises — the failed-populate
+  guard — as does yielding nothing at all
+- a first run on an empty repo is not a failure (nothing committed, nothing
+  to explain)
+- `<NAME>.service.json` and `<NAME>.override.json` are never services — the
+  regression test for the 36 override companions
 - an expanded `<NAME>/offering.json` folder contributes `<NAME>` and is
   marked via `_deprecate_service`, so cohere needs no special case
-- a yielded name that would be sanitised (`llama3:8b`) raises
-  `ParamRenderError` instead of silently writing `llama3_8b`
-- an iterator entry with no `service_name` fails with a message naming it,
-  not a silent skip
-- an entry carrying both `name` and `service_name` (the step-1 transitional
-  shape) writes a param file byte-identical to today's
+- a stale expanded folder is marked, never deleted: its `service_id` must
+  survive so the upload can retire the remote service
 - re-running is idempotent
-- `existing_service_names=None` reproduces today's behaviour byte for byte
+- `deprecate_missing=False` leaves stale entries alone
+- a name that would be sanitised raises; a missing `service_name` raises
 
 **Upload tests** — remote `active` deprecates, remote `pending` deletes,
 already-`deprecated` is a no-op, missing remote is a no-op.

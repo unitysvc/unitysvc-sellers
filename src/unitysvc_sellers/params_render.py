@@ -760,59 +760,37 @@ def _deprecate_param_file(path: Path) -> bool:
     return True
 
 
-def _validate_enumeration(output_dir: Path, existing_service_names: set[str]) -> None:
-    """Refuse an enumeration that cannot be trusted to retire anything.
+def _deprecate_missing_services(remaining: dict[str, Path], committed_total: int, stats: dict[str, int]) -> None:
+    """Deprecate every committed service the iterator did not account for.
 
-    Called BEFORE the write loop, so a bad enumeration leaves the repo
-    untouched: the run fails having written nothing at all, rather than
-    half-updating a catalog it was about to mis-deprecate.
+    ``remaining`` starts as everything committed under ``output_dir`` and is
+    drained as the iterator yields, so what is left never appeared in this run.
 
-    A trustworthy enumeration returns models AND overlaps what we already
-    publish. Zero overlap means the call was wrong — wrong key, wrong tier,
-    wrong endpoint, a wholesale rename — not that every model retired at once.
+    Guard: if that is *everything*, the run did not fail to find a few retired
+    models — it failed. A populator that errored, authenticated wrongly, or hit
+    an endpoint returning nobody's models looks exactly like a catalog that
+    retired all at once, and only one of those is real. Refuse.
+
+    Nothing needs unwinding when this raises: the workflow's ``git add specs/``
+    and PR-creation steps never run once the populate step exits non-zero, so
+    a half-written tree is discarded with the runner.
     """
-    committed = _committed_service_names(output_dir)
-
-    if not existing_service_names:
+    if committed_total and len(remaining) == committed_total:
         raise UpstreamEnumerationError(
-            "existing_service_names is empty: the upstream enumeration returned "
-            f"nothing. Refusing to deprecate all {len(committed)} committed "
-            "service(s) on that basis — check the provider credential and endpoint."
-        )
-    if committed and existing_service_names.isdisjoint(committed):
-        sample_up = sorted(existing_service_names)[:3]
-        sample_local = sorted(committed)[:3]
-        raise UpstreamEnumerationError(
-            f"none of the {len(existing_service_names)} name(s) in "
-            f"existing_service_names match any of the {len(committed)} committed "
+            f"the iterator matched none of the {committed_total} committed "
             "service(s), so every one of them would be deprecated. That is a "
-            "broken enumeration, not a retired catalog — refusing.\n"
-            f"  upstream sample: {sample_up}\n"
-            f"  committed sample: {sample_local}\n"
-            "If those two look like different naming schemes, the set is "
-            "probably raw model ids; it must hold SERVICE names, the path under "
-            "specs/ (e.g. 'nebius/Qwen/Qwen3-32B', not 'Qwen/Qwen3-32B')."
+            "failed populate, not a retired catalog — refusing.\n"
+            f"  committed sample: {sorted(remaining)[:3]}\n"
+            "Check the provider credential and endpoint, and that each yielded "
+            "'service_name' is the service's path under specs/ "
+            "(e.g. 'nebius/Qwen/Qwen3-32B', not 'Qwen/Qwen3-32B')."
         )
 
-
-def _deprecate_absent_services(output_dir: Path, existing_service_names: set[str], stats: dict[str, int]) -> None:
-    """Mark every committed service the upstream no longer serves.
-
-    The comparison is committed names against the provider's RAW, pre-filter
-    enumeration — never against what the iterator yielded. Iterators yield
-    POST-filter models (openai's script alone drops ~15 substrings), so matching
-    on them would deprecate every family a script deliberately omits.
-
-    Runs after the write loop, so a model that reappeared upstream this run has
-    already been rewritten and is not in the missing set.
-    """
-    committed = _committed_service_names(output_dir)
-
-    for name in sorted(set(committed) - existing_service_names):
-        target = committed[name]
+    for name in sorted(remaining):
+        target = remaining[name]
         changed = _deprecate_service(target) if target.is_dir() else _deprecate_param_file(target)
         if changed:
-            print(f"  deprecated (no longer served upstream): {name}")
+            print(f"  deprecated (not served upstream): {name}")
             stats["deprecated"] += 1
         else:
             stats["already_deprecated"] += 1
@@ -823,8 +801,7 @@ def write_params_from_iterator(
     output_dir: str | Path,
     *,
     template: str | None = None,
-    prune_missing: bool = False,
-    existing_service_names: set[str] | None = None,
+    deprecate_missing: bool = True,
 ) -> dict[str, int]:
     """Write one **param file** per yielded var-dict (the params mirror of
     :func:`populate_from_iterator`).
@@ -853,56 +830,46 @@ def write_params_from_iterator(
         output_dir: The ``specs/`` directory to write param files into.
         template: Optional local-template name recorded in each param file. ``None``
             (default) means the repo's ``templates/`` root renders the params.
-        prune_missing: How to treat expanded service folders the iterator did NOT
-            yield (committed locally but not in the live source — e.g. a curated
-            off-API model). Default False mirrors ``populate_from_iterator``'s
-            non-destructive intent: the folder is **kept** (and logged) so its
-            ``service_id`` is never lost. Set True to delete them instead.
-        existing_service_names: Every service the PROVIDER still offers, named
-            the way this repo names services — i.e. the path under ``specs/``,
-            the same ``service_name`` the iterator yields. "Existing" means
-            existing *upstream*: locally committed services are what this is
-            compared against, not what it contains.
+        deprecate_missing: Mark every committed service the iterator did NOT
+            yield as ``status="deprecated"`` (default True, matching
+            ``populate_from_iterator``'s argument of the same name).
 
-            Build it from the provider's **raw, pre-filter** enumeration, not
-            from what this iterator yields. Iterators yield POST-filter models
-            (openai's script alone drops ~15 substrings), so a set built from
-            them would omit every family the script deliberately skips — and
-            each of those would then be deprecated.
+            The set of committed services is read from ``output_dir`` before
+            the run and drained as each service is yielded, so what remains
+            never appeared — the upstream stopped serving it. Nothing external
+            has to be passed: a model the script filters out is filtered on
+            *every* run, so it was never committed and cannot be in the
+            remainder.
 
-            Every committed service absent from this set is marked
-            ``status="deprecated"``. ``None`` (default) skips the pass
-            entirely, so a repo opts in by passing it.
-
-            A set that is empty, or that shares no name with anything
-            committed, raises :class:`UpstreamEnumerationError` before anything
-            is written — that is a broken enumeration, not a retired catalog.
+            Set False to leave stale entries alone (e.g. a repo whose
+            populator covers only part of its catalog).
 
     Returns:
-        Stats dict: ``{"total", "written", "errors", "pruned", "kept",
-        "deprecated", "already_deprecated"}``. The last two are always present
-        and stay 0 when ``existing_service_names`` is not passed.
+        Stats dict: ``{"total", "written", "new", "errors", "deprecated",
+        "already_deprecated"}``.
 
     Raises:
-        UpstreamEnumerationError: ``existing_service_names`` cannot be trusted (see above).
+        UpstreamEnumerationError: the iterator matched none of the committed
+            services, so all of them would be deprecated — a failed populate,
+            not a retired catalog.
         ParamRenderError: a yielded name is not usable verbatim as a path.
     """
     output_dir = Path(output_dir)
     stats = {
         "total": 0,
         "written": 0,
+        "new": 0,
         "errors": 0,
-        "pruned": 0,
-        "kept": 0,
         "deprecated": 0,
         "already_deprecated": 0,
     }
-    seen: set[str] = set()
 
-    # Before anything is written: an enumeration we cannot trust must leave the
-    # repo exactly as it found it.
-    if existing_service_names is not None:
-        _validate_enumeration(output_dir, existing_service_names)
+    # Everything committed before this run. Each yielded service is drained out
+    # below, so whatever is still here at the end never appeared in this run —
+    # i.e. the upstream stopped serving it.
+    remaining = _committed_service_names(output_dir)
+    committed_total = len(remaining)
+    seen: set[str] = set()
 
     for model_data in iterator:
         stats["total"] += 1
@@ -954,22 +921,15 @@ def write_params_from_iterator(
         if old_folder.is_dir():
             shutil.rmtree(old_folder, ignore_errors=True)
 
+        # This service is accounted for; drop it from the set of committed
+        # services still awaiting an explanation.
+        if remaining.pop(rel, None) is None:
+            stats["new"] += 1
+
         stats["written"] += 1
         print(f"  wrote {param_path.relative_to(output_dir)}" + (f"  (service_id {sid[:8]}…)" if sid else ""))
 
-    for folder in _expanded_service_folders(output_dir):
-        rel = folder.relative_to(output_dir).as_posix()
-        if rel in seen:
-            continue
-        if prune_missing:
-            print(f"  pruned (no live match): {rel}/")
-            shutil.rmtree(folder, ignore_errors=True)
-            stats["pruned"] += 1
-        else:
-            print(f"  kept (curated; not in live source): {rel}/")
-            stats["kept"] += 1
-
-    if existing_service_names is not None:
-        _deprecate_absent_services(output_dir, existing_service_names, stats)
+    if deprecate_missing:
+        _deprecate_missing_services(remaining, committed_total, stats)
 
     return stats
