@@ -760,7 +760,7 @@ def _deprecate_param_file(path: Path) -> bool:
     return True
 
 
-def _validate_enumeration(output_dir: Path, upstream_names: set[str]) -> None:
+def _validate_enumeration(output_dir: Path, existing_service_names: set[str]) -> None:
     """Refuse an enumeration that cannot be trusted to retire anything.
 
     Called BEFORE the write loop, so a bad enumeration leaves the repo
@@ -773,23 +773,29 @@ def _validate_enumeration(output_dir: Path, upstream_names: set[str]) -> None:
     """
     committed = _committed_service_names(output_dir)
 
-    if not upstream_names:
+    if not existing_service_names:
         raise UpstreamEnumerationError(
-            "upstream enumeration returned no models; refusing to deprecate "
-            f"{len(committed)} committed service(s). Check the provider "
-            "credential and endpoint."
+            "existing_service_names is empty: the upstream enumeration returned "
+            f"nothing. Refusing to deprecate all {len(committed)} committed "
+            "service(s) on that basis — check the provider credential and endpoint."
         )
-    if committed and upstream_names.isdisjoint(committed):
+    if committed and existing_service_names.isdisjoint(committed):
+        sample_up = sorted(existing_service_names)[:3]
+        sample_local = sorted(committed)[:3]
         raise UpstreamEnumerationError(
-            f"upstream enumeration returned {len(upstream_names)} model(s), none "
-            f"of which match any of the {len(committed)} committed service(s). "
-            "That is a broken enumeration, not a retired catalog — refusing to "
-            "deprecate. Check the provider credential, endpoint, and that the "
-            "names passed are service names (e.g. 'nebius/Qwen/Qwen3-32B')."
+            f"none of the {len(existing_service_names)} name(s) in "
+            f"existing_service_names match any of the {len(committed)} committed "
+            "service(s), so every one of them would be deprecated. That is a "
+            "broken enumeration, not a retired catalog — refusing.\n"
+            f"  upstream sample: {sample_up}\n"
+            f"  committed sample: {sample_local}\n"
+            "If those two look like different naming schemes, the set is "
+            "probably raw model ids; it must hold SERVICE names, the path under "
+            "specs/ (e.g. 'nebius/Qwen/Qwen3-32B', not 'Qwen/Qwen3-32B')."
         )
 
 
-def _deprecate_absent_services(output_dir: Path, upstream_names: set[str], stats: dict[str, int]) -> None:
+def _deprecate_absent_services(output_dir: Path, existing_service_names: set[str], stats: dict[str, int]) -> None:
     """Mark every committed service the upstream no longer serves.
 
     The comparison is committed names against the provider's RAW, pre-filter
@@ -802,7 +808,7 @@ def _deprecate_absent_services(output_dir: Path, upstream_names: set[str], stats
     """
     committed = _committed_service_names(output_dir)
 
-    for name in sorted(set(committed) - upstream_names):
+    for name in sorted(set(committed) - existing_service_names):
         target = committed[name]
         changed = _deprecate_service(target) if target.is_dir() else _deprecate_param_file(target)
         if changed:
@@ -818,7 +824,7 @@ def write_params_from_iterator(
     *,
     template: str | None = None,
     prune_missing: bool = False,
-    upstream_names: set[str] | None = None,
+    existing_service_names: set[str] | None = None,
 ) -> dict[str, int]:
     """Write one **param file** per yielded var-dict (the params mirror of
     :func:`populate_from_iterator`).
@@ -852,28 +858,33 @@ def write_params_from_iterator(
             off-API model). Default False mirrors ``populate_from_iterator``'s
             non-destructive intent: the folder is **kept** (and logged) so its
             ``service_id`` is never lost. Set True to delete them instead.
-        upstream_names: Service names the provider's **raw, pre-filter** model
-            enumeration maps to — same namespace as ``name_field``, i.e. the
-            path under ``specs/``. Every committed service absent from this set
-            is marked ``status="deprecated"``. ``None`` (default) skips the pass
+        existing_service_names: Every service the PROVIDER still offers, named
+            the way this repo names services — i.e. the path under ``specs/``,
+            the same ``service_name`` the iterator yields. "Existing" means
+            existing *upstream*: locally committed services are what this is
+            compared against, not what it contains.
+
+            Build it from the provider's **raw, pre-filter** enumeration, not
+            from what this iterator yields. Iterators yield POST-filter models
+            (openai's script alone drops ~15 substrings), so a set built from
+            them would omit every family the script deliberately skips — and
+            each of those would then be deprecated.
+
+            Every committed service absent from this set is marked
+            ``status="deprecated"``. ``None`` (default) skips the pass
             entirely, so a repo opts in by passing it.
 
-            It must be the RAW enumeration, not what this iterator yields:
-            iterators yield POST-filter models (openai's script alone drops ~15
-            substrings), so comparing against them would deprecate every family
-            a script deliberately omits.
-
-            An enumeration that is empty, or that shares no name with anything
+            A set that is empty, or that shares no name with anything
             committed, raises :class:`UpstreamEnumerationError` before anything
-            is written — that is a broken call, not a retired catalog.
+            is written — that is a broken enumeration, not a retired catalog.
 
     Returns:
         Stats dict: ``{"total", "written", "errors", "pruned", "kept",
         "deprecated", "already_deprecated"}``. The last two are always present
-        and stay 0 when ``upstream_names`` is not passed.
+        and stay 0 when ``existing_service_names`` is not passed.
 
     Raises:
-        UpstreamEnumerationError: ``upstream_names`` cannot be trusted (see above).
+        UpstreamEnumerationError: ``existing_service_names`` cannot be trusted (see above).
         ParamRenderError: a yielded name is not usable verbatim as a path.
     """
     output_dir = Path(output_dir)
@@ -890,8 +901,8 @@ def write_params_from_iterator(
 
     # Before anything is written: an enumeration we cannot trust must leave the
     # repo exactly as it found it.
-    if upstream_names is not None:
-        _validate_enumeration(output_dir, upstream_names)
+    if existing_service_names is not None:
+        _validate_enumeration(output_dir, existing_service_names)
 
     for model_data in iterator:
         stats["total"] += 1
@@ -958,7 +969,7 @@ def write_params_from_iterator(
             print(f"  kept (curated; not in live source): {rel}/")
             stats["kept"] += 1
 
-    if upstream_names is not None:
-        _deprecate_absent_services(output_dir, upstream_names, stats)
+    if existing_service_names is not None:
+        _deprecate_absent_services(output_dir, existing_service_names, stats)
 
     return stats

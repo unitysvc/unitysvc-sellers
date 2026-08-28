@@ -95,11 +95,11 @@ def write_params_from_iterator(
     iterator, output_dir, *,
     template=None,
     prune_missing=False,
-    upstream_names: set[str] | None = None,
+    existing_service_names: set[str] | None = None,
 ) -> dict[str, int]:
 ```
 
-**`upstream_names`** — the set of **service names**, in the same namespace as
+**`existing_service_names`** — the set of **service names**, in the same namespace as
 the contract below, that the provider's raw (pre-filter) enumeration maps to.
 `None` (default) preserves today's behaviour exactly, so rollout is per-repo
 and explicit.
@@ -172,7 +172,7 @@ So there is no generic rule that reconstructs a service name from
 parameters, and any attempt to infer one is wrong for at least one repo
 today. The only unambiguous source is the iterator stating it. Requiring
 `service_name` collapses three computations into one authoritative value
-that the path, `listing.name`, and `upstream_names` all derive from.
+that the path, `listing.name`, and `existing_service_names` all derive from.
 
 **Cost today: none.** `_sanitize_dirname` is
 `name.strip("/").replace(":", "_")` and is a no-op on every name in every
@@ -210,7 +210,7 @@ strict SDK to `main` changes nothing for the repos — they keep resolving
 3. **Cut the release.** *This is the gate*: it must not happen until step 2
    is complete for all 17, because the next 02:00 cron picks it up
    everywhere at once.
-4. **Opt repos into `upstream_names`**, parasail first.
+4. **Opt repos into `existing_service_names`**, parasail first.
 
 Templates are independent of all four: the render context already supplies
 `service_name`, so `"name": "{{ service_name }}"` can land whenever.
@@ -266,20 +266,20 @@ treats each as a service with no upstream match and marks it deprecated.
 
 #### Algorithm
 
-Runs after the write loop, only when `upstream_names is not None`:
+Runs after the write loop, only when `existing_service_names is not None`:
 
 1. **Collect local names.** Walk `output_dir` for both service shapes,
    applying the exclusions above. A param file contributes its path minus
    `.json`; an expanded folder contributes its directory path.
 2. **Validate the enumeration — hard failure.** Raise
    `UpstreamEnumerationError`, writing nothing, when either holds:
-   - `upstream_names` is empty, or
+   - `existing_service_names` is empty, or
    - it is disjoint from the local names.
 
    Zero overlap with a catalog we already publish means the call was wrong —
    wrong key, wrong tier, wrong endpoint, a wholesale rename — not that
    every model retired at once. An admin investigates.
-3. **Mark the missing.** For each local name absent from `upstream_names`,
+3. **Mark the missing.** For each local name absent from `existing_service_names`,
    set `status = "deprecated"` — in `parameters` for a param file, in
    `offering.json`/`listing.json` for an expanded folder (what
    `_deprecate_service` already does). Idempotent: one already `deprecated`
@@ -290,7 +290,7 @@ Runs after the write loop, only when `upstream_names is not None`:
 
 What the iterator yielded is never consulted — only committed local names
 against raw upstream names. A model the script filters out is still in
-`upstream_names`, so it is never marked. That is the defect described above,
+`existing_service_names`, so it is never marked. That is the defect described above,
 and step 4 is where it would otherwise land.
 
 `parameters.status` needs no schema change: `status` is already a parameter
@@ -374,16 +374,16 @@ names from the raw enumeration the script already fetches, and pass them.
 raw = fetch_models()                       # already happens
 # The same id -> service-name mapping the script already applies when it
 # yields, but over the UNFILTERED enumeration.
-upstream_names = {service_name_for(m) for m in raw}
+existing_service_names = {service_name_for(m) for m in raw}
 
-# The yield carries service_name (added in sequencing step 1, alongside
-# `name`; `name` is dropped in step 3):
+# The yield states service_name (sequencing step 2; `name` may sit
+# alongside it until the release, then be dropped):
 #   {"service_name": f"{PROVIDER_NAME}/{model_id}", ...}
 
 write_params_from_iterator(
     iter_models(raw),                      # unchanged, still filters
     output_dir=SPECS_DIR,
-    upstream_names=upstream_names,
+    existing_service_names=existing_service_names,
 )
 ```
 
@@ -406,10 +406,10 @@ it, and leave it off if not.
 **SDK unit tests** — the guard, the filter defect, and the file-class
 exclusions are the ones that matter:
 
-- disjoint `upstream_names` raises and writes nothing
-- empty `upstream_names` raises and writes nothing
+- disjoint `existing_service_names` raises and writes nothing
+- empty `existing_service_names` raises and writes nothing
 - overlap present → only the genuinely absent names are marked
-- a model the iterator filtered out but that IS in `upstream_names` is
+- a model the iterator filtered out but that IS in `existing_service_names` is
   untouched — the regression test for the second defect
 - `<NAME>.service.json` and `<NAME>.override.json` are never treated as
   services and never marked — the regression test for the 36 override
@@ -423,7 +423,7 @@ exclusions are the ones that matter:
 - an entry carrying both `name` and `service_name` (the step-1 transitional
   shape) writes a param file byte-identical to today's
 - re-running is idempotent
-- `upstream_names=None` reproduces today's behaviour byte for byte
+- `existing_service_names=None` reproduces today's behaviour byte for byte
 
 **Upload tests** — remote `active` deprecates, remote `pending` deletes,
 already-`deprecated` is a no-op, missing remote is a no-op.

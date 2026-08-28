@@ -191,7 +191,7 @@ def test_write_params_replaces_expanded_folders(tmp_path: Path) -> None:
         "pruned": 0,
         "kept": 1,
         # Reported unconditionally so the shape does not depend on whether
-        # upstream_names was passed; both stay 0 without it.
+        # existing_service_names was passed; both stay 0 without it.
         "deprecated": 0,
         "already_deprecated": 0,
     }
@@ -293,7 +293,7 @@ def test_absent_from_enumeration_is_deprecated(tmp_path: Path) -> None:
     stats = write_params_from_iterator(
         _iter("p/live"),
         specs,
-        upstream_names={"p/live"},  # p/retired is gone upstream
+        existing_service_names={"p/live"},  # p/retired is gone upstream
     )
 
     assert _status_of(specs, "p/retired") == "deprecated"
@@ -314,7 +314,7 @@ def test_filtered_but_still_upstream_is_untouched(tmp_path: Path) -> None:
     stats = write_params_from_iterator(
         _iter("p/live"),  # yields only p/live
         specs,
-        upstream_names={"p/live", "p/filtered"},  # but BOTH are served
+        existing_service_names={"p/live", "p/filtered"},  # but BOTH are served
     )
 
     assert _status_of(specs, "p/filtered") == "ready"
@@ -330,7 +330,7 @@ def test_disjoint_enumeration_raises_and_writes_nothing(tmp_path: Path) -> None:
     _seed(specs, ["p/a", "p/b"])
 
     with pytest.raises(UpstreamEnumerationError):
-        write_params_from_iterator(_iter("p/a"), specs, upstream_names={"q/x", "q/y"})
+        write_params_from_iterator(_iter("p/a"), specs, existing_service_names={"q/x", "q/y"})
 
     assert _status_of(specs, "p/a") == "ready"
     assert _status_of(specs, "p/b") == "ready"
@@ -343,7 +343,7 @@ def test_empty_enumeration_raises(tmp_path: Path) -> None:
     _seed(specs, ["p/a"])
 
     with pytest.raises(UpstreamEnumerationError):
-        write_params_from_iterator(_iter("p/a"), specs, upstream_names=set())
+        write_params_from_iterator(_iter("p/a"), specs, existing_service_names=set())
 
     assert _status_of(specs, "p/a") == "ready"
 
@@ -356,7 +356,7 @@ def test_sidecars_and_override_companions_are_not_services(tmp_path: Path) -> No
     (specs / "p" / "live.service.json").write_text(json.dumps({"service_id": "sid"}) + "\n")
     (specs / "p" / "live.override.json").write_text(json.dumps({"tool_calling": False}) + "\n")
 
-    stats = write_params_from_iterator(_iter("p/live"), specs, upstream_names={"p/live"})
+    stats = write_params_from_iterator(_iter("p/live"), specs, existing_service_names={"p/live"})
 
     assert stats["deprecated"] == 0
     # Companions untouched — no status injected, still valid JSON of their own shape.
@@ -374,7 +374,7 @@ def test_expanded_folder_contributes_its_name(tmp_path: Path) -> None:
     (folder / "offering.json").write_text(json.dumps({"name": "old-shape", "status": "ready"}) + "\n")
     (folder / "listing.json").write_text(json.dumps({"name": "p/old-shape", "status": "ready"}) + "\n")
 
-    write_params_from_iterator(_iter("p/live"), specs, upstream_names={"p/live"})
+    write_params_from_iterator(_iter("p/live"), specs, existing_service_names={"p/live"})
 
     assert json.loads((folder / "offering.json").read_text())["status"] == "deprecated"
     assert json.loads((folder / "listing.json").read_text())["status"] == "deprecated"
@@ -384,9 +384,9 @@ def test_deprecation_is_idempotent(tmp_path: Path) -> None:
     specs = tmp_path / "specs"
     _seed(specs, ["p/live", "p/retired"])
 
-    first = write_params_from_iterator(_iter("p/live"), specs, upstream_names={"p/live"})
+    first = write_params_from_iterator(_iter("p/live"), specs, existing_service_names={"p/live"})
     before = (specs / "p" / "retired.json").read_text()
-    second = write_params_from_iterator(_iter("p/live"), specs, upstream_names={"p/live"})
+    second = write_params_from_iterator(_iter("p/live"), specs, existing_service_names={"p/live"})
 
     assert first["deprecated"] == 1
     assert second["deprecated"] == 0
@@ -406,7 +406,7 @@ def test_name_that_would_be_sanitised_is_rejected(tmp_path: Path) -> None:
         write_params_from_iterator(it(), specs)
 
 
-def test_no_upstream_names_leaves_behaviour_unchanged(tmp_path: Path) -> None:
+def test_no_existing_service_names_leaves_behaviour_unchanged(tmp_path: Path) -> None:
     specs = tmp_path / "specs"
     _seed(specs, ["p/live", "p/retired"])
 
