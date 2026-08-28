@@ -86,13 +86,13 @@ The comparison has to be against the **raw enumeration, before filtering**.
 
 ### Part 1 — SDK: real deprecation in `write_params_from_iterator`
 
-One new keyword argument:
+One new keyword argument, and one removed (`name_field` — see the contract
+and sequencing below):
 
 ```python
 def write_params_from_iterator(
     iterator, output_dir, *,
     template=None,
-    name_field="name",           # resolution order below
     prune_missing=False,
     upstream_names: set[str] | None = None,
 ) -> dict[str, int]:
@@ -113,18 +113,38 @@ specs/<SERVICE_NAME>.json                 # param file
 specs/<SERVICE_NAME>/offering.json        # expanded folder
 ```
 
-`write_params_from_iterator` resolves the name as `service_name` first, then
-`name_field` (default `"name"`), and validates the result: if
-`_sanitize_dirname(name) != name`, raise `ParamRenderError` naming the
-service, rather than silently writing to a path that no longer equals the
-name it was asked for. A service with neither key is an error, not the
-silent skip it is today.
+`write_params_from_iterator` **requires** it. A yielded dict without
+`service_name` is an error naming the offending entry — not the silent skip
+it is today. There is no fallback key and no `name_field` argument: a
+resolution order is a second way for the same value to arrive, which is the
+ambiguity this contract exists to remove.
 
-The fallback is the migration path, not the destination. Every script yields
-`name` today, so flipping the default outright would break all 17 at once.
-Each script renames its key to `service_name` as part of the rollout; once
-none remain, the fallback and the `name_field` argument can both go. Both
-keys are already in `_PATH_DERIVED_KEYS`, so nothing else changes.
+It also validates the value: if `_sanitize_dirname(service_name) !=
+service_name`, raise `ParamRenderError`, rather than silently writing to a
+path that no longer equals the name it was asked for.
+
+Templates stop recomputing the name too:
+
+```jinja
+"name": "{{ provider_name }}/{{ offering_name }}"   ->   "name": "{{ service_name }}"
+```
+
+`service_name` is already in the render context at both call sites, derived
+from the param file's own path:
+
+```python
+ctx = {"name": service_name, "service_name": service_name,
+       "provider_name": service_name.split("/")[0], **parameters}
+```
+
+so `listing.name` becomes equal to the path *by construction* instead of by
+a per-repo expression that can drift from it. No SDK change is needed to
+enable this.
+
+That edit should be a **no-op on rendered output in every repo** — which is
+how it gets verified: render each repo before and after and diff. A repo
+whose output changes had a latent name/path divergence, and finding it is
+the point.
 
 **Why explicit, rather than reconstructed.** The service name is currently
 computed in three independent places that agree only by convention:
@@ -163,16 +183,44 @@ and checked instead of assumed. Silent sanitisation is precisely what would
 break it later: a future `llama3:8b` would land at `llama3_8b` and every
 name-to-path comparison would quietly miss.
 
-> **Follow-on, not required here.** Templates could render
-> `"name": "{{ service_name }}"` instead of recomputing it, which would
-> retire recomputation (2) and (3) entirely. Worth doing, but it touches
-> every repo's templates and is not needed for deprecation to be correct —
-> the validation above already guarantees path and name agree.
+#### Sequencing: this is a breaking change to a shared, unpinned dependency
+
+Requiring `service_name` and dropping `name_field` breaks every script that
+does not yet yield it. That is worse than a normal breaking change here,
+because the populate workflow is **shared and unpinned**:
+
+```yaml
+# unitysvc-labs/.github/.github/workflows/seller-populate-services.yml
+pip install "unitysvc-sellers>=0.2.25"
+```
+
+All 17 repos resolve the same version, so a strict release reaches every one
+of them on the next 02:00 cron. There is no per-repo staging of the SDK
+without first parameterising that workflow.
+
+So the scripts move first, and they can, because a dict may carry **both**
+keys:
+
+1. **Every script yields `service_name` alongside its existing `name`**, same
+   value. Compatible with the SDK in production today, which reads `name`;
+   `_PATH_DERIVED_KEYS` already strips both, so no param file changes by a
+   single byte. 17 independent PRs, no coordination, nothing to break.
+   Verified per repo by re-running populate and confirming an empty diff.
+2. **Release the strict SDK** — requires `service_name`, no `name_field`.
+   Every script already satisfies it, so the cron that picks it up is a
+   no-op. Minor-version bump with the break called out.
+3. **Drop `name` from the scripts.** Cleanup, one PR each, no deadline.
+
+Templates are independent of all three and can change whenever: the render
+context already supplies `service_name`.
+
+The transitional duplication lives in the scripts for one step, and never in
+the SDK. There is still no resolution order in shipped code.
 
 #### Why the service name, and not a model-id parameter
 
 The service name already *is* the identity. The write loop does
-`rel = _sanitize_dirname(model_data[name_field])` and writes
+`rel = _sanitize_dirname(<the yielded name>)` and writes
 `output_dir/<rel>.json`, and `_PATH_DERIVED_KEYS = ("name", "service_name",
 "provider_name")` strips those keys out of `parameters` precisely because
 the path carries them. Matching on anything else invents a second identity
@@ -330,9 +378,9 @@ raw = fetch_models()                       # already happens
 # yields, but over the UNFILTERED enumeration.
 upstream_names = {service_name_for(m) for m in raw}
 
-# ...and in the yield itself, rename the key:
-#   {"name": f"{PROVIDER_NAME}/{model_id}", ...}
-#   -> {"service_name": f"{PROVIDER_NAME}/{model_id}", ...}
+# The yield carries service_name (added in sequencing step 1, alongside
+# `name`; `name` is dropped in step 3):
+#   {"service_name": f"{PROVIDER_NAME}/{model_id}", ...}
 
 write_params_from_iterator(
     iter_models(raw),                      # unchanged, still filters
@@ -343,6 +391,9 @@ write_params_from_iterator(
 
 No per-repo configuration: every repo passes the same argument, and the
 mapping stays in the script that already owns it.
+
+This is sequencing step 4 — it follows the strict-SDK release, so every
+script already yields `service_name` by the time a repo opts in.
 
 Order: `parasail` first — it has four known-retired models, so its first PR
 is the end-to-end proof. Then `openai` and `nebius`, whose heavy filtering
@@ -369,8 +420,10 @@ exclusions are the ones that matter:
   marked via `_deprecate_service`, so cohere needs no special case
 - a yielded name that would be sanitised (`llama3:8b`) raises
   `ParamRenderError` instead of silently writing `llama3_8b`
-- an iterator yielding no `service_name` fails with a message naming the
-  offending entry, not a silent skip
+- an iterator entry with no `service_name` fails with a message naming it,
+  not a silent skip
+- an entry carrying both `name` and `service_name` (the step-1 transitional
+  shape) writes a param file byte-identical to today's
 - re-running is idempotent
 - `upstream_names=None` reproduces today's behaviour byte for byte
 
