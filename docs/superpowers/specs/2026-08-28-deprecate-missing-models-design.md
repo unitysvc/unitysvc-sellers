@@ -31,20 +31,22 @@ stale entry or keeps it — and that loop iterates
 `_expanded_service_folders(output_dir)`, which finds directories containing
 `offering.json` or `service.json`.
 
-After migration there are none:
+After migration there is essentially nothing left for it to find:
 
-| repo | param files | sidecars | expanded folders |
-| --- | --- | --- | --- |
-| ollama | 246 | 235 | 0 |
-| huggingface | 150 | 144 | 0 |
-| parasail | 98 | 84 | 0 |
-| bedrock | 37 | 37 | 0 |
-| openai | 26 | 26 | 0 |
-| nebius, groq, mistral, … | — | — | 0 |
+| repo | service param files | `.override.json` | sidecars | expanded folders |
+| --- | --- | --- | --- | --- |
+| ollama | 235 | 11 | 235 | 0 |
+| huggingface | 144 | 6 | 144 | 0 |
+| parasail | 84 | 14 | 84 | 0 |
+| bedrock | 37 | 0 | 37 | 0 |
+| openai | 26 | 0 | 26 | 0 |
+| cohere | 16 | 0 | 16 | **1** |
+| the other 11 | 146 | 5 | 146 | 0 |
 
 So the loop's body never runs. `prune_missing=True`, which bedrock and
-ollama explicitly opted into, is a no-op in both. **Dead code in all 17
-repos.**
+ollama explicitly opted into, is a no-op in both. **Dead in 16 of the 17
+repos.** The exception is cohere's single un-migrated folder
+(`cohere/embed-v4.0`).
 
 ### The second defect, which a naive fix would ship
 
@@ -84,7 +86,7 @@ The comparison has to be against the **raw enumeration, before filtering**.
 
 ### Part 1 — SDK: real deprecation in `write_params_from_iterator`
 
-Two new keyword arguments:
+One new keyword argument:
 
 ```python
 def write_params_from_iterator(
@@ -92,62 +94,91 @@ def write_params_from_iterator(
     template=None,
     name_field="name",
     prune_missing=False,
-    upstream_ids: set[str] | None = None,
-    upstream_id_field: str = "offering_name",
+    upstream_names: set[str] | None = None,
 ) -> dict[str, int]:
 ```
 
-- **`upstream_ids`** — the raw, pre-filter id set the provider's enumeration
-  returned. `None` (default) preserves today's behaviour exactly, so rollout
-  is per-repo and explicit, and no repo changes behaviour until its script
-  opts in.
-- **`upstream_id_field`** — which parameter key holds the upstream id.
+**`upstream_names`** — the set of **service names**, in the same namespace as
+`name_field`, that the provider's raw (pre-filter) enumeration maps to.
+`None` (default) preserves today's behaviour exactly, so rollout is per-repo
+and explicit.
 
-`offering_name` is present in every one of the 17 repos surveyed, so it is
-the default. Two repos need an override because their `offering_name` is not
-what the enumeration returns:
+#### Why the service name, and not a model-id parameter
 
-| repo | field to compare | enumeration returns |
+The service name already *is* the identity. The write loop does
+`rel = _sanitize_dirname(model_data[name_field])` and writes
+`output_dir/<rel>.json`, and `_PATH_DERIVED_KEYS = ("name", "service_name",
+"provider_name")` strips those keys out of `parameters` precisely because
+the path carries them. Matching on anything else invents a second identity
+beside the one the module already maintains.
+
+An earlier draft of this design compared a model-id parameter
+(`offering_name`, with per-repo overrides). The repo data says that is both
+unnecessary and unsafe:
+
+- **fireworks** needs no override — its `offering_name` already *is* the
+  full upstream id, `accounts/fireworks/models/kimi-k2p7-code`.
+- **bedrock** would have been actively broken by one. Its
+  `converse_model_id` is `None` for `zai.glm-4.6` and version-suffixed
+  (`openai.gpt-oss-120b-1:0`) where `offering_name` is
+  `openai.gpt-oss-120b`. Comparing on it would have deprecated live
+  services.
+
+A per-repo field table is a config axis that can be set wrongly, silently,
+in a direction that retires working services. The path cannot: it is how the
+file got its name.
+
+The script keeps ownership of the id→name mapping, which it already performs
+when it yields (fireworks: `accounts/fireworks/models/X` → `fireworks/X`).
+It applies that same mapping to the unfiltered enumeration.
+
+#### What counts as a service
+
+`output_dir` holds four kinds of `.json`, and only the first is a service:
+
+| file | count | in the comparison? |
 | --- | --- | --- |
-| fireworks | `model_name` | `accounts/fireworks/models/kimi-k2p7-code` |
-| bedrock | `converse_model_id` | `mistral.ministral-3-3b-instruct` |
-| all others | `offering_name` | the plain model id |
+| `<name>.json` param file | 688 | **yes** |
+| `<name>.service.json` identity sidecar | 688 | no |
+| `<name>.override.json` companion | 36 | no |
+| `service/listing/offering/provider.json` in an expanded folder | 1 repo | no — left to `prune_missing` |
+
+The override companions matter: 36 of them exist across parasail (14),
+ollama (11), huggingface (6), groq (2), mistral (2) and nebius (1). A naive
+`*.json` glob treats each as a service with no upstream match and marks it
+deprecated.
 
 #### Algorithm
 
-Runs after the write loop, only when `upstream_ids is not None`:
+Runs after the write loop, only when `upstream_names is not None`:
 
-1. **Collect local ids.** Walk `output_dir` for param files — `*.json`
-   excluding `*.service.json`. This replaces the `_expanded_service_folders`
-   scan and is the dead-loop fix. For each, read
-   `parameters[upstream_id_field]`.
-2. **Set aside the unjudgeable.** A param file with no value at that key
-   describes something we cannot match against the enumeration. Skip it,
-   count it, and name each one in the output. (Present today: 12 in
-   parasail, 11 in ollama, 6 in huggingface, 4 in cohere.)
+1. **Collect local names.** Walk `output_dir` for param files, applying the
+   exclusions above; each file's path minus `.json` is its name.
+2. **Normalise upstream names** through the same `_sanitize_dirname` the
+   write loop uses, so callers pass names and never worry about paths.
 3. **Validate the enumeration — hard failure.** Raise
-   `UpstreamEnumerationError` when either holds:
-   - `upstream_ids` is empty, or
-   - `upstream_ids.isdisjoint(local_ids)`.
+   `UpstreamEnumerationError`, writing nothing, when either holds:
+   - `upstream_names` is empty, or
+   - it is disjoint from the local names.
 
-   Nothing is written. Zero overlap with a catalog we already publish means
-   the call was wrong — wrong key, wrong tier, wrong endpoint, a wholesale
-   rename — not that every model retired at once. An admin investigates.
-4. **Mark the missing.** For each id in `local_ids - upstream_ids`, set
-   `parameters.status = "deprecated"` in its param file. Idempotent: a file
-   already `deprecated` is counted, not rewritten.
-5. **Report.** Extend the stats dict with `deprecated`,
-   `already_deprecated`, and `unjudgeable`, and print each affected service
-   name so the PR body and the job log both name them.
+   Zero overlap with a catalog we already publish means the call was wrong —
+   wrong key, wrong tier, wrong endpoint, a wholesale rename — not that
+   every model retired at once. An admin investigates.
+4. **Mark the missing.** For each local name absent from `upstream_names`,
+   set `parameters.status = "deprecated"`. Idempotent: a file already
+   `deprecated` is counted, not rewritten.
+5. **Report.** Extend the stats dict with `deprecated` and
+   `already_deprecated`, and name each affected service so the job log and
+   the PR body both carry it.
 
-The comparison is **committed local ids against raw upstream ids**. What the
-iterator yielded is not consulted. A filtered model is in `upstream_ids`, so
-it is never in `missing` — which is precisely the defect described above.
+What the iterator yielded is never consulted — only committed local names
+against raw upstream names. A model the script filters out is still in
+`upstream_names`, so it is never marked. That is the defect described above,
+and step 4 is where it would otherwise land.
 
 `parameters.status` needs no schema change: `status` is already a parameter
-in every repo, and `deprecated` is already in use (parasail 2, mistral 2).
-`specs.py` already folds it into the service status via
-`draft > deprecated > ready`.
+in every repo and `deprecated` is already in use (parasail 2, mistral 2).
+`specs.py` folds it into the service status via `draft > deprecated > ready`.
 
 #### Curated entries
 
@@ -157,7 +188,7 @@ in order:
 
 - The PR review is the gate. These are rare, and a reviewer who knows the
   entry is curated drops that hunk.
-- If a repo accumulates enough of them to be annoying, add an explicit
+- If a repo accumulates enough to be annoying, add an explicit
   `parameters.curated: true` opt-out that step 4 skips.
 
 Ship the first. Add the second only when a repo actually needs it.
@@ -219,45 +250,50 @@ overall exit code, and every repo has a single populator today.
 
 ### Part 4 — Rollout
 
-Per repo, one edit to `services/scripts/update_params.py`: keep the raw id
-set the script already fetches, and pass it through.
+Per repo, one edit to `services/scripts/update_params.py`: derive service
+names from the raw enumeration the script already fetches, and pass them.
 
 ```python
-raw = fetch_models()                      # already happens
-upstream_ids = {m["id"] for m in raw}     # before any filtering
+raw = fetch_models()                       # already happens
+# The same id -> service-name mapping the script already applies when it
+# yields, but over the UNFILTERED enumeration.
+upstream_names = {service_name_for(m) for m in raw}
 
 write_params_from_iterator(
-    iter_models(raw),                     # unchanged, still filters
+    iter_models(raw),                      # unchanged, still filters
     output_dir=SPECS_DIR,
-    upstream_ids=upstream_ids,
-    # upstream_id_field="model_name",     # fireworks
-    # upstream_id_field="converse_model_id",  # bedrock
+    upstream_names=upstream_names,
 )
 ```
 
+No per-repo configuration: every repo passes the same argument, and the
+mapping stays in the script that already owns it.
+
 Order: `parasail` first — it has four known-retired models, so its first PR
-is the end-to-end proof. Then `openai` and `nebius` (heaviest filtering, so
-they exercise the filtered-model case hardest), then `fireworks` and
-`bedrock` (the field overrides), then the rest.
+is the end-to-end proof. Then `openai` and `nebius`, whose heavy filtering
+exercises the filtered-model case hardest. Then the rest. Cohere last, since
+it is the one repo where a param file and an expanded folder coexist.
 
 Ollama is local-only; confirm its enumeration is meaningful before enabling
 it, and leave it off if not.
 
 ## Testing
 
-**SDK unit tests** — the guard and the filter defect are the ones that
-matter:
+**SDK unit tests** — the guard, the filter defect, and the file-class
+exclusions are the ones that matter:
 
-- disjoint `upstream_ids` raises and writes nothing
-- empty `upstream_ids` raises and writes nothing
-- overlap present → only the genuinely absent ids are marked
-- a model the iterator filtered out but that IS in `upstream_ids` is
+- disjoint `upstream_names` raises and writes nothing
+- empty `upstream_names` raises and writes nothing
+- overlap present → only the genuinely absent names are marked
+- a model the iterator filtered out but that IS in `upstream_names` is
   untouched — the regression test for the second defect
-- a param file lacking `upstream_id_field` is skipped and counted, never
-  marked
+- `<name>.service.json`, `<name>.override.json`, and the files inside an
+  expanded service folder are never treated as services and never marked —
+  the regression test for the 36 override companions
 - re-running is idempotent
-- `upstream_id_field` override resolves against the right key
-- `upstream_ids=None` reproduces today's behaviour byte for byte
+- callers pass names, not paths: a name needing `_sanitize_dirname`
+  normalisation still matches its committed file
+- `upstream_names=None` reproduces today's behaviour byte for byte
 
 **Upload tests** — remote `active` deprecates, remote `pending` deletes,
 already-`deprecated` is a no-op, missing remote is a no-op.
