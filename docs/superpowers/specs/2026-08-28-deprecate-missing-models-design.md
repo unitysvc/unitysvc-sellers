@@ -184,39 +184,36 @@ and checked instead of assumed. Silent sanitisation is precisely what would
 break it later: a future `llama3:8b` would land at `llama3_8b` and every
 name-to-path comparison would quietly miss.
 
-#### Sequencing: this is a breaking change to a shared, unpinned dependency
+#### Sequencing: the release is the gate, not the merge
 
 Requiring `service_name` and dropping `name_field` breaks every script that
-does not yet yield it. That is worse than a normal breaking change here,
-because the populate workflow is **shared and unpinned**:
+does not yet yield it, and the populate workflow is **shared and unpinned**:
 
 ```yaml
 # unitysvc-labs/.github/.github/workflows/seller-populate-services.yml
 pip install "unitysvc-sellers>=0.2.25"
 ```
 
-All 17 repos resolve the same version, so a strict release reaches every one
-of them on the next 02:00 cron. There is no per-repo staging of the SDK
-without first parameterising that workflow.
+All 17 repos resolve the same version, so there is no per-repo staging of the
+SDK without first parameterising that workflow.
 
-So the scripts move first, and they can, because a dict may carry **both**
-keys:
+What makes this tractable: **publishing is triggered by a GitHub release, not
+by a merge** (`publish.yml` fires on `release: [published]`). Merging the
+strict SDK to `main` changes nothing for the repos — they keep resolving
+0.2.36 from PyPI until someone cuts a release.
 
-1. **Every script yields `service_name` alongside its existing `name`**, same
-   value. Compatible with the SDK in production today, which reads `name`;
-   `_PATH_DERIVED_KEYS` already strips both, so no param file changes by a
-   single byte. 17 independent PRs, no coordination, nothing to break.
-   Verified per repo by re-running populate and confirming an empty diff.
-2. **Release the strict SDK** — requires `service_name`, no `name_field`.
-   Every script already satisfies it, so the cron that picks it up is a
-   no-op. Minor-version bump with the break called out.
-3. **Drop `name` from the scripts.** Cleanup, one PR each, no deadline.
+1. **Merge the strict SDK** (this change). Safe: nothing is published.
+2. **17 script PRs**, one per repo, each yielding `service_name`. They may
+   keep `name` alongside it — `_PATH_DERIVED_KEYS` strips both, so no param
+   file changes by a byte, and the scripts stay compatible with the released
+   0.2.36 throughout.
+3. **Cut the release.** *This is the gate*: it must not happen until step 2
+   is complete for all 17, because the next 02:00 cron picks it up
+   everywhere at once.
+4. **Opt repos into `upstream_names`**, parasail first.
 
-Templates are independent of all three and can change whenever: the render
-context already supplies `service_name`.
-
-The transitional duplication lives in the scripts for one step, and never in
-the SDK. There is still no resolution order in shipped code.
+Templates are independent of all four: the render context already supplies
+`service_name`, so `"name": "{{ service_name }}"` can land whenever.
 
 #### Why the service name, and not a model-id parameter
 
@@ -393,8 +390,8 @@ write_params_from_iterator(
 No per-repo configuration: every repo passes the same argument, and the
 mapping stays in the script that already owns it.
 
-This is sequencing step 4 — it follows the strict-SDK release, so every
-script already yields `service_name` by the time a repo opts in.
+This is sequencing step 4 — it follows the release, so every script already
+yields `service_name` by the time a repo opts in.
 
 Order: `parasail` first — it has four known-retired models, so its first PR
 is the end-to-end proof. Then `openai` and `nebius`, whose heavy filtering
