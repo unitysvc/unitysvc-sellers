@@ -9,6 +9,8 @@ and recursive deprecation of services no longer offered upstream.
 import json
 from pathlib import Path
 
+import pytest
+
 from unitysvc_sellers.template_populate import populate_from_iterator
 
 OFFERING_TPL = """{
@@ -20,7 +22,7 @@ OFFERING_TPL = """{
 """
 
 LISTING_TPL = """{
-  "name": "{{ name }}",
+  "name": "{{ service_name }}",
   "status": "{{ status | default('ready') }}"
 }
 """
@@ -45,7 +47,7 @@ def _setup_templates(tmp_path: Path, *, with_provider: bool = True) -> Path:
 
 def _model(name: str) -> dict:
     return {
-        "name": name,
+        "service_name": name,
         "offering_name": name.split("/")[-1],
         "display_name": name.split("/")[-1].title(),
         "service_type": "llm",
@@ -112,7 +114,7 @@ def test_deprecates_missing_nested_service(tmp_path: Path) -> None:
 
 
 LISTING_TPL_DOCS = """{
-  "name": "{{ name }}",
+  "service_name": "{{ name }}",
   "status": "ready",
   "documents": {
     "Example": {"file_path": "../../docs/example-{{ kind }}.py.j2"}
@@ -162,3 +164,30 @@ def test_no_provider_template_is_graceful(tmp_path: Path) -> None:
     stats = populate_from_iterator(iter([_model("acme/foo")]), tmp_path / "templates", specs)
     assert stats["written"] == 1
     assert not (specs / "acme" / "foo" / "provider.json").exists()
+
+
+def test_service_name_is_required_here_too(tmp_path: Path) -> None:
+    """Both writers in this package take the same contract, so a populator can
+    choose its output shape without touching its iterator. A key that is
+    required by one and optional in the other is not a contract."""
+    _setup_templates(tmp_path)
+    m = _model("acme/foo")
+    del m["service_name"]
+    m["name"] = "acme/foo"  # the pre-contract key is no longer honoured
+
+    with pytest.raises(ValueError, match="service_name"):
+        populate_from_iterator(
+            iter([m]),
+            templates_dir=tmp_path / "templates",
+            output_dir=tmp_path / "specs",
+        )
+
+
+def test_name_that_would_be_sanitised_is_rejected_here_too(tmp_path: Path) -> None:
+    _setup_templates(tmp_path)
+    with pytest.raises(ValueError, match="llama3:8b"):
+        populate_from_iterator(
+            iter([_model("acme/llama3:8b")]),
+            templates_dir=tmp_path / "templates",
+            output_dir=tmp_path / "specs",
+        )

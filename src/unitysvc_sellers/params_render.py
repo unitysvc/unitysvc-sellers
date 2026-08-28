@@ -35,7 +35,7 @@ from typing import Any
 import json5
 from unitysvc_core.utils import deep_merge_dicts
 
-from .template_populate import _sanitize_dirname, populate_from_iterator
+from .template_populate import _deprecate_service, _sanitize_dirname, populate_from_iterator
 from .utils import EXPANDED_DIRNAME, load_data_file
 
 
@@ -706,13 +706,102 @@ def _expanded_service_folders(root: Path) -> list[Path]:
     return sorted(seen, key=lambda p: len(p.parts), reverse=True)
 
 
+class UpstreamEnumerationError(RuntimeError):
+    """A provider's model enumeration cannot be trusted to retire anything.
+
+    Raised instead of deprecating, so ``specs populate`` exits non-zero, the
+    workflow step fails under ``set -euo pipefail``, and the PR-creation step is
+    skipped entirely — a bad enumeration produces a red build and NO pull
+    request, rather than one full of wrong deprecations for a human to
+    rubber-stamp.
+    """
+
+
+# Companion files that sit beside a param file and are NOT services: the
+# backend-assigned identity record, and the per-service override that replaced
+# the _FC_DENYLIST. 36 of the latter exist across six repos, so a bare
+# ``*.json`` glob would treat each as a service with no upstream match and
+# deprecate it.
+_NON_SERVICE_SUFFIXES = (".service.json", ".override.json")
+
+
+def _committed_service_names(root: Path) -> dict[str, Path]:
+    """Every service committed under ``root``, by service name.
+
+    Both shapes contribute to one namespace, because the service name IS the
+    path: ``<NAME>.json`` (param file) and ``<NAME>/offering.json`` (the
+    expanded folder one repo still holds). The value is the param file, or the
+    folder for an expanded service.
+    """
+    folders = _expanded_service_folders(root)
+    found: dict[str, Path] = {f.relative_to(root).as_posix(): f for f in folders}
+    inside_a_folder = set(folders)
+
+    for f in root.rglob("*.json"):
+        if f.name.endswith(_NON_SERVICE_SUFFIXES):
+            continue
+        if f.parent in inside_a_folder:
+            continue  # offering/listing/service/provider.json of an expanded service
+        found.setdefault(f.relative_to(root).as_posix()[: -len(".json")], f)
+    return found
+
+
+def _deprecate_param_file(path: Path) -> bool:
+    """Set ``parameters.status = "deprecated"``. False if already deprecated."""
+    try:
+        data = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return False
+    params = data.setdefault("parameters", {})
+    if params.get("status") == "deprecated":
+        return False
+    params["status"] = "deprecated"
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    return True
+
+
+def _deprecate_missing_services(remaining: dict[str, Path], committed_total: int, stats: dict[str, int]) -> None:
+    """Deprecate every committed service the iterator did not account for.
+
+    ``remaining`` starts as everything committed under ``output_dir`` and is
+    drained as the iterator yields, so what is left never appeared in this run.
+
+    Guard: if that is *everything*, the run did not fail to find a few retired
+    models — it failed. A populator that errored, authenticated wrongly, or hit
+    an endpoint returning nobody's models looks exactly like a catalog that
+    retired all at once, and only one of those is real. Refuse.
+
+    Nothing needs unwinding when this raises: the workflow's ``git add specs/``
+    and PR-creation steps never run once the populate step exits non-zero, so
+    a half-written tree is discarded with the runner.
+    """
+    if committed_total and len(remaining) == committed_total:
+        raise UpstreamEnumerationError(
+            f"the iterator matched none of the {committed_total} committed "
+            "service(s), so every one of them would be deprecated. That is a "
+            "failed populate, not a retired catalog — refusing.\n"
+            f"  committed sample: {sorted(remaining)[:3]}\n"
+            "Check the provider credential and endpoint, and that each yielded "
+            "'service_name' is the service's path under specs/ "
+            "(e.g. 'nebius/Qwen/Qwen3-32B', not 'Qwen/Qwen3-32B')."
+        )
+
+    for name in sorted(remaining):
+        target = remaining[name]
+        changed = _deprecate_service(target) if target.is_dir() else _deprecate_param_file(target)
+        if changed:
+            print(f"  deprecated (not served upstream): {name}")
+            stats["deprecated"] += 1
+        else:
+            stats["already_deprecated"] += 1
+
+
 def write_params_from_iterator(
     iterator: Iterator[dict[str, Any]],
     output_dir: str | Path,
     *,
     template: str | None = None,
-    name_field: str = "name",
-    prune_missing: bool = False,
+    deprecate_missing: bool = True,
 ) -> dict[str, int]:
     """Write one **param file** per yielded var-dict (the params mirror of
     :func:`populate_from_iterator`).
@@ -730,35 +819,85 @@ def write_params_from_iterator(
     written to the committed ``<name>.service.json`` sidecar.
 
     Args:
-        iterator: Yields template-variable dicts; each must carry ``name_field``
-            (e.g. ``"cohere/command-r"``). The ``parameters`` written are the dict
-            minus the path-derived keys (``name``/``service_name``/``provider_name``).
+        iterator: Yields template-variable dicts; each **must** carry
+            ``service_name`` — the service's name, which is also its path under
+            ``specs/`` (e.g. ``"cohere/command-r"`` →
+            ``specs/cohere/command-r.json``). There is no alternate key and no
+            fallback: a second way for the same value to arrive is exactly the
+            ambiguity this contract removes. The ``parameters`` written are the
+            dict minus the path-derived keys
+            (``name``/``service_name``/``provider_name``).
         output_dir: The ``specs/`` directory to write param files into.
         template: Optional local-template name recorded in each param file. ``None``
             (default) means the repo's ``templates/`` root renders the params.
-        name_field: Dict key holding the service name / path (default ``"name"``).
-        prune_missing: How to treat expanded service folders the iterator did NOT
-            yield (committed locally but not in the live source — e.g. a curated
-            off-API model). Default False mirrors ``populate_from_iterator``'s
-            non-destructive intent: the folder is **kept** (and logged) so its
-            ``service_id`` is never lost. Set True to delete them instead.
+        deprecate_missing: Mark every committed service the iterator did NOT
+            yield as ``status="deprecated"`` (default True, matching
+            ``populate_from_iterator``'s argument of the same name).
+
+            The set of committed services is read from ``output_dir`` before
+            the run and drained as each service is yielded, so what remains
+            never appeared — the upstream stopped serving it. Nothing external
+            has to be passed: a model the script filters out is filtered on
+            *every* run, so it was never committed and cannot be in the
+            remainder.
+
+            Set False to leave stale entries alone (e.g. a repo whose
+            populator covers only part of its catalog).
 
     Returns:
-        Stats dict: ``{"total", "written", "errors", "pruned", "kept"}``.
+        Stats dict: ``{"total", "written", "new", "errors", "deprecated",
+        "already_deprecated"}``.
+
+    Raises:
+        UpstreamEnumerationError: the iterator matched none of the committed
+            services, so all of them would be deprecated — a failed populate,
+            not a retired catalog.
+        ParamRenderError: a yielded name is not usable verbatim as a path.
     """
     output_dir = Path(output_dir)
-    stats = {"total": 0, "written": 0, "errors": 0, "pruned": 0, "kept": 0}
+    stats = {
+        "total": 0,
+        "written": 0,
+        "new": 0,
+        "errors": 0,
+        "deprecated": 0,
+        "already_deprecated": 0,
+    }
+
+    # Everything committed before this run. Each yielded service is drained out
+    # below, so whatever is still here at the end never appeared in this run —
+    # i.e. the upstream stopped serving it.
+    remaining = _committed_service_names(output_dir)
+    committed_total = len(remaining)
     seen: set[str] = set()
 
     for model_data in iterator:
         stats["total"] += 1
-        name = model_data.get(name_field)
+        name = model_data.get("service_name")
         if not name:
-            print(f"  Warning: missing '{name_field}' field, skipping")
-            stats["errors"] += 1
-            continue
+            # Hard failure, not a skip. A silently dropped service is a service
+            # that vanishes from the catalog on the next upload, and — now that
+            # absence drives deprecation — one that could be retired for no
+            # reason other than its populator forgetting a key.
+            raise ParamRenderError(
+                "iterator yielded a service with no 'service_name'. Every "
+                "populate script must state it explicitly; it is the service's "
+                "identity and its path under specs/. Offending entry: "
+                f"{sorted(model_data)[:8]}"
+            )
 
         rel = _sanitize_dirname(name)
+        # The service name IS the path, so a name the filesystem cannot hold
+        # verbatim would silently split the two apart: a future ``llama3:8b``
+        # lands at ``llama3_8b`` and every later name-to-path comparison —
+        # deprecation included — quietly misses. Refuse rather than sanitise.
+        # This is a no-op on every name in every repo today.
+        if rel != name:
+            raise ParamRenderError(
+                f"service name {name!r} is not usable as a path (it would be "
+                f"written as {rel!r}). The service name must equal its location "
+                "under specs/; normalise it in the populate script instead."
+            )
         seen.add(rel)
         param_path = output_dir / f"{rel}.json"
         param_path.parent.mkdir(parents=True, exist_ok=True)
@@ -782,19 +921,15 @@ def write_params_from_iterator(
         if old_folder.is_dir():
             shutil.rmtree(old_folder, ignore_errors=True)
 
+        # This service is accounted for; drop it from the set of committed
+        # services still awaiting an explanation.
+        if remaining.pop(rel, None) is None:
+            stats["new"] += 1
+
         stats["written"] += 1
         print(f"  wrote {param_path.relative_to(output_dir)}" + (f"  (service_id {sid[:8]}…)" if sid else ""))
 
-    for folder in _expanded_service_folders(output_dir):
-        rel = folder.relative_to(output_dir).as_posix()
-        if rel in seen:
-            continue
-        if prune_missing:
-            print(f"  pruned (no live match): {rel}/")
-            shutil.rmtree(folder, ignore_errors=True)
-            stats["pruned"] += 1
-        else:
-            print(f"  kept (curated; not in live source): {rel}/")
-            stats["kept"] += 1
+    if deprecate_missing:
+        _deprecate_missing_services(remaining, committed_total, stats)
 
     return stats
