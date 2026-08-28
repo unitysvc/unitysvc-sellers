@@ -26,7 +26,6 @@ def populate_from_iterator(
     output_dir: str | Path,
     offering_template: str = "offering.json.j2",
     listing_template: str = "listing.json.j2",
-    name_field: str = "name",
     filter_func: Callable[[dict], bool] | None = None,
     dry_run: bool = False,
     deprecate_missing: bool = True,
@@ -48,12 +47,16 @@ def populate_from_iterator(
     characters (``:``) are sanitised.
 
     Args:
-        iterator: Yields dicts with template variables. Must include `name_field`.
+        iterator: Yields dicts with template variables. Each **must** carry
+            ``service_name`` — the service's name, which is also its folder
+            path (e.g. ``"deepseek/some-model"`` →
+            ``output_dir/deepseek/some-model/``) and its ``listing.name``.
+            The same contract :func:`write_params_from_iterator` takes, so one
+            populator can emit either shape without changing its iterator.
         templates_dir: Directory containing .j2 templates (and optional provider.json).
         output_dir: Directory to write services (creates {name}/ subdirs, nested).
         offering_template: Filename of offering template (default: offering.json.j2).
         listing_template: Filename of listing template (default: listing.json.j2).
-        name_field: Dict key to use for the folder path (default: "name").
         filter_func: Optional function that takes a model dict and returns True to
             include it, False to skip. Useful for filtering without modifying iterator.
         dry_run: If True, don't write files, just report what would happen.
@@ -73,8 +76,8 @@ def populate_from_iterator(
 
     Example:
         >>> def iter_models():
-        ...     yield {"name": "acme/model-1", "service_type": "llm", ...}
-        ...     yield {"name": "acme/model-2", "service_type": "llm", ...}
+        ...     yield {"service_name": "acme/model-1", "service_type": "llm", ...}
+        ...     yield {"service_name": "acme/model-2", "service_type": "llm", ...}
         >>> populate_from_iterator(iter_models(), "templates", "specs")
     """
     templates_dir = Path(templates_dir)
@@ -124,20 +127,37 @@ def populate_from_iterator(
     for model_data in iterator:
         stats["total"] += 1
 
-        # Get service name for directory
-        service_name = model_data.get(name_field)
+        # The service name is the identity, and it is also the path. Required,
+        # with no alternate key: both writers in this package take the same
+        # contract, so a populator can choose its output shape (expanded folders
+        # here, param files in write_params_from_iterator) without touching the
+        # iterator.
+        service_name = model_data.get("service_name")
         if not service_name:
-            print(f"  Warning: Missing '{name_field}' field, skipping")
-            stats["errors"] += 1
-            continue
+            raise ValueError(
+                "iterator yielded a service with no 'service_name'. Every "
+                "populate script must state it explicitly; it is the service's "
+                "identity and its path under specs/. Offending entry: "
+                f"{sorted(model_data)[:8]}"
+            )
 
         # Apply filter if provided
         if filter_func is not None and not filter_func(model_data):
             stats["filtered"] += 1
             continue
 
-        # Folder path = sanitised service name (nesting preserved)
+        # Folder path = the service name verbatim (nesting preserved). A name
+        # the filesystem cannot hold as-is would split path from name, and
+        # every later match between the two — deprecation included — would
+        # silently miss.
         dir_name = _sanitize_dirname(service_name)
+        if dir_name != service_name:
+            raise ValueError(
+                f"service name {service_name!r} is not usable as a path (it "
+                f"would be written as {dir_name!r}). The service name must "
+                "equal its location under specs/; normalise it in the populate "
+                "script instead."
+            )
         service_dir = output_dir / dir_name
 
         # Track this service as updated (for deprecation logic)

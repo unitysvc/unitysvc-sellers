@@ -128,6 +128,33 @@ upload then acts on the remote (Part 2). Fixing prune's scan instead would
 have armed deletion of 37 param files in bedrock and 235 in ollama, both of
 which opted in while it was a no-op.
 
+#### Two output shapes, one contract
+
+A populator can commit either shape, and both are supported:
+
+| function | writes | commits |
+| --- | --- | --- |
+| `write_params_from_iterator` | `specs/<NAME>.json` | the **inputs**; re-rendered ephemerally at validate / upload / run-tests |
+| `populate_from_iterator` | `specs/<NAME>/offering.json` + `listing.json` | the **rendered result**, self-contained per folder |
+
+Param files are what all 17 repos use today: smaller diffs, and a template
+change re-renders every service at once. Expanded folders suit a repo that
+wants the exact shipped bytes committed and reviewable, or one service whose
+render is hand-tuned.
+
+Both take **the same iterator contract** — `service_name`, required, equal to
+the path — so choosing a shape is choosing a writer, not rewriting the
+populator. Both already default to `deprecate_missing=True`, and each marks
+its own shape (`_deprecate_param_file` on `parameters`, `_deprecate_service`
+on `offering.json`/`listing.json`).
+
+Before this change the two disagreed: the expanded path read `name_field`
+(defaulting to `"name"`) while the params path required `service_name`, so
+switching shape meant editing the iterator. `name_field` is removed from both.
+No repo calls `populate_from_iterator` directly today, and the two internal
+callers in `params_render` already pass `service_name`, so this breaks
+nothing.
+
 #### The guard
 
 If **every** committed service would be deprecated, the run did not find a few
