@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from ..exceptions import SellerSDKError
@@ -648,6 +649,60 @@ def show_service(
 
 
 # ---------------------------------------------------------------------------
+# Service labels — bulk output is keyed on ids, which say nothing about which
+# service a line is about. Every per-service line is labelled by name instead,
+# keeping a short id because a service and its pending revision share a name.
+# ---------------------------------------------------------------------------
+def _fetch_service_names(api_key: str | None, base_url: str, service_ids: list[str]) -> dict[str, str]:
+    """Map service id -> ``service_name``, best-effort.
+
+    Purely cosmetic, so it never fails the command it decorates: an unusable
+    id, a network blip or an auth error just leaves those ids unlabelled and
+    the operation proceeds, printing bare ids as it did before.
+    """
+    from uuid import UUID
+
+    uuid_ids = []
+    for sid in service_ids:
+        try:
+            uuid_ids.append(UUID(sid))
+        except (ValueError, AttributeError, TypeError):
+            continue
+    if not uuid_ids:
+        return {}
+
+    async def _impl() -> dict[str, str]:
+        names: dict[str, str] = {}
+        try:
+            async with async_client(api_key, base_url) as client:
+                for svc in await _list_services_by_ids(client, uuid_ids):
+                    row = svc if isinstance(svc, dict) else model_to_dict(svc)
+                    sid = row.get("id")
+                    name = row.get("name") or row.get("service_name")
+                    if sid and name:
+                        names[str(sid)] = str(name)
+        except Exception:  # noqa: BLE001 - labels are cosmetic, never fatal
+            return names
+        return names
+
+    return run_async(_impl(), error_prefix="Failed to fetch service names")
+
+
+def _label(service_id: str, names: dict[str, str]) -> str:
+    """``name (1234abcd)`` for rich output, or the bare id when unknown."""
+    name = names.get(service_id)
+    if not name:
+        return service_id
+    return f"{escape(name)} [dim]({service_id[:8]})[/dim]"
+
+
+def _plain_label(service_id: str, names: dict[str, str]) -> str:
+    """Same as :func:`_label` without markup — for ``typer.confirm`` prompts."""
+    name = names.get(service_id)
+    return f"{name} ({service_id[:8]})" if name else service_id
+
+
+# ---------------------------------------------------------------------------
 # Bulk-status helpers
 # ---------------------------------------------------------------------------
 def _bulk_status_change(
@@ -667,6 +722,10 @@ def _bulk_status_change(
             console.print("[yellow]Cancelled[/yellow]")
             raise typer.Exit(code=0)
 
+    # Names are read before the change: an id can stop resolving afterwards
+    # (activating a revision merges it into its primary and drops the row).
+    names = _fetch_service_names(api_key, base_url, service_ids)
+
     async def _impl() -> list[tuple[str, Exception | None]]:
         results: list[tuple[str, Exception | None]] = []
         async with async_client(api_key, base_url) as client:
@@ -684,10 +743,10 @@ def _bulk_status_change(
     failed = 0
     for sid, err in results:
         if err is None:
-            console.print(f"  [green]✓[/green] {sid}: {success_verb}")
+            console.print(f"  [green]✓[/green] {_label(sid, names)}: {success_verb}")
             success += 1
         else:
-            console.print(f"  [red]✗[/red] {sid}: {err}")
+            console.print(f"  [red]✗[/red] {_label(sid, names)}: {err}")
             failed += 1
 
     if count > 1:
@@ -718,6 +777,8 @@ def _bulk_submit(
             console.print("[yellow]Cancelled[/yellow]")
             raise typer.Exit(code=0)
 
+    names = _fetch_service_names(api_key, base_url, service_ids)
+
     async def _impl() -> list[tuple[str, Any | None, Exception | None]]:
         results: list[tuple[str, Any | None, Exception | None]] = []
         async with async_client(api_key, base_url) as client:
@@ -736,10 +797,10 @@ def _bulk_submit(
     for sid, resp, err in results:
         if err is None:
             detail = getattr(resp, "message", None) or getattr(resp, "status", "submitted")
-            console.print(f"  [green]✓[/green] {sid}: {detail}")
+            console.print(f"  [green]✓[/green] {_label(sid, names)}: {detail}")
             success += 1
         else:
-            console.print(f"  [red]✗[/red] {sid}: {err}")
+            console.print(f"  [red]✗[/red] {_label(sid, names)}: {err}")
             failed += 1
 
     if count > 1:
@@ -781,6 +842,8 @@ def _bulk_visibility_change(
             console.print("[yellow]Cancelled[/yellow]")
             raise typer.Exit(code=0)
 
+    names = _fetch_service_names(api_key, base_url, service_ids)
+
     async def _impl() -> list[tuple[str, Exception | None]]:
         results: list[tuple[str, Exception | None]] = []
         async with async_client(api_key, base_url) as client:
@@ -799,16 +862,16 @@ def _bulk_visibility_change(
     skipped = 0
     for sid, err in results:
         if err is None:
-            console.print(f"  [green]✓[/green] {sid}: {success_verb}")
+            console.print(f"  [green]✓[/green] {_label(sid, names)}: {success_verb}")
             success += 1
         elif _is_private_refusal(err):
             console.print(
-                f"  [dim]⊘ skipping[/dim] {sid}: [dim]private (upload-controlled via "
+                f"  [dim]⊘ skipping[/dim] {_label(sid, names)}: [dim]private (upload-controlled via "
                 "service_options.default_visibility)[/dim]"
             )
             skipped += 1
         else:
-            console.print(f"  [red]✗[/red] {sid}: {err}")
+            console.print(f"  [red]✗[/red] {_label(sid, names)}: {err}")
             failed += 1
 
     if count > 1:
@@ -1456,9 +1519,13 @@ def delete_service(
     )
 
     count = len(ids)
+    # Resolved up front: after the deletes land the ids no longer resolve to
+    # anything, and the confirmation prompt needs the name too — being asked to
+    # delete a uuid tells the operator nothing about what they are agreeing to.
+    names = _fetch_service_names(api_key, base_url, ids)
     if not yes and not dryrun:
         prompt = (
-            f"⚠️  Permanently delete service '{ids[0]}' and all associated data?"
+            f"⚠️  Permanently delete service '{_plain_label(ids[0], names)}' and all associated data?"
             if count == 1
             else f"⚠️  Permanently delete {count} services and all associated data?"
         )
@@ -1484,10 +1551,10 @@ def delete_service(
     for sid, err in results:
         if err is None:
             verb = "Would be deleted" if dryrun else "Deleted"
-            console.print(f"  [green]✓[/green] {sid}: {verb}")
+            console.print(f"  [green]✓[/green] {_label(sid, names)}: {verb}")
             success += 1
         else:
-            console.print(f"  [red]✗[/red] {sid}: {err}")
+            console.print(f"  [red]✗[/red] {_label(sid, names)}: {err}")
             failed += 1
 
     if dryrun:
