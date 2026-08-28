@@ -92,16 +92,82 @@ One new keyword argument:
 def write_params_from_iterator(
     iterator, output_dir, *,
     template=None,
-    name_field="name",
+    name_field="name",           # resolution order below
     prune_missing=False,
     upstream_names: set[str] | None = None,
 ) -> dict[str, int]:
 ```
 
 **`upstream_names`** — the set of **service names**, in the same namespace as
-`name_field`, that the provider's raw (pre-filter) enumeration maps to.
+the contract below, that the provider's raw (pre-filter) enumeration maps to.
 `None` (default) preserves today's behaviour exactly, so rollout is per-repo
 and explicit.
+
+#### The iterator contract
+
+Every iterator MUST yield `service_name` **explicitly**, and it MUST equal
+the service's location under `specs/`:
+
+```
+specs/<SERVICE_NAME>.json                 # param file
+specs/<SERVICE_NAME>/offering.json        # expanded folder
+```
+
+`write_params_from_iterator` resolves the name as `service_name` first, then
+`name_field` (default `"name"`), and validates the result: if
+`_sanitize_dirname(name) != name`, raise `ParamRenderError` naming the
+service, rather than silently writing to a path that no longer equals the
+name it was asked for. A service with neither key is an error, not the
+silent skip it is today.
+
+The fallback is the migration path, not the destination. Every script yields
+`name` today, so flipping the default outright would break all 17 at once.
+Each script renames its key to `service_name` as part of the rollout; once
+none remain, the fallback and the `name_field` argument can both go. Both
+keys are already in `_PATH_DERIVED_KEYS`, so nothing else changes.
+
+**Why explicit, rather than reconstructed.** The service name is currently
+computed in three independent places that agree only by convention:
+
+1. the iterator, for the file path — `"name": f"{PROVIDER_NAME}/{model_id}"`
+2. the template, for `listing.name` — a per-repo Jinja expression
+3. `params_render`, which re-derives `provider_name` for the template as
+   `service_name.split("/")[0]` (it is stripped from `parameters` by
+   `_PATH_DERIVED_KEYS`, being path-derived)
+
+Those template expressions **already disagree in form**:
+
+| repo | `listing.name` template |
+| --- | --- |
+| nebius, parasail, openai, … | `{{ provider_name }}/{{ offering_name }}` |
+| **fireworks** | `{{ provider_name }}/{{ model }}` |
+
+Fireworks had to differ: its `offering_name` is the full upstream id
+`accounts/fireworks/models/kimi-k2p7-code`, so the common expression would
+render `fireworks/accounts/fireworks/models/kimi-k2p7-code` — not the
+`fireworks/kimi-k2p7-code` its files are actually named.
+
+So there is no generic rule that reconstructs a service name from
+parameters, and any attempt to infer one is wrong for at least one repo
+today. The only unambiguous source is the iterator stating it. Requiring
+`service_name` collapses three computations into one authoritative value
+that the path, `listing.name`, and `upstream_names` all derive from.
+
+**Cost today: none.** `_sanitize_dirname` is
+`name.strip("/").replace(":", "_")` and is a no-op on every name in every
+repo — no path anywhere is a sanitized colon (the three `_` in nebius are
+genuine, as in `MiniCPM-V-4_5`), and ollama, the one provider whose upstream
+ids use `:`, already normalises `:` → `-` in its own script before naming.
+Every iterator already yields a `name`; this makes the guarantee explicit
+and checked instead of assumed. Silent sanitisation is precisely what would
+break it later: a future `llama3:8b` would land at `llama3_8b` and every
+name-to-path comparison would quietly miss.
+
+> **Follow-on, not required here.** Templates could render
+> `"name": "{{ service_name }}"` instead of recomputing it, which would
+> retire recomputation (2) and (3) entirely. Worth doing, but it touches
+> every repo's templates and is not needed for deprecation to be correct —
+> the validation above already guarantees path and name agree.
 
 #### Why the service name, and not a model-id parameter
 
@@ -125,8 +191,8 @@ unnecessary and unsafe:
   services.
 
 A per-repo field table is a config axis that can be set wrongly, silently,
-in a direction that retires working services. The path cannot: it is how the
-file got its name.
+in a direction that retires working services. The name cannot: it is how the
+file got its path.
 
 The script keeps ownership of the id→name mapping, which it already performs
 when it yields (fireworks: `accounts/fireworks/models/X` → `fireworks/X`).
@@ -134,29 +200,32 @@ It applies that same mapping to the unfiltered enumeration.
 
 #### What counts as a service
 
-`output_dir` holds four kinds of `.json`, and only the first is a service:
+`output_dir` holds four kinds of `.json`. Two carry a service identity, two
+do not:
 
-| file | count | in the comparison? |
+| file | count | contributes a name? |
 | --- | --- | --- |
-| `<name>.json` param file | 688 | **yes** |
-| `<name>.service.json` identity sidecar | 688 | no |
-| `<name>.override.json` companion | 36 | no |
-| `service/listing/offering/provider.json` in an expanded folder | 1 repo | no — left to `prune_missing` |
+| `<NAME>.json` param file | 688 | **yes** → `<NAME>` |
+| `<NAME>/{offering,listing,service,provider}.json` expanded folder | 1 repo | **yes** → `<NAME>` |
+| `<NAME>.service.json` identity sidecar | 688 | no |
+| `<NAME>.override.json` companion | 36 | no |
 
-The override companions matter: 36 of them exist across parasail (14),
-ollama (11), huggingface (6), groq (2), mistral (2) and nebius (1). A naive
-`*.json` glob treats each as a service with no upstream match and marks it
-deprecated.
+Because the contract puts both service shapes in one namespace, the pass
+handles them uniformly — including cohere's single un-migrated
+`cohere/embed-v4.0` folder, which needs no special case.
+
+The override companions matter: 36 exist across parasail (14), ollama (11),
+huggingface (6), groq (2), mistral (2) and nebius (1). A naive `*.json` glob
+treats each as a service with no upstream match and marks it deprecated.
 
 #### Algorithm
 
 Runs after the write loop, only when `upstream_names is not None`:
 
-1. **Collect local names.** Walk `output_dir` for param files, applying the
-   exclusions above; each file's path minus `.json` is its name.
-2. **Normalise upstream names** through the same `_sanitize_dirname` the
-   write loop uses, so callers pass names and never worry about paths.
-3. **Validate the enumeration — hard failure.** Raise
+1. **Collect local names.** Walk `output_dir` for both service shapes,
+   applying the exclusions above. A param file contributes its path minus
+   `.json`; an expanded folder contributes its directory path.
+2. **Validate the enumeration — hard failure.** Raise
    `UpstreamEnumerationError`, writing nothing, when either holds:
    - `upstream_names` is empty, or
    - it is disjoint from the local names.
@@ -164,10 +233,12 @@ Runs after the write loop, only when `upstream_names is not None`:
    Zero overlap with a catalog we already publish means the call was wrong —
    wrong key, wrong tier, wrong endpoint, a wholesale rename — not that
    every model retired at once. An admin investigates.
-4. **Mark the missing.** For each local name absent from `upstream_names`,
-   set `parameters.status = "deprecated"`. Idempotent: a file already
-   `deprecated` is counted, not rewritten.
-5. **Report.** Extend the stats dict with `deprecated` and
+3. **Mark the missing.** For each local name absent from `upstream_names`,
+   set `status = "deprecated"` — in `parameters` for a param file, in
+   `offering.json`/`listing.json` for an expanded folder (what
+   `_deprecate_service` already does). Idempotent: one already `deprecated`
+   is counted, not rewritten.
+4. **Report.** Extend the stats dict with `deprecated` and
    `already_deprecated`, and name each affected service so the job log and
    the PR body both carry it.
 
@@ -189,7 +260,7 @@ in order:
 - The PR review is the gate. These are rare, and a reviewer who knows the
   entry is curated drops that hunk.
 - If a repo accumulates enough to be annoying, add an explicit
-  `parameters.curated: true` opt-out that step 4 skips.
+  `parameters.curated: true` opt-out that step 3 skips.
 
 Ship the first. Add the second only when a repo actually needs it.
 
@@ -259,6 +330,10 @@ raw = fetch_models()                       # already happens
 # yields, but over the UNFILTERED enumeration.
 upstream_names = {service_name_for(m) for m in raw}
 
+# ...and in the yield itself, rename the key:
+#   {"name": f"{PROVIDER_NAME}/{model_id}", ...}
+#   -> {"service_name": f"{PROVIDER_NAME}/{model_id}", ...}
+
 write_params_from_iterator(
     iter_models(raw),                      # unchanged, still filters
     output_dir=SPECS_DIR,
@@ -287,12 +362,16 @@ exclusions are the ones that matter:
 - overlap present → only the genuinely absent names are marked
 - a model the iterator filtered out but that IS in `upstream_names` is
   untouched — the regression test for the second defect
-- `<name>.service.json`, `<name>.override.json`, and the files inside an
-  expanded service folder are never treated as services and never marked —
-  the regression test for the 36 override companions
+- `<NAME>.service.json` and `<NAME>.override.json` are never treated as
+  services and never marked — the regression test for the 36 override
+  companions
+- an expanded `<NAME>/offering.json` folder contributes `<NAME>` and is
+  marked via `_deprecate_service`, so cohere needs no special case
+- a yielded name that would be sanitised (`llama3:8b`) raises
+  `ParamRenderError` instead of silently writing `llama3_8b`
+- an iterator yielding no `service_name` fails with a message naming the
+  offending entry, not a silent skip
 - re-running is idempotent
-- callers pass names, not paths: a name needing `_sanitize_dirname`
-  normalisation still matches its committed file
 - `upstream_names=None` reproduces today's behaviour byte for byte
 
 **Upload tests** — remote `active` deprecates, remote `pending` deletes,
