@@ -10,7 +10,7 @@ from . import specs as specs_group
 from ._experimental import experimental_enabled
 from .commands import files as files_cmd
 from .commands import groups as groups_cmd
-from .commands import params as params_cmd
+from .commands import platform_services as platform_services_cmd
 from .commands import promotions as promotions_cmd
 from .commands import secrets as secrets_cmd
 from .commands import services as services_cmd
@@ -33,7 +33,7 @@ app = typer.Typer(
         "UnitySVC seller CLI — local catalog tools and remote API operations.\n\n"
         "Local commands live under `usvc seller specs ...`. Remote commands "
         "(against the seller backend, via the unitysvc-sellers HTTP SDK) live "
-        "under `usvc seller services|promotions|groups`."
+        "under `usvc seller services|platform-services|promotions|groups`."
     ),
 )
 
@@ -62,7 +62,7 @@ app.add_typer(groups_cmd.app, name="groups")
 app.add_typer(secrets_cmd.app, name="secrets")
 app.add_typer(files_cmd.app, name="files")
 app.add_typer(templates_cmd.app, name="templates")
-app.add_typer(params_cmd.app, name="params")
+app.add_typer(platform_services_cmd.app, name="platform-services")
 
 # Experimental command groups (unitysvc#1540) are registered only when the user
 # opts in via UNITYSVC_EXPERIMENTAL, so `usvc seller --help` hides them by

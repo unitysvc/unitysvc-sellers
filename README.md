@@ -24,7 +24,7 @@ has a CLI command group and an SDK namespace.
 | Domain | Where | What it is | Key actions |
 |---|---|---|---|
 | **specs** | local | Service data as files — `provider` + `offering` + `listing` per service, in a flat `specs/` layout | validate · format · test · **upload** |
-| **params** | local / inline | Parameters that fill a platform **template** to create a service, with no files to author | browse templates · **instantiate** |
+| **platform-services** | local / inline | Platform-service member definitions that fill a platform **template** to create a private member service | browse templates · **instantiate** |
 | **services** | remote | Your live and in-review services | list · show · submit · withdraw · deprecate · set-visibility · **update** |
 | **groups** | local + remote | Service groups *you* author and upload to bundle related services | **author + upload** · list · show · delete |
 | **promotions** | local + remote | Price rules *you* author and upload to discount your services for customers | **author + upload** · list · show · activate · pause · delete |
@@ -32,12 +32,13 @@ has a CLI command group and an SDK namespace.
 | **templates** | remote | The platform's catalog of service templates you can instantiate | list · show |
 
 There are two routes to a service on the platform: author full **specs** and
-`specs upload` them, **or** pick a **template** and supply **params** to
-instantiate it. `specs upload` also carries any **groups** and **promotions** you
-author alongside them (`service_group.*` / `promotion.*` files, upserted by
-name) — so those, too, are seller-authored, not platform-only. **services**,
-**secrets**, and the **templates** catalog are managed directly on the platform.
-Both the `usvc_seller` CLI and the Python SDK cover every domain.
+`specs upload` them, **or** pick a **template** and supply **platform-service
+member parameters** to instantiate it. `specs upload` also carries any **groups**
+and **promotions** you author alongside them (`service_group.*` /
+`promotion.*` files, upserted by name) — so those, too, are seller-authored, not
+platform-only. **services**, **secrets**, and the **templates** catalog are
+managed directly on the platform. Both the `usvc_seller` CLI and the Python SDK
+cover every domain.
 
 → Full docs: [Services](https://unitysvc-sellers.readthedocs.io/en/latest/services/)
 (the spec model + the two routes + status lifecycle) ·
@@ -248,7 +249,7 @@ Each carries `status_code`, `detail` (parsed body if JSON), and
 The CLI has two sets of commands:
 
 - `usvc seller specs ...` — **local** operations on a `specs/` repo (no network)
-- `usvc seller services|params|templates|promotions|groups|secrets ...` —
+- `usvc seller services|platform-services|templates|promotions|groups|secrets ...` —
   **remote** operations against the seller backend, all using the SDK's
   `AsyncClient` under the hood
 
@@ -299,11 +300,12 @@ usvc seller services run-tests    [NAME] [--document-id DOC_ID] [--force]
 usvc seller services skip-test    DOCUMENT_ID
 usvc seller services unskip-test  DOCUMENT_ID
 
-# Templates + params — create a service from a platform template
+# Platform-service members — create private member services from templates
 usvc seller templates list
 usvc seller templates show NAME_OR_ID
-usvc seller params instantiate TEMPLATE [-P key=value ...] [--name NAME]
-                               [--submit | --no-submit]
+usvc seller platform-services list [NAME]
+usvc seller platform-services show NAME
+usvc seller platform-services instantiate [NAME] [--submit]
 
 # Promotions
 usvc seller promotions list   [--format table|json]
@@ -381,7 +383,8 @@ src/unitysvc_sellers/
 │   ├── services.py      #   `usvc seller services {list,show,submit,...}`
 │   ├── tests.py         #   `usvc seller services {list,show,run,skip,unskip}-test`
 │   ├── templates.py     #   `usvc seller templates {list,show}`
-│   ├── params.py        #   `usvc seller params instantiate`
+│   ├── platform_services.py
+│   │                    #   `usvc seller platform-services instantiate`
 │   ├── promotions.py    #   `usvc seller promotions {list,show,activate,pause,delete}`
 │   ├── groups.py        #   `usvc seller groups {list,show,delete}`
 │   └── secrets.py       #   `usvc seller secrets {list,show,set,delete}`

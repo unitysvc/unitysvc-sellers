@@ -15,7 +15,8 @@ a context manager the commands enter so the rendered folders exist for the
 duration of the walk and are cleaned up afterwards.
 
 A param file whose ``template`` does not resolve to a local directory is a
-**remote** template — handled by ``usvc seller params instantiate``, not here.
+**remote** template — handled by ``usvc seller platform-services instantiate``,
+not here.
 """
 
 from __future__ import annotations
@@ -146,7 +147,7 @@ def _resolve_template_dir(param_file: Path, template_name: str | None) -> Path:
 
     ``None`` → ``templates/``; ``"resp"`` → ``templates/resp/``. Raises if the
     directory doesn't exist (a non-local template is a remote one — use
-    ``params instantiate``).
+    ``platform-services instantiate``).
     """
     templates = _repo_root_for(param_file) / "templates"
     tdir = templates / template_name if template_name else templates
@@ -154,7 +155,8 @@ def _resolve_template_dir(param_file: Path, template_name: str | None) -> Path:
         ref = template_name or "(default templates/)"
         raise ParamRenderError(
             f"local template '{ref}' not found at {tdir} for {param_file.name}. "
-            f"Remote/system templates are created with `usvc seller params instantiate`."
+            "Remote/system templates are created with "
+            "`usvc seller platform-services instantiate`."
         )
     return tdir
 
@@ -234,7 +236,7 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
     concrete-only repos are unaffected.
 
     Local templates only: a param file whose ``template`` is not a local dir
-    raises (it belongs to ``params instantiate``).
+    raises (it belongs to ``platform-services instantiate``).
     """
     param_files = discover_param_files(root)
     if not param_files:

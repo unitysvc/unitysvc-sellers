@@ -1,19 +1,19 @@
-"""``usvc seller params`` — system-template param files under ``params/``.
+"""``usvc seller platform-services`` — platform-service member definitions.
 
-A **param file** (``params/<name>.json`` = ``{ "template", "parameters" }``) is a
-compact, declarative service definition: a **system template** name (browse the
-catalog with ``usvc seller templates``) plus the values to render it with. The
-``params/`` folder is the system-template mirror of ``specs/`` (which holds local
-spec folders and local-template param files):
+A **platform-service member file**
+(``platform_services/<platform>/<provider>/<member>.json`` =
+``{ "template", "parameters" }``) is a compact, declarative service definition:
+a **system template** name (browse the catalog with ``usvc seller templates``)
+plus the values to render it with.
 
-- **`list`** / **`show`** — inspect the param files in ``params/`` (offline).
+- **`list`** / **`show`** — inspect platform-service member files (offline).
 - **`instantiate`** — render the system template + parameters into a backend
-  service (the params-kind analog of ``specs upload``), for all param files or a
-  selected subset. The backend-assigned ``service_id`` round-trips through a
+  service, for all member files or a selected subset. The backend-assigned
+  ``service_id`` round-trips through a
   committed ``<name>.service.json`` sidecar.
 
-A param file whose ``template`` is a pool-named system template produces a
-service that joins ``/p/<pool>`` at the pool's uniform terms.
+The resulting service is the seller-owned private member behind the
+platform-service route.
 """
 
 from __future__ import annotations
@@ -41,18 +41,21 @@ from .templates import _resolve_template
 console = Console()
 
 app = typer.Typer(
-    help="System-template param files under params/ (list, show, instantiate).",
+    help="Platform-service member files under platform_services/ (list, show, instantiate).",
 )
 
 
-# --- params/ discovery + identity sidecar (local, no network) --------------
+# --- member-file discovery + identity sidecar (local, no network) ----------
 
 
-def _params_root(data_dir: Path | None) -> Path:
-    """The ``params/`` directory, resolved from a repo root or the dir itself."""
+_LAYOUT_DIRS = ("platform_services", "params")
+
+
+def _member_roots(data_dir: Path | None) -> list[Path]:
+    """Member-file roots, resolved from a repo root or an explicit subtree."""
     start = (data_dir or Path.cwd()).resolve()
-    candidate = start / "params"
-    return candidate if candidate.is_dir() else start
+    roots = [candidate for dirname in _LAYOUT_DIRS if (candidate := start / dirname).is_dir()]
+    return roots or [start]
 
 
 def _sidecar(param_file: Path) -> Path:
@@ -86,24 +89,28 @@ def _write_service_id(param_file: Path, service_id: str) -> None:
 
 
 def _entries(data_dir: Path | None, name_filter: str | None = None) -> list[dict[str, Any]]:
-    """Param files under ``params/`` as ``{service_name, template, parameters,
+    """Member files as ``{service_name, template, parameters,
     service_id, path}``, optionally fnmatch-filtered by name, sorted by name."""
-    root = _params_root(data_dir)
     out: list[dict[str, Any]] = []
-    for path in sorted(p for p in root.rglob("*.json") if is_param_file(p)):
-        name = path.relative_to(root).with_suffix("").as_posix()
-        if name_filter and not service_name_matches(name, name_filter):
-            continue
-        data = json5.loads(path.read_text())
-        out.append(
-            {
-                "service_name": name,
-                "template": data.get("template"),
-                "parameters": data.get("parameters") or {},
-                "service_id": _read_service_id(path),
-                "path": path,
-            }
-        )
+    seen: set[Path] = set()
+    for root in _member_roots(data_dir):
+        for path in sorted(p for p in root.rglob("*.json") if is_param_file(p)):
+            if path in seen:
+                continue
+            seen.add(path)
+            name = path.relative_to(root).with_suffix("").as_posix()
+            if name_filter and not service_name_matches(name, name_filter):
+                continue
+            data = json5.loads(path.read_text())
+            out.append(
+                {
+                    "service_name": name,
+                    "template": data.get("template"),
+                    "parameters": data.get("parameters") or {},
+                    "service_id": _read_service_id(path),
+                    "path": path,
+                }
+            )
     return sorted(out, key=lambda e: e["service_name"])
 
 
@@ -124,20 +131,23 @@ def _extract_service_id(result: dict[str, Any]) -> str | None:
 
 
 @app.command("list")
-def list_params(
-    name: str | None = typer.Argument(None, help="Filter by name (fnmatch, e.g. 'acme/*' or 'acme/%')."),
+def list_platform_services(
+    name: str | None = typer.Argument(
+        None,
+        help="Filter by name (fnmatch, e.g. 'llm-fast/crofai/*' or 'llm-fast/%').",
+    ),
     data_dir: Path | None = typer.Option(
         None,
         "--data-dir",
         "-d",
-        help="Repo root or params/ directory (default: current directory).",
+        help="Repo root, platform_services/ directory, or subtree (default: current directory).",
     ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
 ) -> None:
-    """List the system-template param files under ``params/`` (offline)."""
+    """List platform-service member files (offline)."""
     entries = _entries(data_dir, name)
     if not entries:
-        console.print("[dim]No param files found under params/[/dim]")
+        console.print("[dim]No platform-service member files found under platform_services/[/dim]")
         return
     if output_format == "json":
         console.print(
@@ -148,8 +158,8 @@ def list_params(
             )
         )
         return
-    table = Table(title="Param Files (params/)")
-    table.add_column("Service", style="bold")
+    table = Table(title="Platform-Service Members")
+    table.add_column("Member", style="bold")
     table.add_column("Template")
     table.add_column("Service ID", style="dim")
     for e in entries:
@@ -162,13 +172,16 @@ def list_params(
 
 
 @app.command("show")
-def show_param(
-    name: str = typer.Argument(..., help="Service name of the param file (first column of `params list`)."),
+def show_platform_service(
+    name: str = typer.Argument(
+        ...,
+        help="Member name (first column of `platform-services list`).",
+    ),
     data_dir: Path | None = typer.Option(
         None,
         "--data-dir",
         "-d",
-        help="Repo root or params/ directory (default: current directory).",
+        help="Repo root, platform_services/ directory, or subtree (default: current directory).",
     ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
 ) -> None:
@@ -176,7 +189,8 @@ def show_param(
     matches = [e for e in _entries(data_dir) if e["service_name"] == name]
     if not matches:
         console.print(
-            f"[red]Error:[/red] No param file for '{name}' under params/. Run [cyan]usvc seller params list[/cyan]."
+            f"[red]Error:[/red] No platform-service member file for '{name}'. "
+            "Run [cyan]usvc seller platform-services list[/cyan]."
         )
         raise typer.Exit(code=1)
     entry = matches[0]
@@ -205,12 +219,15 @@ def show_param(
         for key, value in params.items():
             ptable.add_row(key, value if isinstance(value, str) else json.dumps(value, default=str))
         console.print(ptable)
-    console.print("\n[dim]Instantiate with[/dim] [cyan]usvc seller params instantiate[/cyan][dim].[/dim]")
+    console.print("\n[dim]Instantiate with[/dim] [cyan]usvc seller platform-services instantiate[/cyan][dim].[/dim]")
 
 
 @app.command("instantiate")
 def instantiate(
-    name: str | None = typer.Argument(None, help="Param-file selector (fnmatch; omit = all under params/)."),
+    name: str | None = typer.Argument(
+        None,
+        help="Member-file selector (fnmatch; omit = all under platform_services/).",
+    ),
     submit: bool = typer.Option(
         False,
         "--submit",
@@ -223,15 +240,15 @@ def instantiate(
         None,
         "--data-dir",
         "-d",
-        help="Repo root or params/ directory (default: current directory).",
+        help="Repo root, platform_services/ directory, or subtree (default: current directory).",
     ),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Instantiate system-template param files into services — all, or those
+    """Instantiate platform-service member files into services — all, or those
     matching ``NAME``.
 
-    Each param file's ``template`` (a system template — see ``usvc seller
+    Each member file's ``template`` (a system template — see ``usvc seller
     templates``) is rendered with its ``parameters`` into a backend service. The
     returned ``service_id`` is written to a committed ``<name>.service.json``
     sidecar; an entry that already has one is skipped (re-instantiating to update
@@ -239,8 +256,8 @@ def instantiate(
     """
     entries = _entries(data_dir, name)
     if not entries:
-        where = f" matching '{name}'" if name else " under params/"
-        console.print(f"[yellow]No param files{where}[/yellow]")
+        where = f" matching '{name}'" if name else " under platform_services/"
+        console.print(f"[yellow]No platform-service member files{where}[/yellow]")
         raise typer.Exit(code=1)
 
     async def _impl() -> None:
@@ -281,5 +298,5 @@ def instantiate(
                     detail = f"task_id={task_id}" if task_id else "queued"
                     console.print(f"[green]✓[/green] {label}: submitted ({detail})")
 
-    run_async(_impl(), error_prefix="Failed to instantiate param files")
+    run_async(_impl(), error_prefix="Failed to instantiate platform-service member files")
     console.print("\n[dim]Services appear under your staging list once ingest completes.[/dim]")
