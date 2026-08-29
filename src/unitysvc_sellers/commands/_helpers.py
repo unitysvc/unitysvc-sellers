@@ -35,6 +35,28 @@ T = TypeVar("T")
 console = Console()
 
 
+def _describe(exc: BaseException) -> str:
+    """Render an exception for the user, never as an empty string.
+
+    Several httpx failures carry no message at all — ReadTimeout,
+    ConnectTimeout, ConnectError, RemoteProtocolError and asyncio.TimeoutError
+    all render as "". That turned a real openai upload failure into
+
+        ✗ Failed to upload secrets:
+
+    with nothing after the colon and no way to tell a timeout from a refused
+    connection. Fall back to the exception type so there is always something
+    to act on.
+    """
+    text = str(exc).strip()
+    if text:
+        return text
+    cause = exc.__cause__ or exc.__context__
+    if cause is not None and str(cause).strip():
+        return f"{type(exc).__name__}: {str(cause).strip()}"
+    return f"{type(exc).__name__} (no message)"
+
+
 def run_async(coro: Coroutine[object, object, T], *, error_prefix: str = "Failed") -> T:
     """Run a coroutine and translate SDK errors into ``typer.Exit(1)``.
 
@@ -49,12 +71,12 @@ def run_async(coro: Coroutine[object, object, T], *, error_prefix: str = "Failed
     try:
         return asyncio.run(coro)
     except SellerSDKError as exc:
-        console.print(f"[red]✗[/red] {error_prefix}: {exc}", style="bold red")
+        console.print(f"[red]✗[/red] {error_prefix}: {_describe(exc)}", style="bold red")
         raise typer.Exit(code=1) from exc
     except typer.Exit:
         raise
     except Exception as exc:  # noqa: BLE001 — surface to user, not crash
-        console.print(f"[red]✗[/red] {error_prefix}: {exc}", style="bold red")
+        console.print(f"[red]✗[/red] {error_prefix}: {_describe(exc)}", style="bold red")
         raise typer.Exit(code=1) from exc
 
 

@@ -85,7 +85,14 @@ def upload_bytes(client: AuthenticatedClient, data: bytes, file_name: str, mime:
     body = BodySellerUploadFile(
         file=File(payload=BytesIO(data), file_name=file_name, mime_type=mime),
     )
-    response = sync_detailed(client=client, body=body)
+    # The API client's default is a FLAT httpx.Timeout(30.0), which applies to
+    # read as well — fine for JSON calls, wrong for streaming a file to S3.
+    # files.py already uses a generous read/write budget for exactly this
+    # reason; this path was still on the 30s default and failed a nebius
+    # upload at exactly 30s while the backend was busy ingesting 11 catalogs:
+    #   Failed to upload '.../request-template-v1.json' to S3:
+    #   The read operation timed out
+    response = sync_detailed(client=client.with_timeout(_STORAGE_TIMEOUT), body=body)
     if response.parsed is None or not hasattr(response.parsed, "object_key"):
         raise RuntimeError(f"Upload failed for {file_name}: HTTP {response.status_code} — {response.content!r}")
     return response.parsed.object_key  # type: ignore[union-attr]
@@ -230,6 +237,10 @@ def _process_markdown(client: AuthenticatedClient, md_path: Path) -> bytes:
     return text.encode("utf-8")
 
 
+# Same streaming budget files.py uses: generous read/write, normal connect.
+from .files import _STORAGE_TIMEOUT  # noqa: E402
+
+
 def upload_file(
     client: AuthenticatedClient,
     filename: str | Path,
@@ -275,7 +286,7 @@ def upload_file(
         body = BodySellerUploadFile(
             file=File(payload=BytesIO(content), file_name=path.name, mime_type="text/markdown"),
         )
-        response = sync_detailed(client=client, body=body)
+        response = sync_detailed(client=client.with_timeout(_STORAGE_TIMEOUT), body=body)
         if response.parsed is None or not hasattr(response.parsed, "object_key"):
             raise RuntimeError(f"Upload failed for {path.name}: HTTP {response.status_code} — {response.content!r}")
         return response.parsed.object_key  # type: ignore[union-attr]
