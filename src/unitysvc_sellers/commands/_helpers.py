@@ -118,6 +118,9 @@ def model_to_dict(obj: Any) -> dict[str, Any]:
     """
     if isinstance(obj, dict):
         return dict(obj)
+    raw = getattr(obj, "_raw", None)
+    if raw is not None:
+        return model_to_dict(raw)
     if hasattr(obj, "to_dict"):
         return obj.to_dict()
     if hasattr(obj, "__dict__"):

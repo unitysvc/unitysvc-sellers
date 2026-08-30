@@ -30,6 +30,7 @@ def _detail() -> dict:
         "service_id": SID,
         "service_name": "http-relay",
         "status": "active",
+        "managed_by_template": "llm-fast",
         "offering": {
             "upstream_access_config": {
                 "http_relay": {
@@ -85,6 +86,8 @@ def test_show_renders_upstream_channels(env):
 
     assert result.exit_code == 0, result.output
     assert "Upstream Channels (2)" in result.output
+    assert "Template" in result.output
+    assert "llm-fast" in result.output
     # Channel names + their classified types are surfaced.
     assert "http_relay" in result.output
     assert "byok" in result.output

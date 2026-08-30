@@ -24,6 +24,7 @@ from unitysvc_sellers import (
     NotFoundError,
     ValidationError,
 )
+from unitysvc_sellers.commands._helpers import model_to_dict
 
 BASE_URL = "https://seller.staging.unitysvc.test"
 
@@ -103,6 +104,24 @@ class TestServicesResource:
         client.services.list()
 
         assert route.calls.last.request.headers["authorization"] == "Bearer svcpass_test_key"
+
+    def test_model_to_dict_unwraps_service_active_record(self, client: Client) -> None:
+        from types import SimpleNamespace
+
+        from unitysvc_sellers.services import Service
+
+        raw = SimpleNamespace(
+            id="svc-id",
+            name="crofai-deepseek-v3-2",
+            managed_by_template="llm-fast",
+        )
+        service = Service(raw, parent=client)  # type: ignore[arg-type]
+
+        assert model_to_dict(service) == {
+            "id": "svc-id",
+            "name": "crofai-deepseek-v3-2",
+            "managed_by_template": "llm-fast",
+        }
 
 
 # ---------------------------------------------------------------------------

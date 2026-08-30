@@ -109,6 +109,7 @@ _DEFAULT_LIST_FIELDS = [
     "service_type",
     "status",
     "visibility",
+    "managed_by_template",
     "revision_of",
     # How long the service has sat in its current shape — the question a
     # seller scanning the list actually asks ("did my submission go through?
@@ -122,7 +123,7 @@ _ID_COLUMNS = {"id", "revision_of"}
 
 # Header overrides — the table shows raw field names (so ``--fields`` names and
 # columns match), except where a friendlier word reads better in a scan.
-_COLUMN_LABELS = {"updated_at": "updated"}
+_COLUMN_LABELS = {"managed_by_template": "template", "updated_at": "updated"}
 
 
 def _is_time_column(col: str) -> bool:
@@ -584,6 +585,8 @@ def show_service(
         id_table.add_row("Status message", str(service["status_message"]))
     if service.get("provider_name"):
         id_table.add_row("Provider", str(service["provider_name"]))
+    if service.get("managed_by_template"):
+        id_table.add_row("Template", str(service["managed_by_template"]))
     if service.get("routing_vars"):
         id_table.add_row("Routing vars", json.dumps(service["routing_vars"]))
     console.print(id_table)
