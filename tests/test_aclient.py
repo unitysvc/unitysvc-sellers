@@ -297,6 +297,36 @@ class TestServicesCommands:
         body = json.loads(route.calls.last.request.content.decode())
         assert body["status"] == "deprecated"
 
+    @respx.mock
+    def test_delete_id_resolves_direct_get_active_record(self, runner: CliRunner, env: None) -> None:
+        sid = "34fb995a-1234-1234-1234-123456789abc"
+        respx.get(f"{BASE_URL}/services/34fb995a").mock(
+            return_value=httpx.Response(
+                200,
+                json=_service_public(
+                    id=sid,
+                    name="crofai-deepseek-v3-2",
+                    provider_name="unitysvc-labs",
+                    service_type="llm",
+                    status="review",
+                    visibility="private",
+                    managed_by_template="llm-fast",
+                ),
+            )
+        )
+        delete_route = respx.delete(f"{BASE_URL}/services/{sid}").mock(
+            return_value=httpx.Response(
+                200,
+                json={"can_delete": True, "deleted": False, "message": "would delete"},
+            )
+        )
+
+        result = runner.invoke(cli_app, ["services", "delete", "--id", "34fb995a", "--dryrun", "--yes"])
+
+        assert result.exit_code == 0, result.output
+        assert delete_route.called
+        assert delete_route.calls.last.request.url.params["dryrun"] == "true"
+
 
 # ---------------------------------------------------------------------------
 # CLI: promotions

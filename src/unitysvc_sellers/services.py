@@ -21,6 +21,7 @@ is just sugar that pre-binds the id.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -207,20 +208,49 @@ class Service:
 
     def __init__(
         self,
-        raw: ServicePublic | ServiceDetailResponse,
+        raw: ServicePublic | ServiceDetailResponse | dict[str, Any],
         parent: Client,
     ) -> None:
         object.__setattr__(self, "_raw", raw)
         object.__setattr__(self, "_parent", parent)
 
     def __getattr__(self, item: str) -> Any:
-        return getattr(object.__getattribute__(self, "_raw"), item)
+        raw = object.__getattribute__(self, "_raw")
+        if isinstance(raw, dict):
+            try:
+                return raw[item]
+            except KeyError as exc:
+                raise AttributeError(item) from exc
+        return getattr(raw, item)
 
     def __repr__(self) -> str:
         raw = object.__getattribute__(self, "_raw")
-        name = getattr(raw, "name", None)
-        status = getattr(raw, "status", None)
-        return f"<Service id={raw.id!r} name={name!r} status={status!r}>"
+        if isinstance(raw, dict):
+            service_id = raw.get("id") or raw.get("service_id")
+            name = raw.get("name") or raw.get("service_name")
+            status = raw.get("status")
+        else:
+            service_id = raw.id
+            name = getattr(raw, "name", None)
+            status = getattr(raw, "status", None)
+        return f"<Service id={service_id!r} name={name!r} status={status!r}>"
+
+    def _id(self) -> Any:
+        raw = object.__getattribute__(self, "_raw")
+        if isinstance(raw, dict):
+            return raw.get("id") or raw.get("service_id")
+        return raw.id
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the wrapped generated service model as a plain dict."""
+        raw = object.__getattribute__(self, "_raw")
+        if hasattr(raw, "to_dict"):
+            return raw.to_dict()
+        if isinstance(raw, dict):
+            return dict(raw)
+        if hasattr(raw, "__dict__"):
+            return dict(raw.__dict__)
+        return {"raw": repr(raw)}
 
     # ------------------------------------------------------------------
     # Read
@@ -232,7 +262,7 @@ class Service:
         Useful after :meth:`update` / :meth:`submit` to observe
         server-side state transitions.
         """
-        return self._parent.services.get(self._raw.id)
+        return self._parent.services.get(self._id())
 
     def run_tests(
         self,
@@ -250,7 +280,7 @@ class Service:
         pre-binds the service id.
         """
         return self._parent.services.run_tests(
-            self._raw.id,
+            self._id(),
             document_id=document_id,
             force=force,
             poll_interval=poll_interval,
@@ -263,11 +293,11 @@ class Service:
     # ------------------------------------------------------------------
     def update(self, body: dict[str, Any]) -> ServiceUpdateResponse:
         """Patch fields. See :meth:`Services.update` for the body shape."""
-        return self._parent.services.update(self._raw.id, body)
+        return self._parent.services.update(self._id(), body)
 
     def delete(self, *, dryrun: bool = False) -> ServiceDeleteResponse:
         """Delete the service. See :meth:`Services.delete`."""
-        return self._parent.services.delete(self._raw.id, dryrun=dryrun)
+        return self._parent.services.delete(self._id(), dryrun=dryrun)
 
     def mark_pending(self) -> ServiceUpdateResponse:
         """Mark the service ``pending`` (routable) without running tests.
@@ -286,7 +316,7 @@ class Service:
         that drives ``review`` / ``active`` / ``rejected``.  To make a service
         routable without testing, use :meth:`mark_pending` instead.
         """
-        return self._parent.services.submit_for_review(self._raw.id)
+        return self._parent.services.submit_for_review(self._id())
 
 
 class ServiceList:
@@ -470,13 +500,15 @@ class Services:
         """
         from ._generated.api.seller_services import services_get
 
-        raw = unwrap(
-            services_get.sync_detailed(
-                service_id=str(service_id),
-                client=self._client,
-            )
+        response = services_get.sync_detailed(
+            service_id=str(service_id),
+            client=self._client,
         )
-        return Service(raw, parent=self._parent)
+        raw = response.content and response.parsed is None and 200 <= int(response.status_code) < 300
+        if raw:
+            return Service(json.loads(response.content.decode("utf-8")), parent=self._parent)
+        parsed = unwrap(response)
+        return Service(parsed, parent=self._parent)
 
     def run_tests(
         self,
