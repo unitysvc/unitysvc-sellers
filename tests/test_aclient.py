@@ -327,6 +327,31 @@ class TestServicesCommands:
         assert delete_route.called
         assert delete_route.calls.last.request.url.params["dryrun"] == "true"
 
+    @respx.mock
+    def test_show_id_unwraps_enveloped_service_detail(self, runner: CliRunner, env: None) -> None:
+        sid = "34fb995a-1234-1234-1234-123456789abc"
+        detail = {
+            "service_id": sid,
+            "service_name": "crofai-deepseek-v3-2",
+            "status": "review",
+            "provider_name": "unitysvc-labs",
+            "managed_by_template": "llm-fast",
+            "documents": [],
+            "interfaces": [],
+        }
+        respx.get(f"{BASE_URL}/services/34fb995a").mock(return_value=httpx.Response(200, json={"data": detail}))
+        respx.get(f"{BASE_URL}/services/{sid}").mock(return_value=httpx.Response(200, json={"data": detail}))
+
+        result = runner.invoke(cli_app, ["services", "show", "--id", "34fb995a"])
+
+        assert result.exit_code == 0, result.output
+        assert sid in result.output
+        assert "crofai-deepseek-v3-2" in result.output
+        assert "review" in result.output
+        assert "unitysvc-labs" in result.output
+        assert "llm-fast" in result.output
+        assert "N/A" not in result.output
+
 
 # ---------------------------------------------------------------------------
 # CLI: promotions

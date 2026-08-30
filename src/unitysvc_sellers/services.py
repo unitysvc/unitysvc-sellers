@@ -124,6 +124,16 @@ def _resolve_channel_type(channel_type: str | None, listing_type: str | None) ->
     return channel_type if channel_type is not None else listing_type
 
 
+def _service_detail_payload(payload: Any) -> Any:
+    """Normalize direct and enveloped service-detail response bodies."""
+    if isinstance(payload, dict):
+        for key in ("data", "service"):
+            inner = payload.get(key)
+            if isinstance(inner, dict):
+                return inner
+    return payload
+
+
 def _parse_run_tests_payload(task_id: str, payload: dict[str, Any]) -> RunTestsResult:
     """Coerce the task-status dict from ``/tasks/{id}`` into a typed result.
 
@@ -506,9 +516,9 @@ class Services:
         )
         raw = response.content and response.parsed is None and 200 <= int(response.status_code) < 300
         if raw:
-            return Service(json.loads(response.content.decode("utf-8")), parent=self._parent)
+            return Service(_service_detail_payload(json.loads(response.content.decode("utf-8"))), parent=self._parent)
         parsed = unwrap(response)
-        return Service(parsed, parent=self._parent)
+        return Service(_service_detail_payload(parsed), parent=self._parent)
 
     def run_tests(
         self,

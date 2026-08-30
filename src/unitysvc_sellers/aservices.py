@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from ._http import unwrap
-from .services import RunTestsResult, _parse_run_tests_payload, _resolve_channel_type
+from .services import RunTestsResult, _parse_run_tests_payload, _resolve_channel_type, _service_detail_payload
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
@@ -260,9 +260,11 @@ class AsyncServices:
         )
         raw = response.content and response.parsed is None and 200 <= int(response.status_code) < 300
         if raw:
-            return AsyncService(json.loads(response.content.decode("utf-8")), parent=self._parent)
+            return AsyncService(
+                _service_detail_payload(json.loads(response.content.decode("utf-8"))), parent=self._parent
+            )
         parsed = unwrap(response)
-        return AsyncService(parsed, parent=self._parent)
+        return AsyncService(_service_detail_payload(parsed), parent=self._parent)
 
     async def run_tests(
         self,
