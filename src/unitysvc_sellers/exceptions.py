@@ -106,7 +106,18 @@ def error_for_status(
     """Map an HTTP status code to the most specific ``APIError`` subclass."""
     message = f"API request failed with status {status_code}"
     if isinstance(detail, dict) and detail.get("detail"):
-        message = f"{message}: {detail['detail']}"
+        detail_payload = detail["detail"]
+        if isinstance(detail_payload, dict):
+            detail_message = detail_payload.get("message")
+            problems = detail_payload.get("problems")
+            if detail_message and isinstance(problems, list) and problems:
+                message = f"{message}: {detail_message}: {'; '.join(str(problem) for problem in problems)}"
+            elif detail_message:
+                message = f"{message}: {detail_message}"
+            else:
+                message = f"{message}: {detail_payload}"
+        else:
+            message = f"{message}: {detail_payload}"
 
     mapping: dict[int, type[APIError]] = {
         400: ValidationError,

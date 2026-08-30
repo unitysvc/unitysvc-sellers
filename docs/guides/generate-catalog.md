@@ -100,4 +100,4 @@ the upload workflow do it).
 ## Next steps
 
 - [Author & Upload Specs](author-specs.md) — validate, test, and upload the output
-- [Service Templates](../service-templates.md) — platform templates and capability pools
+- [Service Templates](../service-templates.md) — system templates and platform services

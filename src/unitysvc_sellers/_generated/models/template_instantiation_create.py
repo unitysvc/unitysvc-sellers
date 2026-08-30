@@ -10,38 +10,28 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.template_instance_create_parameters import TemplateInstanceCreateParameters
+    from ..models.template_instantiation_create_parameters import TemplateInstantiationCreateParameters
 
 
-T = TypeVar("T", bound="TemplateInstanceCreate")
+T = TypeVar("T", bound="TemplateInstantiationCreate")
 
 
 @_attrs_define
-class TemplateInstanceCreate:
-    """Create a template instance and render it into a service.
-
-    Always produces a ``TemplateInstance`` + a **draft** ``Service``. Set
-    ``auto_submit=True`` to also submit that draft for review in the same call
-    (the one-click "create & submit" path); leave it ``False`` to create a
-    reviewable draft and submit later via ``PATCH /seller/services`` (the batch
-    path). Request-only — not stored on the instance.
-
-    """
+class TemplateInstantiationCreate:
+    """Render a platform-owned template into a service ingest task."""
 
     template_id: UUID
     name: None | str | Unset = UNSET
-    """ Optional label; defaults to the template display name. """
-    parameters: TemplateInstanceCreateParameters | Unset = UNSET
+    """ Optional seller label recorded in source metadata. """
+    parameters: TemplateInstantiationCreateParameters | Unset = UNSET
     auto_submit: bool | Unset = False
     """ If true, submit the rendered draft service for review immediately. """
     service_id: None | Unset | UUID = UNSET
-    """ Existing canonical service id to update (the seller's durable sidecar handle). When set, re-renders the
-    template with the new parameters and applies it to that service — in place for draft/pending, as a revision for
-    active — instead of creating a new service. Omit to create a new service. """
+    """ Existing template-sourced service to revise. """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.template_instance_create_parameters import TemplateInstanceCreateParameters
+        from ..models.template_instantiation_create_parameters import TemplateInstantiationCreateParameters
 
         template_id = str(self.template_id)
 
@@ -85,7 +75,7 @@ class TemplateInstanceCreate:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.template_instance_create_parameters import TemplateInstanceCreateParameters
+        from ..models.template_instantiation_create_parameters import TemplateInstantiationCreateParameters
 
         d = dict(src_dict)
         template_id = UUID(d.pop("template_id"))
@@ -100,11 +90,11 @@ class TemplateInstanceCreate:
         name = _parse_name(d.pop("name", UNSET))
 
         _parameters = d.pop("parameters", UNSET)
-        parameters: TemplateInstanceCreateParameters | Unset
+        parameters: TemplateInstantiationCreateParameters | Unset
         if isinstance(_parameters, Unset):
             parameters = UNSET
         else:
-            parameters = TemplateInstanceCreateParameters.from_dict(_parameters)
+            parameters = TemplateInstantiationCreateParameters.from_dict(_parameters)
 
         auto_submit = d.pop("auto_submit", UNSET)
 
@@ -125,7 +115,7 @@ class TemplateInstanceCreate:
 
         service_id = _parse_service_id(d.pop("service_id", UNSET))
 
-        template_instance_create = cls(
+        template_instantiation_create = cls(
             template_id=template_id,
             name=name,
             parameters=parameters,
@@ -133,8 +123,8 @@ class TemplateInstanceCreate:
             service_id=service_id,
         )
 
-        template_instance_create.additional_properties = d
-        return template_instance_create
+        template_instantiation_create.additional_properties = d
+        return template_instantiation_create
 
     @property
     def additional_keys(self) -> list[str]:

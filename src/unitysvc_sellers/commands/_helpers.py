@@ -118,6 +118,9 @@ def model_to_dict(obj: Any) -> dict[str, Any]:
     """
     if isinstance(obj, dict):
         return dict(obj)
+    raw = getattr(obj, "_raw", None)
+    if raw is not None:
+        return model_to_dict(raw)
     if hasattr(obj, "to_dict"):
         return obj.to_dict()
     if hasattr(obj, "__dict__"):
@@ -241,9 +244,7 @@ async def fetch_service_ids_by_status(
 
     # Backend takes a single ``visibility`` value per request. To union
     # across multiple, we issue one query per (status, visibility).
-    visibility_values: list[str | None] = (
-        [v for v in visibilities] if visibilities else [None]
-    )
+    visibility_values: list[str | None] = [v for v in visibilities] if visibilities else [None]
 
     for status in statuses:
         for visibility in visibility_values:

@@ -9,6 +9,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.service_kind_enum import ServiceKindEnum, check_service_kind_enum
 from ..models.service_status_enum import ServiceStatusEnum, check_service_status_enum
 from ..models.service_visibility_enum import ServiceVisibilityEnum, check_service_visibility_enum
 from ..types import UNSET, Unset
@@ -24,8 +25,8 @@ T = TypeVar("T", bound="ServicePublic")
 class ServicePublic:
     """Public Service model for API responses.
 
-    Note: name, display_name, and other derived fields are populated from
-    the materialized view (ServiceMView) in the API layer.
+    Note: name is stored on Service; display_name and other decorated fields
+    are populated from read queries in the API layer.
 
     """
 
@@ -33,6 +34,7 @@ class ServicePublic:
     seller_id: UUID
     offering_id: UUID
     listing_id: UUID
+    name: str
     status: ServiceStatusEnum
     """ Status of a Service (identity layer).
 
@@ -49,19 +51,31 @@ class ServicePublic:
     revision_of: None | Unset | UUID = UNSET
     pending_revision_id: None | Unset | UUID = UNSET
     pending_revision_status: None | str | Unset = UNSET
-    name: None | str | Unset = UNSET
     display_name: None | str | Unset = UNSET
     service_type: None | str | Unset = UNSET
     provider_name: None | str | Unset = UNSET
     channel_types: list[str] | None | Unset = UNSET
     status_message: None | str | Unset = UNSET
-    is_featured: bool | Unset = False
+    tags: list[str] | Unset = UNSET
     visibility: ServiceVisibilityEnum | Unset = UNSET
     """ Visibility of a service in the catalog.
 
     - unlisted: Live and routable, not in catalog, accessible via direct link
     - public: In catalog, fully discoverable
     - private: Live and routable, ops/internal use only """
+    kind: ServiceKindEnum | Unset = UNSET
+    """ Role of a Service row in the platform-facade model (#1979).
+
+    - regular: ordinary seller service (the default).
+    - platform: platform-owned public facade Service materialized for a
+      PlatformService endpoint; customers discover/group/price this row.
+    - platform_member: private seller service backing a facade; carries
+      ``parent_id`` pointing at its facade Service.
+
+    ``platform_member`` is derivable from ``parent_id`` at write time; it is
+    stored explicitly so billing/usage queries can distinguish the executed
+    member identity from the customer-facing facade identity without joins. """
+    parent_id: None | Unset | UUID = UNSET
     routing_vars: None | ServicePublicRoutingVarsType0 | Unset = UNSET
     managed_by_template: None | str | Unset = UNSET
     review_count: int | Unset = 0
@@ -81,6 +95,8 @@ class ServicePublic:
         offering_id = str(self.offering_id)
 
         listing_id = str(self.listing_id)
+
+        name = self.name
 
         status: str = self.status
 
@@ -116,12 +132,6 @@ class ServicePublic:
         else:
             pending_revision_status = self.pending_revision_status
 
-        name: None | str | Unset
-        if isinstance(self.name, Unset):
-            name = UNSET
-        else:
-            name = self.name
-
         display_name: None | str | Unset
         if isinstance(self.display_name, Unset):
             display_name = UNSET
@@ -155,11 +165,25 @@ class ServicePublic:
         else:
             status_message = self.status_message
 
-        is_featured = self.is_featured
+        tags: list[str] | Unset = UNSET
+        if not isinstance(self.tags, Unset):
+            tags = self.tags
 
         visibility: str | Unset = UNSET
         if not isinstance(self.visibility, Unset):
             visibility = self.visibility
+
+        kind: str | Unset = UNSET
+        if not isinstance(self.kind, Unset):
+            kind = self.kind
+
+        parent_id: None | str | Unset
+        if isinstance(self.parent_id, Unset):
+            parent_id = UNSET
+        elif isinstance(self.parent_id, UUID):
+            parent_id = str(self.parent_id)
+        else:
+            parent_id = self.parent_id
 
         routing_vars: dict[str, Any] | None | Unset
         if isinstance(self.routing_vars, Unset):
@@ -215,6 +239,7 @@ class ServicePublic:
                 "seller_id": seller_id,
                 "offering_id": offering_id,
                 "listing_id": listing_id,
+                "name": name,
                 "status": status,
                 "created_at": created_at,
             }
@@ -227,8 +252,6 @@ class ServicePublic:
             field_dict["pending_revision_id"] = pending_revision_id
         if pending_revision_status is not UNSET:
             field_dict["pending_revision_status"] = pending_revision_status
-        if name is not UNSET:
-            field_dict["name"] = name
         if display_name is not UNSET:
             field_dict["display_name"] = display_name
         if service_type is not UNSET:
@@ -239,10 +262,14 @@ class ServicePublic:
             field_dict["channel_types"] = channel_types
         if status_message is not UNSET:
             field_dict["status_message"] = status_message
-        if is_featured is not UNSET:
-            field_dict["is_featured"] = is_featured
+        if tags is not UNSET:
+            field_dict["tags"] = tags
         if visibility is not UNSET:
             field_dict["visibility"] = visibility
+        if kind is not UNSET:
+            field_dict["kind"] = kind
+        if parent_id is not UNSET:
+            field_dict["parent_id"] = parent_id
         if routing_vars is not UNSET:
             field_dict["routing_vars"] = routing_vars
         if managed_by_template is not UNSET:
@@ -272,6 +299,8 @@ class ServicePublic:
         offering_id = UUID(d.pop("offering_id"))
 
         listing_id = UUID(d.pop("listing_id"))
+
+        name = d.pop("name")
 
         status = check_service_status_enum(d.pop("status"))
 
@@ -337,15 +366,6 @@ class ServicePublic:
 
         pending_revision_status = _parse_pending_revision_status(d.pop("pending_revision_status", UNSET))
 
-        def _parse_name(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        name = _parse_name(d.pop("name", UNSET))
-
         def _parse_display_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -399,7 +419,7 @@ class ServicePublic:
 
         status_message = _parse_status_message(d.pop("status_message", UNSET))
 
-        is_featured = d.pop("is_featured", UNSET)
+        tags = cast(list[str], d.pop("tags", UNSET))
 
         _visibility = d.pop("visibility", UNSET)
         visibility: ServiceVisibilityEnum | Unset
@@ -407,6 +427,30 @@ class ServicePublic:
             visibility = UNSET
         else:
             visibility = check_service_visibility_enum(_visibility)
+
+        _kind = d.pop("kind", UNSET)
+        kind: ServiceKindEnum | Unset
+        if isinstance(_kind, Unset):
+            kind = UNSET
+        else:
+            kind = check_service_kind_enum(_kind)
+
+        def _parse_parent_id(data: object) -> None | Unset | UUID:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                parent_id_type_0 = UUID(data)
+
+                return parent_id_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | Unset | UUID, data)
+
+        parent_id = _parse_parent_id(d.pop("parent_id", UNSET))
 
         def _parse_routing_vars(data: object) -> None | ServicePublicRoutingVarsType0 | Unset:
             if data is None:
@@ -501,20 +545,22 @@ class ServicePublic:
             seller_id=seller_id,
             offering_id=offering_id,
             listing_id=listing_id,
+            name=name,
             status=status,
             created_at=created_at,
             provider_id=provider_id,
             revision_of=revision_of,
             pending_revision_id=pending_revision_id,
             pending_revision_status=pending_revision_status,
-            name=name,
             display_name=display_name,
             service_type=service_type,
             provider_name=provider_name,
             channel_types=channel_types,
             status_message=status_message,
-            is_featured=is_featured,
+            tags=tags,
             visibility=visibility,
+            kind=kind,
+            parent_id=parent_id,
             routing_vars=routing_vars,
             managed_by_template=managed_by_template,
             review_count=review_count,

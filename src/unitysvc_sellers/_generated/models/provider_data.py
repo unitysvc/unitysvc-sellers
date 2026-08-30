@@ -10,6 +10,7 @@ from ..models.provider_status_enum import ProviderStatusEnum, check_provider_sta
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.provider_account_rate_limit import ProviderAccountRateLimit
     from ..models.provider_data_documents_type_0 import ProviderDataDocumentsType0
 
 
@@ -59,9 +60,13 @@ class ProviderData:
     - deprecated: Provider is retired/end of life """
     documents: None | ProviderDataDocumentsType0 | Unset = UNSET
     """ Documents associated with the provider, keyed by title """
+    rate_limits: list[ProviderAccountRateLimit] | None | Unset = UNSET
+    """ Ceilings the provider grants the seller's account, shared by every service and customer routed through that
+    credential. Not per service, and not per customer — the gateway derives a customer's share from these. """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.provider_account_rate_limit import ProviderAccountRateLimit
         from ..models.provider_data_documents_type_0 import ProviderDataDocumentsType0
 
         name = self.name
@@ -100,6 +105,18 @@ class ProviderData:
         else:
             documents = self.documents
 
+        rate_limits: list[dict[str, Any]] | None | Unset
+        if isinstance(self.rate_limits, Unset):
+            rate_limits = UNSET
+        elif isinstance(self.rate_limits, list):
+            rate_limits = []
+            for rate_limits_type_0_item_data in self.rate_limits:
+                rate_limits_type_0_item = rate_limits_type_0_item_data.to_dict()
+                rate_limits.append(rate_limits_type_0_item)
+
+        else:
+            rate_limits = self.rate_limits
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -119,11 +136,14 @@ class ProviderData:
             field_dict["status"] = status
         if documents is not UNSET:
             field_dict["documents"] = documents
+        if rate_limits is not UNSET:
+            field_dict["rate_limits"] = rate_limits
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.provider_account_rate_limit import ProviderAccountRateLimit
         from ..models.provider_data_documents_type_0 import ProviderDataDocumentsType0
 
         d = dict(src_dict)
@@ -184,6 +204,28 @@ class ProviderData:
 
         documents = _parse_documents(d.pop("documents", UNSET))
 
+        def _parse_rate_limits(data: object) -> list[ProviderAccountRateLimit] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                rate_limits_type_0 = []
+                _rate_limits_type_0 = data
+                for rate_limits_type_0_item_data in _rate_limits_type_0:
+                    rate_limits_type_0_item = ProviderAccountRateLimit.from_dict(rate_limits_type_0_item_data)
+
+                    rate_limits_type_0.append(rate_limits_type_0_item)
+
+                return rate_limits_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[ProviderAccountRateLimit] | None | Unset, data)
+
+        rate_limits = _parse_rate_limits(d.pop("rate_limits", UNSET))
+
         provider_data = cls(
             name=name,
             contact_email=contact_email,
@@ -193,6 +235,7 @@ class ProviderData:
             description=description,
             status=status,
             documents=documents,
+            rate_limits=rate_limits,
         )
 
         provider_data.additional_properties = d

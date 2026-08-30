@@ -192,9 +192,7 @@ class TestSetVisibilityPolicy:
         assert "Private visibility" in result.stdout
         assert "service_options.default_visibility" in result.stdout
 
-    def test_update_private_visibility_is_not_cli_settable(
-        self, _runner: CliRunner, _env: None
-    ) -> None:
+    def test_update_private_visibility_is_not_cli_settable(self, _runner: CliRunner, _env: None) -> None:
         result = _runner.invoke(
             _cli_app,
             ["services", "update", "--id", "svc-123", "--visibility", "private"],

@@ -212,8 +212,7 @@ def test_expand_materializes_preset_doc_locally(tmp_path: Path) -> None:
 # A connectivity probe that branches on local_testing: local mode hits the
 # upstream (Jinja `service_base_url`), gateway mode hits the gateway (shell env).
 _CONNECTIVITY_BRANCHING_J2 = (
-    "{% if local_testing %}curl {{ service_base_url }}/healthz"
-    "{% else %}curl ${SERVICE_BASE_URL}/healthz{% endif %}\n"
+    "{% if local_testing %}curl {{ service_base_url }}/healthz{% else %}curl ${SERVICE_BASE_URL}/healthz{% endif %}\n"
 )
 
 
@@ -417,9 +416,7 @@ def test_local_variant_rewrites_secret_refs_to_env_form(tmp_path: Path) -> None:
     listing = json.loads((svc / "listing.json").read_text())
     listing["documents"] = {"C": {"category": "connectivity_test", "file_path": "connectivity.sh.j2"}}
     (svc / "listing.json").write_text(json.dumps(listing))
-    (svc / "connectivity.sh.j2").write_text(
-        'curl "{{ service_base_url }}" -H "X-Token: ${ customer_secrets.TOKEN }"\n'
-    )
+    (svc / "connectivity.sh.j2").write_text('curl "{{ service_base_url }}" -H "X-Token: ${ customer_secrets.TOKEN }"\n')
 
     folder = expand_service_folder(svc)
 

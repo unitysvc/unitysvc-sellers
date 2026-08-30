@@ -157,9 +157,7 @@ class TestAsyncClient:
         async client, so a sync-only method silently breaks it (#117 follow-up)."""
         sid = uuid.uuid4()
         route = respx.post(f"{BASE_URL}/services/{sid}/submit").mock(
-            return_value=httpx.Response(
-                200, json=_service_update_response(id=str(sid), status="pending")
-            )
+            return_value=httpx.Response(200, json=_service_update_response(id=str(sid), status="pending"))
         )
 
         async with AsyncClient(api_key="svcpass_test", base_url=BASE_URL) as client:
@@ -262,9 +260,7 @@ class TestServicesCommands:
         # empty list so the helper reports "not found" rather than
         # "ambiguous".
         list_route = respx.get(f"{BASE_URL}/services").mock(
-            return_value=httpx.Response(
-                200, json={"data": [], "has_more": False, "count": 0}
-            )
+            return_value=httpx.Response(200, json={"data": [], "has_more": False, "count": 0})
         )
 
         result = runner.invoke(cli_app, ["services", "show", "--id", "abcdef12"])
@@ -285,9 +281,7 @@ class TestServicesCommands:
         # prefix-matching.  We exercise the list fallback here because
         # ServiceDetailResponse has many required fields and a list-shape
         # mock is closer to what the partial-id case actually hits.
-        respx.get(f"{BASE_URL}/services/{sid}").mock(
-            return_value=httpx.Response(404, json={"detail": "not found"})
-        )
+        respx.get(f"{BASE_URL}/services/{sid}").mock(return_value=httpx.Response(404, json={"detail": "not found"}))
         respx.get(f"{BASE_URL}/services").mock(
             return_value=httpx.Response(
                 200,
@@ -302,6 +296,61 @@ class TestServicesCommands:
         assert result.exit_code == 0, result.output
         body = json.loads(route.calls.last.request.content.decode())
         assert body["status"] == "deprecated"
+
+    @respx.mock
+    def test_delete_id_resolves_direct_get_active_record(self, runner: CliRunner, env: None) -> None:
+        sid = "34fb995a-1234-1234-1234-123456789abc"
+        respx.get(f"{BASE_URL}/services/34fb995a").mock(
+            return_value=httpx.Response(
+                200,
+                json=_service_public(
+                    id=sid,
+                    name="crofai-deepseek-v3-2",
+                    provider_name="unitysvc-labs",
+                    service_type="llm",
+                    status="review",
+                    visibility="private",
+                    managed_by_template="llm-fast",
+                ),
+            )
+        )
+        delete_route = respx.delete(f"{BASE_URL}/services/{sid}").mock(
+            return_value=httpx.Response(
+                200,
+                json={"can_delete": True, "deleted": False, "message": "would delete"},
+            )
+        )
+
+        result = runner.invoke(cli_app, ["services", "delete", "--id", "34fb995a", "--dryrun", "--yes"])
+
+        assert result.exit_code == 0, result.output
+        assert delete_route.called
+        assert delete_route.calls.last.request.url.params["dryrun"] == "true"
+
+    @respx.mock
+    def test_show_id_unwraps_enveloped_service_detail(self, runner: CliRunner, env: None) -> None:
+        sid = "34fb995a-1234-1234-1234-123456789abc"
+        detail = {
+            "service_id": sid,
+            "service_name": "crofai-deepseek-v3-2",
+            "status": "review",
+            "provider_name": "unitysvc-labs",
+            "managed_by_template": "llm-fast",
+            "documents": [],
+            "interfaces": [],
+        }
+        respx.get(f"{BASE_URL}/services/34fb995a").mock(return_value=httpx.Response(200, json={"data": detail}))
+        respx.get(f"{BASE_URL}/services/{sid}").mock(return_value=httpx.Response(200, json={"data": detail}))
+
+        result = runner.invoke(cli_app, ["services", "show", "--id", "34fb995a"])
+
+        assert result.exit_code == 0, result.output
+        assert sid in result.output
+        assert "crofai-deepseek-v3-2" in result.output
+        assert "review" in result.output
+        assert "unitysvc-labs" in result.output
+        assert "llm-fast" in result.output
+        assert "N/A" not in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -388,6 +437,7 @@ class TestGroupsCommands:
     # refresh is now handled automatically by a background worker
     # whenever a group is mutated, so there is no manual refresh path
     # for sellers to invoke.
+
 
 # ---------------------------------------------------------------------------
 # Auth env-fallback

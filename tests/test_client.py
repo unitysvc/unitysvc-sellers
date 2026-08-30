@@ -24,6 +24,7 @@ from unitysvc_sellers import (
     NotFoundError,
     ValidationError,
 )
+from unitysvc_sellers.commands._helpers import model_to_dict
 
 BASE_URL = "https://seller.staging.unitysvc.test"
 
@@ -104,6 +105,24 @@ class TestServicesResource:
 
         assert route.calls.last.request.headers["authorization"] == "Bearer svcpass_test_key"
 
+    def test_model_to_dict_unwraps_service_active_record(self, client: Client) -> None:
+        from types import SimpleNamespace
+
+        from unitysvc_sellers.services import Service
+
+        raw = SimpleNamespace(
+            id="svc-id",
+            name="crofai-deepseek-v3-2",
+            managed_by_template="llm-fast",
+        )
+        service = Service(raw, parent=client)  # type: ignore[arg-type]
+
+        assert model_to_dict(service) == {
+            "id": "svc-id",
+            "name": "crofai-deepseek-v3-2",
+            "managed_by_template": "llm-fast",
+        }
+
 
 # ---------------------------------------------------------------------------
 # auto_submit wiring — publish-and-submit in one call
@@ -139,6 +158,34 @@ class TestInstancesCreateAutoSubmit:
 
         sent = json.loads(route.calls.last.request.content.decode())
         assert sent["auto_submit"] is True
+
+    @respx.mock
+    def test_create_threads_existing_service_id(self, client: Client) -> None:
+        route = respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(202, json=self._resp()))
+        service_id = uuid.uuid4()
+
+        client.instances.create(uuid.uuid4(), parameters={"k": "v"}, service_id=service_id)
+
+        sent = json.loads(route.calls.last.request.content.decode())
+        assert sent["service_id"] == str(service_id)
+
+    @respx.mock
+    def test_create_preserves_dict_shaped_422_detail(self, client: Client) -> None:
+        detail = {
+            "detail": {
+                "message": "Invalid parameters",
+                "problems": ["parameter 'service_name': bad"],
+            }
+        }
+        respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(422, json=detail))
+
+        with pytest.raises(ValidationError) as excinfo:
+            client.instances.create(uuid.uuid4(), parameters={"service_name": "bad/name"})
+
+        assert excinfo.value.status_code == 422
+        assert excinfo.value.detail == detail
+        assert "Invalid parameters" in str(excinfo.value)
+        assert "service_name" in str(excinfo.value)
 
 
 # ---------------------------------------------------------------------------
