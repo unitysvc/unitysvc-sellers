@@ -23,7 +23,7 @@ Param files and spelled-out folders can live side by side under `specs/` — the
 > where the **platform** owns the template and renders it server-side during
 > `specs upload`. A param file whose `template` names a directory under
 > your `templates/` is local; a name with no matching directory is treated as a
-> system template. See [Routing](#local-vs-remote-templates) below.
+> system template. See [Routing](#local-vs-system-templates) below.
 
 ## Repo layout
 
