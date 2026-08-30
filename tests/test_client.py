@@ -169,6 +169,24 @@ class TestInstancesCreateAutoSubmit:
         sent = json.loads(route.calls.last.request.content.decode())
         assert sent["service_id"] == str(service_id)
 
+    @respx.mock
+    def test_create_preserves_dict_shaped_422_detail(self, client: Client) -> None:
+        detail = {
+            "detail": {
+                "message": "Invalid parameters",
+                "problems": ["parameter 'service_name': bad"],
+            }
+        }
+        respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(422, json=detail))
+
+        with pytest.raises(ValidationError) as excinfo:
+            client.instances.create(uuid.uuid4(), parameters={"service_name": "bad/name"})
+
+        assert excinfo.value.status_code == 422
+        assert excinfo.value.detail == detail
+        assert "Invalid parameters" in str(excinfo.value)
+        assert "service_name" in str(excinfo.value)
+
 
 # ---------------------------------------------------------------------------
 # Error mapping

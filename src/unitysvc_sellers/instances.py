@@ -11,7 +11,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from ._http import unwrap
+import httpx
+
+from .exceptions import error_for_status
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
@@ -40,12 +42,12 @@ class Instances:
         existing service previously created from the same template. Returns the
         ingest ``task_id``.
         """
-        from ._generated.api.seller_instances import (
-            seller_instances_create_instance as op,
-        )
         from ._generated.models.template_instantiation_create import TemplateInstantiationCreate
         from ._generated.models.template_instantiation_create_parameters import (
             TemplateInstantiationCreateParameters,
+        )
+        from ._generated.models.template_instantiation_create_response import (
+            TemplateInstantiationCreateResponse,
         )
         from ._generated.types import UNSET
 
@@ -56,4 +58,15 @@ class Instances:
             auto_submit=auto_submit,
             service_id=UUID(str(service_id)) if service_id is not None else UNSET,
         )
-        return unwrap(op.sync_detailed(client=self._client, body=body))
+        try:
+            response = self._client.get_httpx_client().post("/instances", json=body.to_dict())
+        except httpx.HTTPError as exc:
+            raise error_for_status(0, detail=str(exc)) from exc
+
+        if 200 <= response.status_code < 300:
+            return TemplateInstantiationCreateResponse.from_dict(response.json())
+        try:
+            detail: Any = response.json()
+        except ValueError:
+            detail = response.text
+        raise error_for_status(response.status_code, detail=detail, response_body=response.content)

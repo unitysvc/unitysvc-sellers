@@ -188,6 +188,21 @@ def _extract_service_id(status_dict: dict[str, Any]) -> str | None:
     return task_result.get("revision_of") or task_result.get("service_id")
 
 
+def _normalize_service_selector(name: str) -> str:
+    """Accept service-name selectors and common local ``services/specs`` paths."""
+    normalized = name.removeprefix("./")
+    specs_marker = "/services/specs/"
+    if normalized.startswith("services/specs/"):
+        normalized = normalized[len("services/specs/") :]
+    elif normalized.startswith("specs/"):
+        normalized = normalized[len("specs/") :]
+    elif specs_marker in normalized:
+        normalized = normalized.split(specs_marker, 1)[1]
+    if normalized.endswith(".json") and not normalized.endswith(".service.json"):
+        normalized = normalized[: -len(".json")]
+    return normalized
+
+
 def _instantiate_system_param_file(
     client: Client,
     param_file: Path,
@@ -570,6 +585,7 @@ def upload_directory(
     all_listings = find_files_by_pattern(data_dir, "listing_v1")
     all_system_params = discover_system_param_files(data_dir)
     if name is not None:
+        name = _normalize_service_selector(name)
         # --name uploads every service whose service_name (= listing.name,
         # #1138) matches the fnmatch pattern: a literal name uploads one
         # service, ``cohere/*`` uploads the set.

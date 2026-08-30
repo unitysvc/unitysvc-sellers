@@ -576,6 +576,46 @@ class TestUploadSystemTemplateParams:
             "33333333-3333-3333-3333-333333333333"
         )
 
+    @respx.mock
+    def test_upload_accepts_services_specs_path_for_system_template_param_file(self, tmp_path: Path) -> None:
+        specs = tmp_path / "services" / "specs" / "crofai" / "llm-fast"
+        specs.mkdir(parents=True)
+        (specs / "deepseek-v3.2.json").write_text(
+            json.dumps({"template": "llm-fast", "parameters": {"model": "deepseek-v3.2"}}) + "\n"
+        )
+
+        respx.get(f"{BASE_URL}/templates").mock(return_value=httpx.Response(200, json=self._template_list()))
+        instance_route = respx.post(f"{BASE_URL}/instances").mock(
+            return_value=httpx.Response(202, json={"task_id": "t-system", "status": "queued", "message": "q"})
+        )
+        respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "t-system": {
+                        "task_id": "t-system",
+                        "state": "SUCCESS",
+                        "status": "completed",
+                        "result": {"service_id": "22222222-2222-2222-2222-222222222222"},
+                    }
+                },
+            )
+        )
+
+        with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
+            result = upload_directory(
+                client,
+                tmp_path,
+                name="services/specs/crofai/llm-fast/deepseek-v3.2",
+                task_poll_interval=0.001,
+                task_wait_timeout=5.0,
+            )
+
+        assert result.services.total == 1
+        assert result.services.success == 1
+        sent = json.loads(instance_route.calls.last.request.content.decode())
+        assert sent["name"] == "crofai/llm-fast/deepseek-v3.2"
+
 
 class TestSpecsUploadCli:
     """``usvc_seller specs upload --submit`` — a single flag (default off) that
