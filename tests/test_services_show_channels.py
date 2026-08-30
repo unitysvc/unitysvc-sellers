@@ -36,9 +36,7 @@ def _detail() -> dict:
                     "access_method": "http",
                     "type": "byok",
                     "customer_secrets_required": ["HTTP_RELAY_BASE_URL"],
-                    "customer_secrets_optional": [
-                        {"name": "HTTP_RELAY_API_KEY", "default": ""}
-                    ],
+                    "customer_secrets_optional": [{"name": "HTTP_RELAY_API_KEY", "default": ""}],
                 },
                 "plus": {
                     "access_method": "http",

@@ -241,9 +241,7 @@ async def fetch_service_ids_by_status(
 
     # Backend takes a single ``visibility`` value per request. To union
     # across multiple, we issue one query per (status, visibility).
-    visibility_values: list[str | None] = (
-        [v for v in visibilities] if visibilities else [None]
-    )
+    visibility_values: list[str | None] = [v for v in visibilities] if visibilities else [None]
 
     for status in statuses:
         for visibility in visibility_values:

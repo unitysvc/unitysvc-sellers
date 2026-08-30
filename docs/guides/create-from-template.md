@@ -1,48 +1,40 @@
-# Create from a Template
+# Create from a System Template
 
-The fastest way to publish a common service type is to **instantiate a system
-template** — a template the platform publishes (e.g. an OpenAI-compatible LLM
-endpoint). You author no spec files: you pick a template, supply a handful of
-parameters in a small **param file** under `params/`, and the platform renders
-the complete service as a reviewable draft (add `--submit` to also submit it for
-review, which runs the template's bundled test).
+The fastest way to publish a common service type is to use a **system
+template**: a template the platform publishes, such as an OpenAI-compatible LLM
+endpoint or a PlatformService member template. You supply a small param file
+under `specs/`; `usvc seller specs upload` sends it to the backend, where the
+template is rendered into a normal private seller service.
 
-This is the `params` route — the system-template mirror of `specs/`. Two
-commands work together:
+For the bigger picture, including PlatformService membership, see
+[Service Templates](../service-templates.md).
 
-| Command | Role |
-|---|---|
-| **`usvc seller templates`** | **Browse** the catalog — `list` the system templates, `show` one's parameters. Read-only. |
-| **`usvc seller params`** | **Use** them — author `params/` files, `list` / `show` them, and `instantiate` them into services. |
-
-For the bigger picture (capability pools, authoring your *own* templates) see the
-[Service Templates](../service-templates.md) concept page.
-
-## 1. Browse the catalog — `templates`
+## 1. Browse the Catalog
 
 ```bash
-usvc seller templates list                        # active system templates
-usvc seller templates show openai-compatible-llm  # its parameters: name, type, required?
+usvc seller templates list
+usvc seller templates show openai-compatible-llm
 ```
 
-`templates show` lists each parameter's name, type, and whether it's required —
-your checklist for the param file you write next.
+`templates show` lists each parameter's name, type, and whether it is required.
+Secret-typed parameters take the **name** of a seller secret, never the secret
+value itself.
 
-## 2. Author a param file under `params/`
+## 2. Author a Param File
 
-A param file is `params/<name>.json` = `{ "template", "parameters" }`: the
-**system template name** (from `templates list`) plus the values to render it
-with. Its path under `params/` becomes the service name.
+A system-template param file has the same shape as a local-template param file:
+`{ "template", "parameters" }`. Its path under `specs/` becomes the service
+name.
 
 ```
-params/
+specs/
 └── acme/
-    ├── gpt.json            # { template, parameters }
-    └── gpt.service.json    # identity sidecar (service_id) — written on instantiate, committed
+    ├── gpt.json
+    └── gpt.service.json    # written after upload; commit this sidecar
 ```
 
 ```jsonc
-// params/acme/gpt.json
+// specs/acme/gpt.json
 {
   "template": "openai-compatible-llm",
   "parameters": {
@@ -53,73 +45,36 @@ params/
 }
 ```
 
-> **`params/` (system templates) vs `specs/` (local).** A param file under
-> `params/` names a **system** template, rendered server-side by `instantiate`.
-> A param file under `specs/` whose `template` is a **local** `templates/`
-> directory is instead rendered on your machine by the `specs` commands. Same
-> file shape, different folder, different command — see
-> [Service Templates](../service-templates.md).
+If `template` names a directory under your local `templates/`, the SDK renders
+it locally for validate/test/upload. If it does not resolve locally, `specs
+upload` treats it as a system template and calls backend instantiation.
 
-## 3. Inspect what you've authored — `params list` / `show`
-
-Offline, no API call:
+## 3. Upload
 
 ```bash
-usvc seller params list                 # every param file under params/ (Service · Template · Service ID)
-usvc seller params show acme/gpt        # one file's template, parameters, and recorded service_id
+usvc seller specs upload           # all service definitions under specs/
+usvc seller specs upload acme/gpt  # one service, by fnmatch selector
+usvc seller specs upload --submit  # render and submit for review in one task
 ```
 
-## 4. Instantiate — `params instantiate`
+On success, the backend-assigned `service_id` is written to
+`specs/<name>.service.json`. Commit that sidecar. Re-running `specs upload`
+passes the `service_id` back to the backend so the service is updated or revised
+in place rather than duplicated.
 
-`params instantiate` is the params-kind analog of `specs upload`: it renders each
-param file's system template with its parameters into a backend service, left as
-a reviewable **draft** by default.
-
-```bash
-usvc seller params instantiate           # all param files under params/
-usvc seller params instantiate acme/gpt  # just this one (NAME is an fnmatch selector)
-usvc seller params instantiate 'acme/*'  # everything under acme/
-usvc seller params instantiate --submit  # render and submit for review in one go
-```
-
-| Option | Meaning |
-|---|---|
-| `[NAME]` | Param-file selector (fnmatch); omit = all under `params/` |
-| `--submit` | Also submit each for review (validate → pending → tests); default leaves a draft |
-
-**Identity round-trips through the sidecar.** On a successful instantiate the
-backend-assigned `service_id` is written to `params/<name>.service.json` (commit
-it). An entry that already has a `service_id` is skipped — re-instantiating to
-*update* the same service needs backend support
-([unitysvc/unitysvc#1273](https://github.com/unitysvc/unitysvc/issues/1273)).
-
-## Secret-typed parameters
-
-A secret-typed parameter (e.g. an upstream API key) takes the **name of a
-secret**, never the raw value. Create the secret first, then reference it by name
-in the param file:
-
-```bash
-usvc seller secrets set UPSTREAM_API_KEY   # stores the value securely
-```
-
-```jsonc
-// then in the param file:
-"parameters": { "api_key_secret_name": "UPSTREAM_API_KEY", … }
-```
-
-See [Promotions, Groups & Secrets](catalog-extras.md#secrets) for managing
-secrets.
+If the system template is linked to a PlatformService, no extra seller command is
+needed. The generated private service becomes a PlatformService member after it
+passes review and reaches the active state.
 
 ## From the SDK
 
-`client.templates` browses the catalog; `client.instances` creates services:
+`client.templates` browses the catalog; `client.instances.create` starts the
+same backend render directly:
 
 ```python
 from unitysvc_sellers import Client
 
 with Client() as client:
-    client.templates.list()                       # available system templates
     result = client.instances.create(
         "openai-compatible-llm",
         parameters={
@@ -127,14 +82,10 @@ with Client() as client:
             "api_key_secret_name": "UPSTREAM_API_KEY",
             "input_price": 1.00,
         },
-        # Draft by default; pass auto_submit=True to also submit for review now.
+        auto_submit=True,
     )
-    # result carries the new instance_id and the ingest task_id
+    print(result.task_id)
 ```
 
-## After instantiation
-
-The rendered service appears in your catalog like any other — manage it with
-`usvc seller services …` ([Operate Live Services](operate-services.md)). If you
-outgrow the template, download the rendered files and refine them as a normal
-[specs repo](author-specs.md).
+The CLI file workflow is preferred for CI because it keeps the service name,
+template parameters, and sidecar identity in version control.

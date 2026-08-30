@@ -27,9 +27,7 @@ def _client_returning(doc: dict, details: dict | None = None):
             raise RuntimeError("no details endpoint")
         return details[key]
 
-    documents = SimpleNamespace(
-        get=AsyncMock(return_value=doc), test_details=_test_details
-    )
+    documents = SimpleNamespace(get=AsyncMock(return_value=doc), test_details=_test_details)
     client = SimpleNamespace(documents=documents)
 
     class _Ctx:

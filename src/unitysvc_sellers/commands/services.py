@@ -1675,9 +1675,7 @@ def update_service(
             raise typer.Exit(code=1)
         update_body["visibility"] = visibility
 
-    service_id = _resolve_single_target_id(
-        api_key, base_url, name=name, service_id=service_id
-    )
+    service_id = _resolve_single_target_id(api_key, base_url, name=name, service_id=service_id)
 
     # Routing vars
     if has_routing:

@@ -7,7 +7,7 @@
 
 UnitySVC seller CLI — local catalog tools and remote API operations.
 
-Local commands live under `usvc seller specs ...`. Remote commands (against the seller backend, via the unitysvc-sellers HTTP SDK) live under `usvc seller services|promotions|groups`.
+Local commands live under `usvc seller specs ...`. Remote commands (against the seller backend, via the unitysvc-sellers HTTP SDK) live under `usvc seller services|templates|promotions|groups`.
 
 **Usage**:
 
@@ -30,8 +30,7 @@ $ usvc seller [OPTIONS] COMMAND [ARGS]...
 * `groups`: Remote service group operations (list,...
 * `secrets`: Remote secret operations (list, show, set,...
 * `files`: Seller account files (ls, get, put, url).
-* `templates`: Browse the platform service-template...
-* `params`: System-template param files under params/...
+* `templates`: Browse the system service-template catalog...
 
 ## `usvc seller specs`
 
@@ -1456,7 +1455,7 @@ $ usvc seller files url [OPTIONS] {key}
 
 ## `usvc seller templates`
 
-Browse the platform service-template catalog (list, show).
+Browse the system service-template catalog (list, show).
 
 **Usage**:
 
@@ -1470,12 +1469,12 @@ $ usvc seller templates [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `list`: List the active platform templates you can...
+* `list`: List the active system templates you can...
 * `show`: Show a template&#x27;s metadata and its...
 
 ### `usvc seller templates list`
 
-List the active platform templates you can instantiate.
+List the active system templates you can instantiate.
 
 **Usage**:
 
@@ -1507,95 +1506,6 @@ $ usvc seller templates show [OPTIONS] {name_or_id}
 **Options**:
 
 * `-f, --format <str>`: Output format: table | json.  [default: table]
-* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
-* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
-* `--help`: Show this message and exit.
-
-## `usvc seller params`
-
-System-template param files under params/ (list, show, instantiate).
-
-**Usage**:
-
-```console
-$ usvc seller params [OPTIONS] COMMAND [ARGS]...
-```
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-**Commands**:
-
-* `list`: List the system-template param files under...
-* `show`: Show one param file&#x27;s template,...
-* `instantiate`: Instantiate system-template param files...
-
-### `usvc seller params list`
-
-List the system-template param files under ``params/`` (offline).
-
-**Usage**:
-
-```console
-$ usvc seller params list [OPTIONS] [name]
-```
-
-**Arguments**:
-
-* `name`: Filter by name (fnmatch, e.g. &#x27;acme/*&#x27; or &#x27;acme/%&#x27;).
-
-**Options**:
-
-* `-d, --data-dir <path>`: Repo root or params/ directory (default: current directory).
-* `-f, --format <str>`: Output format: table | json.  [default: table]
-* `--help`: Show this message and exit.
-
-### `usvc seller params show`
-
-Show one param file&#x27;s template, parameters, and recorded service_id.
-
-**Usage**:
-
-```console
-$ usvc seller params show [OPTIONS] {name}
-```
-
-**Arguments**:
-
-* `name`: Service name of the param file (first column of `params list`).  [required]
-
-**Options**:
-
-* `-d, --data-dir <path>`: Repo root or params/ directory (default: current directory).
-* `-f, --format <str>`: Output format: table | json.  [default: table]
-* `--help`: Show this message and exit.
-
-### `usvc seller params instantiate`
-
-Instantiate system-template param files into services — all, or those
-matching ``NAME``.
-
-Each param file&#x27;s ``template`` (a system template — see ``usvc seller
-templates``) is rendered with its ``parameters`` into a backend service. The
-returned ``service_id`` is written to a committed ``&lt;name&gt;.service.json``
-sidecar; an entry that already has one is skipped (re-instantiating to update
-the same service needs backend support, unitysvc/unitysvc#1273).
-
-**Usage**:
-
-```console
-$ usvc seller params instantiate [OPTIONS] [name]
-```
-
-**Arguments**:
-
-* `name`: Param-file selector (fnmatch; omit = all under params/).
-
-**Options**:
-
-* `--submit`: Also submit each rendered service for review (validate → pending → run tests) in the same call. Default: leave a reviewable draft to submit later.
-* `-d, --data-dir <path>`: Repo root or params/ directory (default: current directory).
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.

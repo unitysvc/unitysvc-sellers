@@ -252,9 +252,7 @@ def show_test(
 
             async def fetch(key: str, **selectors: Any) -> None:
                 try:
-                    details[key] = model_to_dict(
-                        await client.documents.test_details(str(doc["id"]), **selectors)
-                    )
+                    details[key] = model_to_dict(await client.documents.test_details(str(doc["id"]), **selectors))
                 except Exception:  # noqa: BLE001 — any failure falls back to inline
                     pass
 
@@ -281,8 +279,7 @@ def show_test(
     doc, cell_details = run_async(_impl(), error_prefix="Failed to show test")
 
     _EXPIRED_HINT = (
-        "[yellow]details expired — re-run with "
-        "`usvc seller services run-tests --force` to reproduce them[/yellow]"
+        "[yellow]details expired — re-run with `usvc seller services run-tests --force` to reproduce them[/yellow]"
     )
 
     def _merged_cell(inline: dict[str, Any], key: str) -> tuple[dict[str, Any], bool]:
@@ -298,11 +295,7 @@ def show_test(
             return inline, False
         if detail.get("expired"):
             return inline, True
-        overlay = {
-            k: v
-            for k, v in detail.items()
-            if v not in (None, "") and k not in ("source", "expired")
-        }
+        overlay = {k: v for k, v in detail.items() if v not in (None, "") and k not in ("source", "expired")}
         return {**inline, **overlay}, False
 
     if output_format == "json":
@@ -391,8 +384,7 @@ def show_test(
                     # as ``last_attempt``.
                     if cell.get("outcome") == "already_passed":
                         console.print(
-                            f"{indent}[green]passed earlier[/green] "
-                            "[dim](inherited from an identical run)[/dim]"
+                            f"{indent}[green]passed earlier[/green] [dim](inherited from an identical run)[/dim]"
                         )
                     for k in ("status", "exit_code", "stdout", "stderr", "error"):
                         v = cell.get(k)

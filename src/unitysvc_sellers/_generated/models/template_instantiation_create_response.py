@@ -2,29 +2,23 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar
-from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="TemplateInstanceCreateResponse")
+T = TypeVar("T", bound="TemplateInstantiationCreateResponse")
 
 
 @_attrs_define
-class TemplateInstanceCreateResponse:
-    """202 response for a one-shot instantiate (form created + submitted)."""
-
-    instance_id: UUID
+class TemplateInstantiationCreateResponse:
     task_id: str
     status: str
     message: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        instance_id = str(self.instance_id)
-
         task_id = self.task_id
 
         status = self.status
@@ -35,7 +29,6 @@ class TemplateInstanceCreateResponse:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "instance_id": instance_id,
                 "task_id": task_id,
                 "status": status,
                 "message": message,
@@ -47,23 +40,20 @@ class TemplateInstanceCreateResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        instance_id = UUID(d.pop("instance_id"))
-
         task_id = d.pop("task_id")
 
         status = d.pop("status")
 
         message = d.pop("message")
 
-        template_instance_create_response = cls(
-            instance_id=instance_id,
+        template_instantiation_create_response = cls(
             task_id=task_id,
             status=status,
             message=message,
         )
 
-        template_instance_create_response.additional_properties = d
-        return template_instance_create_response
+        template_instantiation_create_response.additional_properties = d
+        return template_instantiation_create_response
 
     @property
     def additional_keys(self) -> list[str]:

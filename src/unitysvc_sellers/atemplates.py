@@ -1,4 +1,4 @@
-"""``async_client.templates`` — async platform service-template catalog.
+"""``async_client.templates`` — async system service-template catalog.
 
 Async mirror of :mod:`unitysvc_sellers.templates` (read-only). Creating a
 service from a template lives on ``async_client.instances`` (see
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 class AsyncTemplates:
-    """Async read-only manager for the platform service-template catalog."""
+    """Async read-only manager for the system service-template catalog."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
         self._client = client

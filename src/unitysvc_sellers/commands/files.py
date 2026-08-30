@@ -53,9 +53,7 @@ def list_files(
             resp = await client.files.list(path)
             return {
                 "folders": list(resp.common_prefixes),
-                "files": [
-                    {"key": o.key, "size": o.size, "last_modified": o.last_modified} for o in resp.objects
-                ],
+                "files": [{"key": o.key, "size": o.size, "last_modified": o.last_modified} for o in resp.objects],
                 "truncated": resp.is_truncated,
             }
 

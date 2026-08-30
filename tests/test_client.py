@@ -140,6 +140,16 @@ class TestInstancesCreateAutoSubmit:
         sent = json.loads(route.calls.last.request.content.decode())
         assert sent["auto_submit"] is True
 
+    @respx.mock
+    def test_create_threads_existing_service_id(self, client: Client) -> None:
+        route = respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(202, json=self._resp()))
+        service_id = uuid.uuid4()
+
+        client.instances.create(uuid.uuid4(), parameters={"k": "v"}, service_id=service_id)
+
+        sent = json.loads(route.calls.last.request.content.decode())
+        assert sent["service_id"] == str(service_id)
+
 
 # ---------------------------------------------------------------------------
 # Error mapping

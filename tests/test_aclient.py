@@ -157,9 +157,7 @@ class TestAsyncClient:
         async client, so a sync-only method silently breaks it (#117 follow-up)."""
         sid = uuid.uuid4()
         route = respx.post(f"{BASE_URL}/services/{sid}/submit").mock(
-            return_value=httpx.Response(
-                200, json=_service_update_response(id=str(sid), status="pending")
-            )
+            return_value=httpx.Response(200, json=_service_update_response(id=str(sid), status="pending"))
         )
 
         async with AsyncClient(api_key="svcpass_test", base_url=BASE_URL) as client:
@@ -262,9 +260,7 @@ class TestServicesCommands:
         # empty list so the helper reports "not found" rather than
         # "ambiguous".
         list_route = respx.get(f"{BASE_URL}/services").mock(
-            return_value=httpx.Response(
-                200, json={"data": [], "has_more": False, "count": 0}
-            )
+            return_value=httpx.Response(200, json={"data": [], "has_more": False, "count": 0})
         )
 
         result = runner.invoke(cli_app, ["services", "show", "--id", "abcdef12"])
@@ -285,9 +281,7 @@ class TestServicesCommands:
         # prefix-matching.  We exercise the list fallback here because
         # ServiceDetailResponse has many required fields and a list-shape
         # mock is closer to what the partial-id case actually hits.
-        respx.get(f"{BASE_URL}/services/{sid}").mock(
-            return_value=httpx.Response(404, json={"detail": "not found"})
-        )
+        respx.get(f"{BASE_URL}/services/{sid}").mock(return_value=httpx.Response(404, json={"detail": "not found"}))
         respx.get(f"{BASE_URL}/services").mock(
             return_value=httpx.Response(
                 200,
@@ -388,6 +382,7 @@ class TestGroupsCommands:
     # refresh is now handled automatically by a background worker
     # whenever a group is mutated, so there is no manual refresh path
     # for sellers to invoke.
+
 
 # ---------------------------------------------------------------------------
 # Auth env-fallback

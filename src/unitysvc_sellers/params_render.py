@@ -15,8 +15,9 @@ a context manager the commands enter so the rendered folders exist for the
 duration of the walk and are cleaned up afterwards.
 
 A param file whose ``template`` does not resolve to a local directory is a
-**remote** template — handled by ``usvc seller platform-services instantiate``,
-not here.
+**system** template. Read-only ``specs`` commands ignore it because only the
+backend can render platform-owned templates; ``specs upload`` sends it to the
+backend instantiation endpoint.
 """
 
 from __future__ import annotations
@@ -146,8 +147,8 @@ def _resolve_template_dir(param_file: Path, template_name: str | None) -> Path:
     """Resolve a param file's ``template`` to a local template directory.
 
     ``None`` → ``templates/``; ``"resp"`` → ``templates/resp/``. Raises if the
-    directory doesn't exist (a non-local template is a remote one — use
-    ``platform-services instantiate``).
+    directory doesn't exist (a non-local template is a system one — upload it
+    with ``usvc seller specs upload``).
     """
     templates = _repo_root_for(param_file) / "templates"
     tdir = templates / template_name if template_name else templates
@@ -155,10 +156,35 @@ def _resolve_template_dir(param_file: Path, template_name: str | None) -> Path:
         ref = template_name or "(default templates/)"
         raise ParamRenderError(
             f"local template '{ref}' not found at {tdir} for {param_file.name}. "
-            "Remote/system templates are created with "
-            "`usvc seller platform-services instantiate`."
+            "System templates are created with `usvc seller specs upload`."
         )
     return tdir
+
+
+def _resolve_template_dir_or_none(param_file: Path, template_name: str | None) -> Path | None:
+    """Return the local template dir for ``param_file``, or ``None`` for a system template."""
+    try:
+        templates = _repo_root_for(param_file) / "templates"
+    except ParamRenderError:
+        return None
+    tdir = templates / template_name if template_name else templates
+    return tdir if tdir.is_dir() else None
+
+
+def is_local_param_file(param_file: Path) -> bool:
+    """True when a param file resolves to a local template directory."""
+    data = load_param_data(param_file)
+    return _resolve_template_dir_or_none(param_file, data.get("template")) is not None
+
+
+def discover_local_param_files(root: Path) -> list[Path]:
+    """Param files under ``root`` that can be rendered locally."""
+    return [p for p in discover_param_files(root) if is_local_param_file(p)]
+
+
+def discover_system_param_files(root: Path) -> list[Path]:
+    """Param files under ``root`` that must be rendered by the backend."""
+    return [p for p in discover_param_files(root) if not is_local_param_file(p)]
 
 
 def _service_name_for(param_file: Path) -> str:
@@ -166,8 +192,18 @@ def _service_name_for(param_file: Path) -> str:
     return param_file.relative_to(_specs_root_for(param_file)).with_suffix("").as_posix()
 
 
+def service_name_for_param(param_file: Path) -> str:
+    """Public wrapper for computing the service name represented by a param file."""
+    return _service_name_for(param_file)
+
+
 def _sidecar_for(param_file: Path) -> Path:
     return param_file.with_name(param_file.stem + ".service.json")
+
+
+def sidecar_for_param(param_file: Path) -> Path:
+    """Sidecar path for backend-assigned service metadata of a param file."""
+    return _sidecar_for(param_file)
 
 
 def _read_service_id(sidecar: Path) -> str | None:
@@ -179,6 +215,11 @@ def _read_service_id(sidecar: Path) -> str | None:
         return None
     sid = data.get("service_id") if isinstance(data, dict) else None
     return str(sid) if sid else None
+
+
+def read_service_id_for_param(param_file: Path) -> str | None:
+    """Read the backend service_id sidecar for ``param_file`` if present."""
+    return _read_service_id(_sidecar_for(param_file))
 
 
 def _read_sidecar_field(sidecar: Path, key: str) -> Any:
@@ -209,6 +250,11 @@ def _write_service_id(sidecar: Path, service_id: str) -> None:
     _merge_into_sidecar(sidecar, {"service_id": str(service_id)})
 
 
+def write_service_id_for_param(param_file: Path, service_id: str) -> None:
+    """Persist the backend service_id sidecar for ``param_file``."""
+    _write_service_id(_sidecar_for(param_file), service_id)
+
+
 @contextmanager
 def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
     """Render every param file into an **isolated temp copy** of the repo and
@@ -235,19 +281,21 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
     No-op — no copy, no ``chdir`` — when the repo has no param files, so
     concrete-only repos are unaffected.
 
-    Local templates only: a param file whose ``template`` is not a local dir
-    raises (it belongs to ``platform-services instantiate``).
+    System-template param files are left in the temp copy for ``specs upload``
+    to send to the backend instantiation endpoint. Other read-only specs
+    commands ignore them because they cannot be rendered locally.
     """
-    param_files = discover_param_files(root)
-    if not param_files:
+    local_param_files = discover_local_param_files(root)
+    if not local_param_files:
         # Concrete-only repo: nothing to render, so don't copy or chdir.
         yield []
         return
 
-    repo_root = _repo_root_for(param_files[0])  # the dir that holds templates/
+    repo_root = _repo_root_for(local_param_files[0])  # the dir that holds templates/
     original_cwd = Path.cwd()
     tmp = Path(tempfile.mkdtemp(prefix="usvc-specs-"))
     rendered: list[tuple[Path, Path]] = []  # (folder in copy, REAL sidecar)
+    sidecar_pairs: list[tuple[Path, Path]] = []  # (sidecar in copy, REAL sidecar)
 
     try:
         # A faithful mirror so every template, relative doc ref, and shared file
@@ -281,7 +329,7 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
         # Group by resolved template dir so one populate call renders all params
         # that share a template (and so a repo can mix templates).
         groups: dict[Path, list[tuple[Path, dict[str, Any]]]] = {}
-        for pf in discover_param_files(tmp):
+        for pf in discover_local_param_files(tmp):
             data = load_param_data(pf)
             tdir = _resolve_template_dir(pf, data.get("template"))
             folder = pf.with_suffix("")
@@ -335,9 +383,15 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                 # (same relative path under repo_root), not the throwaway copy.
                 real_sidecar = repo_root / sidecar_in_copy.relative_to(tmp)
                 rendered.append((folder, real_sidecar))
+                sidecar_pairs.append((folder / "service.json", real_sidecar))
                 # Drop the param file in the copy so the walk sees exactly one
                 # form (the rendered folder) per service.
                 pf.unlink()
+
+        for pf in discover_system_param_files(tmp):
+            sidecar_in_copy = _sidecar_for(pf)
+            real_sidecar = repo_root / sidecar_in_copy.relative_to(tmp)
+            sidecar_pairs.append((sidecar_in_copy, real_sidecar))
 
         # Point the whole cwd-rooted pipeline at the isolated copy, keeping
         # the real invocation dir reachable for user-facing artifact writes.
@@ -349,13 +403,12 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
     finally:
         _invocation_cwd = None
         os.chdir(original_cwd)
-        for folder, real_sidecar in rendered:
+        for source_sidecar, real_sidecar in sidecar_pairs:
             # Round-trip the backend-assigned service_id and the local
             # connectivity outcome recorded by `specs run-tests`.
-            service_json = folder / "service.json"
-            if service_json.is_file():
+            if source_sidecar.is_file():
                 try:
-                    rendered_data = json.loads(service_json.read_text())
+                    rendered_data = json.loads(source_sidecar.read_text())
                 except Exception:
                     rendered_data = {}
                 if not isinstance(rendered_data, dict):

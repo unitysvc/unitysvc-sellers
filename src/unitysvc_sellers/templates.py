@@ -1,10 +1,9 @@
 """``client.templates`` — the platform service-template catalog (read-only).
 
 Wraps the seller-tagged ``/v1/seller/templates`` listing operations: ``list``
-and ``get`` expose the active platform templates and their parameter schemas so
-you can discover what you can instantiate. Creating a service from a template
-lives on :class:`unitysvc_sellers.instances.Instances` (``client.instances``),
-which posts to ``/v1/seller/instances``.
+and ``get`` expose the active system templates and their parameter schemas.
+``client.instances.create`` and ``usvc seller specs upload`` can render one of
+those templates into a normal seller service.
 """
 
 from __future__ import annotations

@@ -24,8 +24,8 @@ T = TypeVar("T", bound="ServicePublic")
 class ServicePublic:
     """Public Service model for API responses.
 
-    Note: name, display_name, and other derived fields are populated from
-    the materialized view (ServiceMView) in the API layer.
+    Note: name is stored on Service; display_name and other decorated fields
+    are populated from read queries in the API layer.
 
     """
 
@@ -33,6 +33,7 @@ class ServicePublic:
     seller_id: UUID
     offering_id: UUID
     listing_id: UUID
+    name: str
     status: ServiceStatusEnum
     """ Status of a Service (identity layer).
 
@@ -49,13 +50,12 @@ class ServicePublic:
     revision_of: None | Unset | UUID = UNSET
     pending_revision_id: None | Unset | UUID = UNSET
     pending_revision_status: None | str | Unset = UNSET
-    name: None | str | Unset = UNSET
     display_name: None | str | Unset = UNSET
     service_type: None | str | Unset = UNSET
     provider_name: None | str | Unset = UNSET
     channel_types: list[str] | None | Unset = UNSET
     status_message: None | str | Unset = UNSET
-    is_featured: bool | Unset = False
+    tags: list[str] | Unset = UNSET
     visibility: ServiceVisibilityEnum | Unset = UNSET
     """ Visibility of a service in the catalog.
 
@@ -81,6 +81,8 @@ class ServicePublic:
         offering_id = str(self.offering_id)
 
         listing_id = str(self.listing_id)
+
+        name = self.name
 
         status: str = self.status
 
@@ -116,12 +118,6 @@ class ServicePublic:
         else:
             pending_revision_status = self.pending_revision_status
 
-        name: None | str | Unset
-        if isinstance(self.name, Unset):
-            name = UNSET
-        else:
-            name = self.name
-
         display_name: None | str | Unset
         if isinstance(self.display_name, Unset):
             display_name = UNSET
@@ -155,7 +151,9 @@ class ServicePublic:
         else:
             status_message = self.status_message
 
-        is_featured = self.is_featured
+        tags: list[str] | Unset = UNSET
+        if not isinstance(self.tags, Unset):
+            tags = self.tags
 
         visibility: str | Unset = UNSET
         if not isinstance(self.visibility, Unset):
@@ -215,6 +213,7 @@ class ServicePublic:
                 "seller_id": seller_id,
                 "offering_id": offering_id,
                 "listing_id": listing_id,
+                "name": name,
                 "status": status,
                 "created_at": created_at,
             }
@@ -227,8 +226,6 @@ class ServicePublic:
             field_dict["pending_revision_id"] = pending_revision_id
         if pending_revision_status is not UNSET:
             field_dict["pending_revision_status"] = pending_revision_status
-        if name is not UNSET:
-            field_dict["name"] = name
         if display_name is not UNSET:
             field_dict["display_name"] = display_name
         if service_type is not UNSET:
@@ -239,8 +236,8 @@ class ServicePublic:
             field_dict["channel_types"] = channel_types
         if status_message is not UNSET:
             field_dict["status_message"] = status_message
-        if is_featured is not UNSET:
-            field_dict["is_featured"] = is_featured
+        if tags is not UNSET:
+            field_dict["tags"] = tags
         if visibility is not UNSET:
             field_dict["visibility"] = visibility
         if routing_vars is not UNSET:
@@ -272,6 +269,8 @@ class ServicePublic:
         offering_id = UUID(d.pop("offering_id"))
 
         listing_id = UUID(d.pop("listing_id"))
+
+        name = d.pop("name")
 
         status = check_service_status_enum(d.pop("status"))
 
@@ -337,15 +336,6 @@ class ServicePublic:
 
         pending_revision_status = _parse_pending_revision_status(d.pop("pending_revision_status", UNSET))
 
-        def _parse_name(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        name = _parse_name(d.pop("name", UNSET))
-
         def _parse_display_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -399,7 +389,7 @@ class ServicePublic:
 
         status_message = _parse_status_message(d.pop("status_message", UNSET))
 
-        is_featured = d.pop("is_featured", UNSET)
+        tags = cast(list[str], d.pop("tags", UNSET))
 
         _visibility = d.pop("visibility", UNSET)
         visibility: ServiceVisibilityEnum | Unset
@@ -501,19 +491,19 @@ class ServicePublic:
             seller_id=seller_id,
             offering_id=offering_id,
             listing_id=listing_id,
+            name=name,
             status=status,
             created_at=created_at,
             provider_id=provider_id,
             revision_of=revision_of,
             pending_revision_id=pending_revision_id,
             pending_revision_status=pending_revision_status,
-            name=name,
             display_name=display_name,
             service_type=service_type,
             provider_name=provider_name,
             channel_types=channel_types,
             status_message=status_message,
-            is_featured=is_featured,
+            tags=tags,
             visibility=visibility,
             routing_vars=routing_vars,
             managed_by_template=managed_by_template,
