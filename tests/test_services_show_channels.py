@@ -98,3 +98,35 @@ def test_show_renders_upstream_channels(env):
     # Per-channel customer secrets are listed.
     assert "HTTP_RELAY_BASE_URL" in result.output
     assert "HTTP_RELAY_API_KEY" in result.output
+
+
+def test_show_renders_nested_provider_and_platform_service_hint(env):
+    detail = {
+        "service_id": SID,
+        "service_name": "crofai-deepseek-v3-2",
+        "status": "review",
+        "managed_by_template": None,
+        "provider": {"name": "unitysvc-labs"},
+        "offering": {
+            "summary": "Private llm-fast platform-service member.",
+            "description": "Private OpenAI-compatible LLM endpoint contributed to the llm-fast platform service.",
+            "upstream_access_config": {},
+        },
+        "documents": [],
+        "interfaces": [],
+    }
+    runner = CliRunner()
+    with (
+        patch(
+            "unitysvc_sellers.commands.services._resolve_single_target_id",
+            return_value=SID,
+        ),
+        patch("unitysvc_sellers.commands.services.async_client", _factory(detail)),
+    ):
+        result = runner.invoke(cli_app, ["services", "show", "--id", SID])
+
+    assert result.exit_code == 0, result.output
+    assert "Provider" in result.output
+    assert "unitysvc-labs" in result.output
+    assert "Platform service" in result.output
+    assert "llm-fast" in result.output

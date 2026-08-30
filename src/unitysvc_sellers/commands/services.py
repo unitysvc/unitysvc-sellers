@@ -26,6 +26,7 @@ instead.
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -124,6 +125,73 @@ _ID_COLUMNS = {"id", "revision_of"}
 # Header overrides — the table shows raw field names (so ``--fields`` names and
 # columns match), except where a friendlier word reads better in a scan.
 _COLUMN_LABELS = {"managed_by_template": "template", "updated_at": "updated"}
+_PLATFORM_SERVICE_HINT_RE = re.compile(
+    r"\b(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s+platform[- ]service\b",
+    re.IGNORECASE,
+)
+
+
+def _mapping(value: Any) -> dict[str, Any]:
+    """Return a plain mapping for dict-like generated model payload fragments."""
+    if not value:
+        return {}
+    if isinstance(value, dict):
+        return value
+    converted = model_to_dict(value)
+    return converted if isinstance(converted, dict) else {}
+
+
+def _nested_str(payload: dict[str, Any], *path: str) -> str | None:
+    current: Any = payload
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    if current in (None, ""):
+        return None
+    return str(current)
+
+
+def _service_provider_name(service: dict[str, Any]) -> str | None:
+    return _nested_str(service, "provider_name") or _nested_str(service, "provider", "name")
+
+
+def _service_template_label(service: dict[str, Any]) -> str | None:
+    label = _nested_str(service, "managed_by_template")
+    if label:
+        return label
+    metadata = _mapping(service.get("source_metadata"))
+    template_name = _nested_str(metadata, "template_name")
+    template_version = _nested_str(metadata, "template_version")
+    if template_name and template_version:
+        return f"{template_name} {template_version}"
+    return template_name
+
+
+def _platform_service_hint(service: dict[str, Any]) -> str | None:
+    offering = _mapping(service.get("offering"))
+    listing = _mapping(service.get("listing"))
+    source_metadata = _mapping(service.get("source_metadata"))
+    texts = [
+        _nested_str(service, "platform_service"),
+        _nested_str(service, "platform_service_name"),
+        _nested_str(service, "platform_service_slug"),
+        _nested_str(source_metadata, "platform_service"),
+        _nested_str(source_metadata, "platform_service_name"),
+        _nested_str(offering, "summary"),
+        _nested_str(offering, "description"),
+        _nested_str(listing, "summary"),
+        _nested_str(listing, "description"),
+    ]
+    for text in texts:
+        if not text:
+            continue
+        if "platform" not in text.lower():
+            continue
+        match = _PLATFORM_SERVICE_HINT_RE.search(text)
+        if match:
+            return match.group("name")
+    return None
 
 
 def _is_time_column(col: str) -> bool:
@@ -583,10 +651,15 @@ def show_service(
     id_table.add_row("Status", str(service.get("status", "N/A")))
     if service.get("status_message"):
         id_table.add_row("Status message", str(service["status_message"]))
-    if service.get("provider_name"):
-        id_table.add_row("Provider", str(service["provider_name"]))
-    if service.get("managed_by_template"):
-        id_table.add_row("Template", str(service["managed_by_template"]))
+    provider_name = _service_provider_name(service)
+    if provider_name:
+        id_table.add_row("Provider", provider_name)
+    template_label = _service_template_label(service)
+    if template_label:
+        id_table.add_row("Template", template_label)
+    platform_service = _platform_service_hint(service)
+    if platform_service:
+        id_table.add_row("Platform service", platform_service)
     if service.get("routing_vars"):
         id_table.add_row("Routing vars", json.dumps(service["routing_vars"]))
     console.print(id_table)
