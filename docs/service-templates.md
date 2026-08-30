@@ -103,6 +103,10 @@ platform. A seller does not join it with a separate CLI command. Instead, the
 seller creates a private service from that template; after the service passes
 review and becomes active, the backend adds it as a PlatformService member. The
 gateway then load-balances across active members of the platform service.
+The linkage is visible in your CLI: `usvc seller services list` shows a `kind`
+column (`platform_member` for such services, `regular` otherwise), and
+`usvc seller services show` reports the platform service the member backs
+(e.g. `Platform service: llm-fast`).
 Because the model, contract, price, and terms are fixed by the template, every
 member is fungible — you only provide the upstream URL, model/routing key, and a
 key-secret name if your upstream needs one.

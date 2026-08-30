@@ -70,6 +70,7 @@ from .service_group_status_enum import ServiceGroupStatusEnum
 from .service_group_update import ServiceGroupUpdate
 from .service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
 from .service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
+from .service_kind_enum import ServiceKindEnum
 from .service_listing_data import ServiceListingData
 from .service_listing_data_documents_type_0 import ServiceListingDataDocumentsType0
 from .service_listing_data_documents_type_0_additional_property import (
@@ -197,6 +198,7 @@ __all__ = (
     "ServiceGroupUpdate",
     "ServiceGroupUpdateMembershipRulesType0",
     "ServiceGroupUpdateRoutingPolicyType0",
+    "ServiceKindEnum",
     "ServiceListingData",
     "ServiceListingDataDocumentsType0",
     "ServiceListingDataDocumentsType0AdditionalProperty",

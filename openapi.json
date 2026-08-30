@@ -4284,11 +4284,10 @@
           "category",
           "collection",
           "open",
-          "keyed",
-          "capability_pool"
+          "keyed"
         ],
         "title": "GroupTypeEnum",
-        "description": "Type of service group. Derived from members, not authored (unitysvc#1686).\n\nTwo of the five types are routable (a ``/g/<name>`` endpoint); the rest are\nnot:\n\nA quick-characterization spectrum derived from ``routable_keys``\n(unitysvc#1730); the gateway routes off ``routable_keys`` itself, not this:\n\n- ``keyed`` \u2014 one extreme: a clean menu, every service addressable by its own\n  distinct routing key (each key maps to a single service); keyless access an\n  optional feature. Serves ``/v1/models`` and is tool-explorable.\n- ``open`` \u2014 the middle: routable, but not a clean per-service menu \u2014 a\n  keyless-only pool, partial keying, or a key that fans to several services.\n- ``collection`` \u2014 the other extreme: **not** a routing endpoint at all\n  (empty ``routable_keys`` \u2014 no members, or every bucket format-collides).\n\nRoutability is exactly ``group_type in {open, keyed}`` (``collection`` =\nempty ``routable_keys``), so the routing gate is unchanged; #1730 only re-cut\nthe open\u2194keyed boundary. Whether a keyless request is served is a\n``routable_keys`` fact, not a type fact.\n- ``category`` \u2014 a parent with no members of its own; its membership is the\n  union of its descendants, for browsing only.\n- ``capability_pool`` (#1244) \u2014 the ``/p/<name>`` namespace; membership is\n  claim-driven (services instantiated from a ServiceTemplate whose\n  ``pool_name`` matches), set by a dedicated refresh.\n\n``open`` / ``keyed`` / ``collection`` are derived from the members at\nmembership refresh; ``category`` and ``capability_pool`` are set explicitly\nand never re-derived. (The former ``routable`` value was split into\n``open`` / ``keyed``, and the ``misc`` catch-all removed \u2014 unitysvc#1686.)"
+        "description": "Type of service group. Derived from members, not authored (unitysvc#1686).\n\nTwo of the five types are routable (a ``/g/<name>`` endpoint); the rest are\nnot:\n\nA quick-characterization spectrum derived from ``routable_keys``\n(unitysvc#1730); the gateway routes off ``routable_keys`` itself, not this:\n\n- ``keyed`` \u2014 one extreme: a clean menu, every service addressable by its own\n  distinct routing key (each key maps to a single service); keyless access an\n  optional feature. Serves ``/v1/models`` and is tool-explorable.\n- ``open`` \u2014 the middle: routable, but not a clean per-service menu \u2014 a\n  keyless-only pool, partial keying, or a key that fans to several services.\n- ``collection`` \u2014 the other extreme: **not** a routing endpoint at all\n  (empty ``routable_keys`` \u2014 no members, or every bucket format-collides).\n\nRoutability is exactly ``group_type in {open, keyed}`` (``collection`` =\nempty ``routable_keys``), so the routing gate is unchanged; #1730 only re-cut\nthe open\u2194keyed boundary. Whether a keyless request is served is a\n``routable_keys`` fact, not a type fact.\n- ``category`` \u2014 a parent with no members of its own; its membership is the\n  union of its descendants, for browsing only.\n\n``open`` / ``keyed`` / ``collection`` are derived from the members at\nmembership refresh; ``category`` is set explicitly and never re-derived.\n(The former ``routable`` value was split into ``open`` / ``keyed``, and the\n``misc`` catch-all removed \u2014 unitysvc#1686.)"
       },
       "HTTPValidationError": {
         "properties": {
@@ -5399,6 +5398,33 @@
             ],
             "title": "Managed By Template"
           },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": "regular"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "parent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Name"
+          },
           "provider": {
             "anyOf": [
               {
@@ -5887,6 +5913,16 @@
         "title": "ServiceGroupUpdate",
         "description": "Schema for updating a ServiceGroup."
       },
+      "ServiceKindEnum": {
+        "type": "string",
+        "enum": [
+          "regular",
+          "platform",
+          "platform_member"
+        ],
+        "title": "ServiceKindEnum",
+        "description": "Role of a Service row in the platform-facade model (#1979).\n\n- regular: ordinary seller service (the default).\n- platform: platform-owned public facade Service materialized for a\n  PlatformService endpoint; customers discover/group/price this row.\n- platform_member: private seller service backing a facade; carries\n  ``parent_id`` pointing at its facade Service.\n\n``platform_member`` is derivable from ``parent_id`` at write time; it is\nstored explicitly so billing/usage queries can distinguish the executed\nmember identity from the customer-facing facade identity without joins."
+      },
       "ServiceListingData": {
         "properties": {
           "name": {
@@ -6304,6 +6340,22 @@
             "$ref": "#/components/schemas/ServiceVisibilityEnum",
             "default": "unlisted"
           },
+          "kind": {
+            "$ref": "#/components/schemas/ServiceKindEnum",
+            "default": "regular"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
           "routing_vars": {
             "anyOf": [
               {
@@ -6561,17 +6613,6 @@
           },
           "service_type": {
             "$ref": "#/components/schemas/ServiceTypeEnum"
-          },
-          "pool_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pool Name"
           },
           "parameter_schema": {
             "additionalProperties": true,

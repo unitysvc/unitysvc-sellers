@@ -220,7 +220,7 @@ $ usvc seller specs upload [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Service to upload, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Omit to upload every service in the current directory.
+* `name`: Service to upload, by service_name (= listing.name) or services/specs path — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Omit to upload every service in the current directory.
 
 **Options**:
 
@@ -527,7 +527,7 @@ $ usvc seller services list [OPTIONS] [name]
 * `--status <str>`: Filter by service status (draft, pending, review, active, rejected, suspended, deprecated).
 * `--visibility <str>`: Filter by catalog visibility (public, unlisted, private).
 * `--provider <str>`: Filter by provider name (case-insensitive partial match).
-* `--fields <str>`: Columns to display. Absolute list (id,name,status) replaces the defaults; a fully-signed list edits them (+revision_of appends, -visibility drops, +created_at,-service_type does both).  [default: id,name,provider_name,service_type,status,visibility,managed_by_template,revision_of,updated_at]
+* `--fields <str>`: Columns to display. Absolute list (id,name,status) replaces the defaults; a fully-signed list edits them (+revision_of appends, -visibility drops, +created_at,-service_type does both).  [default: id,name,provider_name,service_type,status,visibility,kind,managed_by_template,revision_of,updated_at]
 * `--sort <str>`: Sort by a column: &#x27;-updated&#x27; (latest first), &#x27;+updated&#x27; (oldest first), also &#x27;name&#x27;, &#x27;status&#x27;, &#x27;created&#x27;. Sorts the seller&#x27;s WHOLE catalog — it follows cursors like --all, since sorting one page would order an arbitrary slice. Replaces the default original-then-revision grouping.
 * `-f, --format <str>`: Output format: table | json.  [default: table]
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.

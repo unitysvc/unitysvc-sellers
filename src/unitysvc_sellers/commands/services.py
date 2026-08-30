@@ -26,7 +26,6 @@ instead.
 from __future__ import annotations
 
 import json
-import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -110,6 +109,10 @@ _DEFAULT_LIST_FIELDS = [
     "service_type",
     "status",
     "visibility",
+    # Platform-facade role (#1979): "regular", "platform" (a facade), or
+    # "platform_member" (a private service backing a facade). Drop with
+    # ``--fields -kind``; add the facade link with ``--fields +parent_id``.
+    "kind",
     "managed_by_template",
     "revision_of",
     # How long the service has sat in its current shape — the question a
@@ -119,16 +122,12 @@ _DEFAULT_LIST_FIELDS = [
 ]
 # UUID columns rendered as an 8-char prefix so a revision's ``revision_of`` reads
 # the same as its original's ``id`` for eyeball matching.
-_ID_COLUMNS = {"id", "revision_of"}
+_ID_COLUMNS = {"id", "revision_of", "parent_id"}
 
 
 # Header overrides — the table shows raw field names (so ``--fields`` names and
 # columns match), except where a friendlier word reads better in a scan.
 _COLUMN_LABELS = {"managed_by_template": "template", "updated_at": "updated"}
-_PLATFORM_SERVICE_HINT_RE = re.compile(
-    r"\b(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s+platform[- ]service\b",
-    re.IGNORECASE,
-)
 
 
 def _mapping(value: Any) -> dict[str, Any]:
@@ -168,29 +167,19 @@ def _service_template_label(service: dict[str, Any]) -> str | None:
     return template_name
 
 
-def _platform_service_hint(service: dict[str, Any]) -> str | None:
-    offering = _mapping(service.get("offering"))
-    listing = _mapping(service.get("listing"))
-    source_metadata = _mapping(service.get("source_metadata"))
-    texts = [
-        _nested_str(service, "platform_service"),
-        _nested_str(service, "platform_service_name"),
-        _nested_str(service, "platform_service_slug"),
-        _nested_str(source_metadata, "platform_service"),
-        _nested_str(source_metadata, "platform_service_name"),
-        _nested_str(offering, "summary"),
-        _nested_str(offering, "description"),
-        _nested_str(listing, "summary"),
-        _nested_str(listing, "description"),
-    ]
-    for text in texts:
-        if not text:
-            continue
-        if "platform" not in text.lower():
-            continue
-        match = _PLATFORM_SERVICE_HINT_RE.search(text)
-        if match:
-            return match.group("name")
+def _platform_service_label(service: dict[str, Any]) -> str | None:
+    """The facade a platform member backs, from the structured detail fields.
+
+    ``parent_name`` is the facade Service's routable name — equal to the
+    platform-service slug (e.g. ``llm-fast``). Falls back to an id prefix if
+    the backend knows the link but not the name.
+    """
+    parent_name = _nested_str(service, "parent_name")
+    if parent_name:
+        return parent_name
+    parent_id = _nested_str(service, "parent_id")
+    if parent_id:
+        return parent_id[:8] + "…"
     return None
 
 
@@ -657,7 +646,10 @@ def show_service(
     template_label = _service_template_label(service)
     if template_label:
         id_table.add_row("Template", template_label)
-    platform_service = _platform_service_hint(service)
+    kind = _nested_str(service, "kind")
+    if kind and kind != "regular":
+        id_table.add_row("Kind", kind)
+    platform_service = _platform_service_label(service)
     if platform_service:
         id_table.add_row("Platform service", platform_service)
     if service.get("routing_vars"):

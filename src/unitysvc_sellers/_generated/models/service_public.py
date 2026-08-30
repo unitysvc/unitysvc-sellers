@@ -9,6 +9,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.service_kind_enum import ServiceKindEnum, check_service_kind_enum
 from ..models.service_status_enum import ServiceStatusEnum, check_service_status_enum
 from ..models.service_visibility_enum import ServiceVisibilityEnum, check_service_visibility_enum
 from ..types import UNSET, Unset
@@ -62,6 +63,19 @@ class ServicePublic:
     - unlisted: Live and routable, not in catalog, accessible via direct link
     - public: In catalog, fully discoverable
     - private: Live and routable, ops/internal use only """
+    kind: ServiceKindEnum | Unset = UNSET
+    """ Role of a Service row in the platform-facade model (#1979).
+
+    - regular: ordinary seller service (the default).
+    - platform: platform-owned public facade Service materialized for a
+      PlatformService endpoint; customers discover/group/price this row.
+    - platform_member: private seller service backing a facade; carries
+      ``parent_id`` pointing at its facade Service.
+
+    ``platform_member`` is derivable from ``parent_id`` at write time; it is
+    stored explicitly so billing/usage queries can distinguish the executed
+    member identity from the customer-facing facade identity without joins. """
+    parent_id: None | Unset | UUID = UNSET
     routing_vars: None | ServicePublicRoutingVarsType0 | Unset = UNSET
     managed_by_template: None | str | Unset = UNSET
     review_count: int | Unset = 0
@@ -159,6 +173,18 @@ class ServicePublic:
         if not isinstance(self.visibility, Unset):
             visibility = self.visibility
 
+        kind: str | Unset = UNSET
+        if not isinstance(self.kind, Unset):
+            kind = self.kind
+
+        parent_id: None | str | Unset
+        if isinstance(self.parent_id, Unset):
+            parent_id = UNSET
+        elif isinstance(self.parent_id, UUID):
+            parent_id = str(self.parent_id)
+        else:
+            parent_id = self.parent_id
+
         routing_vars: dict[str, Any] | None | Unset
         if isinstance(self.routing_vars, Unset):
             routing_vars = UNSET
@@ -240,6 +266,10 @@ class ServicePublic:
             field_dict["tags"] = tags
         if visibility is not UNSET:
             field_dict["visibility"] = visibility
+        if kind is not UNSET:
+            field_dict["kind"] = kind
+        if parent_id is not UNSET:
+            field_dict["parent_id"] = parent_id
         if routing_vars is not UNSET:
             field_dict["routing_vars"] = routing_vars
         if managed_by_template is not UNSET:
@@ -398,6 +428,30 @@ class ServicePublic:
         else:
             visibility = check_service_visibility_enum(_visibility)
 
+        _kind = d.pop("kind", UNSET)
+        kind: ServiceKindEnum | Unset
+        if isinstance(_kind, Unset):
+            kind = UNSET
+        else:
+            kind = check_service_kind_enum(_kind)
+
+        def _parse_parent_id(data: object) -> None | Unset | UUID:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                parent_id_type_0 = UUID(data)
+
+                return parent_id_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | Unset | UUID, data)
+
+        parent_id = _parse_parent_id(d.pop("parent_id", UNSET))
+
         def _parse_routing_vars(data: object) -> None | ServicePublicRoutingVarsType0 | Unset:
             if data is None:
                 return data
@@ -505,6 +559,8 @@ class ServicePublic:
             status_message=status_message,
             tags=tags,
             visibility=visibility,
+            kind=kind,
+            parent_id=parent_id,
             routing_vars=routing_vars,
             managed_by_template=managed_by_template,
             review_count=review_count,
