@@ -88,24 +88,22 @@ usvc seller specs upload            # upload every service in the repo
 created and its id is written to `service.json` — commit that file so later
 uploads update the same service.
 
-### Route B — instantiate a platform template
+### Route B — instantiate a system template
 
-If the platform publishes a template for your service type, you author **no
-files** — you supply parameters and it renders the service for you:
+If the platform publishes a template for your service type, you author **no full
+spec files** — you supply parameters and it renders the service for you:
 
 ```bash
 usvc seller templates list                          # what's available
 usvc seller templates show openai-compatible-llm    # its parameters
-usvc seller params instantiate openai-compatible-llm \
-    -P api_base_url=https://api.example.com/v1 \
-    -P api_key_secret_name=UPSTREAM_API_KEY \
-    -P input_price=1.00
+$EDITOR specs/acme/gpt.json                         # { "template": "...", "parameters": {...} }
+usvc seller specs upload acme/gpt --submit
 ```
 
 Secret-typed parameters take a **secret name** (create it first with
 `usvc seller secrets set …`), never the raw value. See
-[Service Templates](service-templates.md) for platform templates, capability
-pools, and authoring your own.
+[Service Templates](service-templates.md) for system templates, platform
+services, and authoring your own.
 
 ## 5. Submit for review
 

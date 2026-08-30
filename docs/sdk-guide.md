@@ -245,19 +245,17 @@ Manager methods on `client.templates`:
 
 ## `client.instances`
 
-**Template instances** — the SDK counterpart of the dashboard's *Create from
-template* flow. `create` renders a template into a **draft** service (and, with
-`auto_submit=True`, also submits it for review); `list` / `get` / `delete` manage
-your instances.
+**Create from system template** — the SDK counterpart of the dashboard's *Create
+from template* flow. `create` renders a template into a **draft** service and,
+with `auto_submit=True`, also submits it for review. Template parameters are
+stored on the generated service's source metadata; there is no separate
+TemplateInstance object to manage.
 
 Manager methods on `client.instances`:
 
 | Method                                                       | Description                                                                                  |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `create(template_id, parameters=, name=, auto_submit=False)` | Render a template into a draft service; `auto_submit=True` also submits it for review. Returns `instance_id` + ingest `task_id`. |
-| `list(skip=, limit=)`                                   | Your instances, with derived service status.                                                 |
-| `get(instance_id)`                                      | One instance: parameters, template metadata, linked service.                                 |
-| `delete(instance_id)`                                   | Delete the instance record (the linked service is **not** unpublished).                      |
+| `create(template_id, parameters=, name=, auto_submit=False, service_id=)` | Render a template into a draft service; `auto_submit=True` also submits it for review. Pass `service_id` to revise an existing template-sourced service. Returns the ingest `task_id`. |
 
 ```python
 from unitysvc_sellers import Client
@@ -277,13 +275,13 @@ with Client() as client:
         # Draft by default; pass auto_submit=True to also submit for review now.
     )
     # Poll the ingest task to a verdict with client.tasks if you need to block.
-    print(result["instance_id"], result["task_id"])
+    print(result.task_id)
 ```
 
 Secret-typed parameters take the **name** of a secret you created with
-`client.secrets`, never the key value. Capability pools opt in the same way —
-`create` from a pool-named template and the resulting service joins
-`/p/<pool>` at the pool's uniform terms.
+`client.secrets`, never the key value. Platform services opt in the same way:
+create a private service from the linked system template, and membership is added
+by the backend after review activation.
 
 ## `client.promotions`
 

@@ -42,7 +42,6 @@ class ServiceTemplateSummary:
     `capabilities` list on ServiceOffering, not service_type. """
     parameter_schema: ServiceTemplateSummaryServiceTemplateSummaryParameterSchema
     description: None | str | Unset = UNSET
-    pool_name: None | str | Unset = UNSET
     parameter_ui_schema: None | ServiceTemplateSummaryParameterUiSchemaType0 | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -72,12 +71,6 @@ class ServiceTemplateSummary:
         else:
             description = self.description
 
-        pool_name: None | str | Unset
-        if isinstance(self.pool_name, Unset):
-            pool_name = UNSET
-        else:
-            pool_name = self.pool_name
-
         parameter_ui_schema: dict[str, Any] | None | Unset
         if isinstance(self.parameter_ui_schema, Unset):
             parameter_ui_schema = UNSET
@@ -100,8 +93,6 @@ class ServiceTemplateSummary:
         )
         if description is not UNSET:
             field_dict["description"] = description
-        if pool_name is not UNSET:
-            field_dict["pool_name"] = pool_name
         if parameter_ui_schema is not UNSET:
             field_dict["parameter_ui_schema"] = parameter_ui_schema
 
@@ -140,15 +131,6 @@ class ServiceTemplateSummary:
 
         description = _parse_description(d.pop("description", UNSET))
 
-        def _parse_pool_name(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        pool_name = _parse_pool_name(d.pop("pool_name", UNSET))
-
         def _parse_parameter_ui_schema(data: object) -> None | ServiceTemplateSummaryParameterUiSchemaType0 | Unset:
             if data is None:
                 return data
@@ -174,7 +156,6 @@ class ServiceTemplateSummary:
             service_type=service_type,
             parameter_schema=parameter_schema,
             description=description,
-            pool_name=pool_name,
             parameter_ui_schema=parameter_ui_schema,
         )
 

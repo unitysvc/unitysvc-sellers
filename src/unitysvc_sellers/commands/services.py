@@ -109,6 +109,11 @@ _DEFAULT_LIST_FIELDS = [
     "service_type",
     "status",
     "visibility",
+    # Platform-facade role (#1979): "regular", "platform" (a facade), or
+    # "platform_member" (a private service backing a facade). Drop with
+    # ``--fields -kind``; add the facade link with ``--fields +parent_id``.
+    "kind",
+    "managed_by_template",
     "revision_of",
     # How long the service has sat in its current shape — the question a
     # seller scanning the list actually asks ("did my submission go through?
@@ -117,12 +122,65 @@ _DEFAULT_LIST_FIELDS = [
 ]
 # UUID columns rendered as an 8-char prefix so a revision's ``revision_of`` reads
 # the same as its original's ``id`` for eyeball matching.
-_ID_COLUMNS = {"id", "revision_of"}
+_ID_COLUMNS = {"id", "revision_of", "parent_id"}
 
 
 # Header overrides — the table shows raw field names (so ``--fields`` names and
 # columns match), except where a friendlier word reads better in a scan.
-_COLUMN_LABELS = {"updated_at": "updated"}
+_COLUMN_LABELS = {"managed_by_template": "template", "updated_at": "updated"}
+
+
+def _mapping(value: Any) -> dict[str, Any]:
+    """Return a plain mapping for dict-like generated model payload fragments."""
+    if not value:
+        return {}
+    if isinstance(value, dict):
+        return value
+    converted = model_to_dict(value)
+    return converted if isinstance(converted, dict) else {}
+
+
+def _nested_str(payload: dict[str, Any], *path: str) -> str | None:
+    current: Any = payload
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    if current in (None, ""):
+        return None
+    return str(current)
+
+
+def _service_provider_name(service: dict[str, Any]) -> str | None:
+    return _nested_str(service, "provider_name") or _nested_str(service, "provider", "name")
+
+
+def _service_template_label(service: dict[str, Any]) -> str | None:
+    label = _nested_str(service, "managed_by_template")
+    if label:
+        return label
+    metadata = _mapping(service.get("source_metadata"))
+    template_name = _nested_str(metadata, "template_name")
+    template_version = _nested_str(metadata, "template_version")
+    if template_name and template_version:
+        return f"{template_name} {template_version}"
+    return template_name
+
+
+def _platform_service_label(service: dict[str, Any]) -> str | None:
+    """The facade a platform member backs, from the structured detail fields.
+
+    ``parent_name`` is the facade Service's routable name — equal to the
+    platform-service slug (e.g. ``llm-fast``). Falls back to an id prefix if
+    the backend knows the link but not the name.
+    """
+    parent_name = _nested_str(service, "parent_name")
+    if parent_name:
+        return parent_name
+    parent_id = _nested_str(service, "parent_id")
+    if parent_id:
+        return parent_id[:8] + "…"
+    return None
 
 
 def _is_time_column(col: str) -> bool:
@@ -582,8 +640,18 @@ def show_service(
     id_table.add_row("Status", str(service.get("status", "N/A")))
     if service.get("status_message"):
         id_table.add_row("Status message", str(service["status_message"]))
-    if service.get("provider_name"):
-        id_table.add_row("Provider", str(service["provider_name"]))
+    provider_name = _service_provider_name(service)
+    if provider_name:
+        id_table.add_row("Provider", provider_name)
+    template_label = _service_template_label(service)
+    if template_label:
+        id_table.add_row("Template", template_label)
+    kind = _nested_str(service, "kind")
+    if kind and kind != "regular":
+        id_table.add_row("Kind", kind)
+    platform_service = _platform_service_label(service)
+    if platform_service:
+        id_table.add_row("Platform service", platform_service)
     if service.get("routing_vars"):
         id_table.add_row("Routing vars", json.dumps(service["routing_vars"]))
     console.print(id_table)
@@ -1675,9 +1743,7 @@ def update_service(
             raise typer.Exit(code=1)
         update_body["visibility"] = visibility
 
-    service_id = _resolve_single_target_id(
-        api_key, base_url, name=name, service_id=service_id
-    )
+    service_id = _resolve_single_target_id(api_key, base_url, name=name, service_id=service_id)
 
     # Routing vars
     if has_routing:

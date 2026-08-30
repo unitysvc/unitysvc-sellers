@@ -249,9 +249,7 @@ def expand_service(
             )
             raise typer.Exit(1)
         else:
-            console.print(
-                f"[red]✗[/red] No param file {name}.json or service folder {name}/ found under {specs_root}"
-            )
+            console.print(f"[red]✗[/red] No param file {name}.json or service folder {name}/ found under {specs_root}")
             raise typer.Exit(1)
     except ParamRenderError as exc:
         console.print(f"[red]✗[/red] Param render error: {exc}")

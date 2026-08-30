@@ -20,10 +20,10 @@ Param files and spelled-out folders can live side by side under `specs/` — the
 
 > **Local template, not a platform one.** This is your *own* template, rendered
 > on your machine — distinct from [Create from a Template](create-from-template.md),
-> where the **platform** owns the template and renders it server-side
-> (`params instantiate`). A param file whose `template` names a directory under
+> where the **platform** owns the template and renders it server-side during
+> `specs upload`. A param file whose `template` names a directory under
 > your `templates/` is local; a name with no matching directory is treated as a
-> remote platform template. See [Routing](#local-vs-remote-templates) below.
+> system template. See [Routing](#local-vs-remote-templates) below.
 
 ## Repo layout
 
@@ -113,16 +113,16 @@ Pick one layout per repo:
 > `templates/`), use **named** subdirectories here so the two don't share one
 > ambiguous `templates/*.j2` set.
 
-### Local vs remote templates
+### Local vs system templates
 
 A `template` value resolves to a **local** template if `templates/<name>/` exists,
-otherwise it is treated as a **remote** platform template:
+otherwise it is treated as a **system** template:
 
 | `template` | Resolves to | Realized by |
 |---|---|---|
 | omitted | local `templates/` | `usvc seller specs …` |
 | `"<name>"` and `templates/<name>/` exists | local directory | `usvc seller specs …` |
-| `"<name>"` with no matching directory | remote platform template | `usvc seller params instantiate` (see [Create from a Template](create-from-template.md)) |
+| `"<name>"` with no matching directory | system template | `usvc seller specs upload` (see [Create from a Template](create-from-template.md)) |
 
 ## Validate, test, upload
 

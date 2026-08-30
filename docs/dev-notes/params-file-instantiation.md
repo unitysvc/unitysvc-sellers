@@ -1,12 +1,9 @@
-# Design: parameterized services — remote `params` vs local ephemeral specs
+# Design: parameterized services — system templates and local ephemeral specs
 
-Status: **path B implemented** (local template + param files, `unitysvc-sellers`
-≥ 0.2.4; first test bed `unitysvc-services-resp`); path A (remote) pending
-[unitysvc/unitysvc#1273](https://github.com/unitysvc/unitysvc/issues/1273). This
-is the design record — the **user-facing guide** for path B is
-[Compact Specs with Param Files](../guides/param-files.md). Supersedes the
-earlier "one command, branch on the `template` field" sketch, which conflated two
-genuinely different mechanisms.
+Status: local template param files are implemented (`unitysvc-sellers` ≥ 0.2.4),
+and system-template param files now use the same `specs upload` surface. The
+user-facing guides are [Compact Specs with Param Files](../guides/param-files.md)
+and [Create from a System Template](../guides/create-from-template.md).
 
 ## Motivation
 
@@ -25,7 +22,7 @@ in **three values** — an HTTP `status`, a `label` ("OK", "Service Unavailable"
 |---|---|---|
 | Renders | **server-side** (backend owns the template) | **client-side** (the SDK renders `.j2`) |
 | Backend receives | a template id + params | finished `offering`/`listing` specs |
-| Backend object | a **TemplateInstance** → Service (binding kept) | a plain **Service** |
+| Backend object | a normal **Service** with template source metadata | a plain **Service** |
 | Local `validate` / `run-tests` first | no (render is server-side) | **yes** (full spec known client-side) |
 | Generated specs on disk | n/a | **ephemeral** — rendered at upload, never committed |
 | It is… | a genuine **instantiate** | **`specs upload` with a renderer in front** |
@@ -39,13 +36,14 @@ backend *as* a template. So we split by **command**, not by a hidden branch:
   `specs validate / run-tests / upload / list [NAME]` handle all of them through
   one path (param-defined services are simply rendered in memory first). "Params
   + template" is thus just a *compact way to author specs*.
-- **`params instantiate`** handles **remote system templates** only — the one
-  case that is a genuine server-side operation.
+- **`specs upload`** also handles **system templates**. Param files whose
+  `template` does not resolve to a local directory are posted to backend
+  instantiation instead of rendered by the SDK.
 
 | You have… | Command |
 |---|---|
 | spec folders, and/or param files with a **local** `template` | `usvc seller specs …` |
-| a **remote** system template + values | `usvc seller params instantiate` |
+| a **remote** system template + values | `usvc seller specs upload` |
 
 **Everything lives under `specs/` — no separate `params/` directory.** A service
 at `<provider>/<name>` is defined by exactly one of:
@@ -57,31 +55,26 @@ specs/<provider>/<name>.service.json   ← identity sidecar (sibling), holds ser
 ```
 
 The path → service_name mapping is uniform (folder or file). A param file's
-`template` routes it: a **local directory** → realized by `specs` (rendered +
-uploaded), a **remote name** → realized by `params instantiate`. Both commands
-walk `specs/` and auto-select their own entries (and error if you target the
-other kind); the `*.service.json` sidecar is identical for both. So `specs/` is
-the single home for all service definitions; a folder and a `.json` file at the
-same path is an error.
+`template` routes it: a **local directory** → rendered by the SDK, a **remote
+name** → rendered by backend instantiation. Both happen under `specs upload`; the
+`*.service.json` sidecar is identical for both. So `specs/` is the single home
+for all service definitions; a folder and a `.json` file at the same path is an
+error.
 
-## A. `params` — remote system templates
+## A. System templates
 
 Instantiate a platform-published template server-side. Two input forms:
 
 ```bash
-usvc seller params instantiate <system-template> -P key=value …   # inline (one-off)
-usvc seller params instantiate [NAME]                             # from specs/<name>.json with a remote template
+usvc seller specs upload [NAME]       # from specs/<name>.json with a system template
 ```
 
-The file form reads the same `specs/` tree as `specs`, processing only the
-`<name>.json` param files whose `template` is a remote name (fnmatch on `NAME`,
-omit = all such files). The backend renders the template, creates the service,
-and returns a `service_id`. We persist it (in a `*.service.json` sidecar); on re-run we submit
-with that `service_id` and the backend applies the **same revision semantics as
-`specs upload`** — update in place if draft/pending, create a `revision_to` if
-the service is active. Sellers cannot author platform templates (admin action),
-and the staging catalog is currently empty — so `params` has no test bed yet.
-See the backend dependency below.
+The upload command reads `specs/`, processing param files whose `template` is a
+system-template name or id. The backend renders the template, creates the
+service, and returns a `service_id`. We persist it in a `*.service.json` sidecar;
+on re-run we submit with that `service_id` and the backend applies normal
+revision semantics. Sellers cannot author system templates; they discover them
+with `usvc seller templates list/show`.
 
 ## B. Local template + param files — ephemeral specs
 
@@ -127,8 +120,8 @@ Two keys, both about as small as it gets: an optional `template` and a
 - **`template`** is a **bare name resolved under `templates/`**, and is
   **optional**: omit it for the single default template `templates/`; set
   `"resp"` for `templates/resp/`. (No path prefix.) A name resolves to a **local**
-  template if `templates/<name>/` exists, otherwise it's a **remote** platform
-  template — see routing below.
+  template if `templates/<name>/` exists, otherwise it's a **system** template
+  rendered by backend instantiation during `specs upload`.
 - **`parameters`** holds the values, nested (not spread at top level) so a value
   may safely be named `template`/`name`/etc., matching the SDK's
   `instances.create(parameters={…})` shape and leaving room for future control
@@ -160,10 +153,10 @@ A `template` value is a **bare name resolved under `templates/`**. Two layouts
 2. **Multiple named** — `templates/<name>/…`; param files set `"template":
    "<name>"` (e.g. `"resp"` → `templates/resp/`).
 
-Resolution (and local-vs-remote routing): `template` omitted → local
+Resolution (and local-vs-system routing): `template` omitted → local
 `templates/`; `template: "<name>"` → local `templates/<name>/` if that directory
-exists, otherwise a **remote** platform template named `<name>` (handled by
-`params instantiate`, not `specs`).
+exists, otherwise a **system** template named `<name>` (handled by backend
+instantiation during `specs upload`).
 
 A local template directory may carry **extra files** (connectivity tests, code
 examples, docs) that the rendered listing references by relative path; they're
@@ -187,11 +180,12 @@ usvc seller specs upload    [NAME]   # render → upload via the normal path; re
 ```
 
 `specs` walks `specs/`, treating each `<name>/` as an explicit spec folder and
-each `<name>.json` (with a local `template`) as a param file rendered in memory,
-then validates / tests / uploads the result. `NAME` fnmatches the service name
-(omit = all), exactly as today's `specs upload [NAME]`. Identity round-trips
-through the `<name>.service.json` sidecar just as a folder round-trips through its
-`service.json`.
+each `<name>.json` as a param file. Local-template params render in memory for
+validate / test / upload. System-template params are only actionable during
+upload, where they are sent to backend instantiation. `NAME` fnmatches the
+service name (omit = all), exactly as today's `specs upload [NAME]`. Identity
+round-trips through the `<name>.service.json` sidecar just as a folder
+round-trips through its `service.json`.
 
 ### resp `offering.json.j2` (representative)
 
@@ -212,25 +206,6 @@ through the `<name>.service.json` sidecar just as a folder round-trips through i
 Six param files replace six `offering.json` + `listing.json` pairs; the template
 and the single shared `connectivity.sh.j2` carry everything common — and nothing
 generated is committed.
-
-## Backend dependency (path A only)
-
-The **remote** path needs the instantiate endpoint to accept an **existing
-`service_id`** and apply `specs`-style revision semantics (update if
-draft/pending, `revision_to` if active), so re-instantiation from the sidecar
-updates the same service instead of duplicating. Tracked in
-**[unitysvc/unitysvc#1273](https://github.com/unitysvc/unitysvc/issues/1273)**.
-The **local** path (B) needs none of this — it rides the existing
-`specs upload` + `service_id` round-trip.
-
-## Phasing
-
-1. **Path B (local, ephemeral)** — build now, no backend work: value-file +
-   sidecar formats, local-template resolution, render-on-the-fly in
-   `specs validate/run-tests/upload`, `[NAME]` batching. Convert
-   `unitysvc-services-resp` to it end-to-end as the proof.
-2. **Path A (remote)** — once #1273 lands: `params instantiate` records
-   `service_id` in the sidecar and re-submits to revise on re-run.
 
 ## Out of scope
 

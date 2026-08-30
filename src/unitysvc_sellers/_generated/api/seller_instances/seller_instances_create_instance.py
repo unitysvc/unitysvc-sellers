@@ -7,14 +7,14 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
-from ...models.template_instance_create import TemplateInstanceCreate
-from ...models.template_instance_create_response import TemplateInstanceCreateResponse
+from ...models.template_instantiation_create import TemplateInstantiationCreate
+from ...models.template_instantiation_create_response import TemplateInstantiationCreateResponse
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     *,
-    body: TemplateInstanceCreate,
+    body: TemplateInstantiationCreate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -40,9 +40,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | TemplateInstanceCreateResponse | None:
+) -> HTTPValidationError | TemplateInstantiationCreateResponse | None:
     if response.status_code == 202:
-        response_202 = TemplateInstanceCreateResponse.from_dict(response.json())
+        response_202 = TemplateInstantiationCreateResponse.from_dict(response.json())
 
         return response_202
 
@@ -59,7 +59,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | TemplateInstanceCreateResponse]:
+) -> Response[HTTPValidationError | TemplateInstantiationCreateResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -71,41 +71,29 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-    body: TemplateInstanceCreate,
+    body: TemplateInstantiationCreate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | TemplateInstanceCreateResponse]:
-    r"""Create Instance
+) -> Response[HTTPValidationError | TemplateInstantiationCreateResponse]:
+    """Create Instance
 
-     Create a service from a template + parameters.
+     Create or revise a service from a template + parameters.
 
-    The single path to a service from a template (dashboard, CLI, and CI all
-    use it). Creates the backing ``TemplateInstance`` (the durable provenance
-    handle, and the basis for capability-pool membership) and renders it into a
-    **draft** service via the canonical ingest pipeline. With
-    ``auto_submit=True`` (the dashboard's one-click \"create & submit\") the draft
-    is also submitted for review in the same async chain; otherwise it stays a
-    reviewable draft. For new creates (no ``service_id``) the template must be
-    **active**; revisions (``service_id`` supplied) are allowed on any status.
-    Returns 202 with the new ``instance_id`` and the ingest ``task_id``.
+    This is now stateless: the backend stores generation provenance on the
+    generated Service, not in a separate TemplateInstance row.
 
     Args:
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (TemplateInstanceCreate): Create a template instance and render it into a service.
-
-            Always produces a ``TemplateInstance`` + a **draft** ``Service``. Set
-            ``auto_submit=True`` to also submit that draft for review in the same call
-            (the one-click "create & submit" path); leave it ``False`` to create a
-            reviewable draft and submit later via ``PATCH /seller/services`` (the batch
-            path). Request-only — not stored on the instance.
+        body (TemplateInstantiationCreate): Render a platform-owned template into a service ingest
+            task.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | TemplateInstanceCreateResponse]
+        Response[HTTPValidationError | TemplateInstantiationCreateResponse]
     """
 
     kwargs = _get_kwargs(
@@ -124,41 +112,29 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
-    body: TemplateInstanceCreate,
+    body: TemplateInstantiationCreate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | TemplateInstanceCreateResponse | None:
-    r"""Create Instance
+) -> HTTPValidationError | TemplateInstantiationCreateResponse | None:
+    """Create Instance
 
-     Create a service from a template + parameters.
+     Create or revise a service from a template + parameters.
 
-    The single path to a service from a template (dashboard, CLI, and CI all
-    use it). Creates the backing ``TemplateInstance`` (the durable provenance
-    handle, and the basis for capability-pool membership) and renders it into a
-    **draft** service via the canonical ingest pipeline. With
-    ``auto_submit=True`` (the dashboard's one-click \"create & submit\") the draft
-    is also submitted for review in the same async chain; otherwise it stays a
-    reviewable draft. For new creates (no ``service_id``) the template must be
-    **active**; revisions (``service_id`` supplied) are allowed on any status.
-    Returns 202 with the new ``instance_id`` and the ingest ``task_id``.
+    This is now stateless: the backend stores generation provenance on the
+    generated Service, not in a separate TemplateInstance row.
 
     Args:
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (TemplateInstanceCreate): Create a template instance and render it into a service.
-
-            Always produces a ``TemplateInstance`` + a **draft** ``Service``. Set
-            ``auto_submit=True`` to also submit that draft for review in the same call
-            (the one-click "create & submit" path); leave it ``False`` to create a
-            reviewable draft and submit later via ``PATCH /seller/services`` (the batch
-            path). Request-only — not stored on the instance.
+        body (TemplateInstantiationCreate): Render a platform-owned template into a service ingest
+            task.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | TemplateInstanceCreateResponse
+        HTTPValidationError | TemplateInstantiationCreateResponse
     """
 
     return sync_detailed(
@@ -172,41 +148,29 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-    body: TemplateInstanceCreate,
+    body: TemplateInstantiationCreate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | TemplateInstanceCreateResponse]:
-    r"""Create Instance
+) -> Response[HTTPValidationError | TemplateInstantiationCreateResponse]:
+    """Create Instance
 
-     Create a service from a template + parameters.
+     Create or revise a service from a template + parameters.
 
-    The single path to a service from a template (dashboard, CLI, and CI all
-    use it). Creates the backing ``TemplateInstance`` (the durable provenance
-    handle, and the basis for capability-pool membership) and renders it into a
-    **draft** service via the canonical ingest pipeline. With
-    ``auto_submit=True`` (the dashboard's one-click \"create & submit\") the draft
-    is also submitted for review in the same async chain; otherwise it stays a
-    reviewable draft. For new creates (no ``service_id``) the template must be
-    **active**; revisions (``service_id`` supplied) are allowed on any status.
-    Returns 202 with the new ``instance_id`` and the ingest ``task_id``.
+    This is now stateless: the backend stores generation provenance on the
+    generated Service, not in a separate TemplateInstance row.
 
     Args:
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (TemplateInstanceCreate): Create a template instance and render it into a service.
-
-            Always produces a ``TemplateInstance`` + a **draft** ``Service``. Set
-            ``auto_submit=True`` to also submit that draft for review in the same call
-            (the one-click "create & submit" path); leave it ``False`` to create a
-            reviewable draft and submit later via ``PATCH /seller/services`` (the batch
-            path). Request-only — not stored on the instance.
+        body (TemplateInstantiationCreate): Render a platform-owned template into a service ingest
+            task.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | TemplateInstanceCreateResponse]
+        Response[HTTPValidationError | TemplateInstantiationCreateResponse]
     """
 
     kwargs = _get_kwargs(
@@ -223,41 +187,29 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-    body: TemplateInstanceCreate,
+    body: TemplateInstantiationCreate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | TemplateInstanceCreateResponse | None:
-    r"""Create Instance
+) -> HTTPValidationError | TemplateInstantiationCreateResponse | None:
+    """Create Instance
 
-     Create a service from a template + parameters.
+     Create or revise a service from a template + parameters.
 
-    The single path to a service from a template (dashboard, CLI, and CI all
-    use it). Creates the backing ``TemplateInstance`` (the durable provenance
-    handle, and the basis for capability-pool membership) and renders it into a
-    **draft** service via the canonical ingest pipeline. With
-    ``auto_submit=True`` (the dashboard's one-click \"create & submit\") the draft
-    is also submitted for review in the same async chain; otherwise it stays a
-    reviewable draft. For new creates (no ``service_id``) the template must be
-    **active**; revisions (``service_id`` supplied) are allowed on any status.
-    Returns 202 with the new ``instance_id`` and the ingest ``task_id``.
+    This is now stateless: the backend stores generation provenance on the
+    generated Service, not in a separate TemplateInstance row.
 
     Args:
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (TemplateInstanceCreate): Create a template instance and render it into a service.
-
-            Always produces a ``TemplateInstance`` + a **draft** ``Service``. Set
-            ``auto_submit=True`` to also submit that draft for review in the same call
-            (the one-click "create & submit" path); leave it ``False`` to create a
-            reviewable draft and submit later via ``PATCH /seller/services`` (the batch
-            path). Request-only — not stored on the instance.
+        body (TemplateInstantiationCreate): Render a platform-owned template into a service ingest
+            task.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | TemplateInstanceCreateResponse
+        HTTPValidationError | TemplateInstantiationCreateResponse
     """
 
     return (

@@ -13,6 +13,7 @@ import pytest
 
 from unitysvc_sellers.params_render import (
     ParamRenderError,
+    discover_system_param_files,
     materialized_param_specs,
     write_params_from_iterator,
 )
@@ -146,9 +147,9 @@ def test_service_id_sidecar_roundtrip(tmp_path: Path) -> None:
 def test_bad_template_raises(tmp_path: Path) -> None:
     root = _make_repo(tmp_path)
     (root / "specs" / "unitysvc" / "bad.json").write_text(json.dumps({"template": "nope", "parameters": {}}))
-    with pytest.raises(ParamRenderError, match="local template 'nope' not found"):
-        with materialized_param_specs(root):
-            pass
+    assert discover_system_param_files(root) == [root / "specs" / "unitysvc" / "bad.json"]
+    with materialized_param_specs(root) as rendered:
+        assert len(rendered) == 1
 
 
 def test_folder_and_param_file_conflict_raises(tmp_path: Path) -> None:
@@ -157,6 +158,20 @@ def test_folder_and_param_file_conflict_raises(tmp_path: Path) -> None:
     with pytest.raises(ParamRenderError, match="a service is one or the other"):
         with materialized_param_specs(root):
             pass
+
+
+def test_system_template_param_repo_is_noop_for_local_render(tmp_path: Path) -> None:
+    specs = tmp_path / "specs" / "crofai"
+    specs.mkdir(parents=True)
+    param = specs / "deepseek-v3.2.json"
+    param.write_text(json.dumps({"template": "llm-fast", "parameters": {"model": "deepseek-v3.2"}}) + "\n")
+    outer_cwd = Path.cwd()
+
+    with materialized_param_specs(tmp_path) as rendered:
+        assert rendered == []
+        assert Path.cwd() == outer_cwd
+
+    assert discover_system_param_files(tmp_path) == [param]
 
 
 def test_write_params_replaces_expanded_folders(tmp_path: Path) -> None:

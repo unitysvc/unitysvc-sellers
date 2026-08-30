@@ -48,6 +48,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .exceptions import APIError
+from .params_render import (
+    discover_system_param_files,
+    load_param_data,
+    read_service_id_for_param,
+    service_name_for_param,
+    write_service_id_for_param,
+)
 from .utils import (
     convert_convenience_fields_to_documents,
     find_files_by_pattern,
@@ -138,6 +145,88 @@ def _format_polling_error(exc: APIError) -> str:
     if status_code >= 500:
         return f"task polling hit a backend error ({status_code}): {exc}"
     return f"task polling failed: {exc}"
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    """Coerce generated SDK models and dict responses into plain dicts."""
+    if isinstance(value, dict):
+        return value
+    if hasattr(value, "to_dict"):
+        return value.to_dict()
+    if hasattr(value, "additional_properties"):
+        return dict(value.additional_properties)
+    return {}
+
+
+def _template_items(response: Any) -> list[dict[str, Any]]:
+    payload = _as_dict(response)
+    items = payload.get("data") if payload else getattr(response, "data", [])
+    return [_as_dict(item) for item in (items or [])]
+
+
+def _resolve_system_template_id(client: Client, template_ref: str) -> str:
+    """Resolve a system template by exact name or unambiguous id/prefix."""
+    templates = _template_items(client.templates.list(limit=500))
+    exact_name = [item for item in templates if item.get("name") == template_ref]
+    if len(exact_name) == 1:
+        return str(exact_name[0]["id"])
+    if len(exact_name) > 1:
+        raise ValueError(f"System template name {template_ref!r} is ambiguous; use the template id.")
+
+    id_matches = [item for item in templates if str(item.get("id", "")).startswith(template_ref)]
+    if len(id_matches) == 1:
+        return str(id_matches[0]["id"])
+    if len(id_matches) > 1:
+        raise ValueError(f"System template id prefix {template_ref!r} is ambiguous; use the full template id.")
+    raise ValueError(f"System template {template_ref!r} was not found. Run `usvc seller templates list`.")
+
+
+def _extract_service_id(status_dict: dict[str, Any]) -> str | None:
+    task_result = status_dict.get("result") or {}
+    if not isinstance(task_result, dict):
+        return None
+    return task_result.get("revision_of") or task_result.get("service_id")
+
+
+def _normalize_service_selector(name: str) -> str:
+    """Accept service-name selectors and common local ``services/specs`` paths."""
+    normalized = name.removeprefix("./")
+    specs_marker = "/services/specs/"
+    if normalized.startswith("services/specs/"):
+        normalized = normalized[len("services/specs/") :]
+    elif normalized.startswith("specs/"):
+        normalized = normalized[len("specs/") :]
+    elif specs_marker in normalized:
+        normalized = normalized.split(specs_marker, 1)[1]
+    if normalized.endswith(".json") and not normalized.endswith(".service.json"):
+        normalized = normalized[: -len(".json")]
+    return normalized
+
+
+def _instantiate_system_param_file(
+    client: Client,
+    param_file: Path,
+    *,
+    auto_submit: bool,
+) -> tuple[str | None, str]:
+    data = load_param_data(param_file)
+    template_ref = data.get("template")
+    if not template_ref:
+        raise ValueError(f"{param_file}: system-template param file must include a template name or id.")
+    parameters = data.get("parameters") or {}
+    if not isinstance(parameters, dict):
+        raise ValueError(f"{param_file}: parameters must be a JSON object.")
+
+    service_name = service_name_for_param(param_file)
+    template_id = _resolve_system_template_id(client, str(template_ref))
+    resp = client.instances.create(
+        template_id,
+        parameters=parameters,
+        name=service_name,
+        auto_submit=auto_submit,
+        service_id=read_service_id_for_param(param_file),
+    )
+    return getattr(resp, "task_id", None), service_name
 
 
 # Document mime_types treated as images for external-URL mirroring. The
@@ -490,20 +579,57 @@ def upload_directory(
     # per-service results after polling the batch-status endpoint and
     # write service.json back into the right service folder.
     pending_tasks: dict[str, tuple[Path, dict[str, Any]]] = {}
+    pending_system_tasks: dict[str, tuple[Path, str]] = {}
 
     # ----- Services ---------------------------------------------------
     all_listings = find_files_by_pattern(data_dir, "listing_v1")
+    all_system_params = discover_system_param_files(data_dir)
     if name is not None:
+        name = _normalize_service_selector(name)
         # --name uploads every service whose service_name (= listing.name,
         # #1138) matches the fnmatch pattern: a literal name uploads one
         # service, ``cohere/*`` uploads the set.
         matched = [p for p, _, d in all_listings if service_name_matches(d.get("name"), name)]
-        if not matched:
+        matched_system = [p for p in all_system_params if service_name_matches(service_name_for_param(p), name)]
+        if not matched and not matched_system:
             raise ValueError(f"No service with service_name (listing.name) matching '{name}' found under {data_dir}.")
         listing_files = sorted(matched)
+        system_param_files = sorted(matched_system)
     else:
         listing_files = sorted(p for p, _, _ in all_listings)
-    result.services.total = len(listing_files)
+        system_param_files = sorted(all_system_params)
+    result.services.total = len(listing_files) + len(system_param_files)
+
+    for param_file in system_param_files:
+        service_name = service_name_for_param(param_file)
+        try:
+            task_id, service_name = _instantiate_system_param_file(
+                client,
+                param_file,
+                auto_submit=auto_submit,
+            )
+        except APIError as exc:
+            result.services.failed += 1
+            result.services.errors.append({"file": str(param_file), "error": f"{exc.status_code}: {exc}"})
+            if on_progress is not None:
+                on_progress("service", "error", service_name, str(exc))
+            continue
+        except Exception as exc:
+            result.services.failed += 1
+            result.services.errors.append({"file": str(param_file), "error": str(exc)})
+            if on_progress is not None:
+                on_progress("service", "error", service_name, str(exc))
+            continue
+
+        if not task_id:
+            result.services.success += 1
+            if on_progress is not None:
+                on_progress("service", "ok", service_name)
+            continue
+
+        pending_system_tasks[str(task_id)] = (param_file, service_name)
+        if on_progress is not None:
+            on_progress("service", "queued", service_name, f"task_id={task_id}")
 
     for listing_file in listing_files:
         # Upload is NOT gated on the local connectivity probe. The authoritative
@@ -564,7 +690,7 @@ def upload_directory(
             on_progress("service", "queued", service_name, f"task_id={task_id}")
 
     # ----- Drain pending service tasks --------------------------------
-    if pending_tasks:
+    if pending_tasks or pending_system_tasks:
 
         def _poll_progress(done: int, total: int, last_ids: list[str]) -> None:
             _ = (done, total, last_ids)
@@ -572,6 +698,7 @@ def upload_directory(
         try:
             terminal_states = client.tasks.wait(
                 *pending_tasks.keys(),
+                *pending_system_tasks.keys(),
                 timeout=task_wait_timeout,
                 poll_interval=task_poll_interval,
                 on_update=_poll_progress,
@@ -583,7 +710,13 @@ def upload_directory(
                 result.services.errors.append({"file": str(listing_file), "task_id": task_id, "error": diagnostic})
                 if on_progress is not None:
                     on_progress("service", "error", listing_data.get("name", listing_file.name), diagnostic)
+            for task_id, (param_file, service_name) in pending_system_tasks.items():
+                result.services.failed += 1
+                result.services.errors.append({"file": str(param_file), "task_id": task_id, "error": diagnostic})
+                if on_progress is not None:
+                    on_progress("service", "error", service_name, diagnostic)
             pending_tasks.clear()
+            pending_system_tasks.clear()
         else:
             for task_id, (listing_file, listing_data) in pending_tasks.items():
                 status_dict = terminal_states.get(task_id) or {
@@ -619,7 +752,35 @@ def upload_directory(
                     if on_progress is not None:
                         on_progress("service", "error", name_val, str(error_msg))
 
+            for task_id, (param_file, service_name) in pending_system_tasks.items():
+                status_dict = terminal_states.get(task_id) or {
+                    "status": "unknown",
+                    "message": "task status not returned",
+                }
+                status_value = status_dict.get("status")
+                if status_value == "completed":
+                    result.services.success += 1
+                    service_id = _extract_service_id(status_dict)
+                    if service_id:
+                        write_service_id_for_param(param_file, service_id)
+                    detail = f"service_id={service_id}" if service_id else f"task_id={task_id}"
+                    if on_progress is not None:
+                        on_progress("service", "ok", service_name, detail)
+                else:
+                    result.services.failed += 1
+                    error_msg = (
+                        status_dict.get("error")
+                        or status_dict.get("message")
+                        or f"task ended in state {status_value!r}"
+                    )
+                    result.services.errors.append(
+                        {"file": str(param_file), "task_id": task_id, "error": str(error_msg)}
+                    )
+                    if on_progress is not None:
+                        on_progress("service", "error", service_name, str(error_msg))
+
             pending_tasks.clear()
+            pending_system_tasks.clear()
 
     return result
 
