@@ -1279,99 +1279,12 @@
       }
     },
     "/instances": {
-      "get": {
-        "tags": [
-          "seller-instances"
-        ],
-        "summary": "List Instances",
-        "description": "List my forms with derived service status.",
-        "operationId": "seller-instances-list_instances",
-        "parameters": [
-          {
-            "name": "skip",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Skip"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 1000,
-              "minimum": 1,
-              "default": 100,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-role-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role-Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TemplateInstancesPublic"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
       "post": {
         "tags": [
           "seller-instances"
         ],
         "summary": "Create Instance",
-        "description": "Create a service from a template + parameters.\n\nThe single path to a service from a template (dashboard, CLI, and CI all\nuse it). Creates the backing ``TemplateInstance`` (the durable provenance\nhandle, and the basis for capability-pool membership) and renders it into a\n**draft** service via the canonical ingest pipeline. With\n``auto_submit=True`` (the dashboard's one-click \"create & submit\") the draft\nis also submitted for review in the same async chain; otherwise it stays a\nreviewable draft. For new creates (no ``service_id``) the template must be\n**active**; revisions (``service_id`` supplied) are allowed on any status.\nReturns 202 with the new ``instance_id`` and the ingest ``task_id``.",
+        "description": "Create or revise a service from a template + parameters.\n\nThis is now stateless: the backend stores generation provenance on the\ngenerated Service, not in a separate TemplateInstance row.",
         "operationId": "seller-instances-create_instance",
         "parameters": [
           {
@@ -1412,7 +1325,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TemplateInstanceCreate"
+                "$ref": "#/components/schemas/TemplateInstantiationCreate"
               }
             }
           }
@@ -1423,157 +1336,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TemplateInstanceCreateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/instances/{instance_id}": {
-      "get": {
-        "tags": [
-          "seller-instances"
-        ],
-        "summary": "Get Instance",
-        "description": "Get one form: parameters, template metadata, linked service status.",
-        "operationId": "seller-instances-get_instance",
-        "parameters": [
-          {
-            "name": "instance_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Instance Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-role-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role-Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TemplateInstancePublic"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "seller-instances"
-        ],
-        "summary": "Delete Instance",
-        "description": "Delete a form. The linked service (if any) is not unpublished.",
-        "operationId": "seller-instances-delete_instance",
-        "parameters": [
-          {
-            "name": "instance_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Instance Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-role-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role-Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Seller-Instances-Delete Instance"
+                  "$ref": "#/components/schemas/TemplateInstantiationCreateResponse"
                 }
               }
             }
@@ -4521,11 +4284,10 @@
           "category",
           "collection",
           "open",
-          "keyed",
-          "capability_pool"
+          "keyed"
         ],
         "title": "GroupTypeEnum",
-        "description": "Type of service group. Derived from members, not authored (unitysvc#1686).\n\nTwo of the five types are routable (a ``/g/<name>`` endpoint); the rest are\nnot:\n\nA quick-characterization spectrum derived from ``routable_keys``\n(unitysvc#1730); the gateway routes off ``routable_keys`` itself, not this:\n\n- ``keyed`` \u2014 one extreme: a clean menu, every service addressable by its own\n  distinct routing key (each key maps to a single service); keyless access an\n  optional feature. Serves ``/v1/models`` and is tool-explorable.\n- ``open`` \u2014 the middle: routable, but not a clean per-service menu \u2014 a\n  keyless-only pool, partial keying, or a key that fans to several services.\n- ``collection`` \u2014 the other extreme: **not** a routing endpoint at all\n  (empty ``routable_keys`` \u2014 no members, or every bucket format-collides).\n\nRoutability is exactly ``group_type in {open, keyed}`` (``collection`` =\nempty ``routable_keys``), so the routing gate is unchanged; #1730 only re-cut\nthe open\u2194keyed boundary. Whether a keyless request is served is a\n``routable_keys`` fact, not a type fact.\n- ``category`` \u2014 a parent with no members of its own; its membership is the\n  union of its descendants, for browsing only.\n- ``capability_pool`` (#1244) \u2014 the ``/p/<name>`` namespace; membership is\n  claim-driven (services instantiated from a ServiceTemplate whose\n  ``pool_name`` matches), set by a dedicated refresh.\n\n``open`` / ``keyed`` / ``collection`` are derived from the members at\nmembership refresh; ``category`` and ``capability_pool`` are set explicitly\nand never re-derived. (The former ``routable`` value was split into\n``open`` / ``keyed``, and the ``misc`` catch-all removed \u2014 unitysvc#1686.)"
+        "description": "Type of service group. Derived from members, not authored (unitysvc#1686).\n\nTwo of the five types are routable (a ``/g/<name>`` endpoint); the rest are\nnot:\n\nA quick-characterization spectrum derived from ``routable_keys``\n(unitysvc#1730); the gateway routes off ``routable_keys`` itself, not this:\n\n- ``keyed`` \u2014 one extreme: a clean menu, every service addressable by its own\n  distinct routing key (each key maps to a single service); keyless access an\n  optional feature. Serves ``/v1/models`` and is tool-explorable.\n- ``open`` \u2014 the middle: routable, but not a clean per-service menu \u2014 a\n  keyless-only pool, partial keying, or a key that fans to several services.\n- ``collection`` \u2014 the other extreme: **not** a routing endpoint at all\n  (empty ``routable_keys`` \u2014 no members, or every bucket format-collides).\n\nRoutability is exactly ``group_type in {open, keyed}`` (``collection`` =\nempty ``routable_keys``), so the routing gate is unchanged; #1730 only re-cut\nthe open\u2194keyed boundary. Whether a keyless request is served is a\n``routable_keys`` fact, not a type fact.\n- ``category`` \u2014 a parent with no members of its own; its membership is the\n  union of its descendants, for browsing only.\n\n``open`` / ``keyed`` / ``collection`` are derived from the members at\nmembership refresh; ``category`` is set explicitly and never re-derived.\n(The former ``routable`` value was split into ``open`` / ``keyed``, and the\n``misc`` catch-all removed \u2014 unitysvc#1686.)"
       },
       "HTTPValidationError": {
         "properties": {
@@ -4739,7 +4501,61 @@
         "title": "PriceRuleStatusEnum",
         "description": "Seller-facing status values for promotions.\n\nThe backend may define additional statuses (scheduled, expired,\ncancelled) for internal lifecycle management, but sellers only\ninteract with these three."
       },
-      "ProviderData": {
+      "ProviderAccountRateLimit": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "description": "Seller-scoped rate-limit bucket name. Channels reference this name via rate_limit_refs / ops_rate_limit_refs; all matching refs for the same seller consume the same live gateway bucket."
+          },
+          "limit": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Limit",
+            "description": "Maximum allowed \u2014 in flight for `concurrent`, per window otherwise"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/RateLimitUnitEnum",
+            "description": "What is being limited (requests, tokens, concurrent, \u2026)"
+          },
+          "window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeWindowEnum"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Time window. Omitted for `concurrent`, which is a gauge rather than a counter."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Where the number came from, e.g. the provider's published limit for this tier"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "limit",
+          "unit"
+        ],
+        "title": "ProviderAccountRateLimit",
+        "description": "One ceiling the provider grants the SELLER'S ACCOUNT.\n\nThis is the only rate limit a seller can state truthfully. Providers scope\ntheir limits to the account that owns the upstream key \u2014 OpenAI, Groq and\nAnthropic at the org level, Mistral per workspace, Parasail per account \u2014\nso the number belongs to the provider record, once, not to each of the\nseller's services.\n\nDeclaring it per service is not merely coarse, it inverts: a 60 RPM account\nceiling written onto 18 services authorises 1080 RPM against an account\nthat grants 60. See unitysvc/unitysvc#1937.\n\nWhat a seller CANNOT state is any individual customer's allowance \u2014 that\ndepends on how many customers are active at request time. The gateway\nderives that from this ceiling; nobody authors it."
+      },
+      "ProviderData-Input": {
         "properties": {
           "name": {
             "type": "string",
@@ -4820,6 +4636,128 @@
             ],
             "title": "Documents",
             "description": "Documents associated with the provider, keyed by title"
+          },
+          "rate_limits": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProviderAccountRateLimit"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Limits",
+            "description": "Ceilings the provider grants the seller's account, shared by every service and customer routed through that credential. Not per service, and not per customer \u2014 the gateway derives a customer's share from these."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "contact_email",
+          "homepage"
+        ],
+        "title": "ProviderData",
+        "description": "Base data structure for provider information.\n\nThis model contains the core fields needed to describe a provider,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `ProviderV1` in unitysvc-core (with additional\n   time_created and services_populator fields for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_provider()\n   - Publish operations from CLI\n\nKey characteristics:\n- Uses string identifiers that match database requirements\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)"
+      },
+      "ProviderData-Output": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Name",
+            "description": "Unique provider identifier (URL-friendly, e.g., 'fireworks', 'anthropic')"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name",
+            "description": "Human-readable provider name (e.g., 'Fireworks AI', 'Anthropic')"
+          },
+          "contact_email": {
+            "type": "string",
+            "format": "email",
+            "title": "Contact Email",
+            "description": "Primary contact email for the provider"
+          },
+          "secondary_contact_email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Contact Email",
+            "description": "Secondary contact email"
+          },
+          "homepage": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Homepage",
+            "description": "Provider's homepage URL"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Brief description of the provider"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProviderStatusEnum",
+            "description": "Provider status: draft (skip publish), ready (for review), or deprecated (retired)",
+            "default": "draft"
+          },
+          "documents": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documents",
+            "description": "Documents associated with the provider, keyed by title"
+          },
+          "rate_limits": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProviderAccountRateLimit"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Limits",
+            "description": "Ceilings the provider grants the seller's account, shared by every service and customer routed through that credential. Not per service, and not per customer \u2014 the gateway derives a customer's share from these."
           }
         },
         "type": "object",
@@ -4840,6 +4778,18 @@
         ],
         "title": "ProviderStatusEnum",
         "description": "Status values that sellers can set for providers.\n\nSeller-accessible statuses:\n- draft: Work in progress, skipped during publish\n- ready: Complete and ready for admin review\n- deprecated: Provider is retired/end of life"
+      },
+      "RateLimitUnitEnum": {
+        "type": "string",
+        "enum": [
+          "requests",
+          "tokens",
+          "input_tokens",
+          "output_tokens",
+          "bytes",
+          "concurrent"
+        ],
+        "title": "RateLimitUnitEnum"
       },
       "RunTestsResponse": {
         "properties": {
@@ -5325,7 +5275,7 @@
       "ServiceDataInput": {
         "properties": {
           "provider_data": {
-            "$ref": "#/components/schemas/ProviderData",
+            "$ref": "#/components/schemas/ProviderData-Input",
             "description": "Provider configuration data"
           },
           "offering_data": {
@@ -5448,10 +5398,37 @@
             ],
             "title": "Managed By Template"
           },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": "regular"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "parent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Name"
+          },
           "provider": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ProviderData"
+                "$ref": "#/components/schemas/ProviderData-Output"
               },
               {
                 "type": "null"
@@ -5936,6 +5913,16 @@
         "title": "ServiceGroupUpdate",
         "description": "Schema for updating a ServiceGroup."
       },
+      "ServiceKindEnum": {
+        "type": "string",
+        "enum": [
+          "regular",
+          "platform",
+          "platform_member"
+        ],
+        "title": "ServiceKindEnum",
+        "description": "Role of a Service row in the platform-facade model (#1979).\n\n- regular: ordinary seller service (the default).\n- platform: platform-owned public facade Service materialized for a\n  PlatformService endpoint; customers discover/group/price this row.\n- platform_member: private seller service backing a facade; carries\n  ``parent_id`` pointing at its facade Service.\n\n``platform_member`` is derivable from ``parent_id`` at write time; it is\nstored explicitly so billing/usage queries can distinguish the executed\nmember identity from the customer-facing facade identity without joins."
+      },
       "ServiceListingData": {
         "properties": {
           "name": {
@@ -6277,14 +6264,7 @@
             "title": "Pending Revision Status"
           },
           "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Name"
           },
           "display_name": {
@@ -6348,14 +6328,33 @@
             ],
             "title": "Status Message"
           },
-          "is_featured": {
-            "type": "boolean",
-            "title": "Is Featured",
-            "default": false
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
           },
           "visibility": {
             "$ref": "#/components/schemas/ServiceVisibilityEnum",
             "default": "unlisted"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ServiceKindEnum",
+            "default": "regular"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
           },
           "routing_vars": {
             "anyOf": [
@@ -6444,11 +6443,12 @@
           "seller_id",
           "offering_id",
           "listing_id",
+          "name",
           "status",
           "created_at"
         ],
         "title": "ServicePublic",
-        "description": "Public Service model for API responses.\n\nNote: name, display_name, and other derived fields are populated from\nthe materialized view (ServiceMView) in the API layer."
+        "description": "Public Service model for API responses.\n\nNote: name is stored on Service; display_name and other decorated fields\nare populated from read queries in the API layer."
       },
       "ServiceStatus": {
         "properties": {
@@ -6613,17 +6613,6 @@
           },
           "service_type": {
             "$ref": "#/components/schemas/ServiceTypeEnum"
-          },
-          "pool_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pool Name"
           },
           "parameter_schema": {
             "additionalProperties": true,
@@ -6838,7 +6827,7 @@
         "title": "ServiceVisibilityEnum",
         "description": "Visibility of a service in the catalog.\n\n- unlisted: Live and routable, not in catalog, accessible via direct link\n- public: In catalog, fully discoverable\n- private: Live and routable, ops/internal use only"
       },
-      "TemplateInstanceCreate": {
+      "TemplateInstantiationCreate": {
         "properties": {
           "template_id": {
             "type": "string",
@@ -6856,7 +6845,7 @@
               }
             ],
             "title": "Name",
-            "description": "Optional label; defaults to the template display name."
+            "description": "Optional seller label recorded in source metadata."
           },
           "parameters": {
             "additionalProperties": true,
@@ -6880,23 +6869,18 @@
               }
             ],
             "title": "Service Id",
-            "description": "Existing canonical service id to update (the seller's durable sidecar handle). When set, re-renders the template with the new parameters and applies it to that service \u2014 in place for draft/pending, as a revision for active \u2014 instead of creating a new service. Omit to create a new service."
+            "description": "Existing template-sourced service to revise."
           }
         },
         "type": "object",
         "required": [
           "template_id"
         ],
-        "title": "TemplateInstanceCreate",
-        "description": "Create a template instance and render it into a service.\n\nAlways produces a ``TemplateInstance`` + a **draft** ``Service``. Set\n``auto_submit=True`` to also submit that draft for review in the same call\n(the one-click \"create & submit\" path); leave it ``False`` to create a\nreviewable draft and submit later via ``PATCH /seller/services`` (the batch\npath). Request-only \u2014 not stored on the instance."
+        "title": "TemplateInstantiationCreate",
+        "description": "Render a platform-owned template into a service ingest task."
       },
-      "TemplateInstanceCreateResponse": {
+      "TemplateInstantiationCreateResponse": {
         "properties": {
-          "instance_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Instance Id"
-          },
           "task_id": {
             "type": "string",
             "title": "Task Id"
@@ -6912,165 +6896,11 @@
         },
         "type": "object",
         "required": [
-          "instance_id",
           "task_id",
           "status",
           "message"
         ],
-        "title": "TemplateInstanceCreateResponse",
-        "description": "202 response for a one-shot instantiate (form created + submitted)."
-      },
-      "TemplateInstancePublic": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "template_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Template Id"
-          },
-          "template_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Template Name"
-          },
-          "template_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Template Version"
-          },
-          "template_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Template Status"
-          },
-          "parameters": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Parameters"
-          },
-          "service_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Service Id"
-          },
-          "service_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Service Status"
-          },
-          "pending_revision_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pending Revision Id"
-          },
-          "last_submitted_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Submitted At"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "template_id",
-          "parameters",
-          "created_at"
-        ],
-        "title": "TemplateInstancePublic",
-        "description": "Seller-facing read model with derived service state."
-      },
-      "TemplateInstancesPublic": {
-        "properties": {
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/TemplateInstancePublic"
-            },
-            "type": "array",
-            "title": "Data"
-          },
-          "count": {
-            "type": "integer",
-            "title": "Count"
-          }
-        },
-        "type": "object",
-        "required": [
-          "data",
-          "count"
-        ],
-        "title": "TemplateInstancesPublic",
-        "description": "List envelope for TemplateInstances."
+        "title": "TemplateInstantiationCreateResponse"
       },
       "TestDetailResponse": {
         "properties": {
@@ -7200,6 +7030,17 @@
         "type": "object",
         "title": "TestDetailResponse",
         "description": "GET /seller/documents/{id}/test-details \u2014 one result cell's details.\n\nServes the bulky per-execution fields (stdout/stderr/masked env/rendered\nscript) for one ``meta.test`` cell. During the #1901 transition the\nfields come either from the cell's content-addressed S3 blob\n(``source=\"blob\"``) or from the legacy inline meta fields\n(``source=\"inline\"``). ``expired=True`` means the cell exists but its\nblob has aged out of ``TEST_DETAIL_RETENTION_DAYS`` \u2014 re-run the test to\nreproduce the details; ``status``/``executed_at`` still describe the\nrecorded outcome."
+      },
+      "TimeWindowEnum": {
+        "type": "string",
+        "enum": [
+          "second",
+          "minute",
+          "hour",
+          "day",
+          "month"
+        ],
+        "title": "TimeWindowEnum"
       },
       "ValidationError": {
         "properties": {

@@ -75,9 +75,7 @@ class TestRecordUpstreamTestStatus:
     def test_skipped_connectivity_leaves_status_untouched(self, tmp_path: Path) -> None:
         listing = _listing(tmp_path)
         (listing.parent / "service.json").write_text(json.dumps({"upstream_test_status": "pass"}))
-        recorded = record_upstream_test_status(
-            [_result("p/svc", listing, CONNECTIVITY, True, skipped=True)]
-        )
+        recorded = record_upstream_test_status([_result("p/svc", listing, CONNECTIVITY, True, skipped=True)])
         assert recorded == []
         assert json.loads((listing.parent / "service.json").read_text())["upstream_test_status"] == "pass"
 

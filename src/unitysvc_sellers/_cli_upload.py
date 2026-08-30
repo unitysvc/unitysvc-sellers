@@ -15,6 +15,7 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from .client import DEFAULT_SELLER_API_URL, Client
@@ -27,9 +28,9 @@ def upload(
     name: str | None = typer.Argument(
         None,
         help=(
-            "Service to upload, by service_name (= listing.name) — fnmatch pattern, e.g. "
-            "'cohere/*' or a literal name. Omit to upload every service in the current "
-            "directory."
+            "Service to upload, by service_name (= listing.name) or services/specs path — "
+            "fnmatch pattern, e.g. 'cohere/*' or a literal name. Omit to upload every "
+            "service in the current directory."
         ),
     ),
     api_key: str | None = typer.Option(
@@ -87,9 +88,9 @@ def upload(
                 else f"  [green]✓[/green] [green]ingested[/green] [cyan]{name}[/cyan]"
             )
         elif status == "skipped":
-            console.print(f"  [yellow]⊘[/yellow] [yellow]skipped[/yellow] [cyan]{name}[/cyan] — {detail}")
+            console.print(f"  [yellow]⊘[/yellow] [yellow]skipped[/yellow] [cyan]{name}[/cyan] — {escape(detail)}")
         else:
-            console.print(f"  [red]✗[/red] [red]failed[/red] [cyan]{name}[/cyan] — {detail}")
+            console.print(f"  [red]✗[/red] [red]failed[/red] [cyan]{name}[/cyan] — {escape(detail)}")
 
     try:
         with Client(api_key=api_key, base_url=base_url) as client:
@@ -100,10 +101,10 @@ def upload(
                 auto_submit=submit,
             )
     except APIError as exc:
-        console.print(f"[red]✗[/red] API error: {exc}", style="bold red")
+        console.print(f"[red]✗[/red] API error: {escape(str(exc))}", style="bold red")
         raise typer.Exit(code=1) from exc
     except Exception as exc:
-        console.print(f"[red]✗[/red] Upload failed: {exc}", style="bold red")
+        console.print(f"[red]✗[/red] Upload failed: {escape(str(exc))}", style="bold red")
         raise typer.Exit(code=1) from exc
 
     # ----- Summary --------------------------------------------
@@ -125,8 +126,8 @@ def upload(
     if result.services.errors:
         console.print("\n[bold red]Errors:[/bold red]")
         for err in result.services.errors:
-            console.print(f"  [red]✗[/red] {err.get('file', '?')}")
-            console.print(f"    {err.get('error', '?')}")
+            console.print(f"  [red]✗[/red] {escape(err.get('file', '?'))}")
+            console.print(f"    {escape(err.get('error', '?'))}")
 
     if result.total_failed > 0:
         console.print(

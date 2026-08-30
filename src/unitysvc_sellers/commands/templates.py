@@ -1,9 +1,8 @@
-"""``usvc seller templates`` — browse the platform service-template catalog.
+"""``usvc seller templates`` — browse the system service-template catalog.
 
-Read-only discovery: ``list`` the active platform templates and ``show`` one's
-parameter schema, so you know what you can instantiate. Creating a service from
-a template lives in ``usvc seller instances create`` (see
-``commands/instances.py``).
+Read-only discovery: ``list`` the active system templates and ``show`` one's
+parameter schema, so you know which param files under ``specs/`` can be uploaded
+through backend instantiation.
 """
 
 from __future__ import annotations
@@ -27,7 +26,7 @@ from ._helpers import (
 console = Console()
 
 app = typer.Typer(
-    help="Browse the platform service-template catalog (list, show).",
+    help="Browse the system service-template catalog (list, show).",
 )
 
 
@@ -53,7 +52,7 @@ def list_templates(
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """List the active platform templates you can instantiate."""
+    """List the active system templates you can instantiate."""
 
     async def _impl():
         async with async_client(api_key, base_url) as client:
@@ -136,6 +135,5 @@ def show_template(
             )
         console.print(ptable)
     console.print(
-        "\n[dim]Create a service from this template with[/dim] "
-        "[cyan]usvc seller instances create[/cyan][dim].[/dim]"
+        "\n[dim]Create a service from this template with[/dim] [cyan]usvc seller specs upload[/cyan][dim].[/dim]"
     )

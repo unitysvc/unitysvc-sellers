@@ -7,12 +7,13 @@ the parent :class:`AsyncClient`.
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator, Callable, Iterator
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from ._http import unwrap
-from .services import RunTestsResult, _parse_run_tests_payload, _resolve_channel_type
+from .services import RunTestsResult, _parse_run_tests_payload, _resolve_channel_type, _service_detail_payload
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
@@ -32,23 +33,52 @@ class AsyncService:
 
     def __init__(
         self,
-        raw: ServicePublic | ServiceDetailResponse,
+        raw: ServicePublic | ServiceDetailResponse | dict[str, Any],
         parent: AsyncClient,
     ) -> None:
         object.__setattr__(self, "_raw", raw)
         object.__setattr__(self, "_parent", parent)
 
     def __getattr__(self, item: str) -> Any:
-        return getattr(object.__getattribute__(self, "_raw"), item)
+        raw = object.__getattribute__(self, "_raw")
+        if isinstance(raw, dict):
+            try:
+                return raw[item]
+            except KeyError as exc:
+                raise AttributeError(item) from exc
+        return getattr(raw, item)
 
     def __repr__(self) -> str:
         raw = object.__getattribute__(self, "_raw")
-        name = getattr(raw, "name", None)
-        status = getattr(raw, "status", None)
-        return f"<AsyncService id={raw.id!r} name={name!r} status={status!r}>"
+        if isinstance(raw, dict):
+            service_id = raw.get("id") or raw.get("service_id")
+            name = raw.get("name") or raw.get("service_name")
+            status = raw.get("status")
+        else:
+            service_id = raw.id
+            name = getattr(raw, "name", None)
+            status = getattr(raw, "status", None)
+        return f"<AsyncService id={service_id!r} name={name!r} status={status!r}>"
+
+    def _id(self) -> Any:
+        raw = object.__getattribute__(self, "_raw")
+        if isinstance(raw, dict):
+            return raw.get("id") or raw.get("service_id")
+        return raw.id
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the wrapped generated service model as a plain dict."""
+        raw = object.__getattribute__(self, "_raw")
+        if hasattr(raw, "to_dict"):
+            return raw.to_dict()
+        if isinstance(raw, dict):
+            return dict(raw)
+        if hasattr(raw, "__dict__"):
+            return dict(raw.__dict__)
+        return {"raw": repr(raw)}
 
     async def refresh(self) -> AsyncService:
-        return await self._parent.services.get(self._raw.id)
+        return await self._parent.services.get(self._id())
 
     async def run_tests(
         self,
@@ -61,7 +91,7 @@ class AsyncService:
     ) -> RunTestsResult:
         """Async mirror of :meth:`unitysvc_sellers.services.Service.run_tests`."""
         return await self._parent.services.run_tests(
-            self._raw.id,
+            self._id(),
             document_id=document_id,
             force=force,
             poll_interval=poll_interval,
@@ -70,10 +100,10 @@ class AsyncService:
         )
 
     async def update(self, body: dict[str, Any]) -> ServiceUpdateResponse:
-        return await self._parent.services.update(self._raw.id, body)
+        return await self._parent.services.update(self._id(), body)
 
     async def delete(self, *, dryrun: bool = False) -> ServiceDeleteResponse:
-        return await self._parent.services.delete(self._raw.id, dryrun=dryrun)
+        return await self._parent.services.delete(self._id(), dryrun=dryrun)
 
     async def mark_pending(self) -> ServiceUpdateResponse:
         """Mark the service ``pending`` (routable) without running tests —
@@ -83,7 +113,7 @@ class AsyncService:
     async def submit(self) -> ServiceUpdateResponse:
         """Submit for review — sets ``pending`` and runs the activation test
         pipeline. See :meth:`AsyncServices.submit_for_review`."""
-        return await self._parent.services.submit_for_review(self._raw.id)
+        return await self._parent.services.submit_for_review(self._id())
 
 
 class AsyncServiceList:
@@ -224,13 +254,17 @@ class AsyncServices:
     async def get(self, service_id: str | UUID) -> AsyncService:
         from ._generated.api.seller_services import services_get
 
-        raw = unwrap(
-            await services_get.asyncio_detailed(
-                service_id=str(service_id),
-                client=self._client,
-            )
+        response = await services_get.asyncio_detailed(
+            service_id=str(service_id),
+            client=self._client,
         )
-        return AsyncService(raw, parent=self._parent)
+        raw = response.content and response.parsed is None and 200 <= int(response.status_code) < 300
+        if raw:
+            return AsyncService(
+                _service_detail_payload(json.loads(response.content.decode("utf-8"))), parent=self._parent
+            )
+        parsed = unwrap(response)
+        return AsyncService(_service_detail_payload(parsed), parent=self._parent)
 
     async def run_tests(
         self,

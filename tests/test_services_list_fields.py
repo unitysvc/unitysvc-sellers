@@ -144,6 +144,17 @@ class TestUpdatedIsADefaultColumn:
         assert _COLUMN_LABELS["updated_at"] == "updated"
 
 
+class TestTemplateIsADefaultColumn:
+    def test_managed_by_template_is_shown_by_default(self) -> None:
+        assert "managed_by_template" in _DEFAULT_LIST_FIELDS
+        assert _resolve_fields("") == _DEFAULT_LIST_FIELDS
+
+    def test_header_reads_template(self) -> None:
+        from unitysvc_sellers.commands.services import _COLUMN_LABELS
+
+        assert _COLUMN_LABELS["managed_by_template"] == "template"
+
+
 class TestParseSort:
     """``--sort`` accepts the header name or the field name; ``-`` = newest first."""
 

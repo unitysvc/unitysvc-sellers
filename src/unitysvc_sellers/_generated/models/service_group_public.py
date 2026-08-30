@@ -62,14 +62,11 @@ class ServiceGroupPublic:
     ``routable_keys`` fact, not a type fact.
     - ``category`` — a parent with no members of its own; its membership is the
       union of its descendants, for browsing only.
-    - ``capability_pool`` (#1244) — the ``/p/<name>`` namespace; membership is
-      claim-driven (services instantiated from a ServiceTemplate whose
-      ``pool_name`` matches), set by a dedicated refresh.
 
     ``open`` / ``keyed`` / ``collection`` are derived from the members at
-    membership refresh; ``category`` and ``capability_pool`` are set explicitly
-    and never re-derived. (The former ``routable`` value was split into
-    ``open`` / ``keyed``, and the ``misc`` catch-all removed — unitysvc#1686.) """
+    membership refresh; ``category`` is set explicitly and never re-derived.
+    (The former ``routable`` value was split into ``open`` / ``keyed``, and the
+    ``misc`` catch-all removed — unitysvc#1686.) """
     sort_order: int | Unset = 0
     ancestor_path: str | Unset = "/"
     service_count: int | None | Unset = UNSET

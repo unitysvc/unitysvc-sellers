@@ -8,15 +8,14 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="ServiceDetailResponseRoutingVarsType0")
+T = TypeVar("T", bound="TemplateInstantiationCreateParameters")
 
 
 @_attrs_define
-class ServiceDetailResponseRoutingVarsType0:
+class TemplateInstantiationCreateParameters:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
@@ -25,10 +24,10 @@ class ServiceDetailResponseRoutingVarsType0:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        service_detail_response_routing_vars_type_0 = cls()
+        template_instantiation_create_parameters = cls()
 
-        service_detail_response_routing_vars_type_0.additional_properties = d
-        return service_detail_response_routing_vars_type_0
+        template_instantiation_create_parameters.additional_properties = d
+        return template_instantiation_create_parameters
 
     @property
     def additional_keys(self) -> list[str]:

@@ -29,8 +29,8 @@ that matches what you're doing.
 
 | Use | Who authors the template | How you use it | Best for |
 |---|---|---|---|
-| **1. Platform templates** | The platform | Dashboard *Create from template*, or `usvc seller params instantiate` | Offering a common service type with zero file authoring |
-| **2. Capability pools** | The platform (template carries a pool name) | Instantiate a pool template (dashboard or CLI); you provide only the upstream URL | Joining a fungible, uniformly-priced commodity pool |
+| **1. System templates** | The platform | Dashboard *Create from template*, or a `specs/<name>.json` param file + `usvc seller specs upload` | Offering a common service type with minimal file authoring |
+| **2. Platform services** | The platform (template is linked to a PlatformService) | Upload a service param file for that template; activation adds membership | Joining a fungible, uniformly-priced commodity pool |
 | **3. Your own template + param files** | You | A tiny param file per service + `usvc seller specs upload` (rendered ephemerally) | A **few** services that share one shape, authored by hand |
 | **4. Your own templates + populate** | You | Author `.j2` templates + a populator script, then `usvc seller specs populate` (materializes specs) | Generating **many** services programmatically from a source list |
 
@@ -48,16 +48,27 @@ You manage the resulting service exactly like any other (it appears under your
 **Staging** list), and if you outgrow the template you can download the rendered
 files and refine them with this SDK.
 
-**From the CLI / CI**, the same flow is available without the dashboard — browse
-the catalog with `templates`, instantiate with `params`:
+**From the CLI / CI**, the same flow is available without the dashboard: browse
+the catalog with `templates`, write a param file under `specs/`, then upload:
 
 ```bash
-usvc seller templates list                        # active platform templates
+usvc seller templates list                        # active system templates
 usvc seller templates show openai-compatible-llm  # its parameters
-usvc seller params instantiate openai-compatible-llm \
-    -P api_base_url=https://api.example.com/v1 \
-    -P api_key_secret_name=UPSTREAM_API_KEY \
-    -P input_price=1.00
+mkdir -p specs/acme
+$EDITOR specs/acme/gpt.json
+usvc seller specs upload acme/gpt --submit
+```
+
+```jsonc
+// specs/acme/gpt.json
+{
+  "template": "openai-compatible-llm",
+  "parameters": {
+    "api_base_url": "https://api.example.com/v1",
+    "api_key_secret_name": "UPSTREAM_API_KEY",
+    "input_price": 1.00
+  }
+}
 ```
 
 **From the SDK**, `client.templates` (catalog) and `client.instances` (create):
@@ -77,23 +88,28 @@ with Client() as client:
     )
 ```
 
-`create` renders the template into a **draft** service — returning the new
-`instance_id` and the ingest `task_id` — and leaves it a reviewable draft by
-default (mirroring the backend's `auto_submit=false`). Pass `--submit` (CLI) /
+`create` renders the template into a **draft** service — returning the ingest
+`task_id` — and leaves it a reviewable draft by default (mirroring the backend's
+`auto_submit=false`). Pass `--submit` (CLI) /
 `auto_submit=True` (SDK) to also submit it for review in the same call (otherwise
 submit later with `usvc seller services submit`). Secret-typed parameters take the **secret name**
 (create it first with `usvc seller secrets`), never the key value. See the
 [SDK Guide → `client.instances`](sdk-guide.md#clientinstances) for the full API.
 
-### 2. Capability pools — opt in with a pool name
+### 2. Platform services — opt in through the template
 
-A **capability pool** (`/p/<capability>`) is a special platform template that
-carries a **pool name**. Every service instantiated from a pool template
-automatically joins `/p/<pool-name>`, where the gateway load-balances across all
-verified providers of that capability. Because the model, contract, **price, and
-terms are fixed by the template**, every member is fungible — you only provide
-your upstream URL (and a key secret, if your upstream needs one). Opting in is
-that simple: in the dashboard, instantiate the pool template.
+A **PlatformService** (`/p/<name>`) is backed by a system template owned by the
+platform. A seller does not join it with a separate CLI command. Instead, the
+seller creates a private service from that template; after the service passes
+review and becomes active, the backend adds it as a PlatformService member. The
+gateway then load-balances across active members of the platform service.
+The linkage is visible in your CLI: `usvc seller services list` shows a `kind`
+column (`platform_member` for such services, `regular` otherwise), and
+`usvc seller services show` reports the platform service the member backs
+(e.g. `Platform service: llm-fast`).
+Because the model, contract, price, and terms are fixed by the template, every
+member is fungible — you only provide the upstream URL, model/routing key, and a
+key-secret name if your upstream needs one.
 
 A few consequences worth knowing:
 
@@ -103,10 +119,10 @@ A few consequences worth knowing:
 - **Opt-in and non-exclusive.** Want a different price? Offer the same
   capability as a **separate, standalone service** at your own price; pool
   membership doesn't stop you.
-- **Membership comes only from a pool template.** A pool service can be created
-  *only* by instantiating a pool-named template — `usvc seller specs upload` of a
-  hand-authored spec always produces a plain standalone service, never a pool
-  member.
+- **Membership comes only from the linked system template.** A hand-authored spec
+  folder always produces a standalone service. A param file whose `template`
+  names a system template linked to a PlatformService becomes a member only after
+  review activation.
 
 ### 3. Your own template + param files — compact, ephemeral
 
@@ -214,8 +230,8 @@ applying — as is a non-object override file.
 
 ## Which one should I use?
 
-- **One common service, fastest path?** → Platform template (use #1).
-- **Joining a commodity pool at the platform's price?** → Capability pool
+- **One common service, fastest path?** → System template (use #1).
+- **Joining a commodity pool at the platform's price?** → Platform service
   (use #2).
 - **A few services that share one shape, authored by hand?** → Your own template
   + [param files](guides/param-files.md) (use #3).
@@ -225,7 +241,7 @@ applying — as is a non-object override file.
 Uses #1 and #2 are about **ease** (the platform did the hard authoring for you);
 uses #3 and #4 are about **reuse of your own template** — #3 stays compact and
 ephemeral for a handful, #4 *materializes* a whole catalog at scale. They compose
-freely — a seller might join a capability pool for a commodity model, keep a few
+freely — a seller might join a platform service for a commodity model, keep a few
 hand-tuned endpoints as param files, *and* run a populator for their long tail.
 
 For the purely hand-authored, no-template case, see

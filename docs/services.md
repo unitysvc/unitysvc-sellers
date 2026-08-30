@@ -105,27 +105,24 @@ folder a **new service is created** and its `service_id` is written back to
 *the same* service instead of creating a duplicate. Delete it to upload as a
 brand-new service (e.g. a copy, or a different environment).
 
-### Path B — instantiate a template with params
+### Path B — instantiate a system template with specs upload
 
 If the platform already publishes a template for your service type, you don't
-author any files — you provide **parameters** and the platform renders the
-service for you:
+author full specs — you provide **parameters** in a small file and the platform
+renders the service for you:
 
 ```bash
 usvc seller templates list                         # browse available templates
 usvc seller templates show openai-compatible-llm   # see its parameters
-usvc seller params instantiate openai-compatible-llm \
-    -P api_base_url=https://api.example.com/v1 \
-    -P api_key_secret_name=UPSTREAM_API_KEY \
-    -P input_price=1.00
+$EDITOR specs/acme/gpt.json                        # { "template": "...", "parameters": {...} }
+usvc seller specs upload acme/gpt --submit
 ```
 
-`params instantiate` is the template analog of `specs upload`: it renders the
-template into a complete service, left as a reviewable draft by default (pass
-`--submit` to also submit it for review). Secret-typed parameters take a
-**secret name** — create it first with `usvc seller secrets` — never the raw value.
+For system-template param files, `specs upload` calls backend instantiation
+instead of local rendering. Secret-typed parameters take a **secret name** —
+create it first with `usvc seller secrets` — never the raw value.
 
-→ Platform templates, capability pools, and authoring your own are covered in
+→ System templates, platform services, and authoring your own are covered in
 **[Service Templates](service-templates.md)**.
 
 ## Service status and updates

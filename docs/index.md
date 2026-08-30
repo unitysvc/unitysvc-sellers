@@ -13,20 +13,18 @@ kind has its own command group and SDK namespace.
 
 | Data type | Where it lives | What it is | Typical actions |
 |---|---|---|---|
-| **specs** | local repo | Your **service data** as files — `provider` + `offering` + `listing` per service, in a flat `specs/` layout | create, validate, format, test, **upload** |
-| **params** | local / inline | **Parameters that fill in a platform template** to produce a service, with no files to author | browse templates, **instantiate** (render + create) |
+| **specs** | local repo | Your **service data** as files — explicit spec folders, local-template params, or system-template params under a flat `specs/` layout | create, validate, format, test, **upload** |
 | **services** | remote | Your **live and in-review services** on the platform | list, show, submit, withdraw, deprecate, set visibility, **update** (patch routing / price) |
 | **groups** | remote | **Service groups** that bundle related services | list, show, delete |
 | **promotions** | remote | **Price rules** that discount your services for customers | list, show, activate, pause, delete |
-| **secrets** | remote | Named **secret values** (upstream API keys) referenced by specs and params | list, show, set, delete |
+| **secrets** | remote | Named **secret values** (upstream API keys) referenced by specs and template params | list, show, set, delete |
 | **templates** | remote | The platform's **catalog of service templates** you can instantiate | list, show |
 
-The two **local** kinds — `specs` and `params` — are two routes to the same
-destination: *a service on the platform*. Author full spec files and
-[`specs upload`](services.md#path-a-author-specs-and-upload) them, **or** pick a
-platform template and supply [`params`](services.md#path-b-instantiate-a-template-with-params)
-to instantiate it. Everything else (`services`, `groups`, `promotions`,
-`secrets`, `templates`) operates on data that already lives on the platform.
+The local `specs/` tree is the file-based route to a service on the platform.
+Author full spec files and [`specs upload`](services.md#path-a-author-specs-and-upload)
+them, or pick a system template, write a small param file under `specs/`, and
+upload that. Everything else (`services`, `groups`, `promotions`, `secrets`,
+`templates`) operates on data that already lives on the platform.
 
 → See **[Services](services.md)** for what a service spec consists of, the two
 upload routes, and how a service moves through its status lifecycle.
@@ -39,7 +37,7 @@ talk to the same `/v1/seller/*` HTTP API — mix and match freely:
 -   **`usvc_seller` CLI** — a local-first, version-controlled workflow for
     authoring, validating, uploading, testing, and operating your catalog from
     the command line. *Local* commands live under `usvc seller specs …`; *remote*
-    commands under `usvc seller services | params | groups | promotions | secrets | templates …`.
+    commands under `usvc seller services | groups | promotions | secrets | templates …`.
 -   **Python SDK** — `unitysvc_sellers.Client` / `AsyncClient`, a typed HTTP
     client (the CLI is built on it) for embedding catalog operations in your own
     scripts, CI/CD jobs, or applications.
@@ -49,9 +47,9 @@ talk to the same `/v1/seller/*` HTTP API — mix and match freely:
 usvc seller specs validate
 usvc seller specs upload
 
-# CLI: or create a service from a platform template, no files needed
-usvc seller params instantiate openai-compatible-llm \
-    -P api_base_url=https://api.example.com/v1 -P input_price=1.00
+# CLI: or create a service from a system-template param file
+$EDITOR specs/acme/gpt.json
+usvc seller specs upload acme/gpt --submit
 ```
 
 ```python
@@ -71,7 +69,7 @@ with Client() as client:
 -   Define services as schema-validated `specs/` files, version-controlled in git
 -   Validate and format locally before anything leaves your machine
 -   Run upstream connectivity / code-example tests against your endpoints
--   Upload authored specs, or instantiate a platform template with parameters
+-   Upload authored specs, or instantiate a system template with parameters
 -   Generate a whole catalog of services from a source list with a populator
 
 **Operate live services**
@@ -86,7 +84,7 @@ with Client() as client:
 -   Discount services for customers with promotions (price rules)
 -   Bundle related services into service groups
 -   Store upstream credentials as named secrets, referenced by name (never by value)
--   Browse the platform template catalog before instantiating
+-   Browse the system template catalog before writing template params
 
 **Automate everything**
 
@@ -96,7 +94,7 @@ with Client() as client:
 
 -   **[Installation & Quick Start](getting-started.md)** — install the package and publish your first service
 -   **[Services](services.md)** — service specs, the two upload routes, and the status lifecycle
--   **[Service Templates](service-templates.md)** — platform templates, capability pools, and your own populators
+-   **[Service Templates](service-templates.md)** — system templates, platform services, and your own populators
 -   **[CLI Reference](cli-reference.md)** — the complete command listing
 -   **[SDK Guide](sdk-guide.md)** / **[SDK Reference](sdk-reference.md)** — usage patterns and generated class docs
 -   **[Service Types](service-types.md)** — Managed, BYOK, BYOE, recurrent, and parameterized services

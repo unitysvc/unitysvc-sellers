@@ -8,7 +8,6 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
-from ...models.service_detail_response import ServiceDetailResponse
 from ...types import UNSET, Response, Unset
 
 
@@ -38,12 +37,7 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | HTTPValidationError | ServiceDetailResponse | None:
-    if response.status_code == 200:
-        response_200 = ServiceDetailResponse.from_dict(response.json())
-
-        return response_200
-
+) -> ErrorResponse | HTTPValidationError | None:
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
@@ -67,7 +61,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | HTTPValidationError | ServiceDetailResponse]:
+) -> Response[ErrorResponse | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -82,7 +76,7 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[ErrorResponse | HTTPValidationError | ServiceDetailResponse]:
+) -> Response[ErrorResponse | HTTPValidationError]:
     """Get Service Data
 
      Get complete service data for a service owned by the current seller.
@@ -104,7 +98,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | ServiceDetailResponse]
+        Response[ErrorResponse | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
@@ -126,7 +120,7 @@ def sync(
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> ErrorResponse | HTTPValidationError | ServiceDetailResponse | None:
+) -> ErrorResponse | HTTPValidationError | None:
     """Get Service Data
 
      Get complete service data for a service owned by the current seller.
@@ -148,7 +142,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | ServiceDetailResponse
+        ErrorResponse | HTTPValidationError
     """
 
     return sync_detailed(
@@ -165,7 +159,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[ErrorResponse | HTTPValidationError | ServiceDetailResponse]:
+) -> Response[ErrorResponse | HTTPValidationError]:
     """Get Service Data
 
      Get complete service data for a service owned by the current seller.
@@ -187,7 +181,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | ServiceDetailResponse]
+        Response[ErrorResponse | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
@@ -207,7 +201,7 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> ErrorResponse | HTTPValidationError | ServiceDetailResponse | None:
+) -> ErrorResponse | HTTPValidationError | None:
     """Get Service Data
 
      Get complete service data for a service owned by the current seller.
@@ -229,7 +223,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | ServiceDetailResponse
+        ErrorResponse | HTTPValidationError
     """
 
     return (
