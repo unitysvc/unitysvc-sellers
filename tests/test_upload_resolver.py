@@ -200,7 +200,7 @@ class TestResolveFileReferencesIntegration:
     """End-to-end: the upload flow embeds file content into the POST body."""
 
     @respx.mock
-    def test_upload_inlines_rendered_template_into_request_body(self, tmp_path: Path) -> None:
+    def test_upload_ships_raw_template_by_s3_reference(self, tmp_path: Path) -> None:
         # Flat specs/ layout — one self-contained service folder, with a shared
         # .j2 code example one level up under the provider's docs/:
         #
@@ -261,6 +261,18 @@ class TestResolveFileReferencesIntegration:
             )
         )
 
+        file_route = respx.post(f"{BASE_URL}/upload").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "object_key": "docs/deadbeef.j2",
+                    "filename": "code_example.js.j2",
+                    "mime_type": "text/plain",
+                    "size": 34,
+                    "uploaded": True,
+                },
+            )
+        )
         upload_route = respx.post(f"{BASE_URL}/services").mock(
             return_value=httpx.Response(
                 202,
@@ -304,8 +316,18 @@ class TestResolveFileReferencesIntegration:
         # Code-example documents ship as raw templates (the backend renders
         # them per consumption context). The ``.j2`` suffix and the
         # ``{{ offering.name }}`` placeholder are preserved verbatim.
+        #
+        # The template travels by content-addressed S3 reference rather than
+        # inline: one catalog shares the same examples across every service,
+        # so inlining re-sent (and re-uploaded) identical bytes per service.
+        # What must NOT change is that the template is still RAW -- unrendered
+        # -- which is asserted against the bytes actually uploaded.
         assert doc["file_path"] == "../docs/code_example.js.j2"
-        assert doc["file_content"] == "const svc = '{{ offering.name }}';\n"
+        assert "file_content" not in doc
+        assert doc["external_url"] == "${UNITYSVC_S3_BASE_URL}/docs/deadbeef.j2"
+
+        uploaded_bytes = file_route.calls.last.request.content
+        assert b"const svc = '{{ offering.name }}';" in uploaded_bytes
 
 
 def _write_service(provider_dir: Path, svc: str, listing_name: str) -> None:
