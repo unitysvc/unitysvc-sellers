@@ -1,11 +1,11 @@
 """Populate command - populate services by executing provider scripts."""
 
+import json
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
-import json5
 import typer
 from rich.console import Console
 
@@ -70,7 +70,7 @@ def _populator_sources(data_dir: Path, provider_filter: str | None) -> list[tupl
             continue
         try:
             with open(cfg) as f:
-                data = json5.load(f)
+                data = json.load(f)
         except Exception:
             continue
         sp = data.get("services_populator") if isinstance(data, dict) else None

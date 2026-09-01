@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "unitysvc-sellers"
-version = "0.3.2"
+version = "0.3.3"
 description = "Seller-facing tools for UnitySVC: HTTP SDK + `usvc seller` CLI"
 readme = "README.md"
 authors = [{ name = "Bo Peng", email = "bo.peng@unitysvc.com" }]
@@ -17,10 +17,10 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  # 0.2.21 is the floor for provider-account rate-limit buckets:
-  # ProviderAccountRateLimit.name is required so upstream channels can reference
-  # seller-scoped buckets via rate_limit_refs / ops_rate_limit_refs.
-  "unitysvc-core>=0.2.21",
+  # 0.2.22 is the floor for stdlib-json spec parsing: load_data_file there reads
+  # offering/listing/provider files, and until that release it used json5 (a
+  # pure-Python parser ~1245x slower), which dominated every `specs` command.
+  "unitysvc-core>=0.2.22",
   # Ships the `usvc` umbrella that mounts the usvc.commands entry point below,
   # so `usvc seller ...` works for anyone who installs this package. Adds no new
   # transitive dependencies — typer, rich, httpx, attrs and python-dateutil are
@@ -30,7 +30,6 @@ dependencies = [
   "typer",
   "rich",
   "jinja2",
-  "json5",
   "tomli-w",
   # Markdown processing
   "mistune>=3.0",
