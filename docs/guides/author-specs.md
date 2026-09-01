@@ -35,20 +35,27 @@ or a public provider repo under [unitysvc-labs](https://github.com/unitysvc-labs
 
 ## File formats
 
-Both **JSON** and **TOML** are accepted for any data file. JSON is parsed with
-JSON5, so comments and trailing commas are allowed while you edit:
+Both **JSON** and **TOML** are accepted for any data file. JSON files must be
+strict JSON — no comments, no trailing commas:
 
 ```json
 {
-    // upstream model id (offering.name)
     "name": "command-r-plus",
     "display_name": "Command R+",
-    "service_type": "llm",
+    "service_type": "llm"
 }
 ```
 
-`usvc seller specs format` rewrites files to canonical JSON/TOML (it strips JSON
-comments), giving clean, stable git diffs.
+Use **TOML** if you want comments in your source:
+
+```toml
+name = "command-r-plus"  # upstream model id (offering.name)
+display_name = "Command R+"
+service_type = "llm"
+```
+
+`usvc seller specs format` rewrites files to canonical JSON/TOML, giving clean,
+stable git diffs.
 
 ## Validate and format
 

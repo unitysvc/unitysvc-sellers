@@ -34,7 +34,6 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-import json5
 from unitysvc_core.utils import deep_merge_dicts
 
 from .template_populate import _deprecate_service, _sanitize_dirname, populate_from_iterator
@@ -71,7 +70,7 @@ _NON_BUNDLED = {"offering.json.j2", "listing.json.j2", "config.json"}
 
 
 def _load_json(path: Path) -> Any:
-    return json5.loads(path.read_text())
+    return json.loads(path.read_text())
 
 
 def is_param_file(path: Path) -> bool:

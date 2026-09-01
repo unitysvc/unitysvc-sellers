@@ -30,7 +30,6 @@ dependencies = [
   "typer",
   "rich",
   "jinja2",
-  "json5",
   "tomli-w",
   # Markdown processing
   "mistune>=3.0",
