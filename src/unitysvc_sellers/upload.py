@@ -43,6 +43,7 @@ This module deliberately ships a minimal subset of the original
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -253,6 +254,37 @@ def _is_image_document(doc: dict[str, Any]) -> bool:
     return str(doc.get("mime_type", "")).lower() in _IMAGE_MIME_TYPES
 
 
+# Content-hash -> object_key for files already uploaded during this process.
+# A seller catalog generated from one template ships the SAME code examples and
+# connectivity probe for every service: measured on a 100-service catalog, 1646
+# document instances collapse to 25 distinct blobs (98.5% duplicates). Object
+# keys are content-addressed, so re-uploading identical bytes is a no-op that
+# still costs a full round-trip -- and a failed one fails the whole publish.
+# Cache positives only: a miss is uploaded, which then makes it a positive.
+#
+# Markdown is deliberately excluded. ``storage.upload_file`` rewrites local
+# image/link references before uploading, and those resolve relative to the
+# file's own directory, so two byte-identical .md files in different service
+# folders can legitimately upload to different content.
+_UPLOADED_OBJECT_KEYS: dict[str, str] = {}
+
+
+def _upload_file_deduped(client: Any, full_path: Path) -> str:
+    """Upload ``full_path`` via ``POST /seller/upload``, once per distinct content."""
+    from .storage import upload_file as _upload_file
+
+    if full_path.suffix.lower() == ".md":
+        return str(_upload_file(client, full_path))
+
+    digest = hashlib.sha256(full_path.read_bytes()).hexdigest()
+    cached = _UPLOADED_OBJECT_KEYS.get(digest)
+    if cached is not None:
+        return cached
+    object_key = str(_upload_file(client, full_path))
+    _UPLOADED_OBJECT_KEYS[digest] = object_key
+    return object_key
+
+
 def _resolve_file_references(
     data: dict[str, Any],
     base_path: Path,
@@ -349,15 +381,31 @@ def _resolve_file_references(
                 "connectivity_test",
             )
 
-            if is_backend_rendered and is_template:
+            if is_backend_rendered and is_template and client is not None:
+                # Still the RAW template -- the backend renders it at
+                # consumption time (unitysvc/unitysvc#877 / #878). It just
+                # travels by content-addressed S3 key instead of inline, so
+                # the identical probe shared by every service in a catalog is
+                # uploaded once rather than once per service. The stored
+                # Document is byte-identical either way: ``file_content`` is
+                # transport only, and ingest hashes it to the same object_key.
+                try:
+                    object_key = _upload_file_deduped(client._client, full_path)
+                except Exception as exc:
+                    raise ValueError(f"Failed to upload template '{value}' to S3: {exc}") from exc
+
+                result["external_url"] = f"${{UNITYSVC_S3_BASE_URL}}/{object_key}"
+                # Preserve the ``.j2`` suffix so the backend can recognise
+                # the document as a renderable template.
+                result[key] = full_path.name if Path(value).is_absolute() else value
+            elif is_backend_rendered and is_template:
+                # No client (dryrun / offline): inline as before.
                 try:
                     content = full_path.read_text(encoding="utf-8")
                 except Exception as exc:
                     raise ValueError(f"Failed to read template '{value}': {exc}") from exc
 
                 result["file_content"] = content
-                # Preserve the ``.j2`` suffix so the backend can recognise
-                # the document as a renderable template.
                 result[key] = full_path.name if Path(value).is_absolute() else value
             elif is_template or client is None:
                 # Jinja2 template (or no client): render and inline as file_content.
@@ -383,10 +431,8 @@ def _resolve_file_references(
                     result[key] = value
             else:
                 # Non-template file with an active client: upload to S3.
-                from .storage import upload_file as _upload_file
-
                 try:
-                    object_key = _upload_file(client._client, full_path)
+                    object_key = _upload_file_deduped(client._client, full_path)
                 except Exception as exc:
                     raise ValueError(f"Failed to upload '{value}' to S3: {exc}") from exc
 
