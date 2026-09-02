@@ -151,7 +151,55 @@ def test_no_service_folders_errors(tmp_path: Path) -> None:
     (tmp_path / "specs").mkdir()
     result = _run(tmp_path)
     assert result.exit_code == 1
-    assert "no service folders" in _norm(result.output).lower()
+    assert "no service folders or system-template param files" in _norm(result.output).lower()
+
+
+def test_platform_services_system_params_validate_without_rendered_folders(tmp_path: Path) -> None:
+    (tmp_path / "services" / "templates").mkdir(parents=True)
+    param = tmp_path / "platform_services" / "llm-fast" / "crofai" / "deepseek-v3.2.json"
+    param.parent.mkdir(parents=True)
+    param.write_text(
+        json.dumps(
+            {
+                "constants": {"status": "ready"},
+                "parameters": {
+                    "api_base_url": "https://api.crofai.example/v1",
+                    "api_key_secret": "CROFAI_API_KEY",
+                    "model": "deepseek-v3.2",
+                    "payout_input": "0.18",
+                    "payout_output": "0.35",
+                    "service_name": "llm-fast/crofai/deepseek-v3.2",
+                },
+                "template": "llm-fast",
+            }
+        )
+        + "\n"
+    )
+
+    result = _run(tmp_path)
+
+    assert result.exit_code == 0, result.output
+    assert "1 system-template param file" in _norm(result.output)
+
+
+def test_platform_services_system_params_require_matching_service_name(tmp_path: Path) -> None:
+    (tmp_path / "services" / "templates").mkdir(parents=True)
+    param = tmp_path / "platform_services" / "llm-fast" / "crofai" / "deepseek-v3.2.json"
+    param.parent.mkdir(parents=True)
+    param.write_text(
+        json.dumps(
+            {
+                "parameters": {"model": "deepseek-v3.2", "service_name": "crofai/deepseek-v3.2"},
+                "template": "llm-fast",
+            }
+        )
+        + "\n"
+    )
+
+    result = _run(tmp_path)
+
+    assert result.exit_code == 1
+    assert "parameters.service_name" in _norm(result.output)
 
 
 def test_has_service_id_flag(specs_repo: Path) -> None:

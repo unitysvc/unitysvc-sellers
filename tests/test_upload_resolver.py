@@ -638,6 +638,75 @@ class TestUploadSystemTemplateParams:
         sent = json.loads(instance_route.calls.last.request.content.decode())
         assert sent["name"] == "crofai/llm-fast/deepseek-v3.2"
 
+    @respx.mock
+    def test_upload_instantiates_platform_services_param_file(self, tmp_path: Path) -> None:
+        (tmp_path / "templates").mkdir()
+        param_dir = tmp_path / "platform_services" / "llm-fast" / "crofai"
+        param_dir.mkdir(parents=True)
+        (param_dir / "deepseek-v3.2.json").write_text(
+            json.dumps(
+                {
+                    "template": "llm-fast",
+                    "parameters": {
+                        "api_base_url": "https://api.crofai.example/v1",
+                        "api_key_secret": "CROFAI_API_KEY",
+                        "model": "deepseek-v3.2",
+                        "payout_input": "0.18",
+                        "payout_output": "0.35",
+                        "service_name": "llm-fast/crofai/deepseek-v3.2",
+                    },
+                }
+            )
+            + "\n"
+        )
+
+        respx.get(f"{BASE_URL}/templates").mock(return_value=httpx.Response(200, json=self._template_list()))
+        instance_route = respx.post(f"{BASE_URL}/instances").mock(
+            return_value=httpx.Response(202, json={"task_id": "t-system", "status": "queued", "message": "q"})
+        )
+        respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "t-system": {
+                        "task_id": "t-system",
+                        "state": "SUCCESS",
+                        "status": "completed",
+                        "result": {"service_id": "22222222-2222-2222-2222-222222222222"},
+                    }
+                },
+            )
+        )
+
+        with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
+            result = upload_directory(
+                client,
+                tmp_path,
+                name="platform_services/llm-fast/crofai/deepseek-v3.2",
+                task_poll_interval=0.001,
+                task_wait_timeout=5.0,
+            )
+
+        assert result.services.total == 1
+        assert result.services.success == 1
+        sent = json.loads(instance_route.calls.last.request.content.decode())
+        assert sent == {
+            "template_id": "11111111-1111-1111-1111-111111111111",
+            "name": "llm-fast/crofai/deepseek-v3.2",
+            "parameters": {
+                "api_base_url": "https://api.crofai.example/v1",
+                "api_key_secret": "CROFAI_API_KEY",
+                "model": "deepseek-v3.2",
+                "payout_input": "0.18",
+                "payout_output": "0.35",
+                "service_name": "llm-fast/crofai/deepseek-v3.2",
+            },
+            "auto_submit": False,
+        }
+        assert json.loads((param_dir / "deepseek-v3.2.service.json").read_text())["service_id"] == (
+            "22222222-2222-2222-2222-222222222222"
+        )
+
 
 class TestSpecsUploadCli:
     """``usvc_seller specs upload --submit`` — a single flag (default off) that
