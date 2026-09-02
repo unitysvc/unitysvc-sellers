@@ -13,6 +13,7 @@ import pytest
 
 from unitysvc_sellers.params_render import (
     ParamRenderError,
+    UpstreamEnumerationError,
     discover_system_param_files,
     materialized_param_specs,
     write_params_from_iterator,
@@ -288,6 +289,26 @@ def _status_of(specs: Path, name: str) -> str | None:
     return json.loads((specs / f"{name}.json").read_text())["parameters"].get("status")
 
 
+def _constants_of(path: Path) -> dict:
+    return json.loads(path.read_text()).get("constants", {})
+
+
+def _platform_param(root: Path, platform: str, regular_name: str, *, deprecated: bool = False) -> Path:
+    p = root / "platform_services" / platform / f"{regular_name}.json"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "parameters": {
+            "model": regular_name.rsplit("/", 1)[-1],
+            "service_name": f"{platform}/{regular_name}",
+        },
+        "template": platform,
+    }
+    if deprecated:
+        payload["constants"] = {"status": "deprecated"}
+    p.write_text(json.dumps(payload) + "\n")
+    return p
+
+
 def _iter(*names: str):
     def it():
         for n in names:
@@ -306,6 +327,47 @@ def test_service_not_yielded_is_deprecated(tmp_path: Path) -> None:
     assert _status_of(specs, "p/live") != "deprecated"
     assert stats["deprecated"] == 1
     assert stats["new"] == 0
+
+
+def test_platform_params_are_drained_by_regular_service_path(tmp_path: Path) -> None:
+    specs = tmp_path / "services" / "specs"
+    _seed(specs, ["p/modelA"])
+    fast = _platform_param(tmp_path, "llm-fast", "p/modelA", deprecated=True)
+    mode_a = _platform_param(tmp_path, "llm-modeA", "p/modelA", deprecated=True)
+
+    stats = write_params_from_iterator(_iter("p/modelA"), specs)
+
+    assert stats["deprecated"] == 0
+    assert _constants_of(fast) == {}
+    assert _constants_of(mode_a) == {}
+    assert json.loads(fast.read_text())["parameters"]["service_name"] == "llm-fast/p/modelA"
+    assert json.loads(mode_a.read_text())["parameters"]["service_name"] == "llm-modeA/p/modelA"
+
+
+def test_missing_platform_params_are_deprecated_in_constants(tmp_path: Path) -> None:
+    specs = tmp_path / "services" / "specs"
+    _seed(specs, ["p/modelA"])
+    fast = _platform_param(tmp_path, "llm-fast", "p/modelB")
+    mode_a = _platform_param(tmp_path, "llm-modeA", "p/modelB")
+
+    stats = write_params_from_iterator(_iter("p/modelA"), specs)
+
+    fast_data = json.loads(fast.read_text())
+    mode_a_data = json.loads(mode_a.read_text())
+    assert fast_data["constants"]["status"] == "deprecated"
+    assert mode_a_data["constants"]["status"] == "deprecated"
+    assert "status" not in fast_data["parameters"]
+    assert "status" not in mode_a_data["parameters"]
+    assert stats["deprecated"] == 2
+
+
+def test_matching_no_committed_platform_params_raises(tmp_path: Path) -> None:
+    specs = tmp_path / "services" / "specs"
+    specs.mkdir(parents=True)
+    _platform_param(tmp_path, "llm-fast", "p/modelA")
+
+    with pytest.raises(UpstreamEnumerationError, match="failed populate"):
+        write_params_from_iterator(_iter("q/modelB"), specs)
 
 
 def test_a_brand_new_service_counts_as_new_not_deprecated(tmp_path: Path) -> None:

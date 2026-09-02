@@ -800,6 +800,36 @@ def _committed_service_names(root: Path) -> dict[str, Path]:
     return found
 
 
+def _platform_services_root(output_dir: Path) -> Path:
+    """Return the conventional platform params root for a ``services/specs`` dir."""
+    if output_dir.name == "specs" and output_dir.parent.name == "services":
+        return output_dir.parent.parent / "platform_services"
+    return output_dir.parent / "platform_services"
+
+
+def _committed_platform_service_names(root: Path) -> dict[str, list[Path]]:
+    """Platform param files keyed by their regular service path.
+
+    ``platform_services/<platform_service>/<regular_service_path>.json`` mirrors
+    ``services/specs/<regular_service_path>.json``. The platform-service segment
+    is membership context, not the upstream model identity, so deprecation drains
+    by the path after that first segment.
+    """
+    found: dict[str, list[Path]] = {}
+    if not root.is_dir():
+        return found
+
+    for f in root.rglob("*.json"):
+        if f.name.endswith(_NON_SERVICE_SUFFIXES):
+            continue
+        rel = f.relative_to(root)
+        if len(rel.parts) < 2:
+            continue
+        regular_path = Path(*rel.parts[1:]).as_posix()[: -len(".json")]
+        found.setdefault(regular_path, []).append(f)
+    return found
+
+
 def preserve_known_values(new: Any, committed: Any, stats: dict[str, int] | None = None) -> Any:
     """Merge ``new`` over ``committed`` so a ``None`` never replaces a value.
 
@@ -847,11 +877,67 @@ def _deprecate_param_file(path: Path) -> bool:
     return True
 
 
-def _deprecate_missing_services(remaining: dict[str, Path], committed_total: int, stats: dict[str, int]) -> None:
+def _deprecate_platform_param_file(path: Path) -> bool:
+    """Set ``constants.status = "deprecated"`` for a platform param file."""
+    try:
+        data = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    params = data.get("parameters")
+    if not isinstance(params, dict):
+        return False
+
+    changed = False
+    if params.get("status") == "deprecated":
+        params.pop("status", None)
+        changed = True
+
+    constants = data.setdefault("constants", {})
+    if not isinstance(constants, dict):
+        return False
+    if constants.get("status") == "deprecated" and not changed:
+        return False
+    constants["status"] = "deprecated"
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    return True
+
+
+def _clear_platform_param_deprecation(path: Path) -> bool:
+    """Remove a stale ``constants.status=deprecated`` from a matched platform param."""
+    try:
+        data = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return False
+    if not isinstance(data, dict):
+        return False
+
+    constants = data.get("constants")
+    if not isinstance(constants, dict) or constants.get("status") != "deprecated":
+        return False
+    constants.pop("status", None)
+    if not constants:
+        data.pop("constants", None)
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    return True
+
+
+def _deprecate_missing_services(
+    remaining: dict[str, Path],
+    remaining_platform: dict[str, list[Path]],
+    committed_total: int,
+    stats: dict[str, int],
+    *,
+    platform_root: Path,
+) -> None:
     """Deprecate every committed service the iterator did not account for.
 
     ``remaining`` starts as everything committed under ``output_dir`` and is
-    drained as the iterator yields, so what is left never appeared in this run.
+    drained as the iterator yields. ``remaining_platform`` does the same for
+    ``platform_services/<platform>/<regular-service>.json`` files, keyed by the
+    regular service path after the platform segment. What is left never
+    appeared in this run.
 
     Guard: if that is *everything*, the run did not fail to find a few retired
     models — it failed. A populator that errored, authenticated wrongly, or hit
@@ -862,12 +948,13 @@ def _deprecate_missing_services(remaining: dict[str, Path], committed_total: int
     and PR-creation steps never run once the populate step exits non-zero, so
     a half-written tree is discarded with the runner.
     """
-    if committed_total and len(remaining) == committed_total:
+    remaining_total = len(remaining) + sum(len(paths) for paths in remaining_platform.values())
+    if committed_total and remaining_total == committed_total:
         raise UpstreamEnumerationError(
             f"the iterator matched none of the {committed_total} committed "
             "service(s), so every one of them would be deprecated. That is a "
             "failed populate, not a retired catalog — refusing.\n"
-            f"  committed sample: {sorted(remaining)[:3]}\n"
+            f"  committed sample: {sorted(remaining)[:3] or sorted(remaining_platform)[:3]}\n"
             "Check the provider credential and endpoint, and that each yielded "
             "'service_name' is the service's path under specs/ "
             "(e.g. 'nebius/Qwen/Qwen3-32B', not 'Qwen/Qwen3-32B')."
@@ -881,6 +968,19 @@ def _deprecate_missing_services(remaining: dict[str, Path], committed_total: int
             stats["deprecated"] += 1
         else:
             stats["already_deprecated"] += 1
+
+    for name in sorted(remaining_platform):
+        for target in sorted(remaining_platform[name]):
+            changed = _deprecate_platform_param_file(target)
+            try:
+                display = target.relative_to(platform_root)
+            except ValueError:
+                display = target
+            if changed:
+                print(f"  deprecated platform member (not served upstream): {display}")
+                stats["deprecated"] += 1
+            else:
+                stats["already_deprecated"] += 1
 
 
 def write_params_from_iterator(
@@ -955,9 +1055,14 @@ def write_params_from_iterator(
 
     # Everything committed before this run. Each yielded service is drained out
     # below, so whatever is still here at the end never appeared in this run —
-    # i.e. the upstream stopped serving it.
+    # i.e. the upstream stopped serving it. Regular specs and platform-member
+    # specs stay in separate inventories: a yielded regular service drains
+    # same-name regular params and every platform member whose path after the
+    # platform-service segment points at that same regular service.
     remaining = _committed_service_names(output_dir)
-    committed_total = len(remaining)
+    platform_root = _platform_services_root(output_dir)
+    remaining_platform = _committed_platform_service_names(platform_root)
+    committed_total = len(remaining) + sum(len(paths) for paths in remaining_platform.values())
     seen: set[str] = set()
 
     for model_data in iterator:
@@ -1029,11 +1134,19 @@ def write_params_from_iterator(
         # services still awaiting an explanation.
         if remaining.pop(rel, None) is None:
             stats["new"] += 1
+        for platform_path in remaining_platform.pop(rel, []):
+            _clear_platform_param_deprecation(platform_path)
 
         stats["written"] += 1
         print(f"  wrote {param_path.relative_to(output_dir)}" + (f"  (service_id {sid[:8]}…)" if sid else ""))
 
     if deprecate_missing:
-        _deprecate_missing_services(remaining, committed_total, stats)
+        _deprecate_missing_services(
+            remaining,
+            remaining_platform,
+            committed_total,
+            stats,
+            platform_root=platform_root,
+        )
 
     return stats
