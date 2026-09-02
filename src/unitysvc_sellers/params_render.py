@@ -923,6 +923,69 @@ def _clear_platform_param_deprecation(path: Path) -> bool:
     return True
 
 
+def _platform_price_updates(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Payout values from a regular generated service that platform params mirror."""
+    updates: dict[str, Any] = {}
+    price = parameters.get("payout_price")
+    if not isinstance(price, dict):
+        price = parameters.get("pricing")
+    if isinstance(price, dict):
+        for source_key, target_key in (
+            ("input", "payout_input"),
+            ("output", "payout_output"),
+            ("cached_input", "payout_cached_input"),
+        ):
+            if source_key in price:
+                updates[target_key] = price[source_key]
+
+    return updates
+
+
+def _refresh_platform_param_file(path: Path, generated_parameters: dict[str, Any], stats: dict[str, int]) -> bool:
+    """Refresh mirrored platform params for a service yielded by the iterator."""
+    try:
+        data = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return False
+    if not isinstance(data, dict):
+        return False
+
+    params = data.get("parameters")
+    if not isinstance(params, dict):
+        return False
+
+    updated_params = dict(params)
+    if updated_params.pop("status", None) is not None:
+        pass
+
+    source = _platform_price_updates(generated_parameters)
+    for key in list(updated_params):
+        if key == "service_name" or key not in source:
+            continue
+        updated_params[key] = preserve_known_values(source[key], updated_params[key], stats)
+
+    constants = data.get("constants")
+    updated_constants = dict(constants) if isinstance(constants, dict) else constants
+    if isinstance(updated_constants, dict):
+        updated_constants.pop("status", None)
+
+    changed = updated_params != params
+    if isinstance(constants, dict):
+        changed = changed or updated_constants != constants
+
+    if not changed:
+        return False
+
+    data["parameters"] = updated_params
+    if isinstance(updated_constants, dict):
+        if updated_constants:
+            data["constants"] = updated_constants
+        else:
+            data.pop("constants", None)
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    return True
+
+
 def _deprecate_missing_services(
     remaining: dict[str, Path],
     remaining_platform: dict[str, list[Path]],
@@ -1135,7 +1198,7 @@ def write_params_from_iterator(
         if remaining.pop(rel, None) is None:
             stats["new"] += 1
         for platform_path in remaining_platform.pop(rel, []):
-            _clear_platform_param_deprecation(platform_path)
+            _refresh_platform_param_file(platform_path, parameters, stats)
 
         stats["written"] += 1
         print(f"  wrote {param_path.relative_to(output_dir)}" + (f"  (service_id {sid[:8]}…)" if sid else ""))

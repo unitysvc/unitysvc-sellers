@@ -299,6 +299,8 @@ def _platform_param(root: Path, platform: str, regular_name: str, *, deprecated:
     payload = {
         "parameters": {
             "model": regular_name.rsplit("/", 1)[-1],
+            "payout_input": "1",
+            "payout_output": "2",
             "service_name": f"{platform}/{regular_name}",
         },
         "template": platform,
@@ -342,6 +344,76 @@ def test_platform_params_are_drained_by_regular_service_path(tmp_path: Path) -> 
     assert _constants_of(mode_a) == {}
     assert json.loads(fast.read_text())["parameters"]["service_name"] == "llm-fast/p/modelA"
     assert json.loads(mode_a.read_text())["parameters"]["service_name"] == "llm-modeA/p/modelA"
+
+
+def test_matching_platform_params_refresh_payout_from_payout_price(tmp_path: Path) -> None:
+    specs = tmp_path / "services" / "specs"
+    _seed(specs, ["p/modelA"])
+    fast = _platform_param(tmp_path, "llm-fast", "p/modelA", deprecated=True)
+    data = json.loads(fast.read_text())
+    data["parameters"]["api_base_url"] = "https://platform.example/v1"
+    fast.write_text(json.dumps(data) + "\n")
+
+    def it():
+        yield {
+            "service_name": "p/modelA",
+            "api_base_url": "https://regular.example",
+            "offering_name": "modelA",
+            "payout_price": {"input": "0.12", "output": "0.34"},
+            "service_type": "llm",
+        }
+
+    stats = write_params_from_iterator(it(), specs)
+
+    data = json.loads(fast.read_text())
+    assert data["parameters"]["api_base_url"] == "https://platform.example/v1"
+    assert data["parameters"]["payout_input"] == "0.12"
+    assert data["parameters"]["payout_output"] == "0.34"
+    assert data["parameters"]["service_name"] == "llm-fast/p/modelA"
+    assert data.get("constants") is None
+    assert stats["deprecated"] == 0
+
+
+def test_matching_platform_params_refresh_payout_from_pricing(tmp_path: Path) -> None:
+    specs = tmp_path / "services" / "specs"
+    _seed(specs, ["p/modelA"])
+    fast = _platform_param(tmp_path, "llm-fast", "p/modelA")
+
+    def it():
+        yield {
+            "service_name": "p/modelA",
+            "offering_name": "modelA",
+            "pricing": {"cached_input": "0.02", "input": "0.20", "output": "0.80"},
+            "service_type": "llm",
+        }
+
+    write_params_from_iterator(it(), specs)
+
+    data = json.loads(fast.read_text())
+    assert data["parameters"]["payout_input"] == "0.20"
+    assert data["parameters"]["payout_output"] == "0.80"
+    assert "payout_cached_input" not in data["parameters"]
+
+
+def test_matching_platform_params_preserve_payout_when_new_price_unknown(tmp_path: Path) -> None:
+    specs = tmp_path / "services" / "specs"
+    _seed(specs, ["p/modelA"])
+    fast = _platform_param(tmp_path, "llm-fast", "p/modelA")
+
+    def it():
+        yield {
+            "service_name": "p/modelA",
+            "offering_name": "modelA",
+            "payout_price": {"input": None, "output": "0.34"},
+            "service_type": "llm",
+        }
+
+    stats = write_params_from_iterator(it(), specs)
+
+    data = json.loads(fast.read_text())
+    assert data["parameters"]["payout_input"] == "1"
+    assert data["parameters"]["payout_output"] == "0.34"
+    assert stats["preserved"] == 1
 
 
 def test_missing_platform_params_are_deprecated_in_constants(tmp_path: Path) -> None:
