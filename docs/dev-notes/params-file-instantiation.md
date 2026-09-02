@@ -118,14 +118,19 @@ Two keys, both about as small as it gets: an optional `template` and a
 ```
 
 - **`template`** is a **bare name resolved under `templates/`**, and is
-  **optional**: omit it for the single default template `templates/`; set
-  `"resp"` for `templates/resp/`. (No path prefix.) A name resolves to a **local**
-  template if `templates/<name>/` exists, otherwise it's a **system** template
-  rendered by backend instantiation during `specs upload`.
+  **optional**: omit it when the repo has a single local template; set `"resp"`
+  for `templates/resp/`. (No path prefix.) A specified name resolves to a
+  **local** template if `templates/<name>/` exists, otherwise it's a **system**
+  template rendered by backend instantiation during `specs upload`.
 - **`parameters`** holds the values, nested (not spread at top level) so a value
   may safely be named `template`/`name`/etc., matching the SDK's
   `instances.create(parameters={…})` shape and leaving room for future control
   keys beside `template`.
+- **`constants`** is reserved for backend-owned/system templates. Populate
+  helpers use `constants.status = "deprecated"` when `deprecate_missing=True`
+  retires a platform-service param file, so the status can render as
+  `listing.status` without adding an unknown `status` parameter to the template
+  instantiation request.
 - **No `name` field** — the service name comes from the **path**
   (`specs/unitysvc/resp200.json` → `unitysvc/resp200`), same as a spec folder.
 

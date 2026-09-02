@@ -288,6 +288,10 @@ def _status_of(specs: Path, name: str) -> str | None:
     return json.loads((specs / f"{name}.json").read_text())["parameters"].get("status")
 
 
+def _constant_status_of(specs: Path, name: str) -> str | None:
+    return json.loads((specs / f"{name}.json").read_text()).get("constants", {}).get("status")
+
+
 def _iter(*names: str):
     def it():
         for n in names:
@@ -306,6 +310,70 @@ def test_service_not_yielded_is_deprecated(tmp_path: Path) -> None:
     assert _status_of(specs, "p/live") != "deprecated"
     assert stats["deprecated"] == 1
     assert stats["new"] == 0
+
+
+def test_platform_param_not_yielded_is_deprecated_in_constants(tmp_path: Path) -> None:
+    """System-template params must not grow unknown render controls under
+    ``parameters``; backend template schemas reject those."""
+    (tmp_path / "templates").mkdir()
+    specs = tmp_path / "specs"
+    specs.mkdir()
+    (specs / "p").mkdir()
+    (specs / "p" / "live.json").write_text(
+        json.dumps({"template": "llm-premium", "parameters": {"model": "live"}}) + "\n"
+    )
+    (specs / "p" / "retired.json").write_text(
+        json.dumps({"template": "llm-premium", "parameters": {"model": "retired"}}) + "\n"
+    )
+
+    stats = write_params_from_iterator(_iter("p/live"), specs, template="llm-premium")
+
+    retired = json.loads((specs / "p" / "retired.json").read_text())
+    assert retired["constants"]["status"] == "deprecated"
+    assert "status" not in retired["parameters"]
+    assert _constant_status_of(specs, "p/retired") == "deprecated"
+    assert _status_of(specs, "p/live") is None
+    assert stats["deprecated"] == 1
+
+
+def test_local_named_template_param_keeps_parameters_status(tmp_path: Path) -> None:
+    (tmp_path / "templates" / "resp").mkdir(parents=True)
+    specs = tmp_path / "specs"
+    specs.mkdir()
+    (specs / "p").mkdir()
+    (specs / "p" / "live.json").write_text(
+        json.dumps({"template": "resp", "parameters": {"offering_name": "live", "status": "ready"}}) + "\n"
+    )
+    (specs / "p" / "retired.json").write_text(
+        json.dumps({"template": "resp", "parameters": {"offering_name": "retired", "status": "ready"}}) + "\n"
+    )
+
+    stats = write_params_from_iterator(_iter("p/live"), specs, template="resp")
+
+    assert _status_of(specs, "p/retired") == "deprecated"
+    assert _constant_status_of(specs, "p/retired") is None
+    assert stats["deprecated"] == 1
+
+
+def test_platform_param_deprecation_repairs_parameters_status(tmp_path: Path) -> None:
+    (tmp_path / "templates").mkdir()
+    specs = tmp_path / "specs"
+    specs.mkdir()
+    (specs / "p").mkdir()
+    (specs / "p" / "live.json").write_text(
+        json.dumps({"template": "llm-premium", "parameters": {"model": "live"}}) + "\n"
+    )
+    (specs / "p" / "retired.json").write_text(
+        json.dumps({"template": "llm-premium", "parameters": {"model": "retired", "status": "deprecated"}})
+        + "\n"
+    )
+
+    stats = write_params_from_iterator(_iter("p/live"), specs, template="llm-premium")
+
+    repaired = json.loads((specs / "p" / "retired.json").read_text())
+    assert repaired["constants"]["status"] == "deprecated"
+    assert "status" not in repaired["parameters"]
+    assert stats["deprecated"] == 1
 
 
 def test_a_brand_new_service_counts_as_new_not_deprecated(tmp_path: Path) -> None:

@@ -176,6 +176,21 @@ def is_local_param_file(param_file: Path) -> bool:
     return _resolve_template_dir_or_none(param_file, data.get("template")) is not None
 
 
+def _is_system_template_param_data(param_file: Path, data: dict[str, Any]) -> bool:
+    """True when ``data`` names a backend-owned template.
+
+    Param files without a ``template`` are local/self-managed: the upload path
+    uses the repo's only local template. Param files with a ``template`` are
+    still self-managed when that name resolves under ``templates/<name>/``;
+    otherwise they are system-template/platform-service inputs and must keep
+    schema-invalid control values out of ``parameters``.
+    """
+    template_name = data.get("template")
+    if template_name is None:
+        return False
+    return _resolve_template_dir_or_none(param_file, str(template_name)) is None
+
+
 def discover_local_param_files(root: Path) -> list[Path]:
     """Param files under ``root`` that can be rendered locally."""
     return [p for p in discover_param_files(root) if is_local_param_file(p)]
@@ -834,12 +849,40 @@ def preserve_known_values(new: Any, committed: Any, stats: dict[str, int] | None
 
 
 def _deprecate_param_file(path: Path) -> bool:
-    """Set ``parameters.status = "deprecated"``. False if already deprecated."""
+    """Mark a committed param file deprecated in the shape its renderer expects.
+
+    Self-managed/local params keep the historical ``parameters.status`` marker.
+    System-template/platform params cannot put ``status`` in ``parameters``
+    unless the backend template schema declares it, so use top-level
+    ``constants.status`` instead. That constant is intended to flow into the
+    template render context as ``listing.status`` without poisoning the
+    instantiation parameters.
+    """
     try:
         data = json.loads(path.read_text())
     except (json.JSONDecodeError, OSError):
         return False
+    if not isinstance(data, dict):
+        return False
+
     params = data.setdefault("parameters", {})
+    if not isinstance(params, dict):
+        return False
+
+    if _is_system_template_param_data(path, data):
+        constants = data.setdefault("constants", {})
+        if not isinstance(constants, dict):
+            return False
+        changed = constants.get("status") != "deprecated"
+        if params.get("status") == "deprecated":
+            params.pop("status", None)
+            changed = True
+        if not changed:
+            return False
+        constants["status"] = "deprecated"
+        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        return True
+
     if params.get("status") == "deprecated":
         return False
     params["status"] = "deprecated"
