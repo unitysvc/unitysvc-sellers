@@ -124,6 +124,10 @@ otherwise it is treated as a **system** template:
 | `"<name>"` and `templates/<name>/` exists | local directory | `usvc seller specs …` |
 | `"<name>"` with no matching directory | system template | `usvc seller specs upload` (see [Create from a Template](create-from-template.md)) |
 
+Platform-service members use system-template param files too, but they live
+under `platform_services/` instead of `specs/`; see
+[Platform Service Members](platform-service-members.md).
+
 ## Validate, test, upload
 
 The `specs` commands render param files on the fly, then act on the result —
@@ -173,4 +177,5 @@ small and you'd rather not commit generated output.
 - [Author & Upload Specs](author-specs.md) — spelled-out folders for bespoke services.
 - [Generate a Catalog](generate-catalog.md) — materialize many services from a source list.
 - [Create from a Template](create-from-template.md) — instantiate a **platform** template.
+- [Platform Service Members](platform-service-members.md) — manage platform-member params.
 - [Service Templates](../service-templates.md) — how all the template-based shapes compare.

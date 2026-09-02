@@ -66,6 +66,11 @@ If the system template is linked to a PlatformService, no extra seller command i
 needed. The generated private service becomes a PlatformService member after it
 passes review and reaches the active state.
 
+For repos that manage these memberships as files, keep them under
+`platform_services/<platform-service>/<provider>/<member>.json` and set
+`parameters.service_name` to that same path. See
+[Platform Service Members](platform-service-members.md) for the full layout.
+
 ## From the SDK
 
 `client.templates` browses the catalog; `client.instances.create` starts the
