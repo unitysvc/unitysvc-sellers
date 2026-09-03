@@ -235,30 +235,6 @@ def _instantiate_system_param_file(
     return getattr(resp, "task_id", None), service_name
 
 
-# Document mime_types treated as images for external-URL mirroring. The
-# category check catches logos whose mime slipped through as "url".
-_IMAGE_MIME_TYPES = {"svg", "png", "jpeg", "jpg", "gif", "webp"}
-
-# Served content-type → document ``mime_type``, for stamping a mirrored image
-# with what it actually is. ``MimeTypeEnum`` has no gif/webp member, so those
-# stay on whatever the document already declared.
-_MIME_BY_CONTENT_TYPE = {
-    "image/svg+xml": "svg",
-    "image/png": "png",
-    "image/jpeg": "jpeg",
-}
-
-
-def _is_image_document(doc: dict[str, Any]) -> bool:
-    """True when a document dict is an image asset worth mirroring: a logo
-    document, or any document with an image mime_type. Web-page links
-    (terms_of_service URLs, docs links) are NOT mirrored — they are pages,
-    not assets."""
-    if doc.get("category") == "logo":
-        return True
-    return str(doc.get("mime_type", "")).lower() in _IMAGE_MIME_TYPES
-
-
 # Content-hash -> object_key for files already uploaded during this process.
 # A seller catalog generated from one template ships the SAME code examples and
 # connectivity probe for every service: measured on a 100-service catalog, 1646
@@ -339,7 +315,6 @@ def _resolve_file_references(
         current_interface = data
 
     result: dict[str, Any] = {}
-    mirrored_mime: str | None = None
 
     for key, value in data.items():
         if isinstance(value, dict):
@@ -443,45 +418,8 @@ def _resolve_file_references(
 
                 result["external_url"] = f"${{UNITYSVC_S3_BASE_URL}}/{object_key}"
                 result[key] = full_path.name if Path(value).is_absolute() else value
-        elif (
-            key == "external_url"
-            and client is not None
-            and isinstance(value, str)
-            and value.startswith(("http://", "https://"))
-            and _is_image_document(data)
-        ):
-            # Mirror external IMAGES onto platform storage so the catalog
-            # doesn't depend on third-party hosts (signed CDN URLs, hashed
-            # site-builder assets) and marketplace views don't leak to them.
-            # Same flow as Markdown-embedded assets, extended to remote URLs.
-            # Best-effort: a fetch/upload failure keeps the external URL —
-            # a stale logo host must never fail a service upload.
-            from .storage import mirror_external_image
-
-            try:
-                object_key, content_type = mirror_external_image(
-                    client._client,
-                    value,
-                    normalize_logo_background=data.get("category") == "logo",
-                )
-            except Exception as exc:  # noqa: BLE001 — keep the URL on any failure
-                print(f"  Warning: could not mirror external image {value}: {exc}")
-                result[key] = value
-            else:
-                result[key] = f"${{UNITYSVC_S3_BASE_URL}}/{object_key}"
-                # The document is now a stored image, not a link: record what
-                # the host actually served. A logo URL with no file extension
-                # (LinkedIn's CDN, Framer assets) otherwise keeps the
-                # ``url`` mime the convenience-field converter had to guess.
-                mirrored_mime = _MIME_BY_CONTENT_TYPE.get(content_type)
         else:
             result[key] = value
-
-    # Applied after the loop: ``mime_type`` may be iterated either side of
-    # ``external_url``, and the pass-through branch would otherwise restore
-    # the authored value.
-    if mirrored_mime:
-        result["mime_type"] = mirrored_mime
 
     return result
 
