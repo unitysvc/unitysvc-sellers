@@ -151,6 +151,36 @@ _IMAGE_CONTENT_TYPES = {
     "image/webp": ".webp",
 }
 
+# Plenty of small services publish only a favicon, so the logo we are given is
+# an .ico. Accept those and re-encode as PNG rather than rejecting them: ICO is
+# a container format the catalog should not have to serve, and Pillow reads it
+# fine. Not in _IMAGE_CONTENT_TYPES because no object is ever stored as .ico.
+_ICON_CONTENT_TYPES = frozenset({"image/x-icon", "image/vnd.microsoft.icon"})
+
+
+def _convert_icon_to_png(content: bytes, content_type: str) -> tuple[bytes, str, bool]:
+    """Re-encode an ICO as PNG. Returns ``(content, content_type, converted)``.
+
+    Anything that is not an icon passes through untouched. A decode failure
+    propagates, so the caller falls back to keeping the external URL exactly as
+    it would for any other mirror failure.
+    """
+    if content_type not in _ICON_CONTENT_TYPES:
+        return content, content_type, False
+
+    from io import BytesIO
+
+    from PIL import Image
+
+    with Image.open(BytesIO(content)) as image:
+        # Pillow surfaces the largest frame in a multi-size .ico, which is the
+        # one worth keeping.
+        rgba = image.convert("RGBA")
+
+    out = BytesIO()
+    rgba.save(out, format="PNG")
+    return out.getvalue(), "image/png", True
+
 
 def _composite_transparent_logo(content: bytes, content_type: str) -> tuple[bytes, str, bool]:
     """Return logo bytes composited onto a stable background when possible.
@@ -217,7 +247,7 @@ def fetch_external_image(url: str) -> tuple[bytes, str]:
             else:
                 resp.raise_for_status()
                 content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
-                if content_type not in _IMAGE_CONTENT_TYPES:
+                if content_type not in _IMAGE_CONTENT_TYPES and content_type not in _ICON_CONTENT_TYPES:
                     raise ValueError(f"not an image content-type: {content_type or 'unknown'}")
                 return resp.content, content_type
 
@@ -256,13 +286,17 @@ def mirror_external_image(
 
     from urllib.parse import urlparse
 
+    content, content_type, converted = _convert_icon_to_png(content, content_type)
+
     if normalize_logo_background:
         content, content_type, normalized = _composite_transparent_logo(content, content_type)
     else:
         normalized = False
 
     name = Path(urlparse(url).path).name or "image"
-    if normalized:
+    if converted or normalized:
+        # The bytes are PNG now; a ``favicon.ico`` name would otherwise decide
+        # the stored object's extension and mislabel it.
         name = f"{Path(name).stem or 'image'}.png"
     if not Path(name).suffix:
         name += _IMAGE_CONTENT_TYPES[content_type]

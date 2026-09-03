@@ -324,3 +324,56 @@ class TestFetchExternalImage:
 
         with pytest.raises(ValueError, match="not an image content-type"):
             storage.fetch_external_image("https://example.com/not-an-image")
+
+
+def _ico_bytes(size: tuple[int, int] = (32, 32)) -> bytes:
+    """A real .ico, since the conversion path actually decodes it."""
+    buf = BytesIO()
+    Image.new("RGBA", size, (10, 20, 30, 255)).save(buf, format="ICO")
+    return buf.getvalue()
+
+
+class TestIconLogos:
+    """Small services often publish only a favicon, so .ico must mirror."""
+
+    @respx.mock
+    def test_ico_is_accepted_and_converted_to_png(self) -> None:
+        respx.get("https://pushover.example/favicon.ico").mock(
+            return_value=httpx.Response(200, content=_ico_bytes(), headers={"content-type": "image/x-icon"})
+        )
+        captured: dict[str, Any] = {}
+
+        def _capture(_client: Any, data: bytes, file_name: str, mime: str) -> str:
+            captured.update(data=data, file_name=file_name, mime=mime)
+            return "docs/converted.png"
+
+        with patch.object(storage, "upload_bytes", _capture):
+            key, content_type = storage.mirror_external_image(_FakeClient(), "https://pushover.example/favicon.ico")
+
+        assert key == "docs/converted.png"
+        assert content_type == "image/png"
+        assert captured["mime"] == "image/png"
+        # A favicon.ico name would otherwise decide the stored extension and
+        # mislabel PNG bytes as an icon.
+        assert captured["file_name"] == "favicon.png"
+        assert captured["data"].startswith(b"\x89PNG")
+
+    @respx.mock
+    def test_microsoft_icon_content_type_also_accepted(self) -> None:
+        respx.get("https://push.example/favicon.ico").mock(
+            return_value=httpx.Response(
+                200,
+                content=_ico_bytes(),
+                headers={"content-type": "image/vnd.microsoft.icon"},
+            )
+        )
+
+        content, content_type = storage.fetch_external_image("https://push.example/favicon.ico")
+
+        assert content_type == "image/vnd.microsoft.icon"
+        assert content
+
+    def test_non_icon_passes_through_untouched(self) -> None:
+        content, content_type, converted = storage._convert_icon_to_png(b"<svg/>", "image/svg+xml")
+
+        assert (content, content_type, converted) == (b"<svg/>", "image/svg+xml", False)
