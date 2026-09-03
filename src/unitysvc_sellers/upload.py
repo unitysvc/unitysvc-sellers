@@ -193,12 +193,17 @@ def _normalize_service_selector(name: str) -> str:
     """Accept service-name selectors and common local ``services/specs`` paths."""
     normalized = name.removeprefix("./")
     specs_marker = "/services/specs/"
+    platform_marker = "/platform_services/"
     if normalized.startswith("services/specs/"):
         normalized = normalized[len("services/specs/") :]
+    elif normalized.startswith("platform_services/"):
+        normalized = normalized[len("platform_services/") :]
     elif normalized.startswith("specs/"):
         normalized = normalized[len("specs/") :]
     elif specs_marker in normalized:
         normalized = normalized.split(specs_marker, 1)[1]
+    elif platform_marker in normalized:
+        normalized = normalized.split(platform_marker, 1)[1]
     if normalized.endswith(".json") and not normalized.endswith(".service.json"):
         normalized = normalized[: -len(".json")]
     return normalized

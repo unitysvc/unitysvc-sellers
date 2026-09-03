@@ -67,6 +67,7 @@ _RESERVED_STEMS = {"provider", "offering", "listing", "service", "promotion", "s
 # Template-dir files that must NOT be copied verbatim into a rendered folder:
 # the two rendered templates and the populator's config.
 _NON_BUNDLED = {"offering.json.j2", "listing.json.j2", "config.json"}
+_SYSTEM_CONSTANT_STATUS_VALUES = {"draft", "ready", "deprecated"}
 
 
 def _load_json(path: Path) -> Any:
@@ -126,9 +127,11 @@ def discover_param_files(root: Path) -> list[Path]:
 
 
 def _repo_root_for(param_file: Path) -> Path:
-    """The nearest ancestor that contains a ``templates/`` directory."""
+    """The nearest ancestor that contains a template root."""
     for parent in param_file.parents:
         if (parent / "templates").is_dir():
+            return parent
+        if (parent / "services" / "templates").is_dir():
             return parent
     raise ParamRenderError(f"no 'templates/' directory found above param file {param_file}")
 
@@ -137,6 +140,8 @@ def _specs_root_for(param_file: Path) -> Path:
     """The ``specs/`` directory the param file lives under (for path → name)."""
     for parent in param_file.parents:
         if parent.name == "specs":
+            return parent
+        if parent.name == "platform_services":
             return parent
     # Fallback: assume specs/ is a sibling of templates/.
     return _repo_root_for(param_file) / "specs"
@@ -149,7 +154,10 @@ def _resolve_template_dir(param_file: Path, template_name: str | None) -> Path:
     directory doesn't exist (a non-local template is a system one — upload it
     with ``usvc seller specs upload``).
     """
-    templates = _repo_root_for(param_file) / "templates"
+    repo_root = _repo_root_for(param_file)
+    templates = repo_root / "templates"
+    if not templates.is_dir():
+        templates = repo_root / "services" / "templates"
     tdir = templates / template_name if template_name else templates
     if not tdir.is_dir():
         ref = template_name or "(default templates/)"
@@ -163,9 +171,12 @@ def _resolve_template_dir(param_file: Path, template_name: str | None) -> Path:
 def _resolve_template_dir_or_none(param_file: Path, template_name: str | None) -> Path | None:
     """Return the local template dir for ``param_file``, or ``None`` for a system template."""
     try:
-        templates = _repo_root_for(param_file) / "templates"
+        repo_root = _repo_root_for(param_file)
     except ParamRenderError:
         return None
+    templates = repo_root / "templates"
+    if not templates.is_dir():
+        templates = repo_root / "services" / "templates"
     tdir = templates / template_name if template_name else templates
     return tdir if tdir.is_dir() else None
 
@@ -187,7 +198,7 @@ def discover_system_param_files(root: Path) -> list[Path]:
 
 
 def _service_name_for(param_file: Path) -> str:
-    """Service name = the param file's path under ``specs/``, sans ``.json``."""
+    """Service name = the param file's path under its service-param root."""
     return param_file.relative_to(_specs_root_for(param_file)).with_suffix("").as_posix()
 
 
@@ -254,6 +265,44 @@ def write_service_id_for_param(param_file: Path, service_id: str) -> None:
     _write_service_id(_sidecar_for(param_file), service_id)
 
 
+def validate_system_param_file(param_file: Path) -> list[str]:
+    """Validate a backend-rendered system-template param file."""
+    errors: list[str] = []
+    try:
+        data = load_param_data(param_file)
+    except Exception as exc:
+        return [f"{param_file}: failed to load param file: {exc}"]
+
+    if not isinstance(data, dict):
+        return [f"{param_file}: param file must be a JSON object"]
+    if not data.get("template"):
+        errors.append(f"{param_file}: system-template param file must include 'template'")
+
+    parameters = data.get("parameters")
+    if not isinstance(parameters, dict):
+        errors.append(f"{param_file}: 'parameters' must be a JSON object")
+    elif "platform_services" in param_file.parts:
+        expected = service_name_for_param(param_file)
+        actual = parameters.get("service_name")
+        if actual != expected:
+            errors.append(
+                f"{param_file}: parameters.service_name {actual!r} must match "
+                f"the path under platform_services ({expected!r})"
+            )
+
+    constants = data.get("constants")
+    if constants is not None:
+        if not isinstance(constants, dict):
+            errors.append(f"{param_file}: 'constants' must be a JSON object")
+        else:
+            status = constants.get("status")
+            if status is not None and status not in _SYSTEM_CONSTANT_STATUS_VALUES:
+                allowed = ", ".join(sorted(_SYSTEM_CONSTANT_STATUS_VALUES))
+                errors.append(f"{param_file}: constants.status must be one of: {allowed}")
+
+    return errors
+
+
 @contextmanager
 def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
     """Render every param file into an **isolated temp copy** of the repo and
@@ -284,13 +333,13 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
     to send to the backend instantiation endpoint. Other read-only specs
     commands ignore them because they cannot be rendered locally.
     """
-    local_param_files = discover_local_param_files(root)
-    if not local_param_files:
-        # Concrete-only repo: nothing to render, so don't copy or chdir.
+    param_files = discover_param_files(root)
+    if not param_files:
+        # Concrete-only repo: nothing to render/sync, so don't copy or chdir.
         yield []
         return
 
-    repo_root = _repo_root_for(local_param_files[0])  # the dir that holds templates/
+    repo_root = _repo_root_for(param_files[0])  # the dir that holds templates/
     original_cwd = Path.cwd()
     tmp = Path(tempfile.mkdtemp(prefix="usvc-specs-"))
     rendered: list[tuple[Path, Path]] = []  # (folder in copy, REAL sidecar)

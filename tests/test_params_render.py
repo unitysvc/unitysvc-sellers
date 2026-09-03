@@ -16,6 +16,8 @@ from unitysvc_sellers.params_render import (
     UpstreamEnumerationError,
     discover_system_param_files,
     materialized_param_specs,
+    service_name_for_param,
+    validate_system_param_file,
     write_params_from_iterator,
 )
 
@@ -161,7 +163,8 @@ def test_folder_and_param_file_conflict_raises(tmp_path: Path) -> None:
             pass
 
 
-def test_system_template_param_repo_is_noop_for_local_render(tmp_path: Path) -> None:
+def test_system_template_param_repo_materializes_without_local_renders(tmp_path: Path) -> None:
+    (tmp_path / "templates").mkdir()
     specs = tmp_path / "specs" / "crofai"
     specs.mkdir(parents=True)
     param = specs / "deepseek-v3.2.json"
@@ -170,9 +173,74 @@ def test_system_template_param_repo_is_noop_for_local_render(tmp_path: Path) -> 
 
     with materialized_param_specs(tmp_path) as rendered:
         assert rendered == []
-        assert Path.cwd() == outer_cwd
+        assert Path.cwd() != outer_cwd
 
+    assert Path.cwd() == outer_cwd
     assert discover_system_param_files(tmp_path) == [param]
+
+
+def test_platform_param_service_name_comes_from_platform_services_path(tmp_path: Path) -> None:
+    (tmp_path / "services" / "templates").mkdir(parents=True)
+    param = tmp_path / "platform_services" / "llm-fast" / "crofai" / "deepseek-v3.2.json"
+    param.parent.mkdir(parents=True)
+    param.write_text(
+        json.dumps(
+            {
+                "template": "llm-fast",
+                "parameters": {"model": "deepseek-v3.2", "service_name": "llm-fast/crofai/deepseek-v3.2"},
+            }
+        )
+        + "\n"
+    )
+
+    assert service_name_for_param(param) == "llm-fast/crofai/deepseek-v3.2"
+    assert validate_system_param_file(param) == []
+
+
+def test_platform_param_requires_service_name_to_match_path(tmp_path: Path) -> None:
+    (tmp_path / "services" / "templates").mkdir(parents=True)
+    param = tmp_path / "platform_services" / "llm-fast" / "crofai" / "deepseek-v3.2.json"
+    param.parent.mkdir(parents=True)
+    param.write_text(
+        json.dumps(
+            {
+                "template": "llm-fast",
+                "parameters": {"model": "deepseek-v3.2", "service_name": "crofai/deepseek-v3.2"},
+            }
+        )
+        + "\n"
+    )
+
+    errors = validate_system_param_file(param)
+    assert len(errors) == 1
+    assert "parameters.service_name" in errors[0]
+    assert "llm-fast/crofai/deepseek-v3.2" in errors[0]
+
+
+def test_system_only_repo_materializes_for_sidecar_roundtrip(tmp_path: Path) -> None:
+    (tmp_path / "services" / "templates").mkdir(parents=True)
+    param = tmp_path / "platform_services" / "llm-fast" / "crofai" / "deepseek-v3.2.json"
+    param.parent.mkdir(parents=True)
+    param.write_text(
+        json.dumps(
+            {
+                "template": "llm-fast",
+                "parameters": {"model": "deepseek-v3.2", "service_name": "llm-fast/crofai/deepseek-v3.2"},
+            }
+        )
+        + "\n"
+    )
+    outer_cwd = Path.cwd()
+
+    with materialized_param_specs(tmp_path) as rendered:
+        assert rendered == []
+        assert Path.cwd() != outer_cwd
+        sidecar = Path.cwd() / "platform_services" / "llm-fast" / "crofai" / "deepseek-v3.2.service.json"
+        sidecar.write_text(json.dumps({"service_id": "new-id"}) + "\n")
+
+    assert Path.cwd() == outer_cwd
+    real_sidecar = tmp_path / "platform_services" / "llm-fast" / "crofai" / "deepseek-v3.2.service.json"
+    assert json.loads(real_sidecar.read_text())["service_id"] == "new-id"
 
 
 def test_write_params_replaces_expanded_folders(tmp_path: Path) -> None:

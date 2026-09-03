@@ -239,6 +239,10 @@ def _provider_from_specs_path(path: Path) -> str | None:
     directory name equals ``provider.name``.
     """
     parts = path.parts
+    if "platform_services" in parts:
+        i = parts.index("platform_services")
+        if i + 3 < len(parts):  # platform_services / <platform> / <provider> / … / <file>
+            return parts[i + 2]
     if "specs" in parts:
         i = parts.index("specs")
         if i + 2 < len(parts):  # specs / <provider> / … / <file>

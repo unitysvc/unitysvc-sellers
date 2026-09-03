@@ -37,6 +37,8 @@ import unitysvc_core
 from rich.console import Console
 from unitysvc_core.validator import DataValidator
 
+from .params_render import discover_system_param_files, validate_system_param_file
+
 app = typer.Typer(help="Local operations on the flat specs/ layout")
 console = Console()
 
@@ -193,9 +195,10 @@ def validate(
     schema_dir = Path(unitysvc_core.__file__).parent / "schema"
     validator = DataValidator(root, schema_dir)
 
+    system_params = discover_system_param_files(start)
     folders = find_service_folders(root)
-    if not folders:
-        console.print(f"[red]✗[/red] No service folders (containing a listing.json) found under {root}")
+    if not folders and not system_params:
+        console.print(f"[red]✗[/red] No service folders or system-template param files found under {start}")
         raise typer.Exit(1)
 
     validation_errors: list[str] = []
@@ -211,6 +214,20 @@ def validate(
                     f"{rel}: missing service_id in service.json (run 'usvc seller specs upload' first)"
                 )
 
+    for param_file in system_params:
+        validation_errors.extend(validate_system_param_file(param_file))
+        if has_service_id:
+            sidecar = param_file.with_name(param_file.stem + ".service.json")
+            data, _ = validator.load_data_file(sidecar) if sidecar.is_file() else (None, [])
+            if not isinstance(data, dict) or not data.get("service_id"):
+                try:
+                    rel = param_file.relative_to(start).with_suffix("").as_posix()
+                except ValueError:
+                    rel = param_file.with_suffix("").as_posix()
+                validation_errors.append(
+                    f"{rel}: missing service_id in sidecar (run 'usvc seller specs upload' first)"
+                )
+
     if validation_errors:
         console.print(f"[red]✗ Validation failed with {len(validation_errors)} error(s):[/red]")
         console.print()
@@ -218,4 +235,7 @@ def validate(
             console.print(f"[red]{i}.[/red] {error}")
         raise typer.Exit(1)
 
-    console.print(f"[green]✓ All {len(folders)} service folder(s) are valid![/green]")
+    parts = [f"{len(folders)} service folder(s)"]
+    if system_params:
+        parts.append(f"{len(system_params)} system-template param file(s)")
+    console.print(f"[green]✓ All {' and '.join(parts)} are valid![/green]")

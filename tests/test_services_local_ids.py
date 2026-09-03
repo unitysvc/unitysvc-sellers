@@ -587,6 +587,30 @@ def test_read_local_service_ids_deeply_nested_hierarchical_name(tmp_path: Path) 
     assert read_local_service_ids(tmp_path, provider="qwen") == []
 
 
+def test_read_local_service_ids_collects_platform_service_sidecars(tmp_path: Path) -> None:
+    regular = tmp_path / "services" / "specs" / "crofai" / "deepseek-v3.2.service.json"
+    platform = tmp_path / "platform_services" / "llm-fast" / "crofai" / "deepseek-v3.2.service.json"
+    regular.parent.mkdir(parents=True, exist_ok=True)
+    platform.parent.mkdir(parents=True, exist_ok=True)
+    regular.write_text(json.dumps({"service_id": _UUID_A}))
+    platform.write_text(json.dumps({"service_id": _UUID_B}))
+
+    assert sorted(read_local_service_ids(tmp_path)) == sorted([_UUID_A, _UUID_B])
+
+
+def test_read_local_service_ids_platform_provider_from_path(tmp_path: Path) -> None:
+    crofai = tmp_path / "platform_services" / "llm-fast" / "crofai" / "deepseek-v3.2.service.json"
+    parasail = tmp_path / "platform_services" / "llm-premium" / "parasail" / "Qwen" / "Qwen3.service.json"
+    crofai.parent.mkdir(parents=True, exist_ok=True)
+    parasail.parent.mkdir(parents=True, exist_ok=True)
+    crofai.write_text(json.dumps({"service_id": _UUID_A}))
+    parasail.write_text(json.dumps({"service_id": _UUID_B}))
+
+    assert read_local_service_ids(tmp_path, provider="crofai") == [_UUID_A]
+    assert read_local_service_ids(tmp_path, provider="parasail") == [_UUID_B]
+    assert read_local_service_ids(tmp_path, provider="llm-fast") == []
+
+
 def test_read_local_service_ids_bare_service_json_at_depth(tmp_path: Path) -> None:
     # A bare `service.json` with no sibling listing.json is still found by the
     # walk — the earlier listing_v1-anchored discovery missed exactly this.

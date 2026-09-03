@@ -124,6 +124,12 @@ A few consequences worth knowing:
   names a system template linked to a PlatformService becomes a member only after
   review activation.
 
+When you manage these member params in git, keep them in
+`platform_services/<platform-service>/<provider>/<member>.json`, separate from
+regular self-managed services under `services/specs/`. See
+[Platform Service Members](guides/platform-service-members.md) for the exact
+layout, sidecar, and bulk-command behavior.
+
 ### 3. Your own template + param files — compact, ephemeral
 
 When a *handful* of services share one shape, you don't need a populator. Author
