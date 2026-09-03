@@ -248,3 +248,79 @@ class TestResolveFileReferencesMirroring:
             out = _resolve_file_references(data, tmp_path, client=_FakeClient())
         m.assert_not_called()
         assert out["documents"]["Company Logo"]["external_url"] == "${UNITYSVC_S3_BASE_URL}/abc.svg"
+
+
+class TestFetchExternalImage:
+    """Fetch hardening: identify ourselves, retry only what retrying can fix."""
+
+    @respx.mock
+    def test_sends_identifying_user_agent_and_accept(self) -> None:
+        route = respx.get("https://example.com/logo.svg").mock(
+            return_value=httpx.Response(200, content=b"<svg/>", headers={"content-type": "image/svg+xml"})
+        )
+
+        storage.fetch_external_image("https://example.com/logo.svg")
+
+        sent = route.calls[0].request.headers
+        assert sent["user-agent"].startswith("unitysvc-sellers/")
+        assert "python-httpx" not in sent["user-agent"]
+        assert "image/svg+xml" in sent["accept"]
+
+    @respx.mock
+    def test_retries_transient_status_then_succeeds(self) -> None:
+        route = respx.get("https://example.com/logo.png").mock(
+            side_effect=[
+                httpx.Response(503),
+                httpx.Response(200, content=b"\x89PNG", headers={"content-type": "image/png"}),
+            ]
+        )
+
+        with patch("time.sleep"):
+            content, content_type = storage.fetch_external_image("https://example.com/logo.png")
+
+        assert content == b"\x89PNG"
+        assert content_type == "image/png"
+        assert route.call_count == 2
+
+    @respx.mock
+    def test_retries_connection_error(self) -> None:
+        route = respx.get("https://example.com/logo.png").mock(
+            side_effect=[
+                httpx.ConnectError("reset"),
+                httpx.Response(200, content=b"\x89PNG", headers={"content-type": "image/png"}),
+            ]
+        )
+
+        with patch("time.sleep"):
+            content, _ = storage.fetch_external_image("https://example.com/logo.png")
+
+        assert content == b"\x89PNG"
+        assert route.call_count == 2
+
+    @respx.mock
+    def test_does_not_retry_a_403(self) -> None:
+        """A bot-filter refusal is about us; retrying only slows the upload."""
+        route = respx.get("https://cdn.example.com/icon").mock(return_value=httpx.Response(403))
+
+        with patch("time.sleep"), pytest.raises(httpx.HTTPStatusError):
+            storage.fetch_external_image("https://cdn.example.com/icon")
+
+        assert route.call_count == 1
+
+    @respx.mock
+    def test_gives_up_after_the_attempt_budget(self) -> None:
+        route = respx.get("https://example.com/logo.png").mock(return_value=httpx.Response(502))
+
+        with patch("time.sleep"), pytest.raises(httpx.HTTPStatusError):
+            storage.fetch_external_image("https://example.com/logo.png")
+
+        assert route.call_count == storage._FETCH_ATTEMPTS
+
+    @respx.mock
+    def test_rejects_non_image_content_type(self) -> None:
+        respx.get("https://example.com/not-an-image").mock(
+            return_value=httpx.Response(200, content=b"<html/>", headers={"content-type": "text/html"})
+        )
+
+        with pytest.raises(ValueError, match="not an image content-type"):
+            storage.fetch_external_image("https://example.com/not-an-image")

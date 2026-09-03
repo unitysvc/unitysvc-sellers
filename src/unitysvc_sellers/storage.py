@@ -113,6 +113,34 @@ _MIRROR_CACHE: dict[tuple[str, bool], tuple[str, str]] = {}
 
 _LOGO_BACKGROUND_RGB = (17, 24, 39)
 
+# Logo hosts are ordinary CDNs with ordinary bot filters, and httpx's default
+# ``python-httpx/<ver>`` user-agent is enough to earn a 403 from some of them
+# — cdn.simpleicons.org started refusing us on exactly that, after which every
+# affected logo silently fell back to the third-party URL. Identify ourselves
+# properly and say what we accept.
+_FETCH_TIMEOUT_SECONDS = 30.0
+
+# Transient failures get a few tries. A refusal that is about *us* (403, 404,
+# 401 …) will not improve on retry, so it fails on the first response.
+_FETCH_ATTEMPTS = 3
+_FETCH_BACKOFF_SECONDS = 0.5
+_RETRYABLE_STATUS = frozenset({408, 425, 429, 500, 502, 503, 504})
+
+
+def _fetch_headers() -> dict[str, str]:
+    """Browser-plausible headers identifying this client by name and version."""
+    try:
+        from importlib.metadata import version
+
+        release = version("unitysvc-sellers")
+    except Exception:  # noqa: BLE001 — an unknown version must never block a fetch
+        release = "unknown"
+    return {
+        "User-Agent": f"unitysvc-sellers/{release} (+https://github.com/unitysvc/unitysvc-sellers)",
+        "Accept": "image/svg+xml,image/webp,image/apng,image/*,*/*;q=0.8",
+    }
+
+
 # Content types accepted when mirroring an external image (and the extension
 # used for the uploaded object when the URL path has none).
 _IMAGE_CONTENT_TYPES = {
@@ -154,6 +182,52 @@ def _composite_transparent_logo(content: bytes, content_type: str) -> tuple[byte
     return out.getvalue(), "image/png", True
 
 
+def fetch_external_image(url: str) -> tuple[bytes, str]:
+    """Fetch an external image, returning ``(content, content_type)``.
+
+    Retries transient failures (timeouts, connection errors, and the 5xx/429
+    family) with a linear backoff; a refusal that is about the request itself
+    — 403 from a bot filter, 404 from a dead logo — fails on the first
+    response, because retrying it only slows the upload down.
+
+    Raises on any fetch problem and on a non-image content-type. The caller
+    decides whether that is fatal.
+    """
+    import time
+
+    import httpx
+
+    headers = _fetch_headers()
+    last_exc: Exception | None = None
+    for attempt in range(_FETCH_ATTEMPTS):
+        try:
+            resp = httpx.get(
+                url,
+                timeout=_FETCH_TIMEOUT_SECONDS,
+                follow_redirects=True,
+                headers=headers,
+            )
+        except httpx.RequestError as exc:  # timeout, DNS, connection reset
+            last_exc = exc
+        else:
+            if resp.status_code in _RETRYABLE_STATUS:
+                last_exc = httpx.HTTPStatusError(
+                    f"retryable status {resp.status_code}", request=resp.request, response=resp
+                )
+            else:
+                resp.raise_for_status()
+                content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+                if content_type not in _IMAGE_CONTENT_TYPES:
+                    raise ValueError(f"not an image content-type: {content_type or 'unknown'}")
+                return resp.content, content_type
+
+        if attempt < _FETCH_ATTEMPTS - 1:
+            time.sleep(_FETCH_BACKOFF_SECONDS * (attempt + 1))
+
+    assert last_exc is not None  # only reachable after a retryable failure
+    raise last_exc
+
+
 def mirror_external_image(
     client: AuthenticatedClient, url: str, *, normalize_logo_background: bool = False
 ) -> tuple[str, str]:
@@ -173,22 +247,15 @@ def mirror_external_image(
     leaks to the third-party host. Same idea as the Markdown asset flow above,
     extended from local paths to remote URLs.
     """
-    import httpx
-
     cache_key = (url, normalize_logo_background)
     cached = _MIRROR_CACHE.get(cache_key)
     if cached is not None:
         return cached
 
-    resp = httpx.get(url, timeout=30.0, follow_redirects=True)
-    resp.raise_for_status()
-    content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
-    if content_type not in _IMAGE_CONTENT_TYPES:
-        raise ValueError(f"not an image content-type: {content_type or 'unknown'}")
+    content, content_type = fetch_external_image(url)
 
     from urllib.parse import urlparse
 
-    content = resp.content
     if normalize_logo_background:
         content, content_type, normalized = _composite_transparent_logo(content, content_type)
     else:
