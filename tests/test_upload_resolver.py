@@ -29,6 +29,17 @@ BASE_URL = "https://seller.staging.unitysvc.test"
 
 
 class TestResolveFileReferencesUnit:
+    def test_external_logo_is_left_for_backend_ingestion(self, tmp_path: Path) -> None:
+        data = {
+            "category": "logo",
+            "mime_type": "url",
+            "external_url": "https://cdn.example.com/logo",
+        }
+
+        resolved = _resolve_file_references(data, tmp_path, client=object())
+
+        assert resolved == data
+
     def test_plain_file_inlined_as_file_content(self, tmp_path: Path) -> None:
         (tmp_path / "example.py").write_text("print('hello')\n")
         data = {
