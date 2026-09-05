@@ -6,6 +6,8 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from .utils import is_hidden_path
+
 app = typer.Typer(help="Format data files")
 console = Console()
 
@@ -46,7 +48,7 @@ def format_data_files(data_dir: Path | None, *, check_only: bool = False) -> boo
     # Find all JSON, TOML, and MD files
     all_files: list[Path] = []
     for ext in ["json", "toml", "md"]:
-        all_files.extend(data_dir.rglob(f"*.{ext}"))
+        all_files.extend(p for p in data_dir.rglob(f"*.{ext}") if not is_hidden_path(p, data_dir))
 
     if not all_files:
         console.print("[yellow]No files found to format.[/yellow]")

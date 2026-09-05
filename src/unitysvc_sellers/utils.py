@@ -37,6 +37,7 @@ from unitysvc_core.utils import (  # noqa: F401
     generate_content_based_key,
     get_basename,
     get_file_extension,
+    is_hidden_path,
     load_data_file,
     mime_type_to_extension,
     write_data_file,
@@ -66,9 +67,14 @@ def find_files_by_pattern(
     etc.) — the convention used by the flat ``specs/`` layout.  Results under
     a top-level ``expanded/`` directory (relative to ``data_dir``) are
     dropped — that tree is the informal output of ``specs expand`` and must
-    never be treated as a formal service, even if committed.  Mirrors the
-    dot-directory skip that ``specs_layout.find_service_folders`` already
-    applies to ``validate``.
+    never be treated as a formal service, even if committed.
+
+    Hidden trees (a git worktree under ``.claude/``, a ``.venv`` with vendored
+    fixtures) are skipped by core's walker itself as of unitysvc-core 0.2.23 —
+    see :func:`unitysvc_core.utils.is_hidden_path`.  The seller-side walks that
+    do NOT go through core (``discover_param_files``, ``format_data``, the
+    ``--local-ids`` ``os.walk``, ``find_service_folders``) apply that same
+    predicate themselves.
     """
     results = _core_find_files_by_pattern(data_dir, schema, path_filter, field_filter)
     root = Path(data_dir)
@@ -261,7 +267,11 @@ def _find_service_sidecars(data_dir: Path) -> list[Path]:
     Sorted for deterministic output.
     """
     found: list[Path] = []
-    for root, _dirs, files in os.walk(data_dir):
+    for root, dirs, files in os.walk(data_dir):
+        # Prune hidden trees in place — see :func:`is_hidden_path`. A worktree
+        # under ``.claude/`` carries its own sidecars, and its stale service_ids
+        # would silently join every ``--local-ids`` selection.
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
         for fname in files:
             if fname == "service.json" or fname.endswith(".service.json"):
                 found.append(Path(root) / fname)
