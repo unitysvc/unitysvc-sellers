@@ -38,6 +38,7 @@ from rich.console import Console
 from unitysvc_core.validator import DataValidator
 
 from .params_render import discover_system_param_files, validate_system_param_file
+from .utils import is_hidden_path
 
 app = typer.Typer(help="Local operations on the flat specs/ layout")
 console = Console()
@@ -89,7 +90,7 @@ def find_service_folders(root: Path) -> list[Path]:
     folders: set[Path] = set()
     for suffix in _DATA_SUFFIXES:
         for listing in root.rglob(f"listing{suffix}"):
-            if any(part.startswith(".") for part in listing.parts):
+            if is_hidden_path(listing, root):
                 continue
             folders.add(listing.parent)
     return sorted(folders)

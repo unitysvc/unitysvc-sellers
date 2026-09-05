@@ -37,7 +37,7 @@ from typing import Any
 from unitysvc_core.utils import deep_merge_dicts
 
 from .template_populate import _deprecate_service, _sanitize_dirname, populate_from_iterator
-from .utils import EXPANDED_DIRNAME, load_data_file
+from .utils import EXPANDED_DIRNAME, is_hidden_path, load_data_file
 
 
 class ParamRenderError(ValueError):
@@ -123,7 +123,7 @@ def load_param_data(param_file: Path) -> dict[str, Any]:
 
 def discover_param_files(root: Path) -> list[Path]:
     """All param files under ``root`` (recursively), sorted."""
-    return sorted(p for p in root.rglob("*.json") if is_param_file(p))
+    return sorted(p for p in root.rglob("*.json") if is_param_file(p) and not is_hidden_path(p, root))
 
 
 def _repo_root_for(param_file: Path) -> Path:
@@ -805,6 +805,8 @@ def _expanded_service_folders(root: Path) -> list[Path]:
     seen: dict[Path, None] = {}
     for marker in ("offering.json", "service.json"):
         for f in root.rglob(marker):
+            if is_hidden_path(f, root):
+                continue
             seen[f.parent] = None
     return sorted(seen, key=lambda p: len(p.parts), reverse=True)
 
@@ -841,7 +843,7 @@ def _committed_service_names(root: Path) -> dict[str, Path]:
     inside_a_folder = set(folders)
 
     for f in root.rglob("*.json"):
-        if f.name.endswith(_NON_SERVICE_SUFFIXES):
+        if f.name.endswith(_NON_SERVICE_SUFFIXES) or is_hidden_path(f, root):
             continue
         if f.parent in inside_a_folder:
             continue  # offering/listing/service/provider.json of an expanded service
@@ -869,7 +871,7 @@ def _committed_platform_service_names(root: Path) -> dict[str, list[Path]]:
         return found
 
     for f in root.rglob("*.json"):
-        if f.name.endswith(_NON_SERVICE_SUFFIXES):
+        if f.name.endswith(_NON_SERVICE_SUFFIXES) or is_hidden_path(f, root):
             continue
         rel = f.relative_to(root)
         if len(rel.parts) < 2:

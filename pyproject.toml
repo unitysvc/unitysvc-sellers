@@ -20,7 +20,7 @@ dependencies = [
   # 0.2.22 is the floor for stdlib-json spec parsing: load_data_file there reads
   # offering/listing/provider files, and until that release it used json5 (a
   # pure-Python parser ~1245x slower), which dominated every `specs` command.
-  "unitysvc-core>=0.2.22",
+  "unitysvc-core>=0.2.23",
   # Ships the `usvc` umbrella that mounts the usvc.commands entry point below,
   # so `usvc seller ...` works for anyone who installs this package. Adds no new
   # transitive dependencies — typer, rich, httpx, attrs and python-dateutil are
