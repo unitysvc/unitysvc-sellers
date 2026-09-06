@@ -13,6 +13,7 @@ from .cursor_page_price_rule_public import CursorPagePriceRulePublic
 from .cursor_page_service_group_public import CursorPageServiceGroupPublic
 from .cursor_page_service_public import CursorPageServicePublic
 from .deprecated_service_item import DeprecatedServiceItem
+from .document_category_enum import DocumentCategoryEnum
 from .document_detail_response import DocumentDetailResponse
 from .document_detail_response_meta_type_0 import DocumentDetailResponseMetaType0
 from .document_execute_response import DocumentExecuteResponse
@@ -141,6 +142,7 @@ __all__ = (
     "CursorPageServiceGroupPublic",
     "CursorPageServicePublic",
     "DeprecatedServiceItem",
+    "DocumentCategoryEnum",
     "DocumentDetailResponse",
     "DocumentDetailResponseMetaType0",
     "DocumentExecuteResponse",

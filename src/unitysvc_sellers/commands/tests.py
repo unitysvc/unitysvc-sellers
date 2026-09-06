@@ -587,6 +587,17 @@ def run_tests(
             "exclusive with --document-id."
         ),
     ),
+    category: str | None = typer.Option(
+        None,
+        "--category",
+        help=(
+            "Run only documents of this category ('connectivity_test' or "
+            "'code_example') across every matched service — no need to look up a "
+            "document id first. Composable across services (unlike --document-id, "
+            "which is a single global id); mutually exclusive with --document-id "
+            "and --test-file."
+        ),
+    ),
     force: bool = typer.Option(
         False,
         "--force",
@@ -639,6 +650,7 @@ def run_tests(
         usvc seller services run-tests --id 6c55d6d9              # disambiguate
         usvc seller services run-tests cohere/command-r -d 6c55d6d9   # one doc (id prefix ok)
         usvc seller services run-tests cohere/command-r -t code-example.py.j2  # one doc by filename
+        usvc seller services run-tests 'cohere/*' --category connectivity_test --include-active
     """
     modes = sum([name is not None, service_id is not None, local_ids])
     if modes != 1:
@@ -650,6 +662,16 @@ def run_tests(
         raise typer.Exit(code=1)
     if document_id is not None and len(document_id) < 8:
         console.print("[red]✗[/red] --document-id prefix must be at least 8 characters.")
+        raise typer.Exit(code=1)
+    if category is not None and (document_id is not None or test_file is not None):
+        console.print(
+            "[red]Error:[/red] --category is mutually exclusive with --document-id and --test-file."
+        )
+        raise typer.Exit(code=1)
+    if category is not None and category not in EXECUTABLE_CATEGORIES:
+        console.print(
+            f"[red]✗[/red] --category must be one of {sorted(EXECUTABLE_CATEGORIES)!r}; got {category!r}."
+        )
         raise typer.Exit(code=1)
 
     if name is not None:
@@ -714,6 +736,7 @@ def run_tests(
                 return await client.services.run_tests(
                     _sid,
                     document_id=doc_id,
+                    category=category,
                     force=force,
                     poll_interval=poll_interval,
                     timeout=timeout,

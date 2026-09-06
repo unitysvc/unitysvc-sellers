@@ -863,6 +863,7 @@ Targeting:
     usvc seller services run-tests --id 6c55d6d9              # disambiguate
     usvc seller services run-tests cohere/command-r -d 6c55d6d9   # one doc (id prefix ok)
     usvc seller services run-tests cohere/command-r -t code-example.py.j2  # one doc by filename
+    usvc seller services run-tests &#x27;cohere/*&#x27; --category connectivity_test --include-active
 
 **Usage**:
 
@@ -881,6 +882,7 @@ $ usvc seller services run-tests [OPTIONS] [name]
 * `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
 * `-d, --document-id <str>`: Run a single document instead of every executable doc on the service. Accepts a full UUID or an 8+ character prefix (resolved like show-test).
 * `-t, --test-file <str>`: Run only the document whose filename matches (e.g. &#x27;code-example.py.j2&#x27;), resolved per service. Mirrors `specs run-tests --test-file`. Mutually exclusive with --document-id.
+* `--category <str>`: Run only documents of this category (&#x27;connectivity_test&#x27; or &#x27;code_example&#x27;) across every matched service — no need to look up a document id first. Composable across services (unlike --document-id, which is a single global id); mutually exclusive with --document-id and --test-file.
 * `--force`: Re-execute documents whose previous per-iface result was &#x27;success&#x27;.
 * `--include-active`: Also test ACTIVE services. By default they are skipped (mirroring submit): an active service already passed its tests at activation, its content is frozen, and the daily health sweep monitors it — so a name matching an active service plus its pending revision tests only the revision, and a name matching only active services tests nothing. Pinning with --id always tests the pinned service.
 * `--poll-interval <float>`: Seconds between task-status polls while waiting for the diagnostic.  [default: 2.0]

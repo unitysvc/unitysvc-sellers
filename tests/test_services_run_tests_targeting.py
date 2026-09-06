@@ -1,12 +1,15 @@
 """Single-document targeting on ``usvc_seller services run-tests``.
 
-Covers the two new selectors:
+Covers the three selectors:
 - ``--document-id`` accepting a full UUID or an 8+ char prefix (resolved via
-  ``documents.get`` the way ``show-test`` does), and
-- ``--test-file`` selecting a document by filename per service.
+  ``documents.get`` the way ``show-test`` does),
+- ``--test-file`` selecting a document by filename per service, and
+- ``--category`` restricting to one document category server-side (no id
+  lookup needed) — added so a post-deploy smoke test can ask for just
+  ``connectivity_test`` without a doc-id-resolution round trip.
 
 The SDK boundary (``client.services.get/run_tests``, ``client.documents.get``)
-is mocked; we assert which document id is dispatched.
+is mocked; we assert which document id / category is dispatched.
 """
 
 from __future__ import annotations
@@ -126,3 +129,37 @@ def test_test_file_ambiguous_match_errors(env):
         result = CliRunner().invoke(cli_app, ["services", "run-tests", "--id", SID, "-t", "code-example.py.j2"])
     assert result.exit_code != 0, result.output
     services.run_tests.assert_not_awaited()
+
+
+def test_category_dispatched_without_doc_lookup(env):
+    """``--category`` skips the document-resolution round trip entirely —
+    it's a server-side filter, not a client-side id lookup like -d/-t."""
+    services, documents, factory = _factory()
+    with patch("unitysvc_sellers.commands.tests.async_client", factory):
+        result = CliRunner().invoke(
+            cli_app, ["services", "run-tests", "--id", SID, "--category", "connectivity_test"]
+        )
+    assert result.exit_code == 0, result.output
+    documents.get.assert_not_awaited()
+    services.run_tests.assert_awaited_once()
+    assert services.run_tests.await_args.kwargs["category"] == "connectivity_test"
+    assert services.run_tests.await_args.kwargs["document_id"] is None
+
+
+def test_category_invalid_value_rejected(env):
+    result = CliRunner().invoke(
+        cli_app, ["services", "run-tests", "--id", SID, "--category", "logo"]
+    )
+    assert result.exit_code == 1, result.output
+    assert "connectivity_test" in result.output
+    assert "code_example" in result.output
+
+
+@pytest.mark.parametrize("other_flag", [["-d", "aaaaaaaa"], ["-t", "x.py.j2"]])
+def test_category_mutually_exclusive_with_document_selectors(env, other_flag):
+    result = CliRunner().invoke(
+        cli_app,
+        ["services", "run-tests", "--id", SID, "--category", "connectivity_test", *other_flag],
+    )
+    assert result.exit_code == 1, result.output
+    assert "mutually exclusive" in result.output.lower()
