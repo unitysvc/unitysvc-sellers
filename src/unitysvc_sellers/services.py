@@ -278,6 +278,7 @@ class Service:
         self,
         *,
         document_id: str | None = None,
+        category: str | None = None,
         force: bool = False,
         poll_interval: float = 2.0,
         timeout: float = 600.0,
@@ -292,6 +293,7 @@ class Service:
         return self._parent.services.run_tests(
             self._id(),
             document_id=document_id,
+            category=category,
             force=force,
             poll_interval=poll_interval,
             timeout=timeout,
@@ -525,6 +527,7 @@ class Services:
         service_id: str | UUID,
         *,
         document_id: str | None = None,
+        category: str | None = None,
         force: bool = False,
         poll_interval: float = 2.0,
         timeout: float = 600.0,
@@ -548,6 +551,11 @@ class Services:
         Args:
             service_id: UUID of the service to test.
             document_id: When set, restrict execution to one document.
+            category: When set, restrict execution to documents of this
+                category (e.g. ``"connectivity_test"``) — lets a
+                post-deploy smoke test skip the more expensive
+                ``code_example`` runs without first looking up a
+                document id. Composable with ``document_id``.
             force: Re-execute documents whose per-iface result on
                 ``meta.test.tests[iface_id].status`` was previously
                 ``success``.  Default skips them.
@@ -565,6 +573,9 @@ class Services:
             convenience boolean.
         """
         from ._generated.api.seller_services import services_run_tests
+        from ._generated.models.document_category_enum import (
+            check_document_category_enum,
+        )
         from ._generated.types import UNSET
 
         queued = unwrap(
@@ -572,6 +583,9 @@ class Services:
                 service_id=str(service_id),
                 client=self._client,
                 document_id=document_id if document_id is not None else UNSET,
+                category=check_document_category_enum(category)
+                if category is not None
+                else UNSET,
                 force=force,
             )
         )

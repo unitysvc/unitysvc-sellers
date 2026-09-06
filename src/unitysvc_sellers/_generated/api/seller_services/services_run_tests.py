@@ -6,6 +6,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.document_category_enum import DocumentCategoryEnum, check_document_category_enum
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...models.run_tests_response import RunTestsResponse
@@ -16,6 +17,7 @@ def _get_kwargs(
     service_id: str,
     *,
     document_id: None | str | Unset = UNSET,
+    category: DocumentCategoryEnum | None | Unset = UNSET,
     force: bool | Unset = False,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -35,6 +37,15 @@ def _get_kwargs(
     else:
         json_document_id = document_id
     params["document_id"] = json_document_id
+
+    json_category: None | str | Unset
+    if isinstance(category, Unset):
+        json_category = UNSET
+    elif isinstance(category, str):
+        json_category = category
+    else:
+        json_category = category
+    params["category"] = json_category
 
     params["force"] = force
 
@@ -97,6 +108,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     document_id: None | str | Unset = UNSET,
+    category: DocumentCategoryEnum | None | Unset = UNSET,
     force: bool | Unset = False,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -112,7 +124,10 @@ def sync_detailed(
     hit — and falls back to an upstream-mode probe on any channel-level
     gateway failure
     so the result attributes the fault as ``platform_fault`` vs
-    ``upstream_fault``.
+    ``upstream_fault``.  Pass ``category`` to restrict to one document
+    category (e.g. post-deploy smoke tests that only want
+    ``connectivity_test`` and not the more expensive ``code_example``
+    runs) without having to look up a document id first.
 
     The service's status is snapshotted and temporarily elevated to
     ``pending`` if it isn't already in a routable state
@@ -134,6 +149,8 @@ def sync_detailed(
     Args:
         service_id (str):
         document_id (None | str | Unset): Restrict to a single document on the service.
+        category (DocumentCategoryEnum | None | Unset): Restrict to documents of this category
+            (e.g. ``connectivity_test``). Composable with ``document_id``.
         force (bool | Unset): Re-execute documents whose per-iface result on
             ``meta.test.tests[iface_id].status`` was previously ``success``. Default skips them,
             matching the CLI's behaviour. Default: False.
@@ -151,6 +168,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         service_id=service_id,
         document_id=document_id,
+        category=category,
         force=force,
         authorization=authorization,
         x_role_id=x_role_id,
@@ -168,6 +186,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     document_id: None | str | Unset = UNSET,
+    category: DocumentCategoryEnum | None | Unset = UNSET,
     force: bool | Unset = False,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -183,7 +202,10 @@ def sync(
     hit — and falls back to an upstream-mode probe on any channel-level
     gateway failure
     so the result attributes the fault as ``platform_fault`` vs
-    ``upstream_fault``.
+    ``upstream_fault``.  Pass ``category`` to restrict to one document
+    category (e.g. post-deploy smoke tests that only want
+    ``connectivity_test`` and not the more expensive ``code_example``
+    runs) without having to look up a document id first.
 
     The service's status is snapshotted and temporarily elevated to
     ``pending`` if it isn't already in a routable state
@@ -205,6 +227,8 @@ def sync(
     Args:
         service_id (str):
         document_id (None | str | Unset): Restrict to a single document on the service.
+        category (DocumentCategoryEnum | None | Unset): Restrict to documents of this category
+            (e.g. ``connectivity_test``). Composable with ``document_id``.
         force (bool | Unset): Re-execute documents whose per-iface result on
             ``meta.test.tests[iface_id].status`` was previously ``success``. Default skips them,
             matching the CLI's behaviour. Default: False.
@@ -223,6 +247,7 @@ def sync(
         service_id=service_id,
         client=client,
         document_id=document_id,
+        category=category,
         force=force,
         authorization=authorization,
         x_role_id=x_role_id,
@@ -234,6 +259,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     document_id: None | str | Unset = UNSET,
+    category: DocumentCategoryEnum | None | Unset = UNSET,
     force: bool | Unset = False,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -249,7 +275,10 @@ async def asyncio_detailed(
     hit — and falls back to an upstream-mode probe on any channel-level
     gateway failure
     so the result attributes the fault as ``platform_fault`` vs
-    ``upstream_fault``.
+    ``upstream_fault``.  Pass ``category`` to restrict to one document
+    category (e.g. post-deploy smoke tests that only want
+    ``connectivity_test`` and not the more expensive ``code_example``
+    runs) without having to look up a document id first.
 
     The service's status is snapshotted and temporarily elevated to
     ``pending`` if it isn't already in a routable state
@@ -271,6 +300,8 @@ async def asyncio_detailed(
     Args:
         service_id (str):
         document_id (None | str | Unset): Restrict to a single document on the service.
+        category (DocumentCategoryEnum | None | Unset): Restrict to documents of this category
+            (e.g. ``connectivity_test``). Composable with ``document_id``.
         force (bool | Unset): Re-execute documents whose per-iface result on
             ``meta.test.tests[iface_id].status`` was previously ``success``. Default skips them,
             matching the CLI's behaviour. Default: False.
@@ -288,6 +319,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         service_id=service_id,
         document_id=document_id,
+        category=category,
         force=force,
         authorization=authorization,
         x_role_id=x_role_id,
@@ -303,6 +335,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     document_id: None | str | Unset = UNSET,
+    category: DocumentCategoryEnum | None | Unset = UNSET,
     force: bool | Unset = False,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
@@ -318,7 +351,10 @@ async def asyncio(
     hit — and falls back to an upstream-mode probe on any channel-level
     gateway failure
     so the result attributes the fault as ``platform_fault`` vs
-    ``upstream_fault``.
+    ``upstream_fault``.  Pass ``category`` to restrict to one document
+    category (e.g. post-deploy smoke tests that only want
+    ``connectivity_test`` and not the more expensive ``code_example``
+    runs) without having to look up a document id first.
 
     The service's status is snapshotted and temporarily elevated to
     ``pending`` if it isn't already in a routable state
@@ -340,6 +376,8 @@ async def asyncio(
     Args:
         service_id (str):
         document_id (None | str | Unset): Restrict to a single document on the service.
+        category (DocumentCategoryEnum | None | Unset): Restrict to documents of this category
+            (e.g. ``connectivity_test``). Composable with ``document_id``.
         force (bool | Unset): Re-execute documents whose per-iface result on
             ``meta.test.tests[iface_id].status`` was previously ``success``. Default skips them,
             matching the CLI's behaviour. Default: False.
@@ -359,6 +397,7 @@ async def asyncio(
             service_id=service_id,
             client=client,
             document_id=document_id,
+            category=category,
             force=force,
             authorization=authorization,
             x_role_id=x_role_id,

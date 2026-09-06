@@ -84,6 +84,7 @@ class AsyncService:
         self,
         *,
         document_id: str | None = None,
+        category: str | None = None,
         force: bool = False,
         poll_interval: float = 2.0,
         timeout: float = 600.0,
@@ -93,6 +94,7 @@ class AsyncService:
         return await self._parent.services.run_tests(
             self._id(),
             document_id=document_id,
+            category=category,
             force=force,
             poll_interval=poll_interval,
             timeout=timeout,
@@ -271,6 +273,7 @@ class AsyncServices:
         service_id: str | UUID,
         *,
         document_id: str | None = None,
+        category: str | None = None,
         force: bool = False,
         poll_interval: float = 2.0,
         timeout: float = 600.0,
@@ -283,6 +286,9 @@ class AsyncServices:
         :meth:`AsyncTasks.wait` for the polling primitive.
         """
         from ._generated.api.seller_services import services_run_tests
+        from ._generated.models.document_category_enum import (
+            check_document_category_enum,
+        )
         from ._generated.types import UNSET
 
         queued = unwrap(
@@ -290,6 +296,9 @@ class AsyncServices:
                 service_id=str(service_id),
                 client=self._client,
                 document_id=document_id if document_id is not None else UNSET,
+                category=check_document_category_enum(category)
+                if category is not None
+                else UNSET,
                 force=force,
             )
         )
