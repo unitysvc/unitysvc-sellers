@@ -25,6 +25,7 @@ from unitysvc_core.validator import DISPOSITION_VALUES
 from .output import format_output
 from .params_render import invocation_cwd
 from .utils import (
+    dump_canonical_json,
     execute_script_content,
     find_files_by_pattern,
     load_data_file,
@@ -859,7 +860,7 @@ def record_upstream_test_status(results: list[dict[str, Any]]) -> list[tuple[str
                 data = {}
         status = "pass" if state["ok"] else "fail"
         data[UPSTREAM_TEST_STATUS_KEY] = status
-        service_json.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        service_json.write_text(dump_canonical_json(data))
         written.append((service_name, status))
     return written
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from .utils import is_hidden_path
+from .utils import dump_canonical_json, is_hidden_path
 
 app = typer.Typer(help="Format data files")
 console = Console()
@@ -74,10 +74,10 @@ def format_data_files(data_dir: Path | None, *, check_only: bool = False) -> boo
                 # Parse and reformat JSON
                 try:
                     data = json_lib.loads(original_content)
-                    formatted_json = json_lib.dumps(
-                        data, indent=2, sort_keys=True, separators=(",", ": "), ensure_ascii=False
-                    )
-                    modified_content = formatted_json
+                    # Same encoder every writer in the package uses, so a
+                    # freshly written data file is already in canonical form.
+                    # rstrip: the trailing-newline pass below owns that byte.
+                    modified_content = dump_canonical_json(data).rstrip("\n")
                     if modified_content != original_content.rstrip("\n"):
                         changes.append("reformatted JSON")
                 except json_lib.JSONDecodeError as e:

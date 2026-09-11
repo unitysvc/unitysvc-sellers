@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 
 from jinja2 import Environment, FileSystemLoader
 
+from .utils import dump_canonical_json
+
 if TYPE_CHECKING:
     pass
 
@@ -302,7 +304,7 @@ def _smart_write_json(path: Path, data: dict) -> bool:
         data["time_created"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
     # Write file with consistent formatting (sorted keys for deterministic output)
-    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    path.write_text(dump_canonical_json(data))
     return True
 
 
@@ -329,7 +331,7 @@ def _deprecate_service(service_dir: Path) -> bool:
         if data.get("status") == "deprecated":
             continue
         data["status"] = "deprecated"
-        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        path.write_text(dump_canonical_json(data))
         changed = True
 
     return changed
