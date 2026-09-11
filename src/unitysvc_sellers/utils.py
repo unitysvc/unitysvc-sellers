@@ -211,6 +211,22 @@ def read_service_id(service_dir: Path) -> str | None:
     return str(sid) if sid else None
 
 
+def dump_canonical_json(data: Any) -> str:
+    """Serialise *data* exactly as ``usvc_seller specs format`` would write it.
+
+    Single source of truth for the on-disk form of every seller data file:
+    2-space indent, sorted keys, literal (unescaped) UTF-8, one trailing
+    newline. ``format_data`` re-emits through this same helper, so a file a
+    writer produces is already canonical and ``specs format --check`` stays
+    green without a follow-up ``specs format`` commit.
+
+    The ``ensure_ascii=False`` is the load-bearing part: the stdlib default
+    escapes non-ASCII, so a ``display_name`` carrying an em dash used to land
+    as ``\\u2014`` and could never pass the format check.
+    """
+    return json.dumps(data, indent=2, sort_keys=True, separators=(",", ": "), ensure_ascii=False) + "\n"
+
+
 def write_service_data(service_dir: Path, record: dict[str, Any]) -> None:
     """Persist the backend's returned identity record into ``service.json``.
 
@@ -228,7 +244,7 @@ def write_service_data(service_dir: Path, record: dict[str, Any]) -> None:
         except Exception:
             data = {}
     data.update({k: v for k, v in record.items() if v is not None})
-    service_file.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    service_file.write_text(dump_canonical_json(data))
 
 
 def write_service_id(service_dir: Path, service_id: str) -> None:

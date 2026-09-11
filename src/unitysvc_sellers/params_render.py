@@ -37,7 +37,7 @@ from typing import Any
 from unitysvc_core.utils import deep_merge_dicts
 
 from .template_populate import _deprecate_service, _sanitize_dirname, populate_from_iterator
-from .utils import EXPANDED_DIRNAME, is_hidden_path, load_data_file
+from .utils import EXPANDED_DIRNAME, dump_canonical_json, is_hidden_path, load_data_file
 
 
 class ParamRenderError(ValueError):
@@ -253,7 +253,7 @@ def _merge_into_sidecar(sidecar: Path, fields: dict[str, Any]) -> None:
         except Exception:
             data = {}
     data.update(fields)
-    sidecar.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    sidecar.write_text(dump_canonical_json(data))
 
 
 def _write_service_id(sidecar: Path, service_id: str) -> None:
@@ -426,7 +426,7 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                 if prior is not None:
                     seed["upstream_test_status"] = prior
                 if seed:
-                    (folder / "service.json").write_text(json.dumps(seed, indent=2, sort_keys=True) + "\n")
+                    (folder / "service.json").write_text(dump_canonical_json(seed))
                 # The round-trip on exit must land in the REAL repo's sidecar
                 # (same relative path under repo_root), not the throwaway copy.
                 real_sidecar = repo_root / sidecar_in_copy.relative_to(tmp)
@@ -924,7 +924,7 @@ def _deprecate_param_file(path: Path) -> bool:
     if params.get("status") == "deprecated":
         return False
     params["status"] = "deprecated"
-    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    path.write_text(dump_canonical_json(data))
     return True
 
 
@@ -951,7 +951,7 @@ def _deprecate_platform_param_file(path: Path) -> bool:
     if constants.get("status") == "deprecated" and not changed:
         return False
     constants["status"] = "deprecated"
-    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    path.write_text(dump_canonical_json(data))
     return True
 
 
@@ -970,7 +970,7 @@ def _clear_platform_param_deprecation(path: Path) -> bool:
     constants.pop("status", None)
     if not constants:
         data.pop("constants", None)
-    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    path.write_text(dump_canonical_json(data))
     return True
 
 
@@ -1033,7 +1033,7 @@ def _refresh_platform_param_file(path: Path, generated_parameters: dict[str, Any
             data["constants"] = updated_constants
         else:
             data.pop("constants", None)
-    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    path.write_text(dump_canonical_json(data))
     return True
 
 
@@ -1230,7 +1230,7 @@ def write_params_from_iterator(
         if template is not None:
             payload["template"] = template
         payload["parameters"] = parameters
-        param_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+        param_path.write_text(dump_canonical_json(payload))
 
         # Preserve identity: prefer an existing sidecar, else lift the id out of
         # the expanded folder we're about to delete.
