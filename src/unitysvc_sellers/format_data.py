@@ -96,7 +96,12 @@ def format_data_files(data_dir: Path | None, *, check_only: bool = False) -> boo
             # Ensure file ends with single newline
             if not modified_content.endswith("\n"):
                 modified_content += "\n"
-                changes.append("added end-of-file newline")
+                # Only a change if the file on disk was actually missing it. A
+                # reformatted JSON file always reaches here newline-less, since
+                # it was re-emitted from the parsed data — that is this pass
+                # restoring the byte, not fixing anything the author got wrong.
+                if not original_content.endswith("\n"):
+                    changes.append("added end-of-file newline")
             elif modified_content.endswith("\n\n"):
                 # Remove extra newlines at end
                 modified_content = modified_content.rstrip("\n") + "\n"

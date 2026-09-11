@@ -8,6 +8,7 @@ must keep working as a CLI entry point.
 
 import json
 from pathlib import Path
+from typing import Any
 
 from unitysvc_sellers.format_data import format_data_files
 
@@ -106,3 +107,44 @@ class TestFormatDataDoesNotLeakTyperDefaults:
         # to a truthy ``OptionInfo``.
         assert json.loads(f.read_text()) == {"a": 2, "b": 1}
         assert f.read_text().endswith("\n")
+
+
+class TestReportedChanges:
+    """The ``Changes:`` line has to describe what actually changed.
+
+    JSON files are re-emitted from the parsed data, so the intermediate string
+    the trailing-newline pass sees never ends in a newline — which made that
+    pass claim ``added end-of-file newline`` for *every* reformatted JSON file,
+    including ones that were already newline-terminated. Misleading output was
+    the whole of the bug (see the log on unitysvc-labs/unitysvc-services-http#31,
+    where the real problem was an escaped em dash).
+    """
+
+    def test_does_not_claim_a_newline_it_did_not_add(self, tmp_path: Path, capsys: Any) -> None:
+        f = tmp_path / "listing.json"
+        _write(f, '{\n  "b": 1,\n  "a": 2\n}\n')  # needs sorting; newline already there
+
+        format_data_files(tmp_path, check_only=True)
+
+        out = capsys.readouterr().out
+        assert "reformatted JSON" in out
+        assert "added end-of-file newline" not in out
+
+    def test_still_reports_a_newline_it_did_add(self, tmp_path: Path, capsys: Any) -> None:
+        f = tmp_path / "listing.json"
+        _write(f, '{\n  "a": 1\n}')  # canonical apart from the missing newline
+
+        format_data_files(tmp_path, check_only=True)
+
+        out = capsys.readouterr().out
+        assert "added end-of-file newline" in out
+
+    def test_reports_both_when_both_apply(self, tmp_path: Path, capsys: Any) -> None:
+        f = tmp_path / "listing.json"
+        _write(f, '{"b":1,"a":2}')  # unsorted AND no trailing newline
+
+        format_data_files(tmp_path, check_only=True)
+
+        out = capsys.readouterr().out
+        assert "reformatted JSON" in out
+        assert "added end-of-file newline" in out
