@@ -1195,7 +1195,7 @@
           "seller-service-groups"
         ],
         "summary": "Delete Seller Group",
-        "description": "Delete a service group (draft/private only, must have no services).",
+        "description": "Delete a service group (draft/private only).",
         "operationId": "groups_delete",
         "parameters": [
           {
@@ -1684,7 +1684,7 @@
           "seller-promotions"
         ],
         "summary": "Update Promotion",
-        "description": "Update a promotion.\n\nCannot change: code, source, seller_id.\n\nStatus transitions are handled here via the ``status`` field in the\nrequest body. Valid transitions:\n\n- ``draft``/``paused`` -> ``active``: activate the promotion. Paused\n  promotions go through ``resume_price_rule`` to clear pause metadata;\n  draft promotions are updated directly.\n- ``active``/``scheduled`` -> ``paused``: pause the promotion via\n  ``pause_price_rule`` (customers can no longer redeem).\n- Other target states fall through to a plain field update and are\n  subject to the underlying CRUD layer's validation.\n\nNon-status fields (name, description, pricing, priority, service_groups)\nare updated in a single CRUD call before any status transition runs, so\ncombining \"change pricing and pause\" in one call is well-defined.",
+        "description": "Update a promotion.\n\nCannot change: code, source, seller_id.\n\nStatus transitions are handled here via the ``status`` field in the\nrequest body. Valid transitions:\n\n- ``draft``/``paused`` -> ``active``: activate the promotion. Paused\n  promotions go through ``resume_price_rule`` to clear pause metadata;\n  draft promotions are updated directly.\n- ``active``/``scheduled`` -> ``paused``: pause the promotion via\n  ``pause_price_rule`` (customers can no longer redeem).\n- Other target states fall through to a plain field update and are\n  subject to the underlying CRUD layer's validation.\n\nNon-status fields (name, description, pricing, priority, service_groups)\nare updated in a single CRUD call before any status transition runs, so\ncombining \"change pricing and pause\" in one call is well-defined.\n\nA partial update that omits ``pricing`` leaves it untouched; one that\nsupplies it must supply a spec the pricing engine can apply, so a working\npromotion cannot be edited into a dead one (#2225).",
         "operationId": "promotions_update",
         "parameters": [
           {
@@ -3210,7 +3210,7 @@
           "tasks"
         ],
         "summary": "Get Task Status",
-        "description": "Get the status of one or more Celery tasks.\n\nPass one or more ``id`` query parameters to poll task status.\nReturns a mapping of task_id \u2192 status for every requested ID.\n\nExamples::\n\n    GET /v1/tasks?id=abc\n    GET /v1/tasks?id=abc&id=def&id=ghi\n\nAccepts up to 100 task IDs per request.",
+        "description": "Get the status of one or more Celery tasks.\n\nPass one or more ``id`` query parameters to poll task status.\nReturns a mapping of task_id \u2192 status for every requested ID.\n\nExamples::\n\n    GET /v1/tasks?id=abc\n    GET /v1/tasks?id=abc&id=def&id=ghi\n\nAccepts up to 100 task IDs per request. Async-broadcast results are\nonly readable by the customer that issued the broadcast.",
         "operationId": "tasks-get_task_status",
         "parameters": [
           {
@@ -5611,6 +5611,7 @@
           "name": {
             "type": "string",
             "maxLength": 100,
+            "minLength": 1,
             "title": "Name"
           },
           "display_name": {
@@ -6440,6 +6441,18 @@
               }
             ],
             "title": "Average Rating"
+          },
+          "last_health_check": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Health Check"
           },
           "ops_subscription_id": {
             "anyOf": [

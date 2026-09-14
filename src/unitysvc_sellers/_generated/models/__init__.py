@@ -97,6 +97,7 @@ from .service_offering_data_upstream_access_config_type_0_additional_property im
     ServiceOfferingDataUpstreamAccessConfigType0AdditionalProperty,
 )
 from .service_public import ServicePublic
+from .service_public_last_health_check_type_0 import ServicePublicLastHealthCheckType0
 from .service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
 from .service_status import ServiceStatus
 from .service_status_enum import ServiceStatusEnum
@@ -218,6 +219,7 @@ __all__ = (
     "ServiceOfferingDataUpstreamAccessConfigType0",
     "ServiceOfferingDataUpstreamAccessConfigType0AdditionalProperty",
     "ServicePublic",
+    "ServicePublicLastHealthCheckType0",
     "ServicePublicRoutingVarsType0",
     "ServiceStatus",
     "ServiceStatusEnum",

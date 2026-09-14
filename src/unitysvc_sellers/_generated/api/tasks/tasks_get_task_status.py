@@ -91,7 +91,8 @@ def sync_detailed(
         GET /v1/tasks?id=abc
         GET /v1/tasks?id=abc&id=def&id=ghi
 
-    Accepts up to 100 task IDs per request.
+    Accepts up to 100 task IDs per request. Async-broadcast results are
+    only readable by the customer that issued the broadcast.
 
     Args:
         id (list[str]): Task ID(s) to poll
@@ -138,7 +139,8 @@ def sync(
         GET /v1/tasks?id=abc
         GET /v1/tasks?id=abc&id=def&id=ghi
 
-    Accepts up to 100 task IDs per request.
+    Accepts up to 100 task IDs per request. Async-broadcast results are
+    only readable by the customer that issued the broadcast.
 
     Args:
         id (list[str]): Task ID(s) to poll
@@ -180,7 +182,8 @@ async def asyncio_detailed(
         GET /v1/tasks?id=abc
         GET /v1/tasks?id=abc&id=def&id=ghi
 
-    Accepts up to 100 task IDs per request.
+    Accepts up to 100 task IDs per request. Async-broadcast results are
+    only readable by the customer that issued the broadcast.
 
     Args:
         id (list[str]): Task ID(s) to poll
@@ -225,7 +228,8 @@ async def asyncio(
         GET /v1/tasks?id=abc
         GET /v1/tasks?id=abc&id=def&id=ghi
 
-    Accepts up to 100 task IDs per request.
+    Accepts up to 100 task IDs per request. Async-broadcast results are
+    only readable by the customer that issued the broadcast.
 
     Args:
         id (list[str]): Task ID(s) to poll

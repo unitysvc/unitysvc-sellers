@@ -112,6 +112,10 @@ def sync_detailed(
     are updated in a single CRUD call before any status transition runs, so
     combining \"change pricing and pause\" in one call is well-defined.
 
+    A partial update that omits ``pricing`` leaves it untouched; one that
+    supplies it must supply a spec the pricing engine can apply, so a working
+    promotion cannot be edited into a dead one (#2225).
+
     Args:
         promotion_id (UUID):
         authorization (None | str | Unset):
@@ -169,6 +173,10 @@ def sync(
     are updated in a single CRUD call before any status transition runs, so
     combining \"change pricing and pause\" in one call is well-defined.
 
+    A partial update that omits ``pricing`` leaves it untouched; one that
+    supplies it must supply a spec the pricing engine can apply, so a working
+    promotion cannot be edited into a dead one (#2225).
+
     Args:
         promotion_id (UUID):
         authorization (None | str | Unset):
@@ -220,6 +228,10 @@ async def asyncio_detailed(
     Non-status fields (name, description, pricing, priority, service_groups)
     are updated in a single CRUD call before any status transition runs, so
     combining \"change pricing and pause\" in one call is well-defined.
+
+    A partial update that omits ``pricing`` leaves it untouched; one that
+    supplies it must supply a spec the pricing engine can apply, so a working
+    promotion cannot be edited into a dead one (#2225).
 
     Args:
         promotion_id (UUID):
@@ -275,6 +287,10 @@ async def asyncio(
     Non-status fields (name, description, pricing, priority, service_groups)
     are updated in a single CRUD call before any status transition runs, so
     combining \"change pricing and pause\" in one call is well-defined.
+
+    A partial update that omits ``pricing`` leaves it untouched; one that
+    supplies it must supply a spec the pricing engine can apply, so a working
+    promotion cannot be edited into a dead one (#2225).
 
     Args:
         promotion_id (UUID):
