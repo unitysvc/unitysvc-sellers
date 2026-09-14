@@ -1195,7 +1195,7 @@
           "seller-service-groups"
         ],
         "summary": "Delete Seller Group",
-        "description": "Delete a service group (draft/private only, must have no services).",
+        "description": "Delete a service group (draft/private only).",
         "operationId": "groups_delete",
         "parameters": [
           {
@@ -1684,7 +1684,7 @@
           "seller-promotions"
         ],
         "summary": "Update Promotion",
-        "description": "Update a promotion.\n\nCannot change: code, source, seller_id.\n\nStatus transitions are handled here via the ``status`` field in the\nrequest body. Valid transitions:\n\n- ``draft``/``paused`` -> ``active``: activate the promotion. Paused\n  promotions go through ``resume_price_rule`` to clear pause metadata;\n  draft promotions are updated directly.\n- ``active``/``scheduled`` -> ``paused``: pause the promotion via\n  ``pause_price_rule`` (customers can no longer redeem).\n- Other target states fall through to a plain field update and are\n  subject to the underlying CRUD layer's validation.\n\nNon-status fields (name, description, pricing, priority, service_groups)\nare updated in a single CRUD call before any status transition runs, so\ncombining \"change pricing and pause\" in one call is well-defined.",
+        "description": "Update a promotion.\n\nCannot change: code, source, seller_id.\n\nStatus transitions are handled here via the ``status`` field in the\nrequest body. Valid transitions:\n\n- ``draft``/``paused`` -> ``active``: activate the promotion. Paused\n  promotions go through ``resume_price_rule`` to clear pause metadata;\n  draft promotions are updated directly.\n- ``active``/``scheduled`` -> ``paused``: pause the promotion via\n  ``pause_price_rule`` (customers can no longer redeem).\n- Other target states fall through to a plain field update and are\n  subject to the underlying CRUD layer's validation.\n\nNon-status fields (name, description, pricing, priority, service_groups)\nare updated in a single CRUD call before any status transition runs, so\ncombining \"change pricing and pause\" in one call is well-defined.\n\nA partial update that omits ``pricing`` leaves it untouched; one that\nsupplies it must supply a spec the pricing engine can apply, so a working\npromotion cannot be edited into a dead one (#2225).",
         "operationId": "promotions_update",
         "parameters": [
           {
@@ -3210,7 +3210,7 @@
           "tasks"
         ],
         "summary": "Get Task Status",
-        "description": "Get the status of one or more Celery tasks.\n\nPass one or more ``id`` query parameters to poll task status.\nReturns a mapping of task_id \u2192 status for every requested ID.\n\nExamples::\n\n    GET /v1/tasks?id=abc\n    GET /v1/tasks?id=abc&id=def&id=ghi\n\nAccepts up to 100 task IDs per request.",
+        "description": "Get the status of one or more Celery tasks.\n\nPass one or more ``id`` query parameters to poll task status.\nReturns a mapping of task_id \u2192 status for every requested ID.\n\nExamples::\n\n    GET /v1/tasks?id=abc\n    GET /v1/tasks?id=abc&id=def&id=ghi\n\nAccepts up to 100 task IDs per request. Async-broadcast results are\nonly readable by the customer that issued the broadcast.",
         "operationId": "tasks-get_task_status",
         "parameters": [
           {
@@ -3531,6 +3531,92 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FileUploadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usage/cycle": {
+      "get": {
+        "tags": [
+          "seller",
+          "usage"
+        ],
+        "summary": "Cycle-to-date earnings",
+        "description": "Per-service usage and earnings for the current billing cycle, and what the seller has earned so far. Sellers bill on the calendar month. Defaults to the cycle in progress; pass cycle_start to read an earlier one.",
+        "operationId": "seller-get_cycle_earnings",
+        "parameters": [
+          {
+            "name": "cycle_start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "First day of the cycle to report. Defaults to the calendar month in progress. Any day in the target month is accepted.",
+              "title": "Cycle Start"
+            },
+            "description": "First day of the cycle to report. Defaults to the calendar month in progress. Any day in the target month is accepted."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerCycleEarningsResponse"
                 }
               }
             }
@@ -4371,6 +4457,35 @@
         ],
         "title": "Message"
       },
+      "NextTierPublic": {
+        "properties": {
+          "based_on": {
+            "type": "string",
+            "title": "Based On",
+            "description": "request_count | customer_charge | usage field"
+          },
+          "current": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Current",
+            "description": "Cycle-to-date value of that metric"
+          },
+          "threshold": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Threshold",
+            "description": "Value at which the rate changes for the whole cycle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "based_on",
+          "current",
+          "threshold"
+        ],
+        "title": "NextTierPublic",
+        "description": "The next volume threshold that will re-rate a tiered payout cycle.\n\nPresent only for a service on a top-level `tiered` payout_price that has\nnot yet reached its final tier. Lets the UI warn before the headline\nmoves, instead of leaving a correct drop looking like a bug."
+      },
       "OfferingStatusEnum": {
         "type": "string",
         "enum": [
@@ -5044,6 +5159,87 @@
         "title": "SecretsPublic",
         "description": "List of secrets with count."
       },
+      "SellerCycleEarningsResponse": {
+        "properties": {
+          "cycle_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Cycle Start"
+          },
+          "cycle_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Cycle End"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "days_elapsed": {
+            "type": "integer",
+            "title": "Days Elapsed"
+          },
+          "days_total": {
+            "type": "integer",
+            "title": "Days Total"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/SellerServiceEarningPublic"
+            },
+            "type": "array",
+            "title": "Services"
+          },
+          "request_count": {
+            "type": "integer",
+            "title": "Request Count",
+            "description": "Total requests served this cycle"
+          },
+          "total_seller_charge": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Seller Charge"
+          },
+          "total_payout": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Payout",
+            "description": "Cycle-to-date earnings, mark-to-date"
+          },
+          "projected_total_payout": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Projected Total Payout",
+            "description": "Flat extrapolation to cycle end; a projection, not a quote"
+          },
+          "provisional": {
+            "type": "boolean",
+            "title": "Provisional",
+            "description": "True when a contributing payout_price is volume-`tiered`, whose rate applies to ALL usage in the cycle. Earnings can then fall as traffic grows, because a later tier re-rates usage already served, so the figure is not settled until the cycle closes.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "cycle_start",
+          "cycle_end",
+          "as_of",
+          "days_elapsed",
+          "days_total",
+          "currency",
+          "request_count",
+          "total_seller_charge",
+          "total_payout",
+          "projected_total_payout"
+        ],
+        "title": "SellerCycleEarningsResponse",
+        "description": "Cycle-to-date earnings for the authenticated seller.\n\nMark-to-date: the same computation the monthly invoice worker runs,\nevaluated over days 1..today. On the final day of the cycle it is the\ninvoice. See `provisional` for why it may still move."
+      },
       "SellerFileDownloadResponse": {
         "properties": {
           "key": {
@@ -5317,6 +5513,86 @@
         "type": "object",
         "title": "SellerPromotionUpdate",
         "description": "Schema for updating a seller promotion."
+      },
+      "SellerServiceEarningPublic": {
+        "properties": {
+          "service_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Service Id"
+          },
+          "service_name": {
+            "type": "string",
+            "title": "Service Name",
+            "description": "Service name, blank if since deleted"
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel",
+            "description": "Upstream access channel used",
+            "default": ""
+          },
+          "request_count": {
+            "type": "integer",
+            "title": "Request Count"
+          },
+          "success_count": {
+            "type": "integer",
+            "title": "Success Count"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          },
+          "usage_metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Usage Metrics"
+          },
+          "seller_charge": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Seller Charge",
+            "description": "Charge attributable to the seller before payout_price"
+          },
+          "payout": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Payout",
+            "description": "What the seller earns: seller_charge with payout_price applied"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "Currency of the pricing bundle",
+            "default": "USD"
+          },
+          "next_tier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextTierPublic"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Next volume threshold that re-rates this cycle, for a tiered payout that has not reached its final tier. Null otherwise."
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_id",
+          "service_name",
+          "request_count",
+          "success_count",
+          "error_count",
+          "seller_charge",
+          "payout"
+        ],
+        "title": "SellerServiceEarningPublic",
+        "description": "One service's usage and earnings for the seller's billing cycle."
       },
       "ServiceDataInput": {
         "properties": {
@@ -5611,6 +5887,7 @@
           "name": {
             "type": "string",
             "maxLength": 100,
+            "minLength": 1,
             "title": "Name"
           },
           "display_name": {
@@ -6440,6 +6717,18 @@
               }
             ],
             "title": "Average Rating"
+          },
+          "last_health_check": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Health Check"
           },
           "ops_subscription_id": {
             "anyOf": [

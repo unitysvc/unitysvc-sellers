@@ -84,7 +84,7 @@ def sync_detailed(
 ) -> Response[Any | ErrorResponse | HTTPValidationError]:
     """Delete Seller Group
 
-     Delete a service group (draft/private only, must have no services).
+     Delete a service group (draft/private only).
 
     Args:
         group_id (UUID):
@@ -121,7 +121,7 @@ def sync(
 ) -> Any | ErrorResponse | HTTPValidationError | None:
     """Delete Seller Group
 
-     Delete a service group (draft/private only, must have no services).
+     Delete a service group (draft/private only).
 
     Args:
         group_id (UUID):
@@ -153,7 +153,7 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorResponse | HTTPValidationError]:
     """Delete Seller Group
 
-     Delete a service group (draft/private only, must have no services).
+     Delete a service group (draft/private only).
 
     Args:
         group_id (UUID):
@@ -188,7 +188,7 @@ async def asyncio(
 ) -> Any | ErrorResponse | HTTPValidationError | None:
     """Delete Seller Group
 
-     Delete a service group (draft/private only, must have no services).
+     Delete a service group (draft/private only).
 
     Args:
         group_id (UUID):

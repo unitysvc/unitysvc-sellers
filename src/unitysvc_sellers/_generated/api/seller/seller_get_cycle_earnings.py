@@ -1,19 +1,21 @@
+import datetime
 from http import HTTPStatus
 from typing import Any, cast
 from urllib.parse import quote
 
 import httpx
+from dateutil.parser import isoparse
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
-from ...models.tasks_get_task_status_response_tasks_get_task_status import TasksGetTaskStatusResponseTasksGetTaskStatus
+from ...models.seller_cycle_earnings_response import SellerCycleEarningsResponse
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     *,
-    id: list[str],
+    cycle_start: datetime.date | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -26,15 +28,20 @@ def _get_kwargs(
 
     params: dict[str, Any] = {}
 
-    json_id = id
-
-    params["id"] = json_id
+    json_cycle_start: None | str | Unset
+    if isinstance(cycle_start, Unset):
+        json_cycle_start = UNSET
+    elif isinstance(cycle_start, datetime.date):
+        json_cycle_start = cycle_start.isoformat()
+    else:
+        json_cycle_start = cycle_start
+    params["cycle_start"] = json_cycle_start
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/tasks/",
+        "url": "/usage/cycle",
         "params": params,
     }
 
@@ -44,9 +51,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | TasksGetTaskStatusResponseTasksGetTaskStatus | None:
+) -> HTTPValidationError | SellerCycleEarningsResponse | None:
     if response.status_code == 200:
-        response_200 = TasksGetTaskStatusResponseTasksGetTaskStatus.from_dict(response.json())
+        response_200 = SellerCycleEarningsResponse.from_dict(response.json())
 
         return response_200
 
@@ -63,7 +70,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | TasksGetTaskStatusResponseTasksGetTaskStatus]:
+) -> Response[HTTPValidationError | SellerCycleEarningsResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,27 +82,19 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-    id: list[str],
+    cycle_start: datetime.date | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | TasksGetTaskStatusResponseTasksGetTaskStatus]:
-    """Get Task Status
+) -> Response[HTTPValidationError | SellerCycleEarningsResponse]:
+    """Cycle-to-date earnings
 
-     Get the status of one or more Celery tasks.
-
-    Pass one or more ``id`` query parameters to poll task status.
-    Returns a mapping of task_id → status for every requested ID.
-
-    Examples::
-
-        GET /v1/tasks?id=abc
-        GET /v1/tasks?id=abc&id=def&id=ghi
-
-    Accepts up to 100 task IDs per request. Async-broadcast results are
-    only readable by the customer that issued the broadcast.
+     Per-service usage and earnings for the current billing cycle, and what the seller has earned so far.
+    Sellers bill on the calendar month. Defaults to the cycle in progress; pass cycle_start to read an
+    earlier one.
 
     Args:
-        id (list[str]): Task ID(s) to poll
+        cycle_start (datetime.date | None | Unset): First day of the cycle to report. Defaults to
+            the calendar month in progress. Any day in the target month is accepted.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -104,11 +103,11 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | TasksGetTaskStatusResponseTasksGetTaskStatus]
+        Response[HTTPValidationError | SellerCycleEarningsResponse]
     """
 
     kwargs = _get_kwargs(
-        id=id,
+        cycle_start=cycle_start,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -123,27 +122,19 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
-    id: list[str],
+    cycle_start: datetime.date | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | TasksGetTaskStatusResponseTasksGetTaskStatus | None:
-    """Get Task Status
+) -> HTTPValidationError | SellerCycleEarningsResponse | None:
+    """Cycle-to-date earnings
 
-     Get the status of one or more Celery tasks.
-
-    Pass one or more ``id`` query parameters to poll task status.
-    Returns a mapping of task_id → status for every requested ID.
-
-    Examples::
-
-        GET /v1/tasks?id=abc
-        GET /v1/tasks?id=abc&id=def&id=ghi
-
-    Accepts up to 100 task IDs per request. Async-broadcast results are
-    only readable by the customer that issued the broadcast.
+     Per-service usage and earnings for the current billing cycle, and what the seller has earned so far.
+    Sellers bill on the calendar month. Defaults to the cycle in progress; pass cycle_start to read an
+    earlier one.
 
     Args:
-        id (list[str]): Task ID(s) to poll
+        cycle_start (datetime.date | None | Unset): First day of the cycle to report. Defaults to
+            the calendar month in progress. Any day in the target month is accepted.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -152,12 +143,12 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | TasksGetTaskStatusResponseTasksGetTaskStatus
+        HTTPValidationError | SellerCycleEarningsResponse
     """
 
     return sync_detailed(
         client=client,
-        id=id,
+        cycle_start=cycle_start,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
@@ -166,27 +157,19 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-    id: list[str],
+    cycle_start: datetime.date | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | TasksGetTaskStatusResponseTasksGetTaskStatus]:
-    """Get Task Status
+) -> Response[HTTPValidationError | SellerCycleEarningsResponse]:
+    """Cycle-to-date earnings
 
-     Get the status of one or more Celery tasks.
-
-    Pass one or more ``id`` query parameters to poll task status.
-    Returns a mapping of task_id → status for every requested ID.
-
-    Examples::
-
-        GET /v1/tasks?id=abc
-        GET /v1/tasks?id=abc&id=def&id=ghi
-
-    Accepts up to 100 task IDs per request. Async-broadcast results are
-    only readable by the customer that issued the broadcast.
+     Per-service usage and earnings for the current billing cycle, and what the seller has earned so far.
+    Sellers bill on the calendar month. Defaults to the cycle in progress; pass cycle_start to read an
+    earlier one.
 
     Args:
-        id (list[str]): Task ID(s) to poll
+        cycle_start (datetime.date | None | Unset): First day of the cycle to report. Defaults to
+            the calendar month in progress. Any day in the target month is accepted.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -195,11 +178,11 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | TasksGetTaskStatusResponseTasksGetTaskStatus]
+        Response[HTTPValidationError | SellerCycleEarningsResponse]
     """
 
     kwargs = _get_kwargs(
-        id=id,
+        cycle_start=cycle_start,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -212,27 +195,19 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-    id: list[str],
+    cycle_start: datetime.date | None | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | TasksGetTaskStatusResponseTasksGetTaskStatus | None:
-    """Get Task Status
+) -> HTTPValidationError | SellerCycleEarningsResponse | None:
+    """Cycle-to-date earnings
 
-     Get the status of one or more Celery tasks.
-
-    Pass one or more ``id`` query parameters to poll task status.
-    Returns a mapping of task_id → status for every requested ID.
-
-    Examples::
-
-        GET /v1/tasks?id=abc
-        GET /v1/tasks?id=abc&id=def&id=ghi
-
-    Accepts up to 100 task IDs per request. Async-broadcast results are
-    only readable by the customer that issued the broadcast.
+     Per-service usage and earnings for the current billing cycle, and what the seller has earned so far.
+    Sellers bill on the calendar month. Defaults to the cycle in progress; pass cycle_start to read an
+    earlier one.
 
     Args:
-        id (list[str]): Task ID(s) to poll
+        cycle_start (datetime.date | None | Unset): First day of the cycle to report. Defaults to
+            the calendar month in progress. Any day in the target month is accepted.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -241,13 +216,13 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | TasksGetTaskStatusResponseTasksGetTaskStatus
+        HTTPValidationError | SellerCycleEarningsResponse
     """
 
     return (
         await asyncio_detailed(
             client=client,
-            id=id,
+            cycle_start=cycle_start,
             authorization=authorization,
             x_role_id=x_role_id,
         )

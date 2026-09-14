@@ -15,6 +15,7 @@ from ..models.service_visibility_enum import ServiceVisibilityEnum, check_servic
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.service_public_last_health_check_type_0 import ServicePublicLastHealthCheckType0
     from ..models.service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
 
 
@@ -80,12 +81,14 @@ class ServicePublic:
     managed_by_template: None | str | Unset = UNSET
     review_count: int | Unset = 0
     average_rating: float | None | Unset = UNSET
+    last_health_check: None | ServicePublicLastHealthCheckType0 | Unset = UNSET
     ops_subscription_id: None | Unset | UUID = UNSET
     ops_customer_id: None | Unset | UUID = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.service_public_last_health_check_type_0 import ServicePublicLastHealthCheckType0
         from ..models.service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
 
         id = str(self.id)
@@ -207,6 +210,14 @@ class ServicePublic:
         else:
             average_rating = self.average_rating
 
+        last_health_check: dict[str, Any] | None | Unset
+        if isinstance(self.last_health_check, Unset):
+            last_health_check = UNSET
+        elif isinstance(self.last_health_check, ServicePublicLastHealthCheckType0):
+            last_health_check = self.last_health_check.to_dict()
+        else:
+            last_health_check = self.last_health_check
+
         ops_subscription_id: None | str | Unset
         if isinstance(self.ops_subscription_id, Unset):
             ops_subscription_id = UNSET
@@ -278,6 +289,8 @@ class ServicePublic:
             field_dict["review_count"] = review_count
         if average_rating is not UNSET:
             field_dict["average_rating"] = average_rating
+        if last_health_check is not UNSET:
+            field_dict["last_health_check"] = last_health_check
         if ops_subscription_id is not UNSET:
             field_dict["ops_subscription_id"] = ops_subscription_id
         if ops_customer_id is not UNSET:
@@ -289,6 +302,7 @@ class ServicePublic:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.service_public_last_health_check_type_0 import ServicePublicLastHealthCheckType0
         from ..models.service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
 
         d = dict(src_dict)
@@ -489,6 +503,23 @@ class ServicePublic:
 
         average_rating = _parse_average_rating(d.pop("average_rating", UNSET))
 
+        def _parse_last_health_check(data: object) -> None | ServicePublicLastHealthCheckType0 | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                last_health_check_type_0 = ServicePublicLastHealthCheckType0.from_dict(data)
+
+                return last_health_check_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | ServicePublicLastHealthCheckType0 | Unset, data)
+
+        last_health_check = _parse_last_health_check(d.pop("last_health_check", UNSET))
+
         def _parse_ops_subscription_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
@@ -565,6 +596,7 @@ class ServicePublic:
             managed_by_template=managed_by_template,
             review_count=review_count,
             average_rating=average_rating,
+            last_health_check=last_health_check,
             ops_subscription_id=ops_subscription_id,
             ops_customer_id=ops_customer_id,
             updated_at=updated_at,
