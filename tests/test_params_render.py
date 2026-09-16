@@ -357,10 +357,6 @@ def _status_of(specs: Path, name: str) -> str | None:
     return json.loads((specs / f"{name}.json").read_text())["parameters"].get("status")
 
 
-def _constants_of(path: Path) -> dict:
-    return json.loads(path.read_text()).get("constants", {})
-
-
 def _platform_param(root: Path, platform: str, regular_name: str, *, deprecated: bool = False) -> Path:
     p = root / "platform_services" / platform / f"{regular_name}.json"
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -374,7 +370,7 @@ def _platform_param(root: Path, platform: str, regular_name: str, *, deprecated:
         "template": platform,
     }
     if deprecated:
-        payload["constants"] = {"status": "deprecated"}
+        payload["parameters"]["status"] = "deprecated"
     p.write_text(json.dumps(payload) + "\n")
     return p
 
@@ -408,8 +404,8 @@ def test_platform_params_are_drained_by_regular_service_path(tmp_path: Path) -> 
     stats = write_params_from_iterator(_iter("p/modelA"), specs)
 
     assert stats["deprecated"] == 0
-    assert _constants_of(fast) == {}
-    assert _constants_of(mode_a) == {}
+    assert "status" not in json.loads(fast.read_text())["parameters"]
+    assert "status" not in json.loads(mode_a.read_text())["parameters"]
     assert json.loads(fast.read_text())["parameters"]["service_name"] == "llm-fast/p/modelA"
     assert json.loads(mode_a.read_text())["parameters"]["service_name"] == "llm-modeA/p/modelA"
 
@@ -438,7 +434,7 @@ def test_matching_platform_params_refresh_payout_from_payout_price(tmp_path: Pat
     assert data["parameters"]["payout_input"] == "0.12"
     assert data["parameters"]["payout_output"] == "0.34"
     assert data["parameters"]["service_name"] == "llm-fast/p/modelA"
-    assert data.get("constants") is None
+    assert "status" not in data["parameters"]
     assert stats["deprecated"] == 0
 
 
@@ -484,7 +480,7 @@ def test_matching_platform_params_preserve_payout_when_new_price_unknown(tmp_pat
     assert stats["preserved"] == 1
 
 
-def test_missing_platform_params_are_deprecated_in_constants(tmp_path: Path) -> None:
+def test_missing_platform_params_are_deprecated_in_parameters(tmp_path: Path) -> None:
     specs = tmp_path / "services" / "specs"
     _seed(specs, ["p/modelA"])
     fast = _platform_param(tmp_path, "llm-fast", "p/modelB")
@@ -494,10 +490,8 @@ def test_missing_platform_params_are_deprecated_in_constants(tmp_path: Path) -> 
 
     fast_data = json.loads(fast.read_text())
     mode_a_data = json.loads(mode_a.read_text())
-    assert fast_data["constants"]["status"] == "deprecated"
-    assert mode_a_data["constants"]["status"] == "deprecated"
-    assert "status" not in fast_data["parameters"]
-    assert "status" not in mode_a_data["parameters"]
+    assert fast_data["parameters"]["status"] == "deprecated"
+    assert mode_a_data["parameters"]["status"] == "deprecated"
     assert stats["deprecated"] == 2
 
 

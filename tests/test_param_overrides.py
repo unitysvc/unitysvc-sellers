@@ -36,6 +36,29 @@ def test_override_merges_into_parameters(tmp_path: Path) -> None:
     assert data["parameters"]["status"] == 200  # untouched base value
 
 
+def test_platform_member_override_merges_lifecycle_status(tmp_path: Path) -> None:
+    """Platform member param files use the same override companion format."""
+    param = tmp_path / "platform_services" / "llm-fast" / "crofai" / "model.json"
+    param.parent.mkdir(parents=True)
+    param.write_text(
+        json.dumps(
+            {
+                "template": "llm-fast",
+                "parameters": {"service_name": "llm-fast/crofai/model"},
+            }
+        )
+        + "\n"
+    )
+    override_file_for(param).write_text(
+        json.dumps({"parameters": {"status": "deprecated"}}) + "\n"
+    )
+
+    data = load_param_data(param)
+
+    assert data["parameters"]["status"] == "deprecated"
+    assert data["parameters"]["service_name"] == "llm-fast/crofai/model"
+
+
 def test_override_applies_in_materialized_render(tmp_path: Path) -> None:
     root = _make_repo(tmp_path)
     _write_override(root, "resp200", {"parameters": {"label": "Overridden"}})

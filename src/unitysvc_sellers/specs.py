@@ -1,6 +1,7 @@
 """specs command group - local operations on the flat specs/ layout."""
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -12,17 +13,76 @@ from rich.table import Table
 from . import _cli_upload as upload_cmd
 from . import example, format_data, populate, specs_layout
 from . import list as list_cmd
+from .client import Client
+from .commands._helpers import api_key_option, base_url_option
 from .params_render import (
     ParamRenderError,
+    _resolve_template_dir_or_none,
     expand_param_file,
     expand_service_folder,
     is_param_file,
+    load_param_data,
     materialized_param_specs,
+    service_name_for_param,
 )
+from .upload import _resolve_system_template_id
 from .utils import find_files_by_pattern, load_data_file, read_service_id
 
 app = typer.Typer(help="Local operations on the flat specs/ layout (validate, format, populate, upload, test, etc.)")
 console = Console()
+
+
+def _system_expand_root(param_file: Path) -> Path:
+    """Return the persistent inspection root for either param-file layout."""
+    if "platform_services" in param_file.parts:
+        platform_root = param_file.parents[
+            len(param_file.parents) - 1 - param_file.parts.index("platform_services")
+        ]
+        return platform_root.parent / "expanded"
+    return param_file.parents[2] / "expanded"
+
+
+def _expand_system_param_file(
+    client: Client,
+    param_file: Path,
+    *,
+    output_dir: Path | None,
+    flat: bool,
+) -> Path:
+    """Write a server-rendered system template into the inspection tree.
+
+    System template bodies intentionally never leave the platform. Previewing
+    through ``/instances/render`` gives ``specs expand`` the same rendered
+    provider/offering/listing content without creating an ingest task.
+    """
+    data = load_param_data(param_file)
+    template_ref = data.get("template")
+    if not isinstance(template_ref, str) or not template_ref:
+        raise ParamRenderError(f"{param_file}: system-template param file must include 'template'.")
+    parameters = data.get("parameters") or {}
+    if not isinstance(parameters, dict):
+        raise ParamRenderError(f"{param_file}: parameters must be a JSON object.")
+
+    template_id = _resolve_system_template_id(client, template_ref)
+    rendered = client.instances.render(template_id, parameters=parameters)
+    service_name = service_name_for_param(param_file)
+    expanded_root = Path(output_dir) if output_dir is not None else _system_expand_root(param_file)
+    folder = expanded_root if flat else expanded_root / service_name
+    if not flat and folder.exists():
+        shutil.rmtree(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    for rendered_key, filename in (
+        ("provider_data", "provider.json"),
+        ("offering_data", "offering.json"),
+        ("listing_data", "listing.json"),
+    ):
+        body = rendered.get(rendered_key)
+        if not isinstance(body, dict):
+            raise ParamRenderError(
+                f"System template preview returned no {rendered_key} object."
+            )
+        (folder / filename).write_text(json.dumps(body, indent=2, sort_keys=True) + "\n")
+    return folder
 
 
 @app.callback()
@@ -215,11 +275,15 @@ def expand_service(
         "-d",
         help="Repo root or specs/ directory (default: current directory).",
     ),
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
 ) -> None:
     """Expand a service into the informal ``expanded/`` tree for inspection.
 
-    Accepts either a param file (``specs/<NAME>.json`` — rendered through its
-    template) or a hand-authored service folder (``specs/<NAME>/`` — copied as-is)
+    Accepts either a local-template param file, a remote system-template param
+    file (including ``platform_services/`` members), or a hand-authored service
+    folder. System templates are preview-rendered by the seller API; this never
+    creates a service or task.
     and writes ``expanded/<NAME>/`` (provider + offering + listing + bundled
     files) at the repo root, **fully resolved**: docs referenced by a relative
     path (e.g. a shared ``../../docs/*.j2``) are inlined, ``$doc_preset`` /
@@ -233,13 +297,32 @@ def expand_service(
     start = (data_dir or Path.cwd()).resolve()
     specs_root = specs_layout.resolve_specs_root(start)
     param_file = specs_root / f"{name}.json"
+    repo_root = specs_root.parent.parent if specs_root.parent.name == "services" else specs_root.parent
+    platform_root = repo_root / "platform_services"
+    platform_name = name.removeprefix("platform_services/")
+    platform_param_file = platform_root / f"{platform_name}.json"
+    if not param_file.is_file() and platform_param_file.is_file():
+        param_file = platform_param_file
     service_dir = specs_root / name
     is_folder_service = service_dir.is_dir() and any(
         (service_dir / f"listing{suffix}").is_file() for suffix in (".json", ".toml")
     )
     try:
         if param_file.is_file() and is_param_file(param_file):
-            folder = expand_param_file(param_file, output_dir=output_dir, flat=flat)
+            data = load_param_data(param_file)
+            if _resolve_template_dir_or_none(param_file, data.get("template")) is None:
+                if not api_key:
+                    console.print(
+                        "[red]✗[/red] System-template expansion requires --api-key "
+                        "or UNITYSVC_SELLER_API_KEY."
+                    )
+                    raise typer.Exit(1)
+                with Client(api_key=api_key, base_url=base_url) as client:
+                    folder = _expand_system_param_file(
+                        client, param_file, output_dir=output_dir, flat=flat
+                    )
+            else:
+                folder = expand_param_file(param_file, output_dir=output_dir, flat=flat)
         elif is_folder_service:
             folder = expand_service_folder(service_dir, output_dir=output_dir, flat=flat)
         elif param_file.is_file():

@@ -160,6 +160,37 @@ class TestInstancesCreateAutoSubmit:
         assert sent["auto_submit"] is True
 
     @respx.mock
+    def test_create_sends_status_parameter(self, client: Client) -> None:
+        route = respx.post(f"{BASE_URL}/instances").mock(
+            return_value=httpx.Response(202, json=self._resp())
+        )
+
+        client.instances.create(uuid.uuid4(), parameters={"status": "deprecated"})
+
+        sent = json.loads(route.calls.last.request.content.decode())
+        assert sent["parameters"] == {"status": "deprecated"}
+
+    @respx.mock
+    def test_render_posts_without_creating_a_service(self, client: Client) -> None:
+        route = respx.post(f"{BASE_URL}/instances/render").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "provider_data": {"status": "deprecated"},
+                    "offering_data": {"status": "deprecated"},
+                    "listing_data": {"status": "deprecated"},
+                },
+            )
+        )
+
+        rendered = client.instances.render(uuid.uuid4(), parameters={"status": "deprecated"})
+
+        assert rendered["listing_data"]["status"] == "deprecated"
+        assert json.loads(route.calls.last.request.content.decode())["parameters"] == {
+            "status": "deprecated"
+        }
+
+    @respx.mock
     def test_create_threads_existing_service_id(self, client: Client) -> None:
         route = respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(202, json=self._resp()))
         service_id = uuid.uuid4()

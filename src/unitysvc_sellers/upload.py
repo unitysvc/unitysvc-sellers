@@ -222,7 +222,6 @@ def _instantiate_system_param_file(
     parameters = data.get("parameters") or {}
     if not isinstance(parameters, dict):
         raise ValueError(f"{param_file}: parameters must be a JSON object.")
-
     service_name = service_name_for_param(param_file)
     template_id = _resolve_system_template_id(client, str(template_ref))
     resp = client.instances.create(

@@ -665,6 +665,7 @@ class TestUploadSystemTemplateParams:
                         "payout_input": "0.18",
                         "payout_output": "0.35",
                         "service_name": "llm-fast/crofai/deepseek-v3.2",
+                        "status": "deprecated",
                     },
                 }
             )
@@ -711,6 +712,7 @@ class TestUploadSystemTemplateParams:
                 "payout_input": "0.18",
                 "payout_output": "0.35",
                 "service_name": "llm-fast/crofai/deepseek-v3.2",
+                "status": "deprecated",
             },
             "auto_submit": False,
         }
