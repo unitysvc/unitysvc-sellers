@@ -39,6 +39,28 @@ member after review activation. `specs upload` also carries any **groups** and
 **promotions** you author alongside them (`service_group.*` / `promotion.*`
 files, upserted by name).
 
+### Platform-member lifecycle overrides
+
+A platform member is a system-template parameter file beneath
+`platform_services/<platform>/<provider>/<member>.json`. To deliberately
+retire one without changing a generated base file, add its sibling override:
+
+```json
+// platform_services/llm-fast/acme/model.override.json
+{
+  "parameters": {"status": "deprecated"}
+}
+```
+
+Parameter-file overrides are deep-merged before validation, expansion, and
+upload, so this uses exactly the same `parameters.status` rendering path as an
+automatically retired member. Remove the override to restore the template
+default (`ready`) when the generated base file has no retirement marker.
+`deprecate-missing` writes the same status to
+the generated base parameter file for members absent from its upstream source;
+when that member reappears, it removes only that base marker, leaving an
+intentional override authoritative.
+
 → Full docs: [Services](https://unitysvc-sellers.readthedocs.io/en/latest/services/)
 (the spec model + the two routes + status lifecycle) ·
 [Service Templates](https://unitysvc-sellers.readthedocs.io/en/latest/service-templates/)

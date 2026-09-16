@@ -67,7 +67,7 @@ _RESERVED_STEMS = {"provider", "offering", "listing", "service", "promotion", "s
 # Template-dir files that must NOT be copied verbatim into a rendered folder:
 # the two rendered templates and the populator's config.
 _NON_BUNDLED = {"offering.json.j2", "listing.json.j2", "config.json"}
-_SYSTEM_CONSTANT_STATUS_VALUES = {"draft", "ready", "deprecated"}
+_SYSTEM_STATUS_VALUES = {"draft", "ready", "deprecated"}
 
 
 def _load_json(path: Path) -> Any:
@@ -277,6 +277,11 @@ def validate_system_param_file(param_file: Path) -> list[str]:
         return [f"{param_file}: param file must be a JSON object"]
     if not data.get("template"):
         errors.append(f"{param_file}: system-template param file must include 'template'")
+    if "constants" in data:
+        errors.append(
+            f"{param_file}: data-level 'constants' is not supported; "
+            "use parameters instead"
+        )
 
     parameters = data.get("parameters")
     if not isinstance(parameters, dict):
@@ -289,16 +294,10 @@ def validate_system_param_file(param_file: Path) -> list[str]:
                 f"{param_file}: parameters.service_name {actual!r} must match "
                 f"the path under platform_services ({expected!r})"
             )
-
-    constants = data.get("constants")
-    if constants is not None:
-        if not isinstance(constants, dict):
-            errors.append(f"{param_file}: 'constants' must be a JSON object")
-        else:
-            status = constants.get("status")
-            if status is not None and status not in _SYSTEM_CONSTANT_STATUS_VALUES:
-                allowed = ", ".join(sorted(_SYSTEM_CONSTANT_STATUS_VALUES))
-                errors.append(f"{param_file}: constants.status must be one of: {allowed}")
+        status = parameters.get("status")
+        if status is not None and status not in _SYSTEM_STATUS_VALUES:
+            allowed = ", ".join(sorted(_SYSTEM_STATUS_VALUES))
+            errors.append(f"{param_file}: parameters.status must be one of: {allowed}")
 
     return errors
 
@@ -929,7 +928,7 @@ def _deprecate_param_file(path: Path) -> bool:
 
 
 def _deprecate_platform_param_file(path: Path) -> bool:
-    """Set ``constants.status = "deprecated"`` for a platform param file."""
+    """Set ``parameters.status = "deprecated"`` for a platform param file."""
     try:
         data = json.loads(path.read_text())
     except (json.JSONDecodeError, OSError):
@@ -940,23 +939,15 @@ def _deprecate_platform_param_file(path: Path) -> bool:
     if not isinstance(params, dict):
         return False
 
-    changed = False
     if params.get("status") == "deprecated":
-        params.pop("status", None)
-        changed = True
-
-    constants = data.setdefault("constants", {})
-    if not isinstance(constants, dict):
         return False
-    if constants.get("status") == "deprecated" and not changed:
-        return False
-    constants["status"] = "deprecated"
+    params["status"] = "deprecated"
     path.write_text(dump_canonical_json(data))
     return True
 
 
 def _clear_platform_param_deprecation(path: Path) -> bool:
-    """Remove a stale ``constants.status=deprecated`` from a matched platform param."""
+    """Remove automated ``parameters.status=deprecated`` for a matched member."""
     try:
         data = json.loads(path.read_text())
     except (json.JSONDecodeError, OSError):
@@ -964,12 +955,10 @@ def _clear_platform_param_deprecation(path: Path) -> bool:
     if not isinstance(data, dict):
         return False
 
-    constants = data.get("constants")
-    if not isinstance(constants, dict) or constants.get("status") != "deprecated":
+    parameters = data.get("parameters")
+    if not isinstance(parameters, dict) or parameters.get("status") != "deprecated":
         return False
-    constants.pop("status", None)
-    if not constants:
-        data.pop("constants", None)
+    parameters.pop("status", None)
     path.write_text(dump_canonical_json(data))
     return True
 
@@ -1015,24 +1004,12 @@ def _refresh_platform_param_file(path: Path, generated_parameters: dict[str, Any
             continue
         updated_params[key] = preserve_known_values(source[key], updated_params[key], stats)
 
-    constants = data.get("constants")
-    updated_constants = dict(constants) if isinstance(constants, dict) else constants
-    if isinstance(updated_constants, dict):
-        updated_constants.pop("status", None)
-
     changed = updated_params != params
-    if isinstance(constants, dict):
-        changed = changed or updated_constants != constants
 
     if not changed:
         return False
 
     data["parameters"] = updated_params
-    if isinstance(updated_constants, dict):
-        if updated_constants:
-            data["constants"] = updated_constants
-        else:
-            data.pop("constants", None)
     path.write_text(dump_canonical_json(data))
     return True
 

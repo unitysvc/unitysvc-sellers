@@ -123,6 +123,12 @@ from .tasks_get_task_status_response_tasks_get_task_status_additional_property i
 from .template_instantiation_create import TemplateInstantiationCreate
 from .template_instantiation_create_parameters import TemplateInstantiationCreateParameters
 from .template_instantiation_create_response import TemplateInstantiationCreateResponse
+from .template_instantiation_render import TemplateInstantiationRender
+from .template_instantiation_render_parameters import TemplateInstantiationRenderParameters
+from .template_instantiation_render_response import TemplateInstantiationRenderResponse
+from .template_instantiation_render_response_listing_data import TemplateInstantiationRenderResponseListingData
+from .template_instantiation_render_response_offering_data import TemplateInstantiationRenderResponseOfferingData
+from .template_instantiation_render_response_provider_data import TemplateInstantiationRenderResponseProviderData
 from .test_detail_response import TestDetailResponse
 from .test_detail_response_env_type_0 import TestDetailResponseEnvType0
 from .test_detail_response_source_type_0 import TestDetailResponseSourceType0
@@ -241,6 +247,12 @@ __all__ = (
     "TemplateInstantiationCreate",
     "TemplateInstantiationCreateParameters",
     "TemplateInstantiationCreateResponse",
+    "TemplateInstantiationRender",
+    "TemplateInstantiationRenderParameters",
+    "TemplateInstantiationRenderResponse",
+    "TemplateInstantiationRenderResponseListingData",
+    "TemplateInstantiationRenderResponseOfferingData",
+    "TemplateInstantiationRenderResponseProviderData",
     "TestDetailResponse",
     "TestDetailResponseEnvType0",
     "TestDetailResponseSourceType0",

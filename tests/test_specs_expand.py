@@ -65,6 +65,53 @@ def test_find_files_by_pattern_excludes_top_level_expanded_tree(tmp_path: Path) 
     assert expanded_listing not in found
 
 
+def test_expand_system_template_writes_server_preview(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """System templates are preview-rendered by the API, never instantiated."""
+    from unitysvc_sellers import specs
+
+    param = (
+        tmp_path
+        / "platform_services"
+        / "llm-fast"
+        / "crofai"
+        / "deepseek-v3.2.json"
+    )
+    param.parent.mkdir(parents=True)
+    param.write_text(
+        json.dumps(
+            {
+                "template": "llm-fast",
+                "parameters": {
+                    "service_name": "llm-fast/crofai/deepseek-v3.2",
+                    "status": "deprecated",
+                },
+            }
+        )
+    )
+
+    class _Instances:
+        def render(self, template_id: str, *, parameters: dict) -> dict:
+            assert template_id == "template-id"
+            assert parameters["service_name"] == "llm-fast/crofai/deepseek-v3.2"
+            assert parameters["status"] == "deprecated"
+            return {
+                "provider_data": {"name": "crofai", "status": "deprecated"},
+                "offering_data": {"name": "deepseek-v3.2", "status": "deprecated"},
+                "listing_data": {"name": "llm-fast/crofai/deepseek-v3.2", "status": "deprecated"},
+            }
+
+    class _Client:
+        instances = _Instances()
+
+    monkeypatch.setattr(specs, "_resolve_system_template_id", lambda client, ref: "template-id")
+    folder = specs._expand_system_param_file(_Client(), param, output_dir=None, flat=False)
+
+    assert folder == tmp_path / "expanded" / "llm-fast" / "crofai" / "deepseek-v3.2"
+    assert json.loads((folder / "listing.json").read_text())["status"] == "deprecated"
+
+
 def test_expand_param_file_writes_static_inspection_tree(tmp_path: Path) -> None:
     """``expand_param_file`` renders into ``expanded/<name>/`` and leaves both the
     param file and the formal ``specs/`` tree untouched."""

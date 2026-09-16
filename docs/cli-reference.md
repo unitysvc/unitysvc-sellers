@@ -96,8 +96,10 @@ $ usvc seller specs show [OPTIONS] {service_name}
 
 Expand a service into the informal ``expanded/`` tree for inspection.
 
-Accepts either a param file (``specs/&lt;NAME&gt;.json`` — rendered through its
-template) or a hand-authored service folder (``specs/&lt;NAME&gt;/`` — copied as-is)
+Accepts either a local-template param file, a remote system-template param
+file (including ``platform_services/`` members), or a hand-authored service
+folder. System templates are preview-rendered by the seller API; this never
+creates a service or task.
 and writes ``expanded/&lt;NAME&gt;/`` (provider + offering + listing + bundled
 files) at the repo root, **fully resolved**: docs referenced by a relative
 path (e.g. a shared ``../../docs/*.j2``) are inlined, ``$doc_preset`` /
@@ -123,6 +125,8 @@ $ usvc seller specs expand [OPTIONS] {name}
 * `-o, --output-dir <path>`: Directory to expand into (default: &lt;repo&gt;/expanded — the one tree discovery ignores). The full &lt;service_name&gt; path is created beneath it, so several services never collide.
 * `--flat`: Write the spec files directly into the directory, without the &lt;service_name&gt;/ subfolder (predictable paths). Holds one service at a time; best paired with --output-dir.
 * `-d, --data-dir <path>`: Repo root or specs/ directory (default: current directory).
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
 ### `usvc seller specs validate`

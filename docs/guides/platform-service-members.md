@@ -81,14 +81,16 @@ Provider populator scripts usually update regular model params under
 - Price fields such as `payout_input`, `payout_output`, and
   `payout_cached_input` are copied from the regular service's payout data when
   present.
-- Stale `constants.status = "deprecated"` is cleared when the model appears
-  again.
+- The automatically written `parameters.status = "deprecated"` marker is
+  cleared from the base parameter file when the model appears again.
 - If the model disappears, regular params get `parameters.status =
-  "deprecated"` and platform members get `constants.status = "deprecated"`.
+  "deprecated"` and platform members get the same
+  `parameters.status = "deprecated"` marker.
 
-For platform members, status belongs in `constants.status`, not
-`parameters.status`. Constants override seller-editable parameters during render,
-which lets the repo retire a member without changing the template's input shape.
+For platform members, status is a template parameter, so the generated base
+parameter file and a manual `.override.json` use the same rendering path. The
+automatic reconciliation changes only the base file; an intentional override
+remains authoritative.
 
 ## Commands
 

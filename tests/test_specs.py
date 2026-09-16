@@ -161,7 +161,6 @@ def test_platform_services_system_params_validate_without_rendered_folders(tmp_p
     param.write_text(
         json.dumps(
             {
-                "constants": {"status": "ready"},
                 "parameters": {
                     "api_base_url": "https://api.crofai.example/v1",
                     "api_key_secret": "CROFAI_API_KEY",
@@ -169,6 +168,7 @@ def test_platform_services_system_params_validate_without_rendered_folders(tmp_p
                     "payout_input": "0.18",
                     "payout_output": "0.35",
                     "service_name": "llm-fast/crofai/deepseek-v3.2",
+                    "status": "ready",
                 },
                 "template": "llm-fast",
             }
@@ -180,6 +180,29 @@ def test_platform_services_system_params_validate_without_rendered_folders(tmp_p
 
     assert result.exit_code == 0, result.output
     assert "1 system-template param file" in _norm(result.output)
+
+
+def test_platform_services_reject_legacy_data_constants(tmp_path: Path) -> None:
+    (tmp_path / "services" / "templates").mkdir(parents=True)
+    param = tmp_path / "platform_services" / "llm-fast" / "crofai" / "legacy.json"
+    param.parent.mkdir(parents=True)
+    param.write_text(
+        json.dumps(
+            {
+                "template": "llm-fast",
+                "constants": {"status": "deprecated"},
+                "parameters": {
+                    "service_name": "llm-fast/crofai/legacy",
+                },
+            }
+        )
+        + "\n"
+    )
+
+    result = _run(tmp_path)
+
+    assert result.exit_code == 1
+    assert "data-level 'constants' is not supported" in _norm(result.output)
 
 
 def test_platform_services_system_params_require_matching_service_name(tmp_path: Path) -> None:

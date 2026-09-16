@@ -1278,6 +1278,82 @@
         }
       }
     },
+    "/instances/render": {
+      "post": {
+        "tags": [
+          "seller-instances"
+        ],
+        "summary": "Render Instance",
+        "description": "Preview a system-template render for local inspection.\n\nThe template bodies stay platform-owned. This endpoint provides the same\nbounded rendering path as instantiation without creating a service, task,\nor document record.",
+        "operationId": "seller-instances-render_instance",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateInstantiationRender"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateInstantiationRenderResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/instances": {
       "post": {
         "tags": [
@@ -4296,7 +4372,7 @@
           "customer"
         ],
         "title": "GroupOwnerTypeEnum",
-        "description": "Owner type for service groups."
+        "description": "Type of entity that owns a service group."
       },
       "GroupServiceMember": {
         "properties": {
@@ -4333,7 +4409,7 @@
           "keyed"
         ],
         "title": "GroupTypeEnum",
-        "description": "Type of service group. Derived from members, not authored (unitysvc#1686).\n\nTwo of the five types are routable (a ``/g/<name>`` endpoint); the rest are\nnot:\n\nA quick-characterization spectrum derived from ``routable_keys``\n(unitysvc#1730); the gateway routes off ``routable_keys`` itself, not this:\n\n- ``keyed`` \u2014 one extreme: a clean menu, every service addressable by its own\n  distinct routing key (each key maps to a single service); keyless access an\n  optional feature. Serves ``/v1/models`` and is tool-explorable.\n- ``open`` \u2014 the middle: routable, but not a clean per-service menu \u2014 a\n  keyless-only pool, partial keying, or a key that fans to several services.\n- ``collection`` \u2014 the other extreme: **not** a routing endpoint at all\n  (empty ``routable_keys`` \u2014 no members, or every bucket format-collides).\n\nRoutability is exactly ``group_type in {open, keyed}`` (``collection`` =\nempty ``routable_keys``), so the routing gate is unchanged; #1730 only re-cut\nthe open\u2194keyed boundary. Whether a keyless request is served is a\n``routable_keys`` fact, not a type fact.\n- ``category`` \u2014 a parent with no members of its own; its membership is the\n  union of its descendants, for browsing only.\n\n``open`` / ``keyed`` / ``collection`` are derived from the members at\nmembership refresh; ``category`` is set explicitly and never re-derived.\n(The former ``routable`` value was split into ``open`` / ``keyed``, and the\n``misc`` catch-all removed \u2014 unitysvc#1686.)"
+        "description": "Type of service group. Derived from members, not authored.\n\n- ``category``: Parent group for browsing/organization only.\n- ``collection``: Services-bearing group that is not routable.\n- ``open``: Routable group where keyless requests can fan safely.\n- ``keyed``: Routable group where callers must provide a routing key."
       },
       "HTTPValidationError": {
         "properties": {
@@ -5855,8 +5931,7 @@
           "private",
           "archived"
         ],
-        "title": "ServiceGroupStatusEnum",
-        "description": "Status of a service group."
+        "title": "ServiceGroupStatusEnum"
       },
       "ServiceGroupUpdate": {
         "properties": {
@@ -6960,6 +7035,53 @@
           "message"
         ],
         "title": "TemplateInstantiationCreateResponse"
+      },
+      "TemplateInstantiationRender": {
+        "properties": {
+          "template_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Template Id"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "template_id"
+        ],
+        "title": "TemplateInstantiationRender",
+        "description": "Render a platform-owned template without creating a service."
+      },
+      "TemplateInstantiationRenderResponse": {
+        "properties": {
+          "provider_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Provider Data"
+          },
+          "offering_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Offering Data"
+          },
+          "listing_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Listing Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider_data",
+          "offering_data",
+          "listing_data"
+        ],
+        "title": "TemplateInstantiationRenderResponse",
+        "description": "Fully rendered service content for inspection, without persistence."
       },
       "TestDetailResponse": {
         "properties": {
