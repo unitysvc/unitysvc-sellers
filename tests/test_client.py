@@ -129,50 +129,51 @@ class TestServicesResource:
 #
 # The services.upload query-param threading is covered end-to-end (through
 # ``upload_directory``, the CLI-reachable path) in test_upload_resolver.py,
-# where the valid-payload fixtures already live. Here we cover instances.create,
-# whose body the facade builds directly.
+# where the valid-payload fixtures already live. Here we cover
+# services.create_from_template, whose body the facade builds directly.
 # ---------------------------------------------------------------------------
-class TestInstancesCreateAutoSubmit:
+class TestCreateFromTemplate:
     def _resp(self) -> dict[str, object]:
-        return {
-            "instance_id": str(uuid.uuid4()),
-            "task_id": "t1",
-            "status": "queued",
-            "message": "q",
-        }
+        # ServiceUploadResponse — shared with services.upload. No instance_id:
+        # there is no instance object, only the ingest task (unitysvc#2386).
+        return {"task_id": "t1", "status": "queued", "message": "q"}
 
     @respx.mock
     def test_create_defaults_to_draft(self, client: Client) -> None:
-        route = respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(202, json=self._resp()))
+        route = respx.post(f"{BASE_URL}/services/from-template").mock(
+            return_value=httpx.Response(202, json=self._resp())
+        )
 
-        client.instances.create(uuid.uuid4(), parameters={"k": "v"})
+        client.services.create_from_template(uuid.uuid4(), parameters={"k": "v"})
 
         sent = json.loads(route.calls.last.request.content.decode())
         assert sent["auto_submit"] is False
 
     @respx.mock
     def test_create_auto_submit_sets_field(self, client: Client) -> None:
-        route = respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(202, json=self._resp()))
+        route = respx.post(f"{BASE_URL}/services/from-template").mock(
+            return_value=httpx.Response(202, json=self._resp())
+        )
 
-        client.instances.create(uuid.uuid4(), parameters={"k": "v"}, auto_submit=True)
+        client.services.create_from_template(uuid.uuid4(), parameters={"k": "v"}, auto_submit=True)
 
         sent = json.loads(route.calls.last.request.content.decode())
         assert sent["auto_submit"] is True
 
     @respx.mock
     def test_create_sends_status_parameter(self, client: Client) -> None:
-        route = respx.post(f"{BASE_URL}/instances").mock(
+        route = respx.post(f"{BASE_URL}/services/from-template").mock(
             return_value=httpx.Response(202, json=self._resp())
         )
 
-        client.instances.create(uuid.uuid4(), parameters={"status": "deprecated"})
+        client.services.create_from_template(uuid.uuid4(), parameters={"status": "deprecated"})
 
         sent = json.loads(route.calls.last.request.content.decode())
         assert sent["parameters"] == {"status": "deprecated"}
 
     @respx.mock
     def test_render_posts_without_creating_a_service(self, client: Client) -> None:
-        route = respx.post(f"{BASE_URL}/instances/render").mock(
+        route = respx.post(f"{BASE_URL}/services/from-template/render").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -183,7 +184,7 @@ class TestInstancesCreateAutoSubmit:
             )
         )
 
-        rendered = client.instances.render(uuid.uuid4(), parameters={"status": "deprecated"})
+        rendered = client.services.render_from_template(uuid.uuid4(), parameters={"status": "deprecated"})
 
         assert rendered["listing_data"]["status"] == "deprecated"
         assert json.loads(route.calls.last.request.content.decode())["parameters"] == {
@@ -192,13 +193,73 @@ class TestInstancesCreateAutoSubmit:
 
     @respx.mock
     def test_create_threads_existing_service_id(self, client: Client) -> None:
-        route = respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(202, json=self._resp()))
+        route = respx.post(f"{BASE_URL}/services/from-template").mock(
+            return_value=httpx.Response(202, json=self._resp())
+        )
         service_id = uuid.uuid4()
 
-        client.instances.create(uuid.uuid4(), parameters={"k": "v"}, service_id=service_id)
+        client.services.create_from_template(uuid.uuid4(), parameters={"k": "v"}, service_id=service_id)
 
         sent = json.loads(route.calls.last.request.content.decode())
         assert sent["service_id"] == str(service_id)
+
+    @respx.mock
+    def test_idempotency_key_travels_as_a_header(self, client: Client) -> None:
+        route = respx.post(f"{BASE_URL}/services/from-template").mock(
+            return_value=httpx.Response(202, json=self._resp())
+        )
+
+        client.services.create_from_template(
+            uuid.uuid4(), parameters={"k": "v"}, idempotency_key="key-1"
+        )
+
+        assert route.calls.last.request.headers["Idempotency-Key"] == "key-1"
+
+    @respx.mock
+    def test_no_idempotency_header_when_no_key_is_given(self, client: Client) -> None:
+        route = respx.post(f"{BASE_URL}/services/from-template").mock(
+            return_value=httpx.Response(202, json=self._resp())
+        )
+
+        client.services.create_from_template(uuid.uuid4(), parameters={"k": "v"})
+
+        assert "Idempotency-Key" not in route.calls.last.request.headers
+
+    @respx.mock
+    def test_the_deprecated_instances_alias_still_reaches_the_new_route(
+        self, client: Client
+    ) -> None:
+        """``client.instances`` is kept as a shim until 0.5.0 — it must warn."""
+        route = respx.post(f"{BASE_URL}/services/from-template").mock(
+            return_value=httpx.Response(202, json=self._resp())
+        )
+
+        with pytest.warns(DeprecationWarning, match="create_from_template"):
+            resp = client.instances.create(uuid.uuid4(), parameters={"k": "v"})
+
+        assert resp.task_id == "t1"
+        assert route.called
+
+    @respx.mock
+    def test_the_deprecated_render_alias_still_reaches_the_new_route(
+        self, client: Client
+    ) -> None:
+        route = respx.post(f"{BASE_URL}/services/from-template/render").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "provider_data": {},
+                    "offering_data": {},
+                    "listing_data": {"status": "ready"},
+                },
+            )
+        )
+
+        with pytest.warns(DeprecationWarning, match="render_from_template"):
+            rendered = client.instances.render(uuid.uuid4())
+
+        assert rendered["listing_data"]["status"] == "ready"
+        assert route.called
 
     @respx.mock
     def test_create_preserves_dict_shaped_422_detail(self, client: Client) -> None:
@@ -208,10 +269,10 @@ class TestInstancesCreateAutoSubmit:
                 "problems": ["parameter 'service_name': bad"],
             }
         }
-        respx.post(f"{BASE_URL}/instances").mock(return_value=httpx.Response(422, json=detail))
+        respx.post(f"{BASE_URL}/services/from-template").mock(return_value=httpx.Response(422, json=detail))
 
         with pytest.raises(ValidationError) as excinfo:
-            client.instances.create(uuid.uuid4(), parameters={"service_name": "bad/name"})
+            client.services.create_from_template(uuid.uuid4(), parameters={"service_name": "bad/name"})
 
         assert excinfo.value.status_code == 422
         assert excinfo.value.detail == detail

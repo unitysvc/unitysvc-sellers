@@ -2,7 +2,7 @@
 
 Wraps the seller-tagged ``/v1/seller/templates`` listing operations: ``list``
 and ``get`` expose the active system templates and their parameter schemas.
-``client.instances.create`` and ``usvc seller specs upload`` can render one of
+``client.services.create_from_template`` and ``usvc seller specs upload`` can render one of
 those templates into a normal seller service.
 """
 

@@ -208,10 +208,11 @@ class Client:
 
     @property
     def instances(self) -> Instances:
+        """Deprecated alias for the ``services`` from-template methods (unitysvc#2386)."""
         if self._instances is None:
             from .instances import Instances
 
-            self._instances = Instances(self._client)
+            self._instances = Instances(self.services)
         return self._instances
 
     @property

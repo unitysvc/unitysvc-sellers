@@ -18,7 +18,7 @@ T = TypeVar("T", bound="TemplateInstantiationCreate")
 
 @_attrs_define
 class TemplateInstantiationCreate:
-    """Render a platform-owned template into a service ingest task."""
+    """Request body for ``POST /v1/seller/services/from-template``."""
 
     template_id: UUID
     name: None | str | Unset = UNSET

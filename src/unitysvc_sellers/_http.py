@@ -69,3 +69,34 @@ def reraise_httpx(exc: Exception) -> None:
     if isinstance(exc, APIError):
         raise
     raise APIError(str(exc), status_code=0) from exc
+
+
+def parse_raw(response: Any, model: type[T]) -> T:
+    """Parse an ``httpx.Response`` into ``model``, or raise.
+
+    Used instead of a generated operation's ``sync_detailed`` where the
+    endpoint can answer 422 with a **dict-shaped** ``detail`` — as the
+    template-parameter validation does::
+
+        {"detail": {"message": "Invalid parameters", "problems": [...]}}
+
+    The generated ``_parse_response`` assumes FastAPI's standard *list*-shaped
+    422 body and calls ``HTTPValidationError.from_dict`` on it, which raises a
+    bare ``ValueError`` and throws away the message telling the seller which
+    parameter was wrong. Here the error body reaches
+    :func:`~unitysvc_sellers.exceptions.error_for_status` intact.
+
+    Pair it with the operation module's ``_get_kwargs`` so request building
+    (path, headers, body serialization) still comes from the generated code.
+    """
+    status = int(response.status_code)
+    if 200 <= status < 300:
+        return model.from_dict(response.json())  # type: ignore[attr-defined,no-any-return]
+
+    detail: Any
+    try:
+        detail = json.loads(response.content.decode("utf-8")) if response.content else None
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        detail = response.content
+
+    raise error_for_status(status, detail=detail, response_body=response.content)

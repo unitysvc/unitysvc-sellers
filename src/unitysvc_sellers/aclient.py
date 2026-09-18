@@ -173,10 +173,11 @@ class AsyncClient:
 
     @property
     def instances(self) -> AsyncInstances:
+        """Deprecated alias for the ``services`` from-template methods (unitysvc#2386)."""
         if self._instances is None:
             from .ainstances import AsyncInstances
 
-            self._instances = AsyncInstances(self._client)
+            self._instances = AsyncInstances(self.services)
         return self._instances
 
     @property

@@ -6,6 +6,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...models.template_instantiation_render import TemplateInstantiationRender
 from ...models.template_instantiation_render_response import TemplateInstantiationRenderResponse
@@ -27,7 +28,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/instances/render",
+        "url": "/services/from-template/render",
     }
 
     _kwargs["json"] = body.to_dict()
@@ -40,11 +41,21 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | TemplateInstantiationRenderResponse | None:
+) -> ErrorResponse | HTTPValidationError | TemplateInstantiationRenderResponse | None:
     if response.status_code == 200:
         response_200 = TemplateInstantiationRenderResponse.from_dict(response.json())
 
         return response_200
+
+    if response.status_code == 400:
+        response_400 = ErrorResponse.from_dict(response.json())
+
+        return response_400
+
+    if response.status_code == 404:
+        response_404 = ErrorResponse.from_dict(response.json())
+
+        return response_404
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
@@ -59,7 +70,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | TemplateInstantiationRenderResponse]:
+) -> Response[ErrorResponse | HTTPValidationError | TemplateInstantiationRenderResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -74,14 +85,14 @@ def sync_detailed(
     body: TemplateInstantiationRender,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | TemplateInstantiationRenderResponse]:
-    """Render Instance
+) -> Response[ErrorResponse | HTTPValidationError | TemplateInstantiationRenderResponse]:
+    """Render Service From Template
 
      Preview a system-template render for local inspection.
 
-    The template bodies stay platform-owned. This endpoint provides the same
-    bounded rendering path as instantiation without creating a service, task,
-    or document record.
+    The dry run of ``POST /services/from-template``: the template bodies stay
+    platform-owned, and this gives the seller the same bounded rendering path
+    without creating a service, task, or document record.
 
     Args:
         authorization (None | str | Unset):
@@ -94,7 +105,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | TemplateInstantiationRenderResponse]
+        Response[ErrorResponse | HTTPValidationError | TemplateInstantiationRenderResponse]
     """
 
     kwargs = _get_kwargs(
@@ -116,14 +127,14 @@ def sync(
     body: TemplateInstantiationRender,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | TemplateInstantiationRenderResponse | None:
-    """Render Instance
+) -> ErrorResponse | HTTPValidationError | TemplateInstantiationRenderResponse | None:
+    """Render Service From Template
 
      Preview a system-template render for local inspection.
 
-    The template bodies stay platform-owned. This endpoint provides the same
-    bounded rendering path as instantiation without creating a service, task,
-    or document record.
+    The dry run of ``POST /services/from-template``: the template bodies stay
+    platform-owned, and this gives the seller the same bounded rendering path
+    without creating a service, task, or document record.
 
     Args:
         authorization (None | str | Unset):
@@ -136,7 +147,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | TemplateInstantiationRenderResponse
+        ErrorResponse | HTTPValidationError | TemplateInstantiationRenderResponse
     """
 
     return sync_detailed(
@@ -153,14 +164,14 @@ async def asyncio_detailed(
     body: TemplateInstantiationRender,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | TemplateInstantiationRenderResponse]:
-    """Render Instance
+) -> Response[ErrorResponse | HTTPValidationError | TemplateInstantiationRenderResponse]:
+    """Render Service From Template
 
      Preview a system-template render for local inspection.
 
-    The template bodies stay platform-owned. This endpoint provides the same
-    bounded rendering path as instantiation without creating a service, task,
-    or document record.
+    The dry run of ``POST /services/from-template``: the template bodies stay
+    platform-owned, and this gives the seller the same bounded rendering path
+    without creating a service, task, or document record.
 
     Args:
         authorization (None | str | Unset):
@@ -173,7 +184,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | TemplateInstantiationRenderResponse]
+        Response[ErrorResponse | HTTPValidationError | TemplateInstantiationRenderResponse]
     """
 
     kwargs = _get_kwargs(
@@ -193,14 +204,14 @@ async def asyncio(
     body: TemplateInstantiationRender,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | TemplateInstantiationRenderResponse | None:
-    """Render Instance
+) -> ErrorResponse | HTTPValidationError | TemplateInstantiationRenderResponse | None:
+    """Render Service From Template
 
      Preview a system-template render for local inspection.
 
-    The template bodies stay platform-owned. This endpoint provides the same
-    bounded rendering path as instantiation without creating a service, task,
-    or document record.
+    The dry run of ``POST /services/from-template``: the template bodies stay
+    platform-owned, and this gives the seller the same bounded rendering path
+    without creating a service, task, or document record.
 
     Args:
         authorization (None | str | Unset):
@@ -213,7 +224,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | TemplateInstantiationRenderResponse
+        ErrorResponse | HTTPValidationError | TemplateInstantiationRenderResponse
     """
 
     return (

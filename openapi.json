@@ -1278,158 +1278,6 @@
         }
       }
     },
-    "/instances/render": {
-      "post": {
-        "tags": [
-          "seller-instances"
-        ],
-        "summary": "Render Instance",
-        "description": "Preview a system-template render for local inspection.\n\nThe template bodies stay platform-owned. This endpoint provides the same\nbounded rendering path as instantiation without creating a service, task,\nor document record.",
-        "operationId": "seller-instances-render_instance",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-role-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TemplateInstantiationRender"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TemplateInstantiationRenderResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/instances": {
-      "post": {
-        "tags": [
-          "seller-instances"
-        ],
-        "summary": "Create Instance",
-        "description": "Create or revise a service from a template + parameters.\n\nThis is now stateless: the backend stores generation provenance on the\ngenerated Service, not in a separate TemplateInstance row.",
-        "operationId": "seller-instances-create_instance",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-role-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TemplateInstantiationCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TemplateInstantiationCreateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/promotions": {
       "get": {
         "tags": [
@@ -2614,6 +2462,216 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ServiceUploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/from-template": {
+      "post": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Create Service From Template",
+        "description": "Create or revise a service from a platform template + parameters.\n\nThe second constructor for a service, alongside ``POST /services``: that\none takes the whole provider + offering + listing payload, this one takes\na template id plus parameters and renders the payload server-side. Both\nqueue the same ingest task and return the same ``202`` + ``task_id``.\n\nThis is stateless \u2014 the backend stores generation provenance on the\ngenerated Service, not in a separate row, which is why there is no\ninstance object in the response.\n\nPass ``service_id`` to re-render an existing template-managed service\n(the ``<name>.service.json`` sidecar that ``usvc_seller specs upload``\nwrites back); omit it to create a fresh one.\n\nHeaders:\n- Idempotency-Key: Optional client-supplied key for safe retries, with\n  the same semantics as ``POST /services`` \u2014 the key becomes the Celery\n  task id and is deduped for 24 hours, so replaying it returns the same\n  task id instead of queueing a second render.",
+        "operationId": "services_create_from_template",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional client-supplied key for safe retries. When set, the server guarantees the underlying work runs at most once for this key within a 24h window \u2014 replaying the same key returns the same task id without queueing the work twice. Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1\u2013128.",
+              "title": "Idempotency-Key"
+            },
+            "description": "Optional client-supplied key for safe retries. When set, the server guarantees the underlying work runs at most once for this key within a 24h window \u2014 replaying the same key returns the same task id without queueing the work twice. Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1\u2013128."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateInstantiationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/from-template/render": {
+      "post": {
+        "tags": [
+          "seller-services"
+        ],
+        "summary": "Render Service From Template",
+        "description": "Preview a system-template render for local inspection.\n\nThe dry run of ``POST /services/from-template``: the template bodies stay\nplatform-owned, and this gives the seller the same bounded rendering path\nwithout creating a service, task, or document record.",
+        "operationId": "services_render_from_template",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateInstantiationRender"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateInstantiationRenderResponse"
                 }
               }
             }
@@ -7011,30 +7069,7 @@
           "template_id"
         ],
         "title": "TemplateInstantiationCreate",
-        "description": "Render a platform-owned template into a service ingest task."
-      },
-      "TemplateInstantiationCreateResponse": {
-        "properties": {
-          "task_id": {
-            "type": "string",
-            "title": "Task Id"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message"
-          }
-        },
-        "type": "object",
-        "required": [
-          "task_id",
-          "status",
-          "message"
-        ],
-        "title": "TemplateInstantiationCreateResponse"
+        "description": "Request body for ``POST /v1/seller/services/from-template``."
       },
       "TemplateInstantiationRender": {
         "properties": {

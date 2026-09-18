@@ -99,7 +99,6 @@ properties:
 | -------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `client.services`    | `/seller/services/*`                                          | List, get, upload, mutate status / routing / pricing, delete services   |
 | `client.templates`   | `/seller/templates/*`                                         | Browse the platform service-template catalog (read-only: list / get)    |
-| `client.instances`   | `/seller/instances/*`                                         | Create a service from a template, and list / get / delete your instances |
 | `client.promotions`  | `/seller/promotions/*`                                        | CRUD on seller-funded promotion codes                                   |
 | `client.groups`      | `/seller/service-groups/*`                                    | CRUD on service groups                                                  |
 | `client.documents`   | `/seller/documents/*`                                         | Fetch document file content, execute (gateway dispatch), update test    |
@@ -234,7 +233,7 @@ calls still work: `client.services.update(service_id, {"status":
 
 The platform **service-template catalog** (read-only) — discover what you can
 instantiate. `list` the active templates and `get` one's parameter schema.
-Creating a service from a template lives on `client.instances` (below).
+Creating a service from a template lives on `client.services` (`create_from_template` / `render_from_template`).
 
 Manager methods on `client.templates`:
 
@@ -243,28 +242,29 @@ Manager methods on `client.templates`:
 | `list(skip=, limit=, service_type=)`    | Active templates you can instantiate.        |
 | `get(template_id)`                      | One template's metadata + parameter schema.  |
 
-## `client.instances`
+## Creating a service from a template
 
 **Create from system template** — the SDK counterpart of the dashboard's *Create
-from template* flow. `create` renders a template into a **draft** service and,
-with `auto_submit=True`, also submits it for review. Template parameters are
-stored on the generated service's source metadata; there is no separate
-TemplateInstance object to manage.
+from template* flow. `create_from_template` renders a template into a **draft**
+service and, with `auto_submit=True`, also submits it for review. Template
+parameters are stored on the generated service's source metadata; there is no
+separate instance object to manage, which is why these live on
+`client.services` — rendering a template is just the second way to construct a
+service, alongside `upload`.
 
-Manager methods on `client.instances`:
-
-| Method                                                       | Description                                                                                  |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `create(template_id, parameters=, name=, auto_submit=False, service_id=)` | Render a template into a draft service; `auto_submit=True` also submits it for review. Pass `service_id` to revise an existing template-sourced service. Returns the ingest `task_id`. |
+| Method                                                                      | Description                                                                                                                                                                           |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `services.create_from_template(template_id, parameters=, name=, auto_submit=False, service_id=, idempotency_key=)` | Render a template into a draft service; `auto_submit=True` also submits it for review. Pass `service_id` to revise an existing template-sourced service. Returns the ingest `task_id`. |
+| `services.render_from_template(template_id, parameters=)`                   | Preview the rendered provider/offering/listing without creating anything.                                                                                                              |
 
 ```python
 from unitysvc_sellers import Client
 
 with Client() as client:
-    for tpl in client.templates.list():          # discover (catalog)
+    for tpl in client.templates.list():                   # discover (catalog)
         print(tpl.name, tpl.version)
 
-    result = client.instances.create(            # create a draft
+    result = client.services.create_from_template(        # create a draft
         "openai-compatible-llm",
         parameters={
             "api_base_url": "https://api.example.com/v1",
@@ -278,10 +278,17 @@ with Client() as client:
     print(result.task_id)
 ```
 
+Pass `idempotency_key=` to make a retry safe: the key becomes the task id and is
+honoured for 24 hours, so replaying it returns the same task id instead of
+queueing a second render.
+
 Secret-typed parameters take the **name** of a secret you created with
 `client.secrets`, never the key value. Platform services opt in the same way:
 create a private service from the linked system template, and membership is added
 by the backend after review activation.
+
+> **Deprecated:** `client.instances.create` / `.render` still work as thin
+> aliases for these two methods and warn on use. They are removed in 0.5.0.
 
 ## `client.promotions`
 

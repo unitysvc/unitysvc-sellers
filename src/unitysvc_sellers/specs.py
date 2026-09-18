@@ -64,7 +64,7 @@ def _expand_system_param_file(
         raise ParamRenderError(f"{param_file}: parameters must be a JSON object.")
 
     template_id = _resolve_system_template_id(client, template_ref)
-    rendered = client.instances.render(template_id, parameters=parameters)
+    rendered = client.services.render_from_template(template_id, parameters=parameters)
     service_name = service_name_for_param(param_file)
     expanded_root = Path(output_dir) if output_dir is not None else _system_expand_root(param_file)
     folder = expanded_root if flat else expanded_root / service_name
