@@ -124,7 +124,7 @@ Two keys, both about as small as it gets: an optional `template` and a
   rendered by backend instantiation during `specs upload`.
 - **`parameters`** holds the values, nested (not spread at top level) so a value
   may safely be named `template`/`name`/etc., matching the SDK's
-  `instances.create(parameters={…})` shape and leaving room for future control
+  `services.create_from_template(parameters={…})` shape and leaving room for future control
   keys beside `template`.
 - **No `name` field** — the service name comes from the **path**
   (`specs/unitysvc/resp200.json` → `unitysvc/resp200`), same as a spec folder.

@@ -52,8 +52,8 @@ def _expand_system_param_file(
     """Write a server-rendered system template into the inspection tree.
 
     System template bodies intentionally never leave the platform. Previewing
-    through ``/instances/render`` gives ``specs expand`` the same rendered
-    provider/offering/listing content without creating an ingest task.
+    through ``/services/from-template/render`` gives ``specs expand`` the same
+    rendered provider/offering/listing content without creating an ingest task.
     """
     data = load_param_data(param_file)
     template_ref = data.get("template")

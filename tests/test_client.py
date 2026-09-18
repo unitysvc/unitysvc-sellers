@@ -226,42 +226,6 @@ class TestCreateFromTemplate:
         assert "Idempotency-Key" not in route.calls.last.request.headers
 
     @respx.mock
-    def test_the_deprecated_instances_alias_still_reaches_the_new_route(
-        self, client: Client
-    ) -> None:
-        """``client.instances`` is kept as a shim until 0.5.0 — it must warn."""
-        route = respx.post(f"{BASE_URL}/services/from-template").mock(
-            return_value=httpx.Response(202, json=self._resp())
-        )
-
-        with pytest.warns(DeprecationWarning, match="create_from_template"):
-            resp = client.instances.create(uuid.uuid4(), parameters={"k": "v"})
-
-        assert resp.task_id == "t1"
-        assert route.called
-
-    @respx.mock
-    def test_the_deprecated_render_alias_still_reaches_the_new_route(
-        self, client: Client
-    ) -> None:
-        route = respx.post(f"{BASE_URL}/services/from-template/render").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "provider_data": {},
-                    "offering_data": {},
-                    "listing_data": {"status": "ready"},
-                },
-            )
-        )
-
-        with pytest.warns(DeprecationWarning, match="render_from_template"):
-            rendered = client.instances.render(uuid.uuid4())
-
-        assert rendered["listing_data"]["status"] == "ready"
-        assert route.called
-
-    @respx.mock
     def test_create_preserves_dict_shaped_422_detail(self, client: Client) -> None:
         detail = {
             "detail": {

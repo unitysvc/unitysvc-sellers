@@ -287,9 +287,6 @@ Secret-typed parameters take the **name** of a secret you created with
 create a private service from the linked system template, and membership is added
 by the backend after review activation.
 
-> **Deprecated:** `client.instances.create` / `.render` still work as thin
-> aliases for these two methods and warn on use. They are removed in 0.5.0.
-
 ## `client.promotions`
 
 Seller-funded promotion codes — discounts the seller pays for, to
