@@ -71,13 +71,13 @@ usvc seller specs upload acme/gpt --submit
 }
 ```
 
-**From the SDK**, `client.templates` (catalog) and `client.instances` (create):
+**From the SDK**, `client.templates` (catalog) and `client.services.create_from_template` (create):
 
 ```python
 from unitysvc_sellers import Client
 
 with Client() as client:
-    result = client.instances.create(
+    result = client.services.create_from_template(
         "openai-compatible-llm",
         parameters={
             "api_base_url": "https://api.example.com/v1",
@@ -88,13 +88,13 @@ with Client() as client:
     )
 ```
 
-`create` renders the template into a **draft** service — returning the ingest
+`create_from_template` renders the template into a **draft** service — returning the ingest
 `task_id` — and leaves it a reviewable draft by default (mirroring the backend's
 `auto_submit=false`). Pass `--submit` (CLI) /
 `auto_submit=True` (SDK) to also submit it for review in the same call (otherwise
 submit later with `usvc seller services submit`). Secret-typed parameters take the **secret name**
 (create it first with `usvc seller secrets`), never the key value. See the
-[SDK Guide → `client.instances`](sdk-guide.md#clientinstances) for the full API.
+[SDK Guide → Creating a service from a template](sdk-guide.md#creating-a-service-from-a-template) for the full API.
 
 ### 2. Platform services — opt in through the template
 

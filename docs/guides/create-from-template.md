@@ -73,14 +73,15 @@ For repos that manage these memberships as files, keep them under
 
 ## From the SDK
 
-`client.templates` browses the catalog; `client.instances.create` starts the
-same backend render directly:
+`client.templates` browses the catalog;
+`client.services.create_from_template` starts the same backend render
+directly:
 
 ```python
 from unitysvc_sellers import Client
 
 with Client() as client:
-    result = client.instances.create(
+    result = client.services.create_from_template(
         "openai-compatible-llm",
         parameters={
             "api_base_url": "https://api.acme.ai/v1",

@@ -91,8 +91,8 @@ def test_expand_system_template_writes_server_preview(
         )
     )
 
-    class _Instances:
-        def render(self, template_id: str, *, parameters: dict) -> dict:
+    class _Services:
+        def render_from_template(self, template_id: str, *, parameters: dict) -> dict:
             assert template_id == "template-id"
             assert parameters["service_name"] == "llm-fast/crofai/deepseek-v3.2"
             assert parameters["status"] == "deprecated"
@@ -103,7 +103,7 @@ def test_expand_system_template_writes_server_preview(
             }
 
     class _Client:
-        instances = _Instances()
+        services = _Services()
 
     monkeypatch.setattr(specs, "_resolve_system_template_id", lambda client, ref: "template-id")
     folder = specs._expand_system_param_file(_Client(), param, output_dir=None, flat=False)

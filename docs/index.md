@@ -58,8 +58,10 @@ from unitysvc_sellers import Client
 
 with Client() as client:
     services = client.services.list()
-    client.instances.create("openai-compatible-llm",
-                            parameters={"api_base_url": "https://api.example.com/v1"})
+    client.services.create_from_template(
+        "openai-compatible-llm",
+        parameters={"api_base_url": "https://api.example.com/v1"},
+    )
 ```
 
 ## What you can do

@@ -39,7 +39,6 @@ if TYPE_CHECKING:
     from .adocuments import AsyncDocuments
     from .afiles import AsyncFiles
     from .agroups import AsyncGroups
-    from .ainstances import AsyncInstances
     from .apromotions import AsyncPromotions
     from .asecrets import AsyncSecrets
     from .aservices import AsyncServices
@@ -95,7 +94,6 @@ class AsyncClient:
         self._documents: AsyncDocuments | None = None
         self._tasks: AsyncTasks | None = None
         self._templates: AsyncTemplates | None = None
-        self._instances: AsyncInstances | None = None
         self._secrets: AsyncSecrets | None = None
 
     # ------------------------------------------------------------------
@@ -170,14 +168,6 @@ class AsyncClient:
 
             self._templates = AsyncTemplates(self._client)
         return self._templates
-
-    @property
-    def instances(self) -> AsyncInstances:
-        if self._instances is None:
-            from .ainstances import AsyncInstances
-
-            self._instances = AsyncInstances(self._client)
-        return self._instances
 
     @property
     def secrets(self) -> AsyncSecrets:

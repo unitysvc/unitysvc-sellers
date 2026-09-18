@@ -523,7 +523,7 @@ class TestUploadSystemTemplateParams:
         )
 
         respx.get(f"{BASE_URL}/templates").mock(return_value=httpx.Response(200, json=self._template_list()))
-        instance_route = respx.post(f"{BASE_URL}/instances").mock(
+        from_template_route = respx.post(f"{BASE_URL}/services/from-template").mock(
             return_value=httpx.Response(202, json={"task_id": "t-system", "status": "queued", "message": "q"})
         )
         service_route = respx.post(f"{BASE_URL}/services").mock(return_value=httpx.Response(500))
@@ -553,7 +553,7 @@ class TestUploadSystemTemplateParams:
         assert result.services.total == 1
         assert result.services.success == 1
         assert service_route.call_count == 0
-        sent = json.loads(instance_route.calls.last.request.content.decode())
+        sent = json.loads(from_template_route.calls.last.request.content.decode())
         assert sent == {
             "template_id": "11111111-1111-1111-1111-111111111111",
             "name": "crofai/deepseek-v3.2",
@@ -580,7 +580,7 @@ class TestUploadSystemTemplateParams:
         )
 
         respx.get(f"{BASE_URL}/templates").mock(return_value=httpx.Response(200, json=self._template_list()))
-        instance_route = respx.post(f"{BASE_URL}/instances").mock(
+        from_template_route = respx.post(f"{BASE_URL}/services/from-template").mock(
             return_value=httpx.Response(202, json={"task_id": "t-system", "status": "queued", "message": "q"})
         )
         respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
@@ -603,7 +603,7 @@ class TestUploadSystemTemplateParams:
         with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
             upload_directory(client, tmp_path, task_poll_interval=0.001, task_wait_timeout=5.0)
 
-        sent = json.loads(instance_route.calls.last.request.content.decode())
+        sent = json.loads(from_template_route.calls.last.request.content.decode())
         assert sent["service_id"] == "33333333-3333-3333-3333-333333333333"
         assert json.loads((specs / "deepseek-v3.2.service.json").read_text())["service_id"] == (
             "33333333-3333-3333-3333-333333333333"
@@ -618,7 +618,7 @@ class TestUploadSystemTemplateParams:
         )
 
         respx.get(f"{BASE_URL}/templates").mock(return_value=httpx.Response(200, json=self._template_list()))
-        instance_route = respx.post(f"{BASE_URL}/instances").mock(
+        from_template_route = respx.post(f"{BASE_URL}/services/from-template").mock(
             return_value=httpx.Response(202, json={"task_id": "t-system", "status": "queued", "message": "q"})
         )
         respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
@@ -646,7 +646,7 @@ class TestUploadSystemTemplateParams:
 
         assert result.services.total == 1
         assert result.services.success == 1
-        sent = json.loads(instance_route.calls.last.request.content.decode())
+        sent = json.loads(from_template_route.calls.last.request.content.decode())
         assert sent["name"] == "crofai/llm-fast/deepseek-v3.2"
 
     @respx.mock
@@ -673,7 +673,7 @@ class TestUploadSystemTemplateParams:
         )
 
         respx.get(f"{BASE_URL}/templates").mock(return_value=httpx.Response(200, json=self._template_list()))
-        instance_route = respx.post(f"{BASE_URL}/instances").mock(
+        from_template_route = respx.post(f"{BASE_URL}/services/from-template").mock(
             return_value=httpx.Response(202, json={"task_id": "t-system", "status": "queued", "message": "q"})
         )
         respx.get(url__startswith=f"{BASE_URL}/tasks/").mock(
@@ -701,7 +701,7 @@ class TestUploadSystemTemplateParams:
 
         assert result.services.total == 1
         assert result.services.success == 1
-        sent = json.loads(instance_route.calls.last.request.content.decode())
+        sent = json.loads(from_template_route.calls.last.request.content.decode())
         assert sent == {
             "template_id": "11111111-1111-1111-1111-111111111111",
             "name": "llm-fast/crofai/deepseek-v3.2",

@@ -1,8 +1,8 @@
 """``async_client.templates`` — async system service-template catalog.
 
 Async mirror of :mod:`unitysvc_sellers.templates` (read-only). Creating a
-service from a template lives on ``async_client.instances`` (see
-:mod:`unitysvc_sellers.ainstances`).
+service from a template lives on ``async_client.services`` (see
+:mod:`unitysvc_sellers.aservices`).
 """
 
 from __future__ import annotations

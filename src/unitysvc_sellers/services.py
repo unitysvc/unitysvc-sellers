@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from ._http import unwrap
+from ._http import parse_raw, unwrap
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from ._generated.models.service_detail_response import ServiceDetailResponse
     from ._generated.models.service_public import ServicePublic
     from ._generated.models.service_update_response import ServiceUpdateResponse
+    from ._generated.models.service_upload_response import ServiceUploadResponse
     from ._generated.models.task_queued_response import TaskQueuedResponse
     from .client import Client
 
@@ -652,6 +653,100 @@ class Services:
                 auto_submit=auto_submit,
             )
         )
+
+    # ------------------------------------------------------------------
+    # Write — render a platform template into a service
+    # ------------------------------------------------------------------
+    def create_from_template(
+        self,
+        template_id: str | UUID,
+        *,
+        parameters: dict[str, Any] | None = None,
+        name: str | None = None,
+        auto_submit: bool = False,
+        service_id: str | UUID | None = None,
+        idempotency_key: str | None = None,
+    ) -> ServiceUploadResponse:
+        """Create or revise a service from a platform template + parameters.
+
+        The second constructor for a service, alongside :meth:`upload`: that one
+        takes the whole provider + offering + listing payload, this one takes a
+        template id plus parameters and lets the backend render the payload. Both
+        queue the same ingest and return its ``task_id``.
+
+        Renders into a **draft** service by default (matching the backend's
+        ``auto_submit=false``); pass ``auto_submit=True`` to also submit that
+        draft for review in the same call. Pass ``service_id`` to re-render an
+        existing service previously created from the same template.
+
+        There is no instance object — template parameters are recorded on the
+        generated service's source metadata — so the response carries only the
+        ingest ``task_id``.
+
+        ``idempotency_key`` makes a retry safe: the key becomes the task id and
+        is honoured for 24h, so replaying it returns the same task id instead of
+        queueing a second render.
+        """
+        from ._generated.api.seller_services import services_create_from_template as op
+        from ._generated.models.service_upload_response import ServiceUploadResponse
+        from ._generated.models.template_instantiation_create import TemplateInstantiationCreate
+        from ._generated.models.template_instantiation_create_parameters import (
+            TemplateInstantiationCreateParameters,
+        )
+
+        body = TemplateInstantiationCreate(
+            template_id=UUID(str(template_id)),
+            parameters=TemplateInstantiationCreateParameters.from_dict(parameters or {}),
+            auto_submit=auto_submit,
+        )
+        if name is not None:
+            body.name = name
+        if service_id is not None:
+            body.service_id = UUID(str(service_id))
+
+        extra: dict[str, Any] = {}
+        if idempotency_key is not None:
+            extra["idempotency_key"] = idempotency_key
+
+        # Request built by the generated code, response parsed by us: this
+        # route answers invalid parameters with a dict-shaped 422 detail that
+        # the generated parser cannot read. See ``parse_raw``.
+        request = op._get_kwargs(body=body, **extra)
+        return parse_raw(
+            self._client.get_httpx_client().request(**request), ServiceUploadResponse
+        )
+
+    def render_from_template(
+        self,
+        template_id: str | UUID,
+        *,
+        parameters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Preview a template render without creating anything.
+
+        The dry run of :meth:`create_from_template`. The returned
+        provider/offering/listing data is suitable for
+        ``usvc seller specs expand`` inspection output; it enqueues no ingest
+        task and creates no platform records.
+        """
+        from ._generated.api.seller_services import services_render_from_template as op
+        from ._generated.models.template_instantiation_render import TemplateInstantiationRender
+        from ._generated.models.template_instantiation_render_parameters import (
+            TemplateInstantiationRenderParameters,
+        )
+        from ._generated.models.template_instantiation_render_response import (
+            TemplateInstantiationRenderResponse,
+        )
+
+        body = TemplateInstantiationRender(
+            template_id=UUID(str(template_id)),
+            parameters=TemplateInstantiationRenderParameters.from_dict(parameters or {}),
+        )
+        request = op._get_kwargs(body=body)
+        return parse_raw(
+            self._client.get_httpx_client().request(**request),
+            TemplateInstantiationRenderResponse,
+        ).to_dict()
 
     # ------------------------------------------------------------------
     # Write — update

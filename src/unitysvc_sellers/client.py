@@ -60,7 +60,6 @@ if TYPE_CHECKING:
     from .documents import Documents
     from .files import Files
     from .groups import Groups
-    from .instances import Instances
     from .promotions import Promotions
     from .secrets import Secrets
     from .services import Services
@@ -125,7 +124,6 @@ class Client:
         self._documents: Documents | None = None
         self._tasks: Tasks | None = None
         self._templates: Templates | None = None
-        self._instances: Instances | None = None
         self._secrets: Secrets | None = None
 
     # ------------------------------------------------------------------
@@ -205,14 +203,6 @@ class Client:
 
             self._templates = Templates(self._client)
         return self._templates
-
-    @property
-    def instances(self) -> Instances:
-        if self._instances is None:
-            from .instances import Instances
-
-            self._instances = Instances(self._client)
-        return self._instances
 
     @property
     def secrets(self) -> Secrets:

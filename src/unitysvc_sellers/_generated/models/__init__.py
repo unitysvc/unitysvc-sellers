@@ -122,7 +122,6 @@ from .tasks_get_task_status_response_tasks_get_task_status_additional_property i
 )
 from .template_instantiation_create import TemplateInstantiationCreate
 from .template_instantiation_create_parameters import TemplateInstantiationCreateParameters
-from .template_instantiation_create_response import TemplateInstantiationCreateResponse
 from .template_instantiation_render import TemplateInstantiationRender
 from .template_instantiation_render_parameters import TemplateInstantiationRenderParameters
 from .template_instantiation_render_response import TemplateInstantiationRenderResponse
@@ -246,7 +245,6 @@ __all__ = (
     "TasksGetTaskStatusResponseTasksGetTaskStatusAdditionalProperty",
     "TemplateInstantiationCreate",
     "TemplateInstantiationCreateParameters",
-    "TemplateInstantiationCreateResponse",
     "TemplateInstantiationRender",
     "TemplateInstantiationRenderParameters",
     "TemplateInstantiationRenderResponse",
