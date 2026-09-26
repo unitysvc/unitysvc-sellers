@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from ._http import parse_raw, unwrap
+from .exceptions import ResponseParseError
 from .services import RunTestsResult, _parse_run_tests_payload, _resolve_channel_type, _service_detail_payload
 
 if TYPE_CHECKING:
@@ -257,10 +258,17 @@ class AsyncServices:
     async def get(self, service_id: str | UUID) -> AsyncService:
         from ._generated.api.seller_services import services_get
 
-        response = await services_get.asyncio_detailed(
-            service_id=str(service_id),
-            client=self._client,
-        )
+        # See ``Services.get`` — same translation, same reason.
+        try:
+            response = await services_get.asyncio_detailed(
+                service_id=str(service_id),
+                client=self._client,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ResponseParseError(
+                f"Could not decode the service detail response for {service_id}: {exc}",
+                status_code=200,
+            ) from exc
         raw = response.content and response.parsed is None and 200 <= int(response.status_code) < 300
         if raw:
             return AsyncService(

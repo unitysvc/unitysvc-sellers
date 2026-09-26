@@ -35,6 +35,7 @@ from .exceptions import (
     NotFoundError,
     PermissionError,
     RateLimitError,
+    ResponseParseError,
     SellerSDKError,
     ServerError,
     ValidationError,
@@ -66,6 +67,7 @@ __all__ = [
     "ConflictError",
     "RateLimitError",
     "ServerError",
+    "ResponseParseError",
     "ExperimentalDisabledError",
     # Experimental feature gate (unitysvc#1540)
     "experimental_enabled",

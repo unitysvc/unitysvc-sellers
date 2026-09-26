@@ -6,8 +6,14 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cas
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.rate_limit_unit_enum import RateLimitUnitEnum, check_rate_limit_unit_enum
-from ..models.time_window_enum import TimeWindowEnum, check_time_window_enum
+from ..models.provider_account_rate_limit_unit import (
+    ProviderAccountRateLimitUnit,
+    check_provider_account_rate_limit_unit,
+)
+from ..models.provider_account_rate_limit_window_type_0 import (
+    ProviderAccountRateLimitWindowType0,
+    check_provider_account_rate_limit_window_type_0,
+)
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ProviderAccountRateLimit")
@@ -38,8 +44,9 @@ class ProviderAccountRateLimit:
     ops_rate_limit_refs; all matching refs for the same seller consume the same live gateway bucket. """
     limit: int
     """ Maximum allowed — in flight for `concurrent`, per window otherwise """
-    unit: RateLimitUnitEnum
-    window: None | TimeWindowEnum | Unset = UNSET
+    unit: ProviderAccountRateLimitUnit
+    """ What is being limited (requests, tokens, concurrent, …) """
+    window: None | ProviderAccountRateLimitWindowType0 | Unset = UNSET
     """ Time window. Omitted for `concurrent`, which is a gauge rather than a counter. """
     description: None | str | Unset = UNSET
     """ Where the number came from, e.g. the provider's published limit for this tier """
@@ -88,9 +95,9 @@ class ProviderAccountRateLimit:
 
         limit = d.pop("limit")
 
-        unit = check_rate_limit_unit_enum(d.pop("unit"))
+        unit = check_provider_account_rate_limit_unit(d.pop("unit"))
 
-        def _parse_window(data: object) -> None | TimeWindowEnum | Unset:
+        def _parse_window(data: object) -> None | ProviderAccountRateLimitWindowType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -98,12 +105,12 @@ class ProviderAccountRateLimit:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                window_type_0 = check_time_window_enum(data)
+                window_type_0 = check_provider_account_rate_limit_window_type_0(data)
 
                 return window_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(None | TimeWindowEnum | Unset, data)
+            return cast(None | ProviderAccountRateLimitWindowType0 | Unset, data)
 
         window = _parse_window(d.pop("window", UNSET))
 

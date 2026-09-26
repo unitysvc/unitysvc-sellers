@@ -18,8 +18,8 @@ T = TypeVar("T", bound="DeprecatedServiceItem")
 class DeprecatedServiceItem:
     """GET /seller/services/deprecated — row in the deprecation archive.
 
-    Deprecated services are excluded from ``service_mview`` and from
-    every browse surface (see #1027). This minimal shape exists only to
+    Deprecated services are excluded from every browse surface (see
+    #1027). This minimal shape exists only to
     support the recovery workflow: a seller can find a service they
     deprecated and email the id to platform support, who has admin
     access to flip ``deprecated → active``.

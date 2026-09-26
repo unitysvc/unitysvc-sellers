@@ -43,6 +43,25 @@ def _service_public(**overrides) -> dict:
     return base
 
 
+def _service_detail(service_id: str, **overrides) -> dict:
+    """Build a ServiceDetailResponse dict for mocked ``GET /services/{id}``.
+
+    A different shape from ``_service_public`` above, and not interchangeable:
+    the detail record keys the id as ``service_id`` and requires ``status``,
+    ``documents`` and ``interfaces``. The generated ``from_dict`` enforces that
+    now — while ``ServiceDetailResponse`` was missing from the client, any dict
+    was accepted (unitysvc-sellers#205).
+    """
+    base = {
+        "service_id": service_id,
+        "status": "active",
+        "documents": [],
+        "interfaces": [],
+    }
+    base.update(overrides)
+    return base
+
+
 def _price_rule_public(**overrides) -> dict:
     """Build a PriceRulePublic dict for mocked promotion responses."""
     base = {
@@ -300,16 +319,18 @@ class TestServicesCommands:
     @respx.mock
     def test_delete_id_resolves_direct_get_active_record(self, runner: CliRunner, env: None) -> None:
         sid = "34fb995a-1234-1234-1234-123456789abc"
+        # ``GET /services/{id}`` answers with ServiceDetailResponse, not the
+        # ServicePublic shape ``list`` returns — the detail record keys the id as
+        # ``service_id``. This mocked the list shape while the SDK was handing
+        # back raw dicts and any key would do (unitysvc-sellers#205).
         respx.get(f"{BASE_URL}/services/34fb995a").mock(
             return_value=httpx.Response(
                 200,
-                json=_service_public(
-                    id=sid,
-                    name="crofai-deepseek-v3-2",
+                json=_service_detail(
+                    sid,
+                    service_name="crofai-deepseek-v3-2",
                     provider_name="unitysvc-labs",
-                    service_type="llm",
                     status="review",
-                    visibility="private",
                     managed_by_template="llm-fast",
                 ),
             )
@@ -328,19 +349,22 @@ class TestServicesCommands:
         assert delete_route.calls.last.request.url.params["dryrun"] == "true"
 
     @respx.mock
-    def test_show_id_unwraps_enveloped_service_detail(self, runner: CliRunner, env: None) -> None:
+    def test_show_id_renders_the_service_detail(self, runner: CliRunner, env: None) -> None:
+        # Was ``test_show_id_unwraps_enveloped_service_detail``, feeding a
+        # ``{"data": ...}`` envelope. Neither the handler nor the spec produces
+        # one; the unwrap only ever ran because the 200 went unparsed, which is
+        # the bug this release fixes (unitysvc-sellers#205). The payload is the
+        # declared shape now, and the assertions below are unchanged.
         sid = "34fb995a-1234-1234-1234-123456789abc"
-        detail = {
-            "service_id": sid,
-            "service_name": "crofai-deepseek-v3-2",
-            "status": "review",
-            "provider_name": "unitysvc-labs",
-            "managed_by_template": "llm-fast",
-            "documents": [],
-            "interfaces": [],
-        }
-        respx.get(f"{BASE_URL}/services/34fb995a").mock(return_value=httpx.Response(200, json={"data": detail}))
-        respx.get(f"{BASE_URL}/services/{sid}").mock(return_value=httpx.Response(200, json={"data": detail}))
+        detail = _service_detail(
+            sid,
+            service_name="crofai-deepseek-v3-2",
+            provider_name="unitysvc-labs",
+            status="review",
+            managed_by_template="llm-fast",
+        )
+        respx.get(f"{BASE_URL}/services/34fb995a").mock(return_value=httpx.Response(200, json=detail))
+        respx.get(f"{BASE_URL}/services/{sid}").mock(return_value=httpx.Response(200, json=detail))
 
         result = runner.invoke(cli_app, ["services", "show", "--id", "34fb995a"])
 

@@ -4082,7 +4082,7 @@
           "id"
         ],
         "title": "DeprecatedServiceItem",
-        "description": "GET /seller/services/deprecated \u2014 row in the deprecation archive.\n\nDeprecated services are excluded from ``service_mview`` and from\nevery browse surface (see #1027). This minimal shape exists only to\nsupport the recovery workflow: a seller can find a service they\ndeprecated and email the id to platform support, who has admin\naccess to flip ``deprecated \u2192 active``.\n\n``deprecated_at`` is the service's ``updated_at`` at the time of the\nstatus flip. It can drift if the deprecated row is later edited\n(rare), so callers should treat it as \"roughly when this was\ndeprecated\", not as an authoritative event time."
+        "description": "GET /seller/services/deprecated \u2014 row in the deprecation archive.\n\nDeprecated services are excluded from every browse surface (see\n#1027). This minimal shape exists only to\nsupport the recovery workflow: a seller can find a service they\ndeprecated and email the id to platform support, who has admin\naccess to flip ``deprecated \u2192 active``.\n\n``deprecated_at`` is the service's ``updated_at`` at the time of the\nstatus flip. It can drift if the deprecated row is later edited\n(rare), so callers should treat it as \"roughly when this was\ndeprecated\", not as an authoritative event time."
       },
       "DocumentCategoryEnum": {
         "type": "string",
@@ -4697,18 +4697,35 @@
             "description": "Maximum allowed \u2014 in flight for `concurrent`, per window otherwise"
           },
           "unit": {
-            "$ref": "#/components/schemas/RateLimitUnitEnum",
+            "type": "string",
+            "enum": [
+              "requests",
+              "tokens",
+              "input_tokens",
+              "output_tokens",
+              "bytes",
+              "concurrent"
+            ],
+            "title": "Unit",
             "description": "What is being limited (requests, tokens, concurrent, \u2026)"
           },
           "window": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/TimeWindowEnum"
+                "type": "string",
+                "enum": [
+                  "second",
+                  "minute",
+                  "hour",
+                  "day",
+                  "month"
+                ]
               },
               {
                 "type": "null"
               }
             ],
+            "title": "Window",
             "description": "Time window. Omitted for `concurrent`, which is a gauge rather than a counter."
           },
           "description": {
@@ -4735,114 +4752,7 @@
         "title": "ProviderAccountRateLimit",
         "description": "One ceiling the provider grants the SELLER'S ACCOUNT.\n\nThis is the only rate limit a seller can state truthfully. Providers scope\ntheir limits to the account that owns the upstream key \u2014 OpenAI, Groq and\nAnthropic at the org level, Mistral per workspace, Parasail per account \u2014\nso the number belongs to the provider record, once, not to each of the\nseller's services.\n\nDeclaring it per service is not merely coarse, it inverts: a 60 RPM account\nceiling written onto 18 services authorises 1080 RPM against an account\nthat grants 60. See unitysvc/unitysvc#1937.\n\nWhat a seller CANNOT state is any individual customer's allowance \u2014 that\ndepends on how many customers are active at request time. The gateway\nderives that from this ceiling; nobody authors it."
       },
-      "ProviderData-Input": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 2,
-            "title": "Name",
-            "description": "Unique provider identifier (URL-friendly, e.g., 'fireworks', 'anthropic')"
-          },
-          "display_name": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Display Name",
-            "description": "Human-readable provider name (e.g., 'Fireworks AI', 'Anthropic')"
-          },
-          "contact_email": {
-            "type": "string",
-            "format": "email",
-            "title": "Contact Email",
-            "description": "Primary contact email for the provider"
-          },
-          "secondary_contact_email": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "email"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Secondary Contact Email",
-            "description": "Secondary contact email"
-          },
-          "homepage": {
-            "type": "string",
-            "maxLength": 2083,
-            "minLength": 1,
-            "format": "uri",
-            "title": "Homepage",
-            "description": "Provider's homepage URL"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description",
-            "description": "Brief description of the provider"
-          },
-          "status": {
-            "$ref": "#/components/schemas/ProviderStatusEnum",
-            "description": "Provider status: draft (skip publish), ready (for review), or deprecated (retired)",
-            "default": "draft"
-          },
-          "documents": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Documents",
-            "description": "Documents associated with the provider, keyed by title"
-          },
-          "rate_limits": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ProviderAccountRateLimit"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rate Limits",
-            "description": "Ceilings the provider grants the seller's account, shared by every service and customer routed through that credential. Not per service, and not per customer \u2014 the gateway derives a customer's share from these."
-          }
-        },
-        "type": "object",
-        "required": [
-          "name",
-          "contact_email",
-          "homepage"
-        ],
-        "title": "ProviderData",
-        "description": "Base data structure for provider information.\n\nThis model contains the core fields needed to describe a provider,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `ProviderV1` in unitysvc-core (with additional\n   time_created and services_populator fields for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_provider()\n   - Publish operations from CLI\n\nKey characteristics:\n- Uses string identifiers that match database requirements\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)"
-      },
-      "ProviderData-Output": {
+      "ProviderData": {
         "properties": {
           "name": {
             "type": "string",
@@ -4958,18 +4868,6 @@
         ],
         "title": "ProviderStatusEnum",
         "description": "Status values that sellers can set for providers.\n\nSeller-accessible statuses:\n- draft: Work in progress, skipped during publish\n- ready: Complete and ready for admin review\n- deprecated: Provider is retired/end of life"
-      },
-      "RateLimitUnitEnum": {
-        "type": "string",
-        "enum": [
-          "requests",
-          "tokens",
-          "input_tokens",
-          "output_tokens",
-          "bytes",
-          "concurrent"
-        ],
-        "title": "RateLimitUnitEnum"
       },
       "RunTestsResponse": {
         "properties": {
@@ -5455,7 +5353,7 @@
       "ServiceDataInput": {
         "properties": {
           "provider_data": {
-            "$ref": "#/components/schemas/ProviderData-Input",
+            "$ref": "#/components/schemas/ProviderData",
             "description": "Provider configuration data"
           },
           "offering_data": {
@@ -5608,7 +5506,7 @@
           "provider": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ProviderData-Output"
+                "$ref": "#/components/schemas/ProviderData"
               },
               {
                 "type": "null"
@@ -7246,17 +7144,6 @@
         "type": "object",
         "title": "TestDetailResponse",
         "description": "GET /seller/documents/{id}/test-details \u2014 one result cell's details.\n\nServes the bulky per-execution fields (stdout/stderr/masked env/rendered\nscript) for one ``meta.test`` cell. During the #1901 transition the\nfields come either from the cell's content-addressed S3 blob\n(``source=\"blob\"``) or from the legacy inline meta fields\n(``source=\"inline\"``). ``expired=True`` means the cell exists but its\nblob has aged out of ``TEST_DETAIL_RETENTION_DAYS`` \u2014 re-run the test to\nreproduce the details; ``status``/``executed_at`` still describe the\nrecorded outcome."
-      },
-      "TimeWindowEnum": {
-        "type": "string",
-        "enum": [
-          "second",
-          "minute",
-          "hour",
-          "day",
-          "month"
-        ],
-        "title": "TimeWindowEnum"
       },
       "ValidationError": {
         "properties": {

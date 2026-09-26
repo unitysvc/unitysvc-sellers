@@ -27,6 +27,7 @@ __all__ = [
     "RateLimitError",
     "ServerError",
     "ExperimentalDisabledError",
+    "ResponseParseError",
 ]
 
 
@@ -40,6 +41,37 @@ class ExperimentalDisabledError(SellerSDKError):
     Set ``UNITYSVC_EXPERIMENTAL=1`` and use a deployment that serves the feature
     (staging) — see :mod:`unitysvc_sellers._experimental` (unitysvc#1540).
     """
+
+
+class ResponseParseError(SellerSDKError):
+    """The server returned success, but a body this SDK could not decode.
+
+    Deliberately **not** an :class:`APIError`: the request succeeded, so there
+    is no error status to carry. It means the response did not match the schema
+    the client was generated from — a backend ahead of the installed SDK, a
+    proxy that rewrapped the body, or a generator that dropped the response
+    model (unitysvc/unitysvc-sellers#205, where a missing
+    ``ServiceDetailResponse`` silently degraded ``services.get()`` to dicts).
+
+    Raised in place of the ``KeyError``/``TypeError``/``ValueError`` the
+    generated ``from_dict`` would otherwise leak, so callers can catch it with
+    every other SDK error. ``__cause__`` keeps the original.
+
+    Attributes:
+        status_code: The success status the server returned.
+        response_body: Raw response bytes, for debugging.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int,
+        response_body: bytes | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.response_body = response_body
 
 
 class APIError(SellerSDKError):
