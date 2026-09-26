@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from ._http import parse_raw, unwrap
+from .exceptions import ResponseParseError
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
@@ -513,10 +514,21 @@ class Services:
         """
         from ._generated.api.seller_services import services_get
 
-        response = services_get.sync_detailed(
-            service_id=str(service_id),
-            client=self._client,
-        )
+        # The generated call decodes the 200 body internally, so a body that
+        # does not match ``ServiceDetailResponse`` surfaces as a bare KeyError
+        # from ``from_dict``. Translate it: callers catch SellerSDKError, not
+        # whatever the generated layer happens to raise. The CLI's partial-id
+        # resolver depends on this to fall through to its list-and-match path.
+        try:
+            response = services_get.sync_detailed(
+                service_id=str(service_id),
+                client=self._client,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ResponseParseError(
+                f"Could not decode the service detail response for {service_id}: {exc}",
+                status_code=200,
+            ) from exc
         raw = response.content and response.parsed is None and 200 <= int(response.status_code) < 300
         if raw:
             return Service(_service_detail_payload(json.loads(response.content.decode("utf-8"))), parent=self._parent)
