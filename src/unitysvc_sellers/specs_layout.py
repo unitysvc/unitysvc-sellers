@@ -38,6 +38,7 @@ from rich.console import Console
 from unitysvc_core.validator import DataValidator
 
 from .params_render import discover_system_param_files, validate_system_param_file
+from .price_headline import check_channel_price_headline
 from .utils import is_hidden_path
 
 app = typer.Typer(help="Local operations on the flat specs/ layout")
@@ -144,6 +145,13 @@ def validate_service_folder(validator: DataValidator, root: Path, folder: Path) 
     if "listing" in kind_files:
         data, load_errors = validator.load_data_file(kind_files["listing"])
         if not load_errors and isinstance(data, dict):
+            # A channel-keyed price's headline is the only string the catalog
+            # row renders, so it has to describe every channel — see
+            # price_headline for the failure this caught in production.
+            errors.extend(
+                f"{kind_files['listing'].relative_to(root)}: {e}"
+                for e in check_channel_price_headline(data.get("list_price"))
+            )
             listing_name = data.get("name")
             if listing_name != rel_folder:
                 errors.append(
