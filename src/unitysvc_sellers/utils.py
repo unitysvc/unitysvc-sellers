@@ -422,6 +422,12 @@ def convert_convenience_fields_to_documents(
     return data
 
 
+# Template variables the renderer owns. Seller-authored context (upstream
+# interface fields, params) must never shadow them — mirrors the platform's
+# ``RESERVED_DOCUMENT_RENDER_CONTEXT_KEYS`` (unitysvc#2488, #2542).
+RESERVED_RENDER_CONTEXT_KEYS: frozenset[str] = frozenset({"local_testing", "customer_display"})
+
+
 def render_template_file(
     file_path: Path,
     listing: dict[str, Any] | None = None,
@@ -430,6 +436,7 @@ def render_template_file(
     seller: dict[str, Any] | None = None,
     interface: dict[str, Any] | None = None,
     local_testing: bool = False,
+    customer_display: bool = False,
     **extra_context: Any,
 ) -> tuple[str, str]:
     """Render a Jinja2 template file and return content and new filename.
@@ -450,10 +457,17 @@ def render_template_file(
             upstream (no gateway / set_body transformer).  When False (default), templates
             render the clean, user-facing version where the gateway injects parameters from
             the enrollment automatically.
+        customer_display: When True, the template is being rendered for display to a
+            customer, so ``{% if not customer_display %}`` blocks (execution-only
+            instrumentation such as assertions) are dropped. Mirrors the platform
+            renderer (unitysvc#2488). Defaults to False so every test run keeps its
+            assertions.
         **extra_context: Additional top-level Jinja2 variables.  ``run-tests`` uses this to
             spread the upstream interface fields (``service_base_url``, ``routing_key``,
             ``host``, ``region``, …) directly into the render namespace so unitysvc-data
-            v0.1.7+ templates resolve identically to gateway-side rendering.
+            v0.1.7+ templates resolve identically to gateway-side rendering. The
+            renderer-owned controls (``local_testing``, ``customer_display``) are applied
+            after these, so an upstream field of the same name can never override them.
 
     Returns:
         Tuple of (rendered_content, new_filename_without_j2)
@@ -475,15 +489,20 @@ def render_template_file(
         env.filters["tojson"] = json.dumps
 
         template = env.from_string(file_content)
-        rendered_content = template.render(
-            listing=listing or {},
-            offering=offering or {},
-            provider=provider or {},
-            seller=seller or {},
-            interface=interface or {},
-            local_testing=local_testing,
+        render_context: dict[str, Any] = {
+            "listing": listing or {},
+            "offering": offering or {},
+            "provider": provider or {},
+            "seller": seller or {},
+            "interface": interface or {},
             **extra_context,
-        )
+            # Renderer-owned controls win over anything spread in above, as on
+            # the platform: a seller-authored field must never be able to
+            # switch off execution checks (unitysvc#2488, #2542).
+            "local_testing": local_testing,
+            "customer_display": customer_display,
+        }
+        rendered_content = template.render(**render_context)
 
         # Strip .j2 from filename
         # Example: test.py.j2 -> test.py
@@ -499,7 +518,6 @@ def execute_script_content(
     script: str,
     mime_type: str,
     env_vars: dict[str, str],
-    output_contains: str | None = None,
     timeout: int = 30,
 ) -> dict[str, Any]:
     """Execute script content and return results.
@@ -511,16 +529,19 @@ def execute_script_content(
         script: The script content to execute (expanded, not a template)
         mime_type: Document MIME type ("python", "javascript", "bash")
         env_vars: Environment variables to set (e.g., {"UNITYSVC_API_KEY": "...", "SERVICE_BASE_URL": "..."})
-        output_contains: Optional substring that must appear in stdout for success
         timeout: Execution timeout in seconds (default: 30)
 
     Returns:
         Result dictionary with:
-        - status: "success" | "task_failed" | "script_failed" | "unexpected_output"
+        - status: "success" | "task_failed" | "script_failed"
         - error: Error message (None if success)
         - exit_code: Script exit code (None if script didn't run)
         - stdout: Standard output (truncated to 1KB)
         - stderr: Standard error (truncated to 1KB)
+
+    The exit code is the whole verdict, as on the platform (unitysvc#2490): a
+    script that needs to check what it got back asserts and exits non-zero
+    itself; there is no stdout-substring check (retired in unitysvc#2542).
     """
     import subprocess
     import tempfile
@@ -580,9 +601,6 @@ def execute_script_content(
         if process.returncode != 0:
             result["status"] = "script_failed"
             result["error"] = f"Script exited with code {process.returncode}"
-        elif output_contains and (not process.stdout or output_contains.lower() not in process.stdout.lower()):
-            result["status"] = "unexpected_output"
-            result["error"] = f"Output does not contain: {output_contains}"
         else:
             result["status"] = "success"
             result["error"] = None

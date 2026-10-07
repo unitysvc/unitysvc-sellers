@@ -367,12 +367,11 @@ The platform considers a service untestable (and therefore unfit to activate) wi
   "file_path": "connectivity.sh.j2",
   "is_active": true,
   "is_public": false,
-  "meta": { "output_contains": "ok" },
   "mime_type": "bash"
 }
 ```
 
-`meta.output_contains` (and friends) lets the test runner accept a successful run on a string match rather than just `exit 0`.
+A test passes or fails on its exit code alone. To check what came back, assert inside the script and exit non-zero with a clear message (`grep -q ok <<<"$body" || { echo "expected ok, got: $body" >&2; exit 1; }`). `meta.output_contains` is retired (unitysvc#2542) and no longer gates anything locally or on the platform.
 
 ## 8. Tests must run in both modes — local upstream AND gateway
 

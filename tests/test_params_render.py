@@ -62,7 +62,6 @@ LISTING_J2 = """{
       "file_path": "connectivity.sh.j2",
       "is_active": true,
       "is_public": false,
-      "meta": {"output_contains": "ok"},
       "mime_type": "bash"
     }
   }

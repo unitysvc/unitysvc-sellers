@@ -25,6 +25,7 @@ from unitysvc_core.validator import DISPOSITION_VALUES
 from .output import format_output
 from .params_render import invocation_cwd
 from .utils import (
+    RESERVED_RENDER_CONTEXT_KEYS,
     dump_canonical_json,
     execute_script_content,
     find_files_by_pattern,
@@ -164,7 +165,6 @@ def extract_code_examples_from_listing(listing_data: dict[str, Any], listing_fil
                     "listing_data": listing_data,  # Full listing data for templates
                     "listing_file": listing_file,  # Path to listing file for loading related data
                     "interface": doc_interface,  # The doc's interface for templates (base_url, routing_key, etc.)
-                    "output_contains": meta.get("output_contains"),  # Substring to check in output (from meta)
                     "requirements": meta.get("requirements"),  # Required packages (from meta)
                     "category": category,  # Track which category this is
                     "channels": meta.get("channels"),  # Upstream channels this doc applies to (None/[] = all)
@@ -186,10 +186,15 @@ def build_upstream_template_context(interface: dict[str, Any]) -> dict[str, Any]
     ``service_base_url`` to match the data-package naming convention, and
     ``api_key`` is intentionally dropped — keys are never inlined into rendered
     output; templates read ``UNITYSVC_API_KEY`` from the environment instead.
+
+    Renderer-owned control names (``local_testing``, ``customer_display``) are
+    dropped too: callers spread this dict into ``render_template_file(**ctx)``,
+    where a field of that name would bind to the control parameter itself and
+    could switch off a test's assertions (unitysvc#2542).
     """
     context: dict[str, Any] = {}
     for field, value in interface.items():
-        if field == "api_key":
+        if field == "api_key" or field in RESERVED_RENDER_CONTEXT_KEYS:
             continue
         if field == "base_url":
             context["service_base_url"] = value
@@ -648,12 +653,10 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
         result["env_vars"] = env_vars
 
         # Execute script using shared utility
-        output_contains = code_example.get("output_contains")
         exec_result = execute_script_content(
             script=file_content,
             mime_type=mime_type,
             env_vars=env_vars,
-            output_contains=output_contains,
             timeout=30,
         )
 
@@ -826,8 +829,8 @@ def record_upstream_test_status(results: list[dict[str, Any]]) -> list[tuple[str
     many services are tested back to back), which records a false ``fail``.
     That is handled by ``--ignore-test-status`` rather than by retrying here:
     if particular probes prove fragile, the retry belongs on the document as
-    ``meta`` — alongside the existing ``sleep_after_test`` / ``output_contains``
-    / ``requirements`` knobs — so it is opt-in per test rather than blanket
+    ``meta`` — alongside the existing ``sleep_after_test`` / ``requirements``
+    knobs — so it is opt-in per test rather than blanket
     behaviour that would also mask a genuinely dead upstream.
 
     Returns ``[(service_name, status)]`` for reporting.
