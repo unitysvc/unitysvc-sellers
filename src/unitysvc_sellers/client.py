@@ -52,6 +52,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from ._generated.client import AuthenticatedClient as _LowLevelClient
+from ._http import raise_on_non_json_error
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -111,6 +112,7 @@ class Client:
             timeout=timeout_obj,
             verify_ssl=verify_ssl,
             raise_on_unexpected_status=False,
+            httpx_args={"event_hooks": {"response": [raise_on_non_json_error]}},
         )
         self._api_key = api_key
         self._base_url = resolved_base_url

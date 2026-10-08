@@ -38,6 +38,11 @@ from rich.console import Console
 from unitysvc_core.validator import DataValidator
 
 from .params_render import discover_system_param_files, validate_system_param_file
+from .platform_services import (
+    find_platform_service_folders,
+    read_platform_service_id,
+    validate_platform_service_folder,
+)
 from .price_headline import check_channel_price_headline
 from .utils import PLATFORM_SERVICES_DIRNAME, is_hidden_path
 
@@ -194,6 +199,9 @@ def validate(
        format each, and carry no ``schema`` field;
     2. each validates against its core schema (routed by filename);
     3. ``listing.name`` equals the folder's path relative to ``specs/``.
+
+    Platform services (``platform-services/<provider>/<name>/``) get the
+    offline publish checks of ``validate_platform_service_folder``.
     """
     start = (specs_dir or Path.cwd()).resolve()
     if not start.exists():
@@ -209,8 +217,11 @@ def validate(
 
     system_params = discover_system_param_files(start)
     folders = find_service_folders(root)
-    if not folders and not system_params:
-        console.print(f"[red]✗[/red] No service folders or system-template param files found under {start}")
+    platform_folders = find_platform_service_folders(start)
+    if not folders and not system_params and not platform_folders:
+        console.print(
+            f"[red]✗[/red] No service folders, system-template param files or platform services found under {start}"
+        )
         raise typer.Exit(1)
 
     validation_errors: list[str] = []
@@ -238,6 +249,14 @@ def validate(
                     rel = param_file.with_suffix("").as_posix()
                 validation_errors.append(f"{rel}: missing service_id in sidecar (run 'usvc seller specs upload' first)")
 
+    for folder in platform_folders:
+        validation_errors.extend(validate_platform_service_folder(folder, start))
+        if has_service_id and not read_platform_service_id(folder):
+            rel = folder.relative_to(start).as_posix()
+            validation_errors.append(
+                f"{rel}: missing service_id in {folder.name}.service.json (run 'usvc seller specs upload' first)"
+            )
+
     if validation_errors:
         console.print(f"[red]✗ Validation failed with {len(validation_errors)} error(s):[/red]")
         console.print()
@@ -245,7 +264,9 @@ def validate(
             console.print(f"[red]{i}.[/red] {error}")
         raise typer.Exit(1)
 
-    parts = [f"{len(folders)} service folder(s)"]
+    parts = [f"{len(folders)} service folder(s)"] if folders or not platform_folders else []
+    if platform_folders:
+        parts.append(f"{len(platform_folders)} platform service(s)")
     if system_params:
         parts.append(f"{len(system_params)} system-template param file(s)")
     console.print(f"[green]✓ All {' and '.join(parts)} are valid![/green]")

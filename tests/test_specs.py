@@ -151,7 +151,7 @@ def test_no_service_folders_errors(tmp_path: Path) -> None:
     (tmp_path / "specs").mkdir()
     result = _run(tmp_path)
     assert result.exit_code == 1
-    assert "no service folders or system-template param files" in _norm(result.output).lower()
+    assert "no service folders, system-template param files or platform services" in _norm(result.output).lower()
 
 
 def test_platform_services_system_params_validate_without_rendered_folders(tmp_path: Path) -> None:

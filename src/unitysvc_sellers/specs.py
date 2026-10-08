@@ -25,6 +25,11 @@ from .params_render import (
     materialized_param_specs,
     service_name_for_param,
 )
+from .platform_services import (
+    find_platform_service_folders,
+    load_member_template,
+    read_platform_service_id,
+)
 from .upload import _resolve_system_template_id
 from .utils import (
     MEMBER_SERVICES_DIRNAMES,
@@ -211,6 +216,22 @@ def show_service(
         raise typer.Exit(code=1)
 
     provider_file, offering_file, listing_file = _resolve_service_paths(data_dir, service_name)
+    platform_folder = _find_platform_service(data_dir, service_name) if listing_file is None else None
+    if platform_folder is not None:
+        # A platform service (#2569): its own files plus the member template
+        # it is published with.
+        sections_ps = _load_platform_service_files(platform_folder)
+        sections_ps["member_template"] = load_member_template(platform_folder)
+        chosen = [
+            k for k, on in (("provider", only_provider), ("offering", only_offering), ("listing", only_listing)) if on
+        ]
+        if len(chosen) == 1:
+            _render_output(sections_ps[chosen[0]], output_format)
+        elif chosen:
+            _render_output({k: sections_ps[k] for k in chosen}, output_format)
+        else:
+            _render_output(sections_ps, output_format)
+        return
     if listing_file is None:
         console.print(
             f"[red]Service not found: {service_name!r}. "
@@ -366,6 +387,27 @@ app.command("show-test")(example.show_test)
 list_app = typer.Typer(help="List local data files")
 
 
+def _load_platform_service_files(folder: Path) -> dict[str, dict[str, Any]]:
+    """The provider/offering/listing of a platform service folder (loaded as-is)."""
+    out: dict[str, dict[str, Any]] = {}
+    for kind in ("provider", "offering", "listing"):
+        path = next(
+            (folder / f"{kind}{suffix}" for suffix in (".json", ".toml") if (folder / f"{kind}{suffix}").is_file()),
+            None,
+        )
+        out[kind] = load_data_file(path)[0] if path is not None else {}
+    return out
+
+
+def _find_platform_service(data_dir: Path, service_name: str) -> Path | None:
+    """The platform service folder whose listing name (or ``<provider>/<name>``) matches."""
+    for folder in find_platform_service_folders(data_dir):
+        listing = _load_platform_service_files(folder)["listing"]
+        if service_name in (listing.get("name"), f"{folder.parent.name}/{folder.name}", folder.name):
+            return folder
+    return None
+
+
 def _list_services_impl(data_dir: Path | None):
     """Implementation of services listing."""
     # Set data directory
@@ -381,10 +423,11 @@ def _list_services_impl(data_dir: Path | None):
 
     console.print(f"[blue]Scanning for services in:[/blue] {data_dir}\n")
 
-    # Find all listing files
+    # Find all listing files (ordinary discovery skips platform-services/)
     listing_results = find_files_by_pattern(data_dir, "listing_v1")
+    platform_folders = find_platform_service_folders(data_dir)
 
-    if not listing_results:
+    if not listing_results and not platform_folders:
         console.print("[yellow]No services found.[/yellow]")
         raise typer.Exit(code=0)
 
@@ -441,6 +484,7 @@ def _list_services_impl(data_dir: Path | None):
         services.append(
             {
                 "service_name": service_name,
+                "kind": "service",
                 "provider_name": provider_name,
                 "status": service_status,
                 "listing_file": str(listing_rel),
@@ -448,9 +492,31 @@ def _list_services_impl(data_dir: Path | None):
             }
         )
 
+    # Platform services (#2569): published with their member template.
+    for folder in platform_folders:
+        data = _load_platform_service_files(folder)
+        statuses = [d.get("status", "") for d in data.values() if d.get("status")]
+        try:
+            listing_rel = (folder / "listing.json").relative_to(data_dir)
+        except ValueError:
+            listing_rel = folder / "listing.json"
+        services.append(
+            {
+                "service_name": data["listing"].get("name") or f"{folder.parent.name}/{folder.name}",
+                "kind": "platform",
+                "provider_name": data["provider"].get("name", ""),
+                "status": "draft"
+                if "draft" in statuses
+                else ("deprecated" if "deprecated" in statuses else (statuses[0] if statuses else "")),
+                "listing_file": str(listing_rel),
+                "service_id": read_platform_service_id(folder) or "",
+            }
+        )
+
     # Display results in table
     table = Table(title="Services")
     table.add_column("Name", style="cyan")
+    table.add_column("Kind", style="green")
     table.add_column("Provider", style="blue")
     table.add_column("Status", style="magenta")
     table.add_column("Service ID", style="yellow")
@@ -460,6 +526,7 @@ def _list_services_impl(data_dir: Path | None):
         service_id = svc["service_id"][:8] + "..." if svc["service_id"] else "-"
         table.add_row(
             svc["service_name"],
+            svc["kind"],
             svc["provider_name"] or "-",
             svc["status"] or "-",
             service_id,

@@ -140,6 +140,9 @@ For every service folder (one containing a ``listing.{json,toml}``):
 2. each validates against its core schema (routed by filename);
 3. ``listing.name`` equals the folder&#x27;s path relative to ``specs/``.
 
+Platform services (``platform-services/&lt;provider&gt;/&lt;name&gt;/``) get the
+offline publish checks of ``validate_platform_service_folder``.
+
 **Usage**:
 
 ```console
