@@ -6,7 +6,7 @@ to member services that other sellers contribute. You publish the platform
 service together with its **member template** — the template other sellers
 instantiate to join it (see [Platform Service Members](platform-service-members.md)).
 
-Publishing platform services requires a **trusted** or **partner** seller.
+Publishing platform services requires a **trusted** or **partner** seller — and, for now, the UnitySVC Labs seller (resale settlement supports only Labs so far). A new platform service from a trusted seller waits for admin approval; until then sellers cannot join it.
 
 ## Layout
 
