@@ -1,0 +1,47 @@
+name: Spec sync
+
+# Fails while openapi.json differs from the backend's seller projection
+# (backend/generated/seller_api.json on unitysvc main), ignoring prose and
+# the version string. Fix: ./scripts/generate_client.sh <that file>.
+# unitysvc/unitysvc#2536.
+#
+# unitysvc/unitysvc is private, so the fetch needs the UNITYSVC_SPEC_TOKEN
+# secret: a fine-grained token with read-only Contents access to
+# unitysvc/unitysvc. Without it (including on fork PRs, which never receive
+# secrets) the job warns and skips instead of failing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Daily, so backend drift surfaces even when this repo is quiet.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  spec-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch the backend seller spec
+        id: fetch
+        env:
+          TOKEN: ${{ secrets.UNITYSVC_SPEC_TOKEN }}
+        run: |
+          if [ -z "${TOKEN}" ]; then
+            echo "::warning::UNITYSVC_SPEC_TOKEN is not set; skipping the backend spec sync check."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          curl -fsSL \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Accept: application/vnd.github.raw" \
+            -o "${RUNNER_TEMP}/seller_api.json" \
+            "https://api.github.com/repos/unitysvc/unitysvc/contents/backend/generated/seller_api.json?ref=main"
+      - name: Compare openapi.json with the backend projection
+        if: steps.fetch.outputs.skip != 'true'
+        run: python3 scripts/check_spec_sync.py "${RUNNER_TEMP}/seller_api.json"
