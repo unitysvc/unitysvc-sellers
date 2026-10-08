@@ -35,6 +35,14 @@ platform-services/
   through the `platform_service` render variable instead of restating them,
   e.g. `"list_price": {{ platform_service.list_price | tojson }}`.
 
+Member template bodies are rendered by the platform, so they are limited to a
+small subset of Jinja: output, `{% if %}`, `{% set %}`, conditional
+expressions, comparisons, `and`/`or`/`not`, attribute/item access, literals and
+`~`; the filters `tojson`, `default`, `length`, `lower`, `upper`, `trim`,
+`slugify`, `replace`, `string`; and the string methods `split`, `strip`,
+`startswith`, `endswith` and similar. Loops, macros, arithmetic, `%` and
+`.format` are refused at upload.
+
 Ordinary `specs` commands ignore `platform-services/`; it is never uploaded as
 an ordinary service.
 
