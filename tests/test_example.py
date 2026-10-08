@@ -64,6 +64,62 @@ def test_build_upstream_template_context_empty() -> None:
     assert build_upstream_template_context({}) == {}
 
 
+def test_build_upstream_template_context_drops_renderer_controls() -> None:
+    """Upstream fields named like a renderer control never reach the render call.
+
+    The context is spread as ``render_template_file(..., **ctx)``, where a
+    ``customer_display`` field would bind to the parameter and strip a test's
+    assertions, and a ``local_testing`` field would raise "multiple values".
+    """
+    ctx = build_upstream_template_context(
+        {"base_url": "https://api.example.com", "customer_display": True, "local_testing": False}
+    )
+    assert ctx == {"service_base_url": "https://api.example.com"}
+
+
+def test_execute_code_example_keeps_assertions_despite_upstream_customer_display(tmp_path: Path) -> None:
+    """A local run renders assertions even if the upstream declares ``customer_display``."""
+    example_path = tmp_path / "probe.sh.j2"
+    example_path.write_text(
+        "#!/bin/bash\necho local={{ local_testing }}\n{% if not customer_display %}echo assertions-on\n{% endif %}"
+    )
+    code_example = {
+        "service_name": "svc1",
+        "title": "probe",
+        "mime_type": "bash",
+        "file_path": str(example_path),
+        "listing_data": {},
+        "listing_file": None,
+        "interface": {},
+        "category": "connectivity_test",
+    }
+    result = execute_code_example(
+        code_example,
+        {"base_url": "https://u.test", "api_key": "", "customer_display": True, "local_testing": False},
+    )
+
+    assert result["exit_code"] == 0, result.get("error") or result.get("stderr")
+    assert "local=True" in (result["stdout"] or "")
+    assert "assertions-on" in (result["stdout"] or "")
+
+
+def test_extract_code_examples_ignores_output_contains() -> None:
+    """``meta.output_contains`` is retired: it isn't carried and can't fail a run."""
+    listing_data = {
+        "name": "demo/svc",
+        "documents": {
+            "Legacy": {
+                "category": DocumentCategoryEnum.connectivity_test,
+                "file_path": "legacy.sh.j2",
+                "mime_type": "bash",
+                "meta": {"output_contains": "never-printed"},
+            },
+        },
+    }
+    (example,) = extract_code_examples_from_listing(listing_data, Path("/tmp/listing.json"))
+    assert "output_contains" not in example
+
+
 # ---------------------------------------------------------------------------
 # expand_template_strings
 # ---------------------------------------------------------------------------

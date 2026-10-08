@@ -467,3 +467,74 @@ class TestServiceNameMatches:
         from unitysvc_sellers.utils import literal_pattern_prefix
 
         assert literal_pattern_prefix(pattern) == expected
+
+
+# =============================================================================
+# customer_display — renderer-owned control (unitysvc#2488 / #2542)
+# =============================================================================
+
+_ASSERTING_TEMPLATE = "call{% if not customer_display %}\nassert ok{% endif %}"
+
+
+def test_render_template_file_customer_display_defaults_false(tmp_path: Path) -> None:
+    """Test runs keep their assertions unless a caller explicitly opts in."""
+    template_file = tmp_path / "probe.sh.j2"
+    template_file.write_text(_ASSERTING_TEMPLATE)
+
+    content, _filename = render_template_file(template_file)
+
+    assert content == "call\nassert ok"
+
+
+def test_render_template_file_customer_display_true_drops_assertions(tmp_path: Path) -> None:
+    template_file = tmp_path / "probe.sh.j2"
+    template_file.write_text(_ASSERTING_TEMPLATE)
+
+    content, _filename = render_template_file(template_file, customer_display=True)
+
+    assert content == "call"
+
+
+def test_reserved_render_context_keys_match_renderer_controls() -> None:
+    """The reserved set names exactly the renderer-owned keyword controls."""
+    import inspect
+
+    from unitysvc_sellers.utils import RESERVED_RENDER_CONTEXT_KEYS
+
+    params = inspect.signature(render_template_file).parameters
+    assert RESERVED_RENDER_CONTEXT_KEYS == {"local_testing", "customer_display"}
+    assert all(params[key].default is False for key in RESERVED_RENDER_CONTEXT_KEYS)
+
+
+# =============================================================================
+# execute_script_content — the exit code is the whole verdict (#2490 / #2542)
+# =============================================================================
+
+
+def test_execute_script_content_has_no_output_contains_parameter() -> None:
+    import inspect
+
+    from unitysvc_sellers.utils import execute_script_content
+
+    assert "output_contains" not in inspect.signature(execute_script_content).parameters
+
+
+def test_execute_script_content_exit_zero_is_success_whatever_stdout() -> None:
+    from unitysvc_sellers.utils import execute_script_content
+
+    result = execute_script_content("#!/bin/bash\necho nothing-in-particular\n", "bash", {})
+
+    assert result["status"] == "success"
+    assert result["error"] is None
+
+
+def test_execute_script_content_script_assertion_fails_with_nonzero_exit() -> None:
+    """The replacement for output_contains: the script asserts and exits non-zero."""
+    from unitysvc_sellers.utils import execute_script_content
+
+    script = '#!/bin/bash\nbody="nope"\ngrep -q ok <<<"$body" || { echo "expected ok, got: $body" >&2; exit 1; }\n'
+    result = execute_script_content(script, "bash", {})
+
+    assert result["status"] == "script_failed"
+    assert result["exit_code"] == 1
+    assert "expected ok" in (result["stderr"] or "")
