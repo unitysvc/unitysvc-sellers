@@ -7,13 +7,17 @@ it uses your upstream URL, your seller secret, and your accepted payout price.
 The platform service supplies the customer-facing name, price, tests, and
 routing contract.
 
-Use the `platform_services/` layout when a repo manages member services for one
+Use the `member-services/` layout when a repo manages member services for one
 or more platform services.
+
+> `member-services/` was called `platform_services/` before unitysvc/unitysvc#2569.
+> The old name is still read, so a repo keeps working until it renames the
+> directory.
 
 ## Layout
 
 Keep standalone services under `services/specs/` and platform members under the
-repo-level `platform_services/` directory:
+repo-level `member-services/` directory:
 
 ```text
 services/
@@ -24,17 +28,17 @@ services/
     ├── provider.json
     ├── offering.json.j2
     └── listing.json.j2
-platform_services/
+member-services/
 └── llm-premium/
     └── crofai/
         ├── deepseek-v4-pro.json
         └── deepseek-v4-pro.service.json
 ```
 
-The platform member service name is the path under `platform_services/`:
+The platform member service name is the path under `member-services/`:
 
 ```text
-platform_services/llm-premium/crofai/deepseek-v4-pro.json
+member-services/llm-premium/crofai/deepseek-v4-pro.json
 → llm-premium/crofai/deepseek-v4-pro
 ```
 
@@ -50,7 +54,7 @@ That shape has three meanings:
 
 A platform member file is a system-template param file. It must include
 `template`, `parameters`, and a `parameters.service_name` that exactly matches
-the path under `platform_services/`.
+the path under `member-services/`.
 
 ```json
 {
@@ -75,7 +79,7 @@ confusing a platform member with the standalone service it mirrors.
 
 Provider populator scripts usually update regular model params under
 `services/specs/`. With `deprecate_missing=True`, the SDK also scans
-`platform_services/`:
+`member-services/`:
 
 - When a regular service is yielded, matching platform members are refreshed.
 - Price fields such as `payout_input`, `payout_output`, and
@@ -95,7 +99,7 @@ remains authoritative.
 ## Commands
 
 The normal specs commands include both `services/specs/` and
-`platform_services/`:
+`member-services/`:
 
 ```bash
 usvc seller specs validate
@@ -108,7 +112,7 @@ Selectors accept either the service name or the local path:
 
 ```bash
 usvc seller specs upload llm-premium/crofai/deepseek-v4-pro --submit
-usvc seller specs upload platform_services/llm-premium/crofai/deepseek-v4-pro.json --submit
+usvc seller specs upload member-services/llm-premium/crofai/deepseek-v4-pro.json --submit
 ```
 
 After upload, the SDK writes the backend identity beside the param file:
@@ -131,7 +135,7 @@ usvc seller services activate --local-ids
 
 When `--provider` is combined with `--local-ids`, platform member sidecars use
 the provider segment after the platform service name. For
-`platform_services/llm-premium/crofai/deepseek-v4-pro.service.json`, the provider
+`member-services/llm-premium/crofai/deepseek-v4-pro.service.json`, the provider
 filter is `crofai`.
 
 ## Backend Result

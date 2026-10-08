@@ -125,7 +125,7 @@ otherwise it is treated as a **system** template:
 | `"<name>"` with no matching directory | system template | `usvc seller specs upload` (see [Create from a Template](create-from-template.md)) |
 
 Platform-service members use system-template param files too, but they live
-under `platform_services/` instead of `specs/`; see
+under `member-services/` instead of `specs/`; see
 [Platform Service Members](platform-service-members.md).
 
 ## Validate, test, upload

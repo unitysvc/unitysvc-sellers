@@ -42,11 +42,11 @@ files, upserted by name).
 ### Platform-member lifecycle overrides
 
 A platform member is a system-template parameter file beneath
-`platform_services/<platform>/<provider>/<member>.json`. To deliberately
+`member-services/<platform>/<provider>/<member>.json`. To deliberately
 retire one without changing a generated base file, add its sibling override:
 
 ```json
-// platform_services/llm-fast/acme/model.override.json
+// member-services/llm-fast/acme/model.override.json
 {
   "parameters": {"status": "deprecated"}
 }

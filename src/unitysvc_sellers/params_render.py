@@ -37,7 +37,16 @@ from typing import Any
 from unitysvc_core.utils import deep_merge_dicts
 
 from .template_populate import _deprecate_service, _sanitize_dirname, populate_from_iterator
-from .utils import EXPANDED_DIRNAME, dump_canonical_json, is_hidden_path, load_data_file
+from .utils import (
+    EXPANDED_DIRNAME,
+    LEGACY_MEMBER_SERVICES_DIRNAME,
+    MEMBER_SERVICES_DIRNAME,
+    MEMBER_SERVICES_DIRNAMES,
+    dump_canonical_json,
+    is_hidden_path,
+    load_data_file,
+    member_services_index,
+)
 
 
 class ParamRenderError(ValueError):
@@ -141,7 +150,7 @@ def _specs_root_for(param_file: Path) -> Path:
     for parent in param_file.parents:
         if parent.name == "specs":
             return parent
-        if parent.name == "platform_services":
+        if parent.name in MEMBER_SERVICES_DIRNAMES:
             return parent
     # Fallback: assume specs/ is a sibling of templates/.
     return _repo_root_for(param_file) / "specs"
@@ -278,21 +287,18 @@ def validate_system_param_file(param_file: Path) -> list[str]:
     if not data.get("template"):
         errors.append(f"{param_file}: system-template param file must include 'template'")
     if "constants" in data:
-        errors.append(
-            f"{param_file}: data-level 'constants' is not supported; "
-            "use parameters instead"
-        )
+        errors.append(f"{param_file}: data-level 'constants' is not supported; use parameters instead")
 
     parameters = data.get("parameters")
     if not isinstance(parameters, dict):
         errors.append(f"{param_file}: 'parameters' must be a JSON object")
-    elif "platform_services" in param_file.parts:
+    elif member_services_index(param_file.parts) is not None:
         expected = service_name_for_param(param_file)
         actual = parameters.get("service_name")
         if actual != expected:
             errors.append(
                 f"{param_file}: parameters.service_name {actual!r} must match "
-                f"the path under platform_services ({expected!r})"
+                f"the path under {MEMBER_SERVICES_DIRNAME} ({expected!r})"
             )
         status = parameters.get("status")
         if status is not None and status not in _SYSTEM_STATUS_VALUES:
@@ -851,16 +857,25 @@ def _committed_service_names(root: Path) -> dict[str, Path]:
 
 
 def _platform_services_root(output_dir: Path) -> Path:
-    """Return the conventional platform params root for a ``services/specs`` dir."""
-    if output_dir.name == "specs" and output_dir.parent.name == "services":
-        return output_dir.parent.parent / "platform_services"
-    return output_dir.parent / "platform_services"
+    """Return the member-services param root for a ``services/specs`` dir.
+
+    ``member-services/``; the pre-#2569 ``platform_services/`` when only that
+    exists.
+    """
+    repo = (
+        output_dir.parent.parent
+        if output_dir.name == "specs" and output_dir.parent.name == "services"
+        else output_dir.parent
+    )
+    if not (repo / MEMBER_SERVICES_DIRNAME).is_dir() and (repo / LEGACY_MEMBER_SERVICES_DIRNAME).is_dir():
+        return repo / LEGACY_MEMBER_SERVICES_DIRNAME
+    return repo / MEMBER_SERVICES_DIRNAME
 
 
 def _committed_platform_service_names(root: Path) -> dict[str, list[Path]]:
     """Platform param files keyed by their regular service path.
 
-    ``platform_services/<platform_service>/<regular_service_path>.json`` mirrors
+    ``member-services/<platform_service>/<regular_service_path>.json`` mirrors
     ``services/specs/<regular_service_path>.json``. The platform-service segment
     is membership context, not the upstream model identity, so deprecation drains
     by the path after that first segment.
@@ -1026,7 +1041,7 @@ def _deprecate_missing_services(
 
     ``remaining`` starts as everything committed under ``output_dir`` and is
     drained as the iterator yields. ``remaining_platform`` does the same for
-    ``platform_services/<platform>/<regular-service>.json`` files, keyed by the
+    ``member-services/<platform>/<regular-service>.json`` files, keyed by the
     regular service path after the platform segment. What is left never
     appeared in this run.
 

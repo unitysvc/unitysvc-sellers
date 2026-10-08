@@ -54,6 +54,29 @@ from unitysvc_core.utils import (
 # with a real provider/service path.
 EXPANDED_DIRNAME = "expanded"
 
+# A seller's members of other sellers' platform services:
+# ``member-services/<platform-service>/<provider>/<member>.json`` param files.
+# ``platform_services/`` is the name this tree had before unitysvc#2569 and is
+# still read, so a repo keeps working across the rename.
+MEMBER_SERVICES_DIRNAME = "member-services"
+LEGACY_MEMBER_SERVICES_DIRNAME = "platform_services"
+MEMBER_SERVICES_DIRNAMES = (MEMBER_SERVICES_DIRNAME, LEGACY_MEMBER_SERVICES_DIRNAME)
+
+# The platform services a seller publishes itself (unitysvc#2569):
+# ``platform-services/<provider>/<name>/`` holds the platform service
+# (provider/offering/listing + ``<name>.service.json``) and its
+# ``member-template/``. Uploaded through their own endpoint, never as an
+# ordinary service, so ordinary discovery skips the tree.
+PLATFORM_SERVICES_DIRNAME = "platform-services"
+
+
+def member_services_index(parts: tuple[str, ...]) -> int | None:
+    """Index of the member-services directory in a path's ``parts``, or None."""
+    for i, part in enumerate(parts):
+        if part in MEMBER_SERVICES_DIRNAMES:
+            return i
+    return None
+
 
 def find_files_by_pattern(
     data_dir: Any,
@@ -86,6 +109,8 @@ def find_files_by_pattern(
             kept.append((path, fmt, data))
             continue
         if rel.parts and rel.parts[0] == EXPANDED_DIRNAME:
+            continue
+        if PLATFORM_SERVICES_DIRNAME in rel.parts:
             continue
         kept.append((path, fmt, data))
     return kept
@@ -261,9 +286,9 @@ def _provider_from_specs_path(path: Path) -> str | None:
     directory name equals ``provider.name``.
     """
     parts = path.parts
-    if "platform_services" in parts:
-        i = parts.index("platform_services")
-        if i + 3 < len(parts):  # platform_services / <platform> / <provider> / … / <file>
+    i = member_services_index(parts)
+    if i is not None:
+        if i + 3 < len(parts):  # member-services / <platform> / <provider> / … / <file>
             return parts[i + 2]
     if "specs" in parts:
         i = parts.index("specs")

@@ -97,7 +97,7 @@ $ usvc seller specs show [OPTIONS] {service_name}
 Expand a service into the informal ``expanded/`` tree for inspection.
 
 Accepts either a local-template param file, a remote system-template param
-file (including ``platform_services/`` members), or a hand-authored service
+file (including ``member-services/`` members), or a hand-authored service
 folder. System templates are preview-rendered by the seller API; this never
 creates a service or task.
 and writes ``expanded/&lt;NAME&gt;/`` (provider + offering + listing + bundled

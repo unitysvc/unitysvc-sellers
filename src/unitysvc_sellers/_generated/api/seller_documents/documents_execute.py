@@ -119,12 +119,16 @@ def sync_detailed(
     injects the gateway URL + key as environment variables into the script.
 
     Results are stored on ``document.meta.test``:
-    - ``status``: ``success|task_failed|script_failed|unexpected_output``
+    - ``status``: ``success|task_failed|script_failed|unexpected_output``.
+      ``unexpected_output`` is accepted from a seller reporting an
+      externally-run test; the platform itself never produces it any more.
     - ``error``: error message when status != success
     - ``executed_at``: ISO timestamp of execution
     - ``exit_code``, ``stdout``, ``stderr`` (truncated to 10KB)
-    - ``output_contains``: if set on the document, stdout must contain
-      this substring for success
+    - ``output_contains`` is gone (unitysvc#2490). A test passes or fails on
+      its exit code alone — stdout gates nothing — so assert inside the script
+      and exit non-zero. Ingest strips the key from ``meta`` if it is still
+      present, which is what the shipped presets do until they migrate.
 
     Set ``force=true`` to re-run a document whose test already recorded a
     success.
@@ -186,12 +190,16 @@ def sync(
     injects the gateway URL + key as environment variables into the script.
 
     Results are stored on ``document.meta.test``:
-    - ``status``: ``success|task_failed|script_failed|unexpected_output``
+    - ``status``: ``success|task_failed|script_failed|unexpected_output``.
+      ``unexpected_output`` is accepted from a seller reporting an
+      externally-run test; the platform itself never produces it any more.
     - ``error``: error message when status != success
     - ``executed_at``: ISO timestamp of execution
     - ``exit_code``, ``stdout``, ``stderr`` (truncated to 10KB)
-    - ``output_contains``: if set on the document, stdout must contain
-      this substring for success
+    - ``output_contains`` is gone (unitysvc#2490). A test passes or fails on
+      its exit code alone — stdout gates nothing — so assert inside the script
+      and exit non-zero. Ingest strips the key from ``meta`` if it is still
+      present, which is what the shipped presets do until they migrate.
 
     Set ``force=true`` to re-run a document whose test already recorded a
     success.
@@ -248,12 +256,16 @@ async def asyncio_detailed(
     injects the gateway URL + key as environment variables into the script.
 
     Results are stored on ``document.meta.test``:
-    - ``status``: ``success|task_failed|script_failed|unexpected_output``
+    - ``status``: ``success|task_failed|script_failed|unexpected_output``.
+      ``unexpected_output`` is accepted from a seller reporting an
+      externally-run test; the platform itself never produces it any more.
     - ``error``: error message when status != success
     - ``executed_at``: ISO timestamp of execution
     - ``exit_code``, ``stdout``, ``stderr`` (truncated to 10KB)
-    - ``output_contains``: if set on the document, stdout must contain
-      this substring for success
+    - ``output_contains`` is gone (unitysvc#2490). A test passes or fails on
+      its exit code alone — stdout gates nothing — so assert inside the script
+      and exit non-zero. Ingest strips the key from ``meta`` if it is still
+      present, which is what the shipped presets do until they migrate.
 
     Set ``force=true`` to re-run a document whose test already recorded a
     success.
@@ -313,12 +325,16 @@ async def asyncio(
     injects the gateway URL + key as environment variables into the script.
 
     Results are stored on ``document.meta.test``:
-    - ``status``: ``success|task_failed|script_failed|unexpected_output``
+    - ``status``: ``success|task_failed|script_failed|unexpected_output``.
+      ``unexpected_output`` is accepted from a seller reporting an
+      externally-run test; the platform itself never produces it any more.
     - ``error``: error message when status != success
     - ``executed_at``: ISO timestamp of execution
     - ``exit_code``, ``stdout``, ``stderr`` (truncated to 10KB)
-    - ``output_contains``: if set on the document, stdout must contain
-      this substring for success
+    - ``output_contains`` is gone (unitysvc#2490). A test passes or fails on
+      its exit code alone — stdout gates nothing — so assert inside the script
+      and exit non-zero. Ingest strips the key from ``meta`` if it is still
+      present, which is what the shipped presets do until they migrate.
 
     Set ``force=true`` to re-run a document whose test already recorded a
     success.

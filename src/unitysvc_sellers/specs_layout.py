@@ -39,7 +39,7 @@ from unitysvc_core.validator import DataValidator
 
 from .params_render import discover_system_param_files, validate_system_param_file
 from .price_headline import check_channel_price_headline
-from .utils import is_hidden_path
+from .utils import PLATFORM_SERVICES_DIRNAME, is_hidden_path
 
 app = typer.Typer(help="Local operations on the flat specs/ layout")
 console = Console()
@@ -92,6 +92,9 @@ def find_service_folders(root: Path) -> list[Path]:
     for suffix in _DATA_SUFFIXES:
         for listing in root.rglob(f"listing{suffix}"):
             if is_hidden_path(listing, root):
+                continue
+            # Platform services publish through their own endpoint (#2569).
+            if PLATFORM_SERVICES_DIRNAME in listing.relative_to(root).parts:
                 continue
             folders.add(listing.parent)
     return sorted(folders)
@@ -233,9 +236,7 @@ def validate(
                     rel = param_file.relative_to(start).with_suffix("").as_posix()
                 except ValueError:
                     rel = param_file.with_suffix("").as_posix()
-                validation_errors.append(
-                    f"{rel}: missing service_id in sidecar (run 'usvc seller specs upload' first)"
-                )
+                validation_errors.append(f"{rel}: missing service_id in sidecar (run 'usvc seller specs upload' first)")
 
     if validation_errors:
         console.print(f"[red]✗ Validation failed with {len(validation_errors)} error(s):[/red]")

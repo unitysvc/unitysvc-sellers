@@ -33,6 +33,7 @@ from .exceptions import ResponseParseError
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
     from ._generated.models.body_services_upload import BodyServicesUpload
+    from ._generated.models.platform_service_upload import PlatformServiceUpload
     from ._generated.models.service_delete_response import ServiceDeleteResponse
     from ._generated.models.service_detail_response import ServiceDetailResponse
     from ._generated.models.service_public import ServicePublic
@@ -596,9 +597,7 @@ class Services:
                 service_id=str(service_id),
                 client=self._client,
                 document_id=document_id if document_id is not None else UNSET,
-                category=check_document_category_enum(category)
-                if category is not None
-                else UNSET,
+                category=check_document_category_enum(category) if category is not None else UNSET,
                 force=force,
             )
         )
@@ -666,6 +665,28 @@ class Services:
             )
         )
 
+    def upload_platform_service(
+        self,
+        body: PlatformServiceUpload | dict[str, Any],
+    ) -> ServiceUploadResponse:
+        """Publish a platform service together with its member template.
+
+        ``body`` is ``{"service_data": {provider_data, offering_data,
+        listing_data}, "service_status": {"service_id": ...} | None,
+        "member_template": {...}}``. The listing declares the platform
+        service's ``/p`` address; the member template is what other sellers
+        instantiate to join it. Requires a trusted or partner seller. Returns
+        the queued ingest task; its result carries ``service_id`` and
+        ``member_template_id``.
+        """
+        from ._generated.api.seller_platform_services import platform_services_upload
+        from ._generated.models.platform_service_upload import PlatformServiceUpload
+
+        if isinstance(body, dict):
+            body = PlatformServiceUpload.from_dict(body)
+
+        return unwrap(platform_services_upload.sync_detailed(client=self._client, body=body))
+
     # ------------------------------------------------------------------
     # Write — render a platform template into a service
     # ------------------------------------------------------------------
@@ -724,9 +745,7 @@ class Services:
         # route answers invalid parameters with a dict-shaped 422 detail that
         # the generated parser cannot read. See ``parse_raw``.
         request = op._get_kwargs(body=body, **extra)
-        return parse_raw(
-            self._client.get_httpx_client().request(**request), ServiceUploadResponse
-        )
+        return parse_raw(self._client.get_httpx_client().request(**request), ServiceUploadResponse)
 
     def render_from_template(
         self,

@@ -377,7 +377,7 @@
           "seller-documents"
         ],
         "summary": "Execute Document",
-        "description": "Execute a code example or connectivity test (seller pre-submission check).\n\nThis is the seller's **pre-submission dry-run** tool: it queues a\nCelery task that runs the document's script against the platform's\nops_customer API key and records the result in ``meta.test``. It does\n**not** touch service status or trigger admin review \u2014 contrast with\nthe formal submission flow via\n``PATCH /seller/services/{id}`` (status=pending), which queues an\norchestrated test run as part of the review pipeline.\n\nThe document must:\n- Have category ``code_example`` or ``connectivity_test``\n- Belong to a service owned by the current seller\n- Not be marked ``test.status == \"skip\"`` in meta\n\nTest execution uses ``OPS_CUSTOMER_API_KEY`` for gateway access and\ninjects the gateway URL + key as environment variables into the script.\n\nResults are stored on ``document.meta.test``:\n- ``status``: ``success|task_failed|script_failed|unexpected_output``\n- ``error``: error message when status != success\n- ``executed_at``: ISO timestamp of execution\n- ``exit_code``, ``stdout``, ``stderr`` (truncated to 10KB)\n- ``output_contains``: if set on the document, stdout must contain\n  this substring for success\n\nSet ``force=true`` to re-run a document whose test already recorded a\nsuccess.",
+        "description": "Execute a code example or connectivity test (seller pre-submission check).\n\nThis is the seller's **pre-submission dry-run** tool: it queues a\nCelery task that runs the document's script against the platform's\nops_customer API key and records the result in ``meta.test``. It does\n**not** touch service status or trigger admin review \u2014 contrast with\nthe formal submission flow via\n``PATCH /seller/services/{id}`` (status=pending), which queues an\norchestrated test run as part of the review pipeline.\n\nThe document must:\n- Have category ``code_example`` or ``connectivity_test``\n- Belong to a service owned by the current seller\n- Not be marked ``test.status == \"skip\"`` in meta\n\nTest execution uses ``OPS_CUSTOMER_API_KEY`` for gateway access and\ninjects the gateway URL + key as environment variables into the script.\n\nResults are stored on ``document.meta.test``:\n- ``status``: ``success|task_failed|script_failed|unexpected_output``.\n  ``unexpected_output`` is accepted from a seller reporting an\n  externally-run test; the platform itself never produces it any more.\n- ``error``: error message when status != success\n- ``executed_at``: ISO timestamp of execution\n- ``exit_code``, ``stdout``, ``stderr`` (truncated to 10KB)\n- ``output_contains`` is gone (unitysvc#2490). A test passes or fails on\n  its exit code alone \u2014 stdout gates nothing \u2014 so assert inside the script\n  and exit non-zero. Ingest strips the key from ``meta`` if it is still\n  present, which is what the shipped presets do until they migrate.\n\nSet ``force=true`` to re-run a document whose test already recorded a\nsuccess.",
         "operationId": "documents_execute",
         "parameters": [
           {
@@ -1254,6 +1254,120 @@
               }
             },
             "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform-services": {
+      "post": {
+        "tags": [
+          "seller-platform-services"
+        ],
+        "summary": "Upload Platform Service",
+        "description": "Publish a platform service together with its member template.\n\nThe platform service is identified by ``service_status.service_id`` when\ngiven (it survives a rename), else by this seller's platform service of\nthat name. Its listing must declare the ``/p`` address it serves.\n\nRequires a ``trusted`` or ``partner`` seller. The response is ``202`` with\nthe ingest ``task_id``; the task result carries the platform service id,\nthe action taken and the member template id.",
+        "operationId": "platform_services_upload",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional client-supplied key for safe retries. When set, the server guarantees the underlying work runs at most once for this key within a 24h window \u2014 replaying the same key returns the same task id without queueing the work twice. Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1\u2013128.",
+              "title": "Idempotency-Key"
+            },
+            "description": "Optional client-supplied key for safe retries. When set, the server guarantees the underlying work runs at most once for this key within a 24h window \u2014 replaying the same key returns the same task id without queueing the work twice. Allowed characters: A-Z, a-z, 0-9, underscore, hyphen. Length 1\u2013128."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformServiceUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUploadResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
           },
           "404": {
             "content": {
@@ -4515,6 +4629,36 @@
         "title": "OfferingStatusEnum",
         "description": "Status values that sellers can set for service offerings.\n\nSeller-accessible statuses:\n- draft: Work in progress, skipped during publish\n- ready: Complete and ready for admin review\n- deprecated: Service is retired/end of life"
       },
+      "PlatformServiceUpload": {
+        "properties": {
+          "service_data": {
+            "$ref": "#/components/schemas/ServiceDataInput",
+            "description": "The platform service's own provider, offering and listing"
+          },
+          "service_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceStatus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The platform service's service.json sidecar; its service_id is the platform service's identity (it survives a rename)"
+          },
+          "member_template": {
+            "$ref": "#/components/schemas/ServiceTemplateCreate",
+            "description": "The template sellers instantiate to join this platform service"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_data",
+          "member_template"
+        ],
+        "title": "PlatformServiceUpload",
+        "description": "A platform service and its member template, published together (#2569).\n\nA platform service is a seller's product: it buys capacity from member\nsellers and resells it at a ``/p`` address its listing declares. The member\ntemplate is what other sellers instantiate to join it, so it travels in the\nsame upload and is owned through the platform service."
+      },
       "PriceRuleApplyAtEnum": {
         "type": "string",
         "enum": [
@@ -6169,14 +6313,7 @@
             "description": "One-line marketplace summary (max 200 characters) \u2014 shown on collapsed catalog rows and cards. Required everywhere, deliberately: the teaser is part of the offering, not an optional garnish. Renames the vestigial ``tagline`` field (unitysvc/unitysvc#1838)."
           },
           "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Description",
             "description": "Service description (long-form; the summary carries the teaser)"
           },
@@ -6267,7 +6404,8 @@
         "type": "object",
         "required": [
           "name",
-          "summary"
+          "summary",
+          "description"
         ],
         "title": "ServiceOfferingData",
         "description": "Base data structure for service offering information.\n\nThis model contains the core fields needed to describe a service offering,\nwithout file-specific validation fields. It serves as:\n\n1. The base class for `OfferingV1` in unitysvc-core (with additional\n   time_created field for file validation)\n\n2. The data structure imported by unitysvc backend for:\n   - API payload validation\n   - Database comparison logic in find_and_compare_service_offering()\n   - Publish operations from CLI\n\nKey characteristics:\n- status maps to database 'status' field\n- Contains all user-provided data without system-generated IDs\n- Does not include permission/audit fields (handled by backend CRUD layer)\n- Provider relationship is determined by file location (SDK mode) or\n  by being published together in a single API call (API mode)"
@@ -6649,6 +6787,109 @@
         "title": "ServiceStatusEnum",
         "description": "Status of a Service (identity layer).\n\nWorkflow:\n- draft: Not yet submitted for review (default, seller still editing)\n- pending: Tests running (transient, after seller publishes)\n- review: Tests passed, awaiting admin approval\n- active: Approved and operational, accepting requests\n- rejected: Admin rejected (seller can revise and republish)\n- suspended: Admin suspended due to issues/violations\n- deprecated: Service ending"
       },
+      "ServiceTemplateCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "description": "URL-friendly slug identifying the template family (e.g. 'openai-compatible-llm'). Sellers bind to the active version of a name; admin-data directory names and the CLI key off it. Unique per (name, version)."
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Version",
+            "description": "Template version label (e.g. 'v1'). The .j2 bodies and parameter_schema are frozen per version; a change is a new version. UNIQUE(name, version)."
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Display Name",
+            "description": "Human-readable template name shown in the seller picker."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "What kind of service this template produces."
+          },
+          "service_type": {
+            "$ref": "#/components/schemas/ServiceTypeEnum",
+            "description": "Service type every instance of this template produces."
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TemplateStatusEnum",
+            "default": "draft"
+          },
+          "parameter_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "ServiceTemplateCreateParameterSchema"
+          },
+          "parameter_ui_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameter Ui Schema"
+          },
+          "constants": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "ServiceTemplateCreateConstants"
+          },
+          "offering_template": {
+            "type": "string",
+            "title": "Offering Template"
+          },
+          "listing_template": {
+            "type": "string",
+            "title": "Listing Template"
+          },
+          "provider_template": {
+            "type": "string",
+            "title": "Provider Template"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "version",
+          "display_name",
+          "service_type",
+          "offering_template",
+          "listing_template",
+          "provider_template"
+        ],
+        "title": "ServiceTemplateCreate",
+        "description": "Schema for creating/updating a ServiceTemplate (admin upload).\n\n``status`` defaults to ``draft``; the renderer bodies and schemas are\nrequired so the stored row is self-contained.\n\n``id`` is honored on CREATE only (the ``template_id.json`` sidecar\nreplayed across environments, so a template keeps ONE id on staging and\nproduction \u2014 the same convention service ids follow). The upsert key\nstays ``(name, version)``: on update the id is ignored."
+      },
       "ServiceTemplateSummariesPublic": {
         "properties": {
           "data": {
@@ -7015,6 +7256,16 @@
         ],
         "title": "TemplateInstantiationRenderResponse",
         "description": "Fully rendered service content for inspection, without persistence."
+      },
+      "TemplateStatusEnum": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "active",
+          "deprecated"
+        ],
+        "title": "TemplateStatusEnum",
+        "description": "Lifecycle status of an admin-owned ServiceTemplate.\n\nInvariant: at most one ``active`` version per template ``name`` \u2014 the one\nsellers bind new forms to. Publishing a new ``active`` version\nauto-deprecates the prior active one. Deprecated templates can no longer\ngenerate net-new services, but services already built from them can still\nbe revised against their pinned version."
       },
       "TestDetailResponse": {
         "properties": {
