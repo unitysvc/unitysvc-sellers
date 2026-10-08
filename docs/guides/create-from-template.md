@@ -67,7 +67,7 @@ needed. The generated private service becomes a PlatformService member after it
 passes review and reaches the active state.
 
 For repos that manage these memberships as files, keep them under
-`platform_services/<platform-service>/<provider>/<member>.json` and set
+`member-services/<platform-service>/<provider>/<member>.json` and set
 `parameters.service_name` to that same path. See
 [Platform Service Members](platform-service-members.md) for the full layout.
 

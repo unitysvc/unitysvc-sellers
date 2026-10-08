@@ -19,6 +19,7 @@ from .services import RunTestsResult, _parse_run_tests_payload, _resolve_channel
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
     from ._generated.models.body_services_upload import BodyServicesUpload
+    from ._generated.models.platform_service_upload import PlatformServiceUpload
     from ._generated.models.service_delete_response import ServiceDeleteResponse
     from ._generated.models.service_detail_response import ServiceDetailResponse
     from ._generated.models.service_public import ServicePublic
@@ -305,9 +306,7 @@ class AsyncServices:
                 service_id=str(service_id),
                 client=self._client,
                 document_id=document_id if document_id is not None else UNSET,
-                category=check_document_category_enum(category)
-                if category is not None
-                else UNSET,
+                category=check_document_category_enum(category) if category is not None else UNSET,
                 force=force,
             )
         )
@@ -355,6 +354,22 @@ class AsyncServices:
                 auto_submit=auto_submit,
             )
         )
+
+    async def upload_platform_service(
+        self,
+        body: PlatformServiceUpload | dict[str, Any],
+    ) -> ServiceUploadResponse:
+        """Publish a platform service together with its member template.
+
+        See :meth:`unitysvc_sellers.services.Services.upload_platform_service`.
+        """
+        from ._generated.api.seller_platform_services import platform_services_upload
+        from ._generated.models.platform_service_upload import PlatformServiceUpload
+
+        if isinstance(body, dict):
+            body = PlatformServiceUpload.from_dict(body)
+
+        return unwrap(await platform_services_upload.asyncio_detailed(client=self._client, body=body))
 
     async def create_from_template(
         self,

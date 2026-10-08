@@ -91,6 +91,7 @@ nav:
       - Compact Specs with Param Files: guides/param-files.md
       - Create from a Template: guides/create-from-template.md
       - Platform Service Members: guides/platform-service-members.md
+      - Publish Platform Services: guides/publish-platform-services.md
       - Generate a Catalog: guides/generate-catalog.md
       - Document Services: documenting-services.md
       - Test Services: code-examples.md

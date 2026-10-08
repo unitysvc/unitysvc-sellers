@@ -26,7 +26,13 @@ from .params_render import (
     service_name_for_param,
 )
 from .upload import _resolve_system_template_id
-from .utils import find_files_by_pattern, load_data_file, read_service_id
+from .utils import (
+    MEMBER_SERVICES_DIRNAMES,
+    find_files_by_pattern,
+    load_data_file,
+    member_services_index,
+    read_service_id,
+)
 
 app = typer.Typer(help="Local operations on the flat specs/ layout (validate, format, populate, upload, test, etc.)")
 console = Console()
@@ -34,10 +40,9 @@ console = Console()
 
 def _system_expand_root(param_file: Path) -> Path:
     """Return the persistent inspection root for either param-file layout."""
-    if "platform_services" in param_file.parts:
-        platform_root = param_file.parents[
-            len(param_file.parents) - 1 - param_file.parts.index("platform_services")
-        ]
+    index = member_services_index(param_file.parts)
+    if index is not None:
+        platform_root = param_file.parents[len(param_file.parents) - 1 - index]
         return platform_root.parent / "expanded"
     return param_file.parents[2] / "expanded"
 
@@ -78,9 +83,7 @@ def _expand_system_param_file(
     ):
         body = rendered.get(rendered_key)
         if not isinstance(body, dict):
-            raise ParamRenderError(
-                f"System template preview returned no {rendered_key} object."
-            )
+            raise ParamRenderError(f"System template preview returned no {rendered_key} object.")
         (folder / filename).write_text(json.dumps(body, indent=2, sort_keys=True) + "\n")
     return folder
 
@@ -281,7 +284,7 @@ def expand_service(
     """Expand a service into the informal ``expanded/`` tree for inspection.
 
     Accepts either a local-template param file, a remote system-template param
-    file (including ``platform_services/`` members), or a hand-authored service
+    file (including ``member-services/`` members), or a hand-authored service
     folder. System templates are preview-rendered by the seller API; this never
     creates a service or task.
     and writes ``expanded/<NAME>/`` (provider + offering + listing + bundled
@@ -298,11 +301,14 @@ def expand_service(
     specs_root = specs_layout.resolve_specs_root(start)
     param_file = specs_root / f"{name}.json"
     repo_root = specs_root.parent.parent if specs_root.parent.name == "services" else specs_root.parent
-    platform_root = repo_root / "platform_services"
-    platform_name = name.removeprefix("platform_services/")
-    platform_param_file = platform_root / f"{platform_name}.json"
-    if not param_file.is_file() and platform_param_file.is_file():
-        param_file = platform_param_file
+    platform_name = name
+    for dirname in MEMBER_SERVICES_DIRNAMES:
+        platform_name = platform_name.removeprefix(f"{dirname}/")
+    for dirname in MEMBER_SERVICES_DIRNAMES:
+        platform_param_file = repo_root / dirname / f"{platform_name}.json"
+        if not param_file.is_file() and platform_param_file.is_file():
+            param_file = platform_param_file
+            break
     service_dir = specs_root / name
     is_folder_service = service_dir.is_dir() and any(
         (service_dir / f"listing{suffix}").is_file() for suffix in (".json", ".toml")
@@ -313,14 +319,11 @@ def expand_service(
             if _resolve_template_dir_or_none(param_file, data.get("template")) is None:
                 if not api_key:
                     console.print(
-                        "[red]✗[/red] System-template expansion requires --api-key "
-                        "or UNITYSVC_SELLER_API_KEY."
+                        "[red]✗[/red] System-template expansion requires --api-key or UNITYSVC_SELLER_API_KEY."
                     )
                     raise typer.Exit(1)
                 with Client(api_key=api_key, base_url=base_url) as client:
-                    folder = _expand_system_param_file(
-                        client, param_file, output_dir=output_dir, flat=flat
-                    )
+                    folder = _expand_system_param_file(client, param_file, output_dir=output_dir, flat=flat)
             else:
                 folder = expand_param_file(param_file, output_dir=output_dir, flat=flat)
         elif is_folder_service:

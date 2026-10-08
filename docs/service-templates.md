@@ -125,7 +125,7 @@ A few consequences worth knowing:
   review activation.
 
 When you manage these member params in git, keep them in
-`platform_services/<platform-service>/<provider>/<member>.json`, separate from
+`member-services/<platform-service>/<provider>/<member>.json`, separate from
 regular self-managed services under `services/specs/`. See
 [Platform Service Members](guides/platform-service-members.md) for the exact
 layout, sidecar, and bulk-command behavior.

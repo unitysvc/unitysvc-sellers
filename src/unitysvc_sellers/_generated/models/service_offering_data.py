@@ -53,6 +53,8 @@ class ServiceOfferingData:
     """ One-line marketplace summary (max 200 characters) — shown on collapsed catalog rows and cards. Required
     everywhere, deliberately: the teaser is part of the offering, not an optional garnish. Renames the vestigial
     ``tagline`` field (unitysvc/unitysvc#1838). """
+    description: str
+    """ Service description (long-form; the summary carries the teaser) """
     display_name: None | str | Unset = UNSET
     """ Human-readable service name for display (e.g., 'GPT-4 Turbo', 'Claude 3 Opus') """
     service_type: ServiceTypeEnum | Unset = UNSET
@@ -62,8 +64,6 @@ class ServiceOfferingData:
     `capabilities` list on ServiceOffering, not service_type. """
     capabilities: list[str] | Unset = UNSET
     """ Specific features this service provides (e.g., 'text_to_speech', 'embedding') """
-    description: None | str | Unset = UNSET
-    """ Service description (long-form; the summary carries the teaser) """
     status: OfferingStatusEnum | Unset = UNSET
     """ Status values that sellers can set for service offerings.
 
@@ -97,6 +97,8 @@ class ServiceOfferingData:
 
         summary = self.summary
 
+        description = self.description
+
         display_name: None | str | Unset
         if isinstance(self.display_name, Unset):
             display_name = UNSET
@@ -110,12 +112,6 @@ class ServiceOfferingData:
         capabilities: list[str] | Unset = UNSET
         if not isinstance(self.capabilities, Unset):
             capabilities = self.capabilities
-
-        description: None | str | Unset
-        if isinstance(self.description, Unset):
-            description = UNSET
-        else:
-            description = self.description
 
         status: str | Unset = UNSET
         if not isinstance(self.status, Unset):
@@ -172,6 +168,7 @@ class ServiceOfferingData:
             {
                 "name": name,
                 "summary": summary,
+                "description": description,
             }
         )
         if display_name is not UNSET:
@@ -180,8 +177,6 @@ class ServiceOfferingData:
             field_dict["service_type"] = service_type
         if capabilities is not UNSET:
             field_dict["capabilities"] = capabilities
-        if description is not UNSET:
-            field_dict["description"] = description
         if status is not UNSET:
             field_dict["status"] = status
         if details is not UNSET:
@@ -213,6 +208,8 @@ class ServiceOfferingData:
 
         summary = d.pop("summary")
 
+        description = d.pop("description")
+
         def _parse_display_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -230,15 +227,6 @@ class ServiceOfferingData:
             service_type = check_service_type_enum(_service_type)
 
         capabilities = cast(list[str], d.pop("capabilities", UNSET))
-
-        def _parse_description(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        description = _parse_description(d.pop("description", UNSET))
 
         _status = d.pop("status", UNSET)
         status: OfferingStatusEnum | Unset
@@ -342,10 +330,10 @@ class ServiceOfferingData:
         service_offering_data = cls(
             name=name,
             summary=summary,
+            description=description,
             display_name=display_name,
             service_type=service_type,
             capabilities=capabilities,
-            description=description,
             status=status,
             details=details,
             payout_price=payout_price,

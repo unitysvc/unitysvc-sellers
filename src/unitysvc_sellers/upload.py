@@ -56,7 +56,14 @@ from .params_render import (
     service_name_for_param,
     write_service_id_for_param,
 )
+from .platform_services import (
+    build_platform_service_payload,
+    find_platform_service_folders,
+    write_member_template_id,
+    write_platform_service_id,
+)
 from .utils import (
+    MEMBER_SERVICES_DIRNAMES,
     convert_convenience_fields_to_documents,
     find_files_by_pattern,
     load_data_file,
@@ -193,17 +200,19 @@ def _normalize_service_selector(name: str) -> str:
     """Accept service-name selectors and common local ``services/specs`` paths."""
     normalized = name.removeprefix("./")
     specs_marker = "/services/specs/"
-    platform_marker = "/platform_services/"
+    member_prefixes = tuple(f"{d}/" for d in MEMBER_SERVICES_DIRNAMES)
+    member_markers = tuple(f"/{d}/" for d in MEMBER_SERVICES_DIRNAMES)
     if normalized.startswith("services/specs/"):
         normalized = normalized[len("services/specs/") :]
-    elif normalized.startswith("platform_services/"):
-        normalized = normalized[len("platform_services/") :]
+    elif normalized.startswith(member_prefixes):
+        normalized = normalized.split("/", 1)[1]
     elif normalized.startswith("specs/"):
         normalized = normalized[len("specs/") :]
     elif specs_marker in normalized:
         normalized = normalized.split(specs_marker, 1)[1]
-    elif platform_marker in normalized:
-        normalized = normalized.split(platform_marker, 1)[1]
+    elif any(marker in normalized for marker in member_markers):
+        marker = next(m for m in member_markers if m in normalized)
+        normalized = normalized.split(marker, 1)[1]
     if normalized.endswith(".json") and not normalized.endswith(".service.json"):
         normalized = normalized[: -len(".json")]
     return normalized
@@ -568,10 +577,14 @@ def upload_directory(
     # write service.json back into the right service folder.
     pending_tasks: dict[str, tuple[Path, dict[str, Any]]] = {}
     pending_system_tasks: dict[str, tuple[Path, str]] = {}
+    pending_platform_tasks: dict[str, tuple[Path, str]] = {}
 
     # ----- Services ---------------------------------------------------
     all_listings = find_files_by_pattern(data_dir, "listing_v1")
     all_system_params = discover_system_param_files(data_dir)
+    all_platform_folders = {
+        folder: _platform_service_name(folder) for folder in find_platform_service_folders(data_dir)
+    }
     if name is not None:
         name = _normalize_service_selector(name)
         # --name uploads every service whose service_name (= listing.name,
@@ -579,14 +592,47 @@ def upload_directory(
         # service, ``cohere/*`` uploads the set.
         matched = [p for p, _, d in all_listings if service_name_matches(d.get("name"), name)]
         matched_system = [p for p in all_system_params if service_name_matches(service_name_for_param(p), name)]
-        if not matched and not matched_system:
+        matched_platform = [f for f, n in all_platform_folders.items() if service_name_matches(n, name)]
+        if not matched and not matched_system and not matched_platform:
             raise ValueError(f"No service with service_name (listing.name) matching '{name}' found under {data_dir}.")
         listing_files = sorted(matched)
         system_param_files = sorted(matched_system)
+        platform_folders = sorted(matched_platform)
     else:
         listing_files = sorted(p for p, _, _ in all_listings)
         system_param_files = sorted(all_system_params)
-    result.services.total = len(listing_files) + len(system_param_files)
+        platform_folders = sorted(all_platform_folders)
+    result.services.total = len(listing_files) + len(system_param_files) + len(platform_folders)
+
+    # Platform services (#2569): each folder is published with its member
+    # template through its own endpoint, never as an ordinary service.
+    for folder in platform_folders:
+        service_name = all_platform_folders[folder]
+        try:
+            platform_payload = build_platform_service_payload(folder, client=client)
+            resp = client.services.upload_platform_service(platform_payload)
+        except APIError as exc:
+            result.services.failed += 1
+            result.services.errors.append({"file": str(folder), "error": f"{exc.status_code}: {exc}"})
+            if on_progress is not None:
+                on_progress("service", "error", service_name, str(exc))
+            continue
+        except Exception as exc:
+            result.services.failed += 1
+            result.services.errors.append({"file": str(folder), "error": str(exc)})
+            if on_progress is not None:
+                on_progress("service", "error", service_name, str(exc))
+            continue
+        task_id = getattr(resp, "task_id", None)
+        if not task_id:
+            result.services.failed += 1
+            result.services.errors.append({"file": str(folder), "error": "no task id returned"})
+            if on_progress is not None:
+                on_progress("service", "error", service_name, "no task id returned")
+            continue
+        pending_platform_tasks[str(task_id)] = (folder, service_name)
+        if on_progress is not None:
+            on_progress("service", "queued", service_name, f"task_id={task_id}")
 
     for param_file in system_param_files:
         service_name = service_name_for_param(param_file)
@@ -678,7 +724,7 @@ def upload_directory(
             on_progress("service", "queued", service_name, f"task_id={task_id}")
 
     # ----- Drain pending service tasks --------------------------------
-    if pending_tasks or pending_system_tasks:
+    if pending_tasks or pending_system_tasks or pending_platform_tasks:
 
         def _poll_progress(done: int, total: int, last_ids: list[str]) -> None:
             _ = (done, total, last_ids)
@@ -687,6 +733,7 @@ def upload_directory(
             terminal_states = client.tasks.wait(
                 *pending_tasks.keys(),
                 *pending_system_tasks.keys(),
+                *pending_platform_tasks.keys(),
                 timeout=task_wait_timeout,
                 poll_interval=task_poll_interval,
                 on_update=_poll_progress,
@@ -698,13 +745,17 @@ def upload_directory(
                 result.services.errors.append({"file": str(listing_file), "task_id": task_id, "error": diagnostic})
                 if on_progress is not None:
                     on_progress("service", "error", listing_data.get("name", listing_file.name), diagnostic)
-            for task_id, (param_file, service_name) in pending_system_tasks.items():
+            for task_id, (param_file, service_name) in [
+                *pending_system_tasks.items(),
+                *pending_platform_tasks.items(),
+            ]:
                 result.services.failed += 1
                 result.services.errors.append({"file": str(param_file), "task_id": task_id, "error": diagnostic})
                 if on_progress is not None:
                     on_progress("service", "error", service_name, diagnostic)
             pending_tasks.clear()
             pending_system_tasks.clear()
+            pending_platform_tasks.clear()
         else:
             for task_id, (listing_file, listing_data) in pending_tasks.items():
                 status_dict = terminal_states.get(task_id) or {
@@ -767,10 +818,59 @@ def upload_directory(
                     if on_progress is not None:
                         on_progress("service", "error", service_name, str(error_msg))
 
+            for task_id, (folder, service_name) in pending_platform_tasks.items():
+                status_dict = terminal_states.get(task_id) or {
+                    "status": "unknown",
+                    "message": "task status not returned",
+                }
+                status_value = status_dict.get("status")
+                if status_value == "completed":
+                    result.services.success += 1
+                    record = status_dict.get("result") or {}
+                    record = record if isinstance(record, dict) else {}
+                    service_id = record.get("service_id")
+                    template_id = record.get("member_template_id")
+                    if service_id:
+                        write_platform_service_id(folder, str(service_id))
+                    if template_id:
+                        write_member_template_id(folder, str(template_id))
+                    detail = (
+                        f"{record.get('status', 'done')}, service_id={service_id}, "
+                        f"member template {record.get('member_template', 'done')}"
+                    )
+                    if on_progress is not None:
+                        on_progress("service", "ok", service_name, detail)
+                else:
+                    result.services.failed += 1
+                    error_msg = (
+                        status_dict.get("error")
+                        or status_dict.get("message")
+                        or f"task ended in state {status_value!r}"
+                    )
+                    result.services.errors.append({"file": str(folder), "task_id": task_id, "error": str(error_msg)})
+                    if on_progress is not None:
+                        on_progress("service", "error", service_name, str(error_msg))
+
             pending_tasks.clear()
             pending_system_tasks.clear()
+            pending_platform_tasks.clear()
 
     return result
+
+
+def _platform_service_name(folder: Path) -> str:
+    """The platform service's name: its listing's ``name``, else ``<provider>/<name>``."""
+    for suffix in (".json", ".toml"):
+        listing = folder / f"listing{suffix}"
+        if listing.is_file():
+            try:
+                data, _ = load_data_file(listing)
+            except Exception:
+                break
+            if isinstance(data, dict) and data.get("name"):
+                return str(data["name"])
+            break
+    return f"{folder.parent.name}/{folder.name}"
 
 
 def upload_promotions(
