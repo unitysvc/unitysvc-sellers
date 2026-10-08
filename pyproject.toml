@@ -19,7 +19,7 @@ classifiers = [
 dependencies = [
   # 0.2.25 is the required floor for the shared system-template expansion and
   # stdlib-JSON spec parsing behavior used by the seller `specs` commands.
-  "unitysvc-core>=0.2.25",
+  "unitysvc-core>=0.2.30",
   # Ships the `usvc` umbrella that mounts the usvc.commands entry point below,
   # so `usvc seller ...` works for anyone who installs this package. Adds no new
   # transitive dependencies — typer, rich, httpx, attrs and python-dateutil are

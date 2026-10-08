@@ -25,7 +25,6 @@ skips ``platform-services/`` and :func:`upload_directory` sends each folder to
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Any
 
@@ -200,21 +199,24 @@ def build_platform_service_payload(folder: Path, *, client: Any | None = None) -
     return payload
 
 
-_P_BASE_URL_RE = re.compile(r"^\$\{API_GATEWAY_BASE_URL\}/p/(?P<route>[a-z0-9][a-z0-9_-]*)$")
-
-
 def validate_platform_service_folder(folder: Path, root: Path) -> list[str]:
     """Offline checks of one ``platform-services/<provider>/<name>/`` folder.
 
     The checks the platform makes at publish time that need no server: the
     three files parse as their core models, the folder path matches the
-    provider and the service name, every listing interface is a ``/p``
-    address on one route, and the member template loads (named after the
-    folder, its bodies present). Not checked here: the template language,
+    provider and the service name, the listing declares its ``/p`` address
+    (core's ``validate_platform_listing_base_urls``, the platform's own
+    rule), and the member template loads (named after the folder, its bodies
+    present). Not checked here: the template language,
     ownership and address conflicts — the platform refuses those at upload.
     """
     from pydantic import ValidationError
-    from unitysvc_core.models import ProviderData, ServiceListingData, ServiceOfferingData
+    from unitysvc_core.models import (
+        ProviderData,
+        ServiceListingData,
+        ServiceOfferingData,
+        validate_platform_listing_base_urls,
+    )
 
     try:
         rel = folder.relative_to(root).as_posix()
@@ -251,23 +253,10 @@ def validate_platform_service_folder(folder: Path, root: Path) -> list[str]:
             errors.append(f"{rel}/{kind}.json: name must be {expected_name!r} (the folder path)")
 
     if "listing" in data:
-        interfaces = data["listing"].get("user_access_interfaces") or {}
-        routes = set()
-        if not isinstance(interfaces, dict) or not interfaces:
-            errors.append(f"{rel}/listing.json: user_access_interfaces must declare the /p address")
-        else:
-            for iname, iface in interfaces.items():
-                base_url = iface.get("base_url") if isinstance(iface, dict) else None
-                match = _P_BASE_URL_RE.match(base_url) if isinstance(base_url, str) else None
-                if match is None:
-                    errors.append(
-                        f"{rel}/listing.json: user_access_interfaces.{iname}.base_url must be "
-                        "exactly '${API_GATEWAY_BASE_URL}/p/<route>'"
-                    )
-                else:
-                    routes.add(match.group("route"))
-            if len(routes) > 1:
-                errors.append(f"{rel}/listing.json: all user_access_interfaces must share one /p route")
+        errors.extend(
+            f"{rel}/listing.json: {err}"
+            for err in validate_platform_listing_base_urls(data["listing"].get("user_access_interfaces"))
+        )
 
     try:
         template = load_member_template(folder)

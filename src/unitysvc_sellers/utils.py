@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment as JinjaEnvironment
+from unitysvc_core.models import PLATFORM_SERVICES_DIRNAME as _CORE_PLATFORM_SERVICES_DIRNAME
 
 # Re-exports from unitysvc_core so seller modules can import everything
 # from a single place. ``load_data_file`` and the file-discovery helpers
@@ -66,8 +67,8 @@ MEMBER_SERVICES_DIRNAMES = (MEMBER_SERVICES_DIRNAME, LEGACY_MEMBER_SERVICES_DIRN
 # ``platform-services/<provider>/<name>/`` holds the platform service
 # (provider/offering/listing + ``<name>.service.json``) and its
 # ``member-template/``. Uploaded through their own endpoint, never as an
-# ordinary service, so ordinary discovery skips the tree.
-PLATFORM_SERVICES_DIRNAME = "platform-services"
+# ordinary service, so ordinary discovery skips the tree. Core owns the name.
+PLATFORM_SERVICES_DIRNAME = _CORE_PLATFORM_SERVICES_DIRNAME
 
 
 def member_services_index(parts: tuple[str, ...]) -> int | None:
