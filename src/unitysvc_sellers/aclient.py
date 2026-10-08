@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from ._generated.client import AuthenticatedClient as _LowLevelClient
+from ._http import araise_on_non_json_error
 from .client import DEFAULT_SELLER_API_URL, ENV_SELLER_API_KEY, ENV_SELLER_API_URL
 
 if TYPE_CHECKING:
@@ -83,6 +84,7 @@ class AsyncClient:
             timeout=timeout_obj,
             verify_ssl=verify_ssl,
             raise_on_unexpected_status=False,
+            httpx_args={"event_hooks": {"response": [araise_on_non_json_error]}},
         )
         self._api_key = api_key
         self._base_url = resolved_base_url

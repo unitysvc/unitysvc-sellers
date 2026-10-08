@@ -100,3 +100,48 @@ def parse_raw(response: Any, model: type[T]) -> T:
         detail = response.content
 
     raise error_for_status(status, detail=detail, response_body=response.content)
+
+
+def _non_json_error(response: Any) -> Exception | None:
+    """An ``APIError`` for an error reply whose body is not JSON, else None.
+
+    The generated client parses every documented error status with
+    ``response.json()``. A reply from something that is not the seller API —
+    a proxy's plain-text ``404 page not found`` when the base URL is wrong —
+    then surfaced as a bare JSON error (``Extra data: line 1 column 5``).
+    """
+    if response.status_code < 400:
+        return None
+    if "json" in (response.headers.get("content-type") or "").lower():
+        return None
+    body = response.content or b""
+    text = body.decode("utf-8", errors="replace").strip()
+    snippet = text[:200] + ("…" if len(text) > 200 else "")
+    request = response.request
+    return error_for_status(
+        int(response.status_code),
+        detail={
+            "detail": (
+                f"non-JSON reply from {request.method} {request.url}: {snippet!r} (is the seller API URL right?)"
+            )
+        },
+        response_body=body,
+    )
+
+
+def raise_on_non_json_error(response: Any) -> None:
+    """httpx response hook (sync client) — see :func:`_non_json_error`."""
+    if response.status_code >= 400:
+        response.read()
+        error = _non_json_error(response)
+        if error is not None:
+            raise error
+
+
+async def araise_on_non_json_error(response: Any) -> None:
+    """httpx response hook (async client) — see :func:`_non_json_error`."""
+    if response.status_code >= 400:
+        await response.aread()
+        error = _non_json_error(response)
+        if error is not None:
+            raise error

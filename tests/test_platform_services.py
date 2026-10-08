@@ -238,3 +238,84 @@ def test_a_member_service_name_must_match_its_member_services_path(tmp_path: Pat
     errors = validate_system_param_file(param)
 
     assert errors and "must match the path under member-services" in errors[0]
+
+
+# --- specs list / show / validate -------------------------------------------
+
+
+def test_validate_checks_platform_services(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from unitysvc_sellers.specs_layout import app as validate_app
+
+    _platform_service(tmp_path, service_id=SERVICE_ID)
+    result = CliRunner().invoke(validate_app, [str(tmp_path), "--has-service-id"])
+    assert result.exit_code == 0, result.output
+    assert "1 platform service(s)" in result.output
+
+
+def test_validate_reports_platform_service_problems(tmp_path: Path) -> None:
+    from unitysvc_sellers.platform_services import validate_platform_service_folder
+
+    folder = _platform_service(tmp_path)
+    listing = json.loads((folder / "listing.json").read_text())
+    listing["name"] = "labs/other"
+    listing["user_access_interfaces"]["default"]["base_url"] = "https://api.example.com/v1"
+    _write(folder / "listing.json", listing)
+
+    errors = validate_platform_service_folder(folder, tmp_path)
+
+    assert any("name must be 'labs/llm-fast'" in e for e in errors)
+    assert any("/p/<route>" in e for e in errors)
+
+
+def test_list_and_show_include_platform_services(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from unitysvc_sellers.specs import app as specs_app
+
+    _platform_service(tmp_path, service_id=SERVICE_ID)
+    runner = CliRunner()
+
+    listed = runner.invoke(specs_app, ["list", "services", str(tmp_path)])
+    assert listed.exit_code == 0, listed.output
+    assert "labs/llm-fast" in listed.output and "platform" in listed.output
+
+    shown = runner.invoke(specs_app, ["show", "labs/llm-fast", "--data-dir", str(tmp_path), "--format", "text"])
+    assert shown.exit_code == 0, shown.output
+    assert "member_template" in shown.output
+
+
+# --- a non-JSON error reply ---------------------------------------------------
+
+
+@respx.mock
+def test_a_non_json_error_reply_names_the_status_and_url() -> None:
+    """A proxy's plain-text 404 used to surface as 'Extra data: line 1 column 5'."""
+    from unitysvc_sellers.exceptions import APIError
+
+    respx.get(url__startswith=f"{BASE_URL}/services").mock(
+        return_value=httpx.Response(404, text="404 page not found", headers={"content-type": "text/plain"})
+    )
+    with Client(api_key="svcpass_test", base_url=BASE_URL) as client:
+        with pytest.raises(APIError) as excinfo:
+            client.services.list()
+    message = str(excinfo.value)
+    assert excinfo.value.status_code == 404
+    assert "404 page not found" in message and BASE_URL in message
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_the_async_client_reports_a_non_json_error_reply_too() -> None:
+    from unitysvc_sellers import AsyncClient
+    from unitysvc_sellers.exceptions import APIError
+
+    respx.get(url__startswith=f"{BASE_URL}/services").mock(
+        return_value=httpx.Response(502, text="<html>Bad Gateway</html>", headers={"content-type": "text/html"})
+    )
+    async with AsyncClient(api_key="svcpass_test", base_url=BASE_URL) as client:
+        with pytest.raises(APIError) as excinfo:
+            await client.services.list()
+    assert excinfo.value.status_code == 502
+    assert "Bad Gateway" in str(excinfo.value)

@@ -30,7 +30,7 @@ from typing import Any
 
 from unitysvc_core.utils import expand_presets
 
-from .utils import PLATFORM_SERVICES_DIRNAME, dump_canonical_json, is_hidden_path
+from .utils import PLATFORM_SERVICES_DIRNAME, dump_canonical_json, is_hidden_path, load_data_file
 
 #: The member template's sub-folder in a platform service folder.
 MEMBER_TEMPLATE_DIRNAME = "member-template"
@@ -197,3 +197,72 @@ def build_platform_service_payload(folder: Path, *, client: Any | None = None) -
     if service_id:
         payload["service_status"] = {"service_id": service_id}
     return payload
+
+
+def validate_platform_service_folder(folder: Path, root: Path) -> list[str]:
+    """Offline checks of one ``platform-services/<provider>/<name>/`` folder.
+
+    The checks the platform makes at publish time that need no server: the
+    three files parse as their core models, the folder path matches the
+    provider and the service name, the listing declares its ``/p`` address
+    (core's ``validate_platform_listing_base_urls``, the platform's own
+    rule), and the member template loads (named after the folder, its bodies
+    present). Not checked here: the template language,
+    ownership and address conflicts — the platform refuses those at upload.
+    """
+    from pydantic import ValidationError
+    from unitysvc_core.models import (
+        ProviderData,
+        ServiceListingData,
+        ServiceOfferingData,
+        validate_platform_listing_base_urls,
+    )
+
+    try:
+        rel = folder.relative_to(root).as_posix()
+    except ValueError:
+        rel = folder.as_posix()
+    errors: list[str] = []
+    data: dict[str, dict[str, Any]] = {}
+    for kind, model in (
+        ("provider", ProviderData),
+        ("offering", ServiceOfferingData),
+        ("listing", ServiceListingData),
+    ):
+        path = next((folder / f"{kind}{s}" for s in _DATA_SUFFIXES if (folder / f"{kind}{s}").is_file()), None)
+        if path is None:
+            errors.append(f"{rel}: missing required {kind} file ({kind}.json or {kind}.toml)")
+            continue
+        try:
+            loaded, _ = load_data_file(path)
+            model(**loaded)
+            data[kind] = loaded
+        except ValidationError as exc:
+            for err in exc.errors():
+                loc = ".".join(str(p) for p in err["loc"])
+                errors.append(f"{rel}/{path.name}: {loc}: {err['msg']}")
+        except Exception as exc:  # noqa: BLE001 — surface, don't crash the run
+            errors.append(f"{rel}/{path.name}: {exc}")
+
+    provider_name = folder.parent.name
+    expected_name = f"{provider_name}/{folder.name}"
+    if "provider" in data and data["provider"].get("name") != provider_name:
+        errors.append(f"{rel}/provider.json: name must be {provider_name!r} (the folder's provider)")
+    for kind in ("offering", "listing"):
+        if kind in data and data[kind].get("name") != expected_name:
+            errors.append(f"{rel}/{kind}.json: name must be {expected_name!r} (the folder path)")
+
+    if "listing" in data:
+        errors.extend(
+            f"{rel}/listing.json: {err}"
+            for err in validate_platform_listing_base_urls(data["listing"].get("user_access_interfaces"))
+        )
+
+    try:
+        template = load_member_template(folder)
+        for key in ("version", "display_name", "service_type"):
+            if not template.get(key):
+                errors.append(f"{rel}/{MEMBER_TEMPLATE_DIRNAME}/template.json: missing {key!r}")
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"{rel}: {exc}")
+    return errors
