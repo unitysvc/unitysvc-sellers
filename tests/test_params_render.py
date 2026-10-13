@@ -487,7 +487,9 @@ def test_a_member_without_price_params_does_not_gain_them(tmp_path: Path) -> Non
     assert params["payout_input"] == "0.12"
 
 
-def test_matching_platform_params_refresh_payout_from_pricing(tmp_path: Path) -> None:
+def test_a_legacy_pricing_key_is_not_read_as_the_payout(tmp_path: Path) -> None:
+    """Seller repos name the upstream rate ``payout_price``; the old
+    fireworks-only ``pricing`` name is no longer mirrored into ``payout_*``."""
     specs = tmp_path / "services" / "specs"
     _seed(specs, ["p/modelA"])
     fast = _platform_param(tmp_path, "llm-fast", "p/modelA")
@@ -496,16 +498,14 @@ def test_matching_platform_params_refresh_payout_from_pricing(tmp_path: Path) ->
         yield {
             "service_name": "p/modelA",
             "offering_name": "modelA",
-            "pricing": {"cached_input": "0.02", "input": "0.20", "output": "0.80"},
+            "pricing": {"input": "0.20", "output": "0.80"},
             "service_type": "llm",
         }
 
     write_params_from_iterator(it(), specs)
 
-    data = json.loads(fast.read_text())
-    assert data["parameters"]["payout_input"] == "0.20"
-    assert data["parameters"]["payout_output"] == "0.80"
-    assert "payout_cached_input" not in data["parameters"]
+    params = json.loads(fast.read_text())["parameters"]
+    assert (params["payout_input"], params["payout_output"]) == ("1", "2")
 
 
 def test_matching_platform_params_preserve_payout_when_new_price_unknown(tmp_path: Path) -> None:
