@@ -3,9 +3,10 @@
 Platform services are customer-facing endpoints owned by UnitySVC, such as an
 LLM tier or a model facade. Sellers join one by uploading a private member
 service from the platform's system template. The member is still your service:
-it uses your upstream URL, your seller secret, and your accepted payout price.
-The platform service supplies the customer-facing name, price, tests, and
-routing contract.
+it uses your upstream URL, your seller secret, your list price (what the
+platform pays for the capacity) and your payout price. The platform service
+supplies the customer-facing name, tests and routing contract; its price is
+derived from its members' list prices.
 
 Use the `member-services/` layout when a repo manages member services for one
 or more platform services.
@@ -65,6 +66,8 @@ the path under `member-services/`.
     "model": "deepseek-v4-pro",
     "payout_input": "0.35",
     "payout_output": "0.80",
+    "price_input": "0.4",
+    "price_output": "0.92",
     "service_name": "llm-premium/crofai/deepseek-v4-pro"
   }
 }
@@ -82,9 +85,11 @@ Provider populator scripts usually update regular model params under
 `member-services/`:
 
 - When a regular service is yielded, matching platform members are refreshed.
-- Price fields such as `payout_input`, `payout_output`, and
-  `payout_cached_input` are copied from the regular service's payout data when
-  present.
+- Price fields are copied from the regular service when the member already
+  declares them: `payout_input` / `payout_output` / `payout_cached_input` from
+  its `payout_price`, and `price_input` / `price_output` / `price_cached_input`
+  from its `list_price`. A member's prices therefore follow the same upstream
+  rate and seller markup as the standalone service it mirrors.
 - The automatically written `parameters.status = "deprecated"` marker is
   cleared from the base parameter file when the model appears again.
 - If the model disappears, regular params get `parameters.status =
