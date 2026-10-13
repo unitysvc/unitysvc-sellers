@@ -981,8 +981,9 @@ def _clear_platform_param_deprecation(path: Path) -> bool:
 def _platform_price_updates(parameters: dict[str, Any]) -> dict[str, Any]:
     """Price values from a regular generated service that platform params mirror.
 
-    A member's payout mirrors the regular service's ``payout_price`` and its
-    list price (``price_*``) mirrors the regular ``list_price``: the member is
+    A member's payout mirrors the regular service's ``payout_price`` (or
+    ``pricing``) and its list price (``price_*``) mirrors the regular
+    ``list_price`` (or ``managed_pricing``, fireworks' name for it): the member is
     the same upstream capacity, sold to the platform at the seller's usual
     list price.
     """
@@ -991,6 +992,8 @@ def _platform_price_updates(parameters: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(payout, dict):
         payout = parameters.get("pricing")
     list_price = parameters.get("list_price")
+    if not isinstance(list_price, dict):
+        list_price = parameters.get("managed_pricing")
     for price, prefix in ((payout, "payout"), (list_price, "price")):
         if not isinstance(price, dict):
             continue

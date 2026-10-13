@@ -464,6 +464,33 @@ def test_matching_platform_params_refresh_list_price_from_list_price(tmp_path: P
     assert data["parameters"]["payout_output"] == "0.34"
 
 
+def test_matching_platform_params_refresh_list_price_from_managed_pricing(tmp_path: Path) -> None:
+    """fireworks names its upstream rate ``pricing`` and its marked-up rate
+    ``managed_pricing``; both must reach the member."""
+    specs = tmp_path / "services" / "specs"
+    _seed(specs, ["p/modelA"])
+    fast = _platform_param(tmp_path, "llm-fast", "p/modelA")
+    data = json.loads(fast.read_text())
+    data["parameters"]["price_input"] = "1.15"
+    data["parameters"]["price_output"] = "2.3"
+    fast.write_text(json.dumps(data) + "\n")
+
+    def it():
+        yield {
+            "service_name": "p/modelA",
+            "offering_name": "modelA",
+            "managed_pricing": {"input": "3.45", "output": "17.25"},
+            "pricing": {"input": "3.00", "output": "15.00"},
+            "service_type": "llm",
+        }
+
+    write_params_from_iterator(it(), specs)
+
+    params = json.loads(fast.read_text())["parameters"]
+    assert (params["price_input"], params["price_output"]) == ("3.45", "17.25")
+    assert (params["payout_input"], params["payout_output"]) == ("3.00", "15.00")
+
+
 def test_a_member_without_price_params_does_not_gain_them(tmp_path: Path) -> None:
     """Only keys the member already declares are refreshed: a member template
     without ``price_*`` must not have them injected."""
