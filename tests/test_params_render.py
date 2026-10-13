@@ -437,6 +437,56 @@ def test_matching_platform_params_refresh_payout_from_payout_price(tmp_path: Pat
     assert stats["deprecated"] == 0
 
 
+def test_matching_platform_params_refresh_list_price_from_list_price(tmp_path: Path) -> None:
+    specs = tmp_path / "services" / "specs"
+    _seed(specs, ["p/modelA"])
+    fast = _platform_param(tmp_path, "llm-fast", "p/modelA")
+    data = json.loads(fast.read_text())
+    data["parameters"]["price_input"] = "1.15"
+    data["parameters"]["price_output"] = "2.3"
+    fast.write_text(json.dumps(data) + "\n")
+
+    def it():
+        yield {
+            "service_name": "p/modelA",
+            "offering_name": "modelA",
+            "list_price": {"input": "0.138", "output": "0.391", "type": "one_million_tokens"},
+            "payout_price": {"input": "0.12", "output": "0.34", "type": "one_million_tokens"},
+            "service_type": "llm",
+        }
+
+    write_params_from_iterator(it(), specs)
+
+    data = json.loads(fast.read_text())
+    assert data["parameters"]["price_input"] == "0.138"
+    assert data["parameters"]["price_output"] == "0.391"
+    assert data["parameters"]["payout_input"] == "0.12"
+    assert data["parameters"]["payout_output"] == "0.34"
+
+
+def test_a_member_without_price_params_does_not_gain_them(tmp_path: Path) -> None:
+    """Only keys the member already declares are refreshed: a member template
+    without ``price_*`` must not have them injected."""
+    specs = tmp_path / "services" / "specs"
+    _seed(specs, ["p/modelA"])
+    fast = _platform_param(tmp_path, "llm-fast", "p/modelA")
+
+    def it():
+        yield {
+            "service_name": "p/modelA",
+            "offering_name": "modelA",
+            "list_price": {"input": "0.138", "output": "0.391"},
+            "payout_price": {"input": "0.12", "output": "0.34"},
+            "service_type": "llm",
+        }
+
+    write_params_from_iterator(it(), specs)
+
+    params = json.loads(fast.read_text())["parameters"]
+    assert "price_input" not in params
+    assert params["payout_input"] == "0.12"
+
+
 def test_matching_platform_params_refresh_payout_from_pricing(tmp_path: Path) -> None:
     specs = tmp_path / "services" / "specs"
     _seed(specs, ["p/modelA"])

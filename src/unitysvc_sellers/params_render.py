@@ -979,19 +979,24 @@ def _clear_platform_param_deprecation(path: Path) -> bool:
 
 
 def _platform_price_updates(parameters: dict[str, Any]) -> dict[str, Any]:
-    """Payout values from a regular generated service that platform params mirror."""
+    """Price values from a regular generated service that platform params mirror.
+
+    A member's payout mirrors the regular service's ``payout_price`` and its
+    list price (``price_*``) mirrors the regular ``list_price``: the member is
+    the same upstream capacity, sold to the platform at the seller's usual
+    list price.
+    """
     updates: dict[str, Any] = {}
-    price = parameters.get("payout_price")
-    if not isinstance(price, dict):
-        price = parameters.get("pricing")
-    if isinstance(price, dict):
-        for source_key, target_key in (
-            ("input", "payout_input"),
-            ("output", "payout_output"),
-            ("cached_input", "payout_cached_input"),
-        ):
+    payout = parameters.get("payout_price")
+    if not isinstance(payout, dict):
+        payout = parameters.get("pricing")
+    list_price = parameters.get("list_price")
+    for price, prefix in ((payout, "payout"), (list_price, "price")):
+        if not isinstance(price, dict):
+            continue
+        for source_key in ("input", "output", "cached_input"):
             if source_key in price:
-                updates[target_key] = price[source_key]
+                updates[f"{prefix}_{source_key}"] = price[source_key]
 
     return updates
 
