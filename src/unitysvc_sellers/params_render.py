@@ -988,8 +988,6 @@ def _platform_price_updates(parameters: dict[str, Any]) -> dict[str, Any]:
     """
     updates: dict[str, Any] = {}
     payout = parameters.get("payout_price")
-    if not isinstance(payout, dict):
-        payout = parameters.get("pricing")
     list_price = parameters.get("list_price")
     for price, prefix in ((payout, "payout"), (list_price, "price")):
         if not isinstance(price, dict):
