@@ -495,6 +495,8 @@ $ usvc seller services [OPTIONS] COMMAND [ARGS]...
 * `update`: Update visibility, routing vars, and/or...
 * `list-tests`: List testable documents for one service or...
 * `show-test`: Show the latest test result for a single...
+* `show-test-results`: Show a service&#x27;s test results: verdict,...
+* `show-platform-tests`: Alias of ``show-test-results`` — the name...
 * `run-tests`: Run a service&#x27;s testable documents via a...
 * `skip-test`: Mark a code-example document as skipped...
 * `unskip-test`: Unskip a previously-skipped document so it...
@@ -846,6 +848,60 @@ $ usvc seller services show-test [OPTIONS] [DOCUMENT_ID]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
 
+### `usvc seller services show-test-results`
+
+Show a service&#x27;s test results: verdict, recorded runs, missing runs.
+
+Every runner (submission review, run-tests, single-document runs, the
+daily sweep) records its runs per service. A platform member&#x27;s runs are
+of its platform service&#x27;s documents, pinned to it.
+
+    usvc seller services show-test-results cohere/command-r
+    usvc seller services show-test-results --id 6c55d6d9 --run 1f2e3d4c
+
+**Usage**:
+
+```console
+$ usvc seller services show-test-results [OPTIONS] [name]
+```
+
+**Arguments**:
+
+* `name`: Service by service_name (= listing.name). Errors on multiple matches — use --id.
+
+**Options**:
+
+* `--id <str>`: Service ID (full or partial, ≥8 chars).
+* `-r, --run <str>`: Run id (or ≥8-char prefix) to print the output of: stdout, stderr, env, rendered script.
+* `-f, --format <str>`: Output format: table | json.  [default: table]
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller services show-platform-tests`
+
+Alias of ``show-test-results`` — the name platform-member rejection
+messages point at.
+
+**Usage**:
+
+```console
+$ usvc seller services show-platform-tests [OPTIONS] [name]
+```
+
+**Arguments**:
+
+* `name`: Platform member by service_name.
+
+**Options**:
+
+* `--id <str>`: Service ID (full or partial, ≥8 chars).
+* `-r, --run <str>`: Run id (or ≥8-char prefix) to print the output of: stdout, stderr, env, rendered script.
+* `-f, --format <str>`: Output format: table | json.  [default: table]
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
 ### `usvc seller services run-tests`
 
 Run a service&#x27;s testable documents via a server-side diagnostic.
@@ -859,10 +915,10 @@ result attributes the fault as ``platform_fault`` vs
 ``upstream_fault``.
 
 Replaces the previous local-execution path
-(unitysvc/unitysvc#1105).  Test results are persisted on the
-backend in ``Document.meta.test.tests[&lt;iface_id&gt;]``; the rendered
-table here is a summary.  Use ``usvc seller services show-test --doc-id &lt;id&gt;``
-to see full stdout/stderr for any failure.
+(unitysvc/unitysvc#1105).  Each run is recorded for the service on the
+backend; the rendered table here is a summary.  Use
+``usvc seller services show-test-results &lt;service&gt; --run &lt;run&gt;`` to see
+full stdout/stderr for any failure.
 
 Targeting:
     usvc seller services run-tests cohere/command-r-plus

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from ._generated.types import UNSET
 from ._http import unwrap
 
 if TYPE_CHECKING:
@@ -42,15 +43,14 @@ class AsyncDocuments:
         channel: str | None = None,
         upstream: bool = False,
     ) -> TestDetailResponse:
-        """Execution details (stdout/stderr/masked env/rendered script) for
-        one test-result cell (unitysvc#1901).
+        """Execution details (stdout/stderr/masked env/rendered script) of the
+        latest recorded run of the document by one of the seller's services.
 
-        Selectors mirror how results are recorded: none → the flat
-        single-document block; ``interface_id`` (+ optional ``channel``) →
-        that gateway cell; ``upstream=True`` (+ optional ``channel``) → the
-        upstream probe record. ``expired=True`` on the response means the
-        cell's detail blob aged out of retention — re-run the test to
-        reproduce the details.
+        Selectors narrow the run: none → the newest run; ``interface_id``
+        (+ optional ``channel``) → that gateway run; ``upstream=True``
+        (+ optional ``channel``) → the upstream probe. ``expired=True`` means
+        the run's output aged out of retention — re-run the test to reproduce
+        it. A service's full result set is :meth:`Services.test_results`.
         """
         from ._generated.api.seller_documents import documents_test_details
 
@@ -69,6 +69,7 @@ class AsyncDocuments:
         document_id: str | UUID,
         *,
         force: bool = False,
+        service_id: str | UUID | None = None,
     ) -> DocumentExecuteResponse:
         from ._generated.api.seller_documents import documents_execute
 
@@ -77,6 +78,7 @@ class AsyncDocuments:
                 document_id=UUID(str(document_id)),
                 client=self._client,
                 force=force,
+                service_id=UUID(str(service_id)) if service_id is not None else UNSET,
             )
         )
 

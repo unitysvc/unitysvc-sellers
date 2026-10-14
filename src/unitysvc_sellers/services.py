@@ -37,9 +37,11 @@ if TYPE_CHECKING:
     from ._generated.models.service_delete_response import ServiceDeleteResponse
     from ._generated.models.service_detail_response import ServiceDetailResponse
     from ._generated.models.service_public import ServicePublic
+    from ._generated.models.service_test_results_response import ServiceTestResultsResponse
     from ._generated.models.service_update_response import ServiceUpdateResponse
     from ._generated.models.service_upload_response import ServiceUploadResponse
     from ._generated.models.task_queued_response import TaskQueuedResponse
+    from ._generated.models.test_run_output_response import TestRunOutputResponse
     from .client import Client
 
 
@@ -819,6 +821,44 @@ class Services:
                 service_id=str(service_id),
                 client=self._client,
                 body=ServiceUpdate.from_dict(body),
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # Read — test results
+    # ------------------------------------------------------------------
+    def test_results(self, service_id: str | UUID) -> ServiceTestResultsResponse:
+        """The service's recorded test runs and its admission verdict.
+
+        Calls ``GET /v1/seller/services/{id}/test-results``. ``passed`` /
+        ``error`` are the verdict review and activation use; ``runs`` are the
+        runs that decide it (plus upstream probes, with no ``interface_id``);
+        ``not_run`` are required runs that are missing (or, for a platform
+        member, stale); ``skipped`` are documents marked skip. A platform
+        member's runs are of its platform service's documents, pinned to it —
+        then ``platform_service_id`` / ``platform_service_name`` are set.
+        """
+        from ._generated.api.seller_services import services_test_results
+
+        return unwrap(
+            services_test_results.sync_detailed(
+                service_id=str(service_id),
+                client=self._client,
+            )
+        )
+
+    def test_run_output(self, service_id: str | UUID, run_id: str | UUID) -> TestRunOutputResponse:
+        """stdout, stderr, rendered script and masked env of one of the
+        service's runs (``GET …/test-results/{run_id}/output``).
+        ``expired=True`` means the output aged out of retention — re-run the
+        test to reproduce it."""
+        from ._generated.api.seller_services import services_test_run_output
+
+        return unwrap(
+            services_test_run_output.sync_detailed(
+                service_id=str(service_id),
+                run_id=UUID(str(run_id)),
+                client=self._client,
             )
         )
 

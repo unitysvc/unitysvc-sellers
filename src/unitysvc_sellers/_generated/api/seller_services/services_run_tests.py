@@ -135,12 +135,11 @@ def sync_detailed(
     restored in a ``finally`` block so a worker crash mid-run can't
     leave the service permanently elevated.
 
-    Per-(doc × iface × channel) results land on
-    ``Document.meta.test.tests[<iface_id>].channels[<channel>]``.  The
-    interface row remains a rollup for legacy ``services show-test``
-    readers.  The task return payload duplicates a summary with
-    stdout/stderr truncated to 16 KB per stream; full streams remain
-    available via ``show-test``.
+    Each (doc × iface × channel) run is recorded in
+    ``document_test_result`` (read them with ``GET …/test-results``).  The
+    task return payload duplicates a summary with stdout/stderr truncated
+    to 16 KB per stream; full streams remain available via
+    ``…/test-results/{run_id}/output``.
 
     Poll via ``GET /v1/seller/tasks/{task_id}``.
 
@@ -151,9 +150,9 @@ def sync_detailed(
         document_id (None | str | Unset): Restrict to a single document on the service.
         category (DocumentCategoryEnum | None | Unset): Restrict to documents of this category
             (e.g. ``connectivity_test``). Composable with ``document_id``.
-        force (bool | Unset): Re-execute documents whose per-iface result on
-            ``meta.test.tests[iface_id].status`` was previously ``success``. Default skips them,
-            matching the CLI's behaviour. Default: False.
+        force (bool | Unset): Re-execute documents whose recorded run for the same interface and
+            channel was previously ``success``. Default skips them, matching the CLI's behaviour.
+            Default: False.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -213,12 +212,11 @@ def sync(
     restored in a ``finally`` block so a worker crash mid-run can't
     leave the service permanently elevated.
 
-    Per-(doc × iface × channel) results land on
-    ``Document.meta.test.tests[<iface_id>].channels[<channel>]``.  The
-    interface row remains a rollup for legacy ``services show-test``
-    readers.  The task return payload duplicates a summary with
-    stdout/stderr truncated to 16 KB per stream; full streams remain
-    available via ``show-test``.
+    Each (doc × iface × channel) run is recorded in
+    ``document_test_result`` (read them with ``GET …/test-results``).  The
+    task return payload duplicates a summary with stdout/stderr truncated
+    to 16 KB per stream; full streams remain available via
+    ``…/test-results/{run_id}/output``.
 
     Poll via ``GET /v1/seller/tasks/{task_id}``.
 
@@ -229,9 +227,9 @@ def sync(
         document_id (None | str | Unset): Restrict to a single document on the service.
         category (DocumentCategoryEnum | None | Unset): Restrict to documents of this category
             (e.g. ``connectivity_test``). Composable with ``document_id``.
-        force (bool | Unset): Re-execute documents whose per-iface result on
-            ``meta.test.tests[iface_id].status`` was previously ``success``. Default skips them,
-            matching the CLI's behaviour. Default: False.
+        force (bool | Unset): Re-execute documents whose recorded run for the same interface and
+            channel was previously ``success``. Default skips them, matching the CLI's behaviour.
+            Default: False.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -286,12 +284,11 @@ async def asyncio_detailed(
     restored in a ``finally`` block so a worker crash mid-run can't
     leave the service permanently elevated.
 
-    Per-(doc × iface × channel) results land on
-    ``Document.meta.test.tests[<iface_id>].channels[<channel>]``.  The
-    interface row remains a rollup for legacy ``services show-test``
-    readers.  The task return payload duplicates a summary with
-    stdout/stderr truncated to 16 KB per stream; full streams remain
-    available via ``show-test``.
+    Each (doc × iface × channel) run is recorded in
+    ``document_test_result`` (read them with ``GET …/test-results``).  The
+    task return payload duplicates a summary with stdout/stderr truncated
+    to 16 KB per stream; full streams remain available via
+    ``…/test-results/{run_id}/output``.
 
     Poll via ``GET /v1/seller/tasks/{task_id}``.
 
@@ -302,9 +299,9 @@ async def asyncio_detailed(
         document_id (None | str | Unset): Restrict to a single document on the service.
         category (DocumentCategoryEnum | None | Unset): Restrict to documents of this category
             (e.g. ``connectivity_test``). Composable with ``document_id``.
-        force (bool | Unset): Re-execute documents whose per-iface result on
-            ``meta.test.tests[iface_id].status`` was previously ``success``. Default skips them,
-            matching the CLI's behaviour. Default: False.
+        force (bool | Unset): Re-execute documents whose recorded run for the same interface and
+            channel was previously ``success``. Default skips them, matching the CLI's behaviour.
+            Default: False.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -362,12 +359,11 @@ async def asyncio(
     restored in a ``finally`` block so a worker crash mid-run can't
     leave the service permanently elevated.
 
-    Per-(doc × iface × channel) results land on
-    ``Document.meta.test.tests[<iface_id>].channels[<channel>]``.  The
-    interface row remains a rollup for legacy ``services show-test``
-    readers.  The task return payload duplicates a summary with
-    stdout/stderr truncated to 16 KB per stream; full streams remain
-    available via ``show-test``.
+    Each (doc × iface × channel) run is recorded in
+    ``document_test_result`` (read them with ``GET …/test-results``).  The
+    task return payload duplicates a summary with stdout/stderr truncated
+    to 16 KB per stream; full streams remain available via
+    ``…/test-results/{run_id}/output``.
 
     Poll via ``GET /v1/seller/tasks/{task_id}``.
 
@@ -378,9 +374,9 @@ async def asyncio(
         document_id (None | str | Unset): Restrict to a single document on the service.
         category (DocumentCategoryEnum | None | Unset): Restrict to documents of this category
             (e.g. ``connectivity_test``). Composable with ``document_id``.
-        force (bool | Unset): Re-execute documents whose per-iface result on
-            ``meta.test.tests[iface_id].status`` was previously ``success``. Default skips them,
-            matching the CLI's behaviour. Default: False.
+        force (bool | Unset): Re-execute documents whose recorded run for the same interface and
+            channel was previously ``success``. Default skips them, matching the CLI's behaviour.
+            Default: False.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 

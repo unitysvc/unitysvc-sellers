@@ -98,20 +98,15 @@ def sync_detailed(
 ) -> Response[DocumentTestStatusResponse | ErrorResponse | HTTPValidationError]:
     """Update Document Test
 
-     Update document test status (skip, unskip, or record external result).
+     Skip or unskip a document's test.
 
     Dispatches on the body's ``status`` field:
 
-    - ``skip`` — mark the test as skipped. Clears execution results and
-      stamps ``skipped_at`` / ``skipped_by``. Rejected for
-      ``connectivity_test`` documents (only ``code_example`` can be skipped).
-    - ``pending`` — unskip. Clears execution results and stamps
-      ``unskipped_at`` / ``unskipped_by``. The test is ready for a fresh
-      run.
-    - ``success`` / ``task_failed`` / ``script_failed`` /
-      ``unexpected_output`` — record the result of an externally-run test
-      (local execution, CI harness, Celery task that failed with metadata).
-      ``executed_at`` and per-interface ``tests`` are persisted.
+    - ``skip`` — mark the test as skipped (stamps ``skipped_at`` /
+      ``skipped_by``). Rejected for ``connectivity_test`` documents (only
+      ``code_example`` can be skipped).
+    - ``pending`` — unskip, and forget the document's recorded runs so the
+      next run re-proves it.
 
     The document must:
     - Have category ``code_example`` or ``connectivity_test``
@@ -125,14 +120,14 @@ def sync_detailed(
 
             The ``status`` field drives dispatch:
 
-            - ``skip`` — mark the test as skipped. Clears execution results and
-              stamps ``skipped_at`` / ``skipped_by``. Rejected for
-              ``connectivity_test`` documents (only ``code_example`` can be skipped).
-            - ``pending`` — unskip. Clears execution results and stamps
-              ``unskipped_at`` / ``unskipped_by``. Ready for a fresh run.
-            - ``success`` / ``task_failed`` / ``script_failed`` / ``unexpected_output``
-              — record the result of an external test run. Optional ``executed_at``
-              and per-interface ``tests`` payload are persisted on the document.
+            - ``skip`` — mark the test as skipped (stamps ``skipped_at`` /
+              ``skipped_by``). Rejected for ``connectivity_test`` documents (only
+              ``code_example`` can be skipped).
+            - ``pending`` — unskip, and forget the document's recorded runs
+              (including earned sticky passes), so the next run re-proves it.
+
+            Test results are recorded only by the platform's own runners; a seller
+            cannot report one.
 
             This endpoint replaces the previously-separate /skip and /unskip routes,
             which dispatched to the same backing field via different HTTP verbs.
@@ -169,20 +164,15 @@ def sync(
 ) -> DocumentTestStatusResponse | ErrorResponse | HTTPValidationError | None:
     """Update Document Test
 
-     Update document test status (skip, unskip, or record external result).
+     Skip or unskip a document's test.
 
     Dispatches on the body's ``status`` field:
 
-    - ``skip`` — mark the test as skipped. Clears execution results and
-      stamps ``skipped_at`` / ``skipped_by``. Rejected for
-      ``connectivity_test`` documents (only ``code_example`` can be skipped).
-    - ``pending`` — unskip. Clears execution results and stamps
-      ``unskipped_at`` / ``unskipped_by``. The test is ready for a fresh
-      run.
-    - ``success`` / ``task_failed`` / ``script_failed`` /
-      ``unexpected_output`` — record the result of an externally-run test
-      (local execution, CI harness, Celery task that failed with metadata).
-      ``executed_at`` and per-interface ``tests`` are persisted.
+    - ``skip`` — mark the test as skipped (stamps ``skipped_at`` /
+      ``skipped_by``). Rejected for ``connectivity_test`` documents (only
+      ``code_example`` can be skipped).
+    - ``pending`` — unskip, and forget the document's recorded runs so the
+      next run re-proves it.
 
     The document must:
     - Have category ``code_example`` or ``connectivity_test``
@@ -196,14 +186,14 @@ def sync(
 
             The ``status`` field drives dispatch:
 
-            - ``skip`` — mark the test as skipped. Clears execution results and
-              stamps ``skipped_at`` / ``skipped_by``. Rejected for
-              ``connectivity_test`` documents (only ``code_example`` can be skipped).
-            - ``pending`` — unskip. Clears execution results and stamps
-              ``unskipped_at`` / ``unskipped_by``. Ready for a fresh run.
-            - ``success`` / ``task_failed`` / ``script_failed`` / ``unexpected_output``
-              — record the result of an external test run. Optional ``executed_at``
-              and per-interface ``tests`` payload are persisted on the document.
+            - ``skip`` — mark the test as skipped (stamps ``skipped_at`` /
+              ``skipped_by``). Rejected for ``connectivity_test`` documents (only
+              ``code_example`` can be skipped).
+            - ``pending`` — unskip, and forget the document's recorded runs
+              (including earned sticky passes), so the next run re-proves it.
+
+            Test results are recorded only by the platform's own runners; a seller
+            cannot report one.
 
             This endpoint replaces the previously-separate /skip and /unskip routes,
             which dispatched to the same backing field via different HTTP verbs.
@@ -235,20 +225,15 @@ async def asyncio_detailed(
 ) -> Response[DocumentTestStatusResponse | ErrorResponse | HTTPValidationError]:
     """Update Document Test
 
-     Update document test status (skip, unskip, or record external result).
+     Skip or unskip a document's test.
 
     Dispatches on the body's ``status`` field:
 
-    - ``skip`` — mark the test as skipped. Clears execution results and
-      stamps ``skipped_at`` / ``skipped_by``. Rejected for
-      ``connectivity_test`` documents (only ``code_example`` can be skipped).
-    - ``pending`` — unskip. Clears execution results and stamps
-      ``unskipped_at`` / ``unskipped_by``. The test is ready for a fresh
-      run.
-    - ``success`` / ``task_failed`` / ``script_failed`` /
-      ``unexpected_output`` — record the result of an externally-run test
-      (local execution, CI harness, Celery task that failed with metadata).
-      ``executed_at`` and per-interface ``tests`` are persisted.
+    - ``skip`` — mark the test as skipped (stamps ``skipped_at`` /
+      ``skipped_by``). Rejected for ``connectivity_test`` documents (only
+      ``code_example`` can be skipped).
+    - ``pending`` — unskip, and forget the document's recorded runs so the
+      next run re-proves it.
 
     The document must:
     - Have category ``code_example`` or ``connectivity_test``
@@ -262,14 +247,14 @@ async def asyncio_detailed(
 
             The ``status`` field drives dispatch:
 
-            - ``skip`` — mark the test as skipped. Clears execution results and
-              stamps ``skipped_at`` / ``skipped_by``. Rejected for
-              ``connectivity_test`` documents (only ``code_example`` can be skipped).
-            - ``pending`` — unskip. Clears execution results and stamps
-              ``unskipped_at`` / ``unskipped_by``. Ready for a fresh run.
-            - ``success`` / ``task_failed`` / ``script_failed`` / ``unexpected_output``
-              — record the result of an external test run. Optional ``executed_at``
-              and per-interface ``tests`` payload are persisted on the document.
+            - ``skip`` — mark the test as skipped (stamps ``skipped_at`` /
+              ``skipped_by``). Rejected for ``connectivity_test`` documents (only
+              ``code_example`` can be skipped).
+            - ``pending`` — unskip, and forget the document's recorded runs
+              (including earned sticky passes), so the next run re-proves it.
+
+            Test results are recorded only by the platform's own runners; a seller
+            cannot report one.
 
             This endpoint replaces the previously-separate /skip and /unskip routes,
             which dispatched to the same backing field via different HTTP verbs.
@@ -304,20 +289,15 @@ async def asyncio(
 ) -> DocumentTestStatusResponse | ErrorResponse | HTTPValidationError | None:
     """Update Document Test
 
-     Update document test status (skip, unskip, or record external result).
+     Skip or unskip a document's test.
 
     Dispatches on the body's ``status`` field:
 
-    - ``skip`` — mark the test as skipped. Clears execution results and
-      stamps ``skipped_at`` / ``skipped_by``. Rejected for
-      ``connectivity_test`` documents (only ``code_example`` can be skipped).
-    - ``pending`` — unskip. Clears execution results and stamps
-      ``unskipped_at`` / ``unskipped_by``. The test is ready for a fresh
-      run.
-    - ``success`` / ``task_failed`` / ``script_failed`` /
-      ``unexpected_output`` — record the result of an externally-run test
-      (local execution, CI harness, Celery task that failed with metadata).
-      ``executed_at`` and per-interface ``tests`` are persisted.
+    - ``skip`` — mark the test as skipped (stamps ``skipped_at`` /
+      ``skipped_by``). Rejected for ``connectivity_test`` documents (only
+      ``code_example`` can be skipped).
+    - ``pending`` — unskip, and forget the document's recorded runs so the
+      next run re-proves it.
 
     The document must:
     - Have category ``code_example`` or ``connectivity_test``
@@ -331,14 +311,14 @@ async def asyncio(
 
             The ``status`` field drives dispatch:
 
-            - ``skip`` — mark the test as skipped. Clears execution results and
-              stamps ``skipped_at`` / ``skipped_by``. Rejected for
-              ``connectivity_test`` documents (only ``code_example`` can be skipped).
-            - ``pending`` — unskip. Clears execution results and stamps
-              ``unskipped_at`` / ``unskipped_by``. Ready for a fresh run.
-            - ``success`` / ``task_failed`` / ``script_failed`` / ``unexpected_output``
-              — record the result of an external test run. Optional ``executed_at``
-              and per-interface ``tests`` payload are persisted on the document.
+            - ``skip`` — mark the test as skipped (stamps ``skipped_at`` /
+              ``skipped_by``). Rejected for ``connectivity_test`` documents (only
+              ``code_example`` can be skipped).
+            - ``pending`` — unskip, and forget the document's recorded runs
+              (including earned sticky passes), so the next run re-proves it.
+
+            Test results are recorded only by the platform's own runners; a seller
+            cannot report one.
 
             This endpoint replaces the previously-separate /skip and /unskip routes,
             which dispatched to the same backing field via different HTTP verbs.

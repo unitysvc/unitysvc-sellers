@@ -17,11 +17,10 @@ T = TypeVar("T", bound="DocumentTestStatusResponse")
 
 @_attrs_define
 class DocumentTestStatusResponse:
-    """PATCH /seller/documents/{id} — unified response for skip/unskip/update.
+    """PATCH /seller/documents/{id} — response for skip/unskip.
 
-    The same endpoint now handles three operations via the status field in
-    the request body: skip, pending (unskip), or an external test result
-    status (success|task_failed|script_failed|unexpected_output).
+    The status field in the request body selects the operation: skip, or
+    pending (unskip and forget the recorded runs).
 
     """
 

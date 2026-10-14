@@ -8,6 +8,7 @@ from .account_file_upload_ticket import AccountFileUploadTicket
 from .account_file_upload_ticket_fields import AccountFileUploadTicketFields
 from .body_seller_upload_file import BodySellerUploadFile
 from .body_services_upload import BodyServicesUpload
+from .catalog_service_performance import CatalogServicePerformance
 from .currency_enum import CurrencyEnum
 from .cursor_page_price_rule_public import CursorPagePriceRulePublic
 from .cursor_page_service_group_public import CursorPageServiceGroupPublic
@@ -21,7 +22,7 @@ from .document_execute_response_test_type_0 import DocumentExecuteResponseTestTy
 from .document_test_status_response import DocumentTestStatusResponse
 from .document_test_status_response_test_type_0 import DocumentTestStatusResponseTestType0
 from .document_test_update import DocumentTestUpdate
-from .document_test_update_tests_type_0 import DocumentTestUpdateTestsType0
+from .document_test_update_status import DocumentTestUpdateStatus
 from .error_response import ErrorResponse
 from .file_upload_response import FileUploadResponse
 from .group_owner_type_enum import GroupOwnerTypeEnum
@@ -101,6 +102,8 @@ from .service_offering_data_upstream_access_config_type_0 import ServiceOffering
 from .service_offering_data_upstream_access_config_type_0_additional_property import (
     ServiceOfferingDataUpstreamAccessConfigType0AdditionalProperty,
 )
+from .service_probe_result import ServiceProbeResult
+from .service_probe_result_outcome import ServiceProbeResultOutcome
 from .service_public import ServicePublic
 from .service_public_last_health_check_type_0 import ServicePublicLastHealthCheckType0
 from .service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
@@ -120,6 +123,7 @@ from .service_template_summary_parameter_ui_schema_type_0 import ServiceTemplate
 from .service_template_summary_service_template_summary_parameter_schema import (
     ServiceTemplateSummaryServiceTemplateSummaryParameterSchema,
 )
+from .service_test_results_response import ServiceTestResultsResponse
 from .service_type_enum import ServiceTypeEnum
 from .service_update import ServiceUpdate
 from .service_update_price_type_0 import ServiceUpdatePriceType0
@@ -129,6 +133,7 @@ from .service_update_response_routing_vars_type_0 import ServiceUpdateResponseRo
 from .service_update_routing_vars_type_0 import ServiceUpdateRoutingVarsType0
 from .service_upload_response import ServiceUploadResponse
 from .service_visibility_enum import ServiceVisibilityEnum
+from .skipped_test_document import SkippedTestDocument
 from .tasks_get_task_status_response_tasks_get_task_status import TasksGetTaskStatusResponseTasksGetTaskStatus
 from .tasks_get_task_status_response_tasks_get_task_status_additional_property import (
     TasksGetTaskStatusResponseTasksGetTaskStatusAdditionalProperty,
@@ -145,6 +150,11 @@ from .template_status_enum import TemplateStatusEnum
 from .test_detail_response import TestDetailResponse
 from .test_detail_response_env_type_0 import TestDetailResponseEnvType0
 from .test_detail_response_source_type_0 import TestDetailResponseSourceType0
+from .test_run import TestRun
+from .test_run_gap import TestRunGap
+from .test_run_gap_reason import TestRunGapReason
+from .test_run_output_response import TestRunOutputResponse
+from .test_run_output_response_env_type_0 import TestRunOutputResponseEnvType0
 from .validation_error import ValidationError
 
 __all__ = (
@@ -156,6 +166,7 @@ __all__ = (
     "AccountFileUploadTicketFields",
     "BodySellerUploadFile",
     "BodyServicesUpload",
+    "CatalogServicePerformance",
     "CurrencyEnum",
     "CursorPagePriceRulePublic",
     "CursorPageServiceGroupPublic",
@@ -169,7 +180,7 @@ __all__ = (
     "DocumentTestStatusResponse",
     "DocumentTestStatusResponseTestType0",
     "DocumentTestUpdate",
-    "DocumentTestUpdateTestsType0",
+    "DocumentTestUpdateStatus",
     "ErrorResponse",
     "FileUploadResponse",
     "GroupOwnerTypeEnum",
@@ -241,6 +252,8 @@ __all__ = (
     "ServiceOfferingDataPayoutPriceType0",
     "ServiceOfferingDataUpstreamAccessConfigType0",
     "ServiceOfferingDataUpstreamAccessConfigType0AdditionalProperty",
+    "ServiceProbeResult",
+    "ServiceProbeResultOutcome",
     "ServicePublic",
     "ServicePublicLastHealthCheckType0",
     "ServicePublicRoutingVarsType0",
@@ -254,6 +267,7 @@ __all__ = (
     "ServiceTemplateSummary",
     "ServiceTemplateSummaryParameterUiSchemaType0",
     "ServiceTemplateSummaryServiceTemplateSummaryParameterSchema",
+    "ServiceTestResultsResponse",
     "ServiceTypeEnum",
     "ServiceUpdate",
     "ServiceUpdatePriceType0",
@@ -263,6 +277,7 @@ __all__ = (
     "ServiceUpdateRoutingVarsType0",
     "ServiceUploadResponse",
     "ServiceVisibilityEnum",
+    "SkippedTestDocument",
     "TasksGetTaskStatusResponseTasksGetTaskStatus",
     "TasksGetTaskStatusResponseTasksGetTaskStatusAdditionalProperty",
     "TemplateInstantiationCreate",
@@ -277,5 +292,10 @@ __all__ = (
     "TestDetailResponse",
     "TestDetailResponseEnvType0",
     "TestDetailResponseSourceType0",
+    "TestRun",
+    "TestRunGap",
+    "TestRunGapReason",
+    "TestRunOutputResponse",
+    "TestRunOutputResponseEnvType0",
     "ValidationError",
 )
