@@ -1,18 +1,16 @@
-"""``usvc seller services {list,run,show,skip,unskip}-test`` — document test ops.
+"""``usvc seller services {list,run,show,skip,unskip}-test(s)`` — document test ops.
 
 These commands operate on backend ``Document`` records that represent
 seller code-example or connectivity-test scripts. They use the
 :class:`~unitysvc_sellers.AsyncClient`'s ``services`` and ``documents``
 resources.
 
-The new ``/v1/seller/documents/{id}`` shape returned by the
-seller-api-codegen-hygiene branch carries the test ``status`` and any
-per-interface results inline (no separate ``/seller/documents/{id}/results``
-fetch needed). The legacy CLI's much larger ``test_runner.py`` rendered
-these results across multiple tables; this port aims for parity on
-behavior, not on every cosmetic flourish — the JSON output format is
-preserved verbatim so external tooling that consumed ``--format json``
-keeps working.
+Test results are recorded per service by the platform's runners
+(unitysvc#2628): ``GET /seller/services/{id}/test-results`` lists a
+service's runs and its admission verdict, ``…/test-results/{run_id}/output``
+serves one run's stdout/stderr/env/rendered script, and
+``GET /seller/documents/{id}/test-details`` the latest run of a document.
+A document's ``meta.test`` only carries the seller's skip flag.
 """
 
 from __future__ import annotations
@@ -83,17 +81,29 @@ def _is_executable_doc(doc: dict[str, Any]) -> bool:
     return (doc.get("category") or "") in EXECUTABLE_CATEGORIES
 
 
-def _doc_test_status(doc: dict[str, Any]) -> str:
-    """Pull the test status off a document, defaulting to ``pending``."""
-    # Top-level test_status (returned by the new ServiceDocumentItem shape)
-    if doc.get("test_status"):
-        return str(doc["test_status"])
-    # Older / nested shape: meta.test.status
-    meta = doc.get("meta") or {}
-    test = meta.get("test") if isinstance(meta, dict) else None
-    if isinstance(test, dict) and test.get("status"):
-        return str(test["status"])
-    return "pending"
+def _doc_statuses(results: dict[str, Any]) -> dict[str, str]:
+    """Each document's test status for a service, from its test results.
+
+    Gateway runs (through one of the service's interfaces) decide: the first
+    failure, else ``success``. A document with no gateway run, or a required
+    run still missing, is ``pending``; one the seller skipped is ``skip``.
+    Upstream probes (no ``interface_id``) are attribution evidence only.
+    """
+    runs_by_doc: dict[str, list[dict[str, Any]]] = {}
+    for run in results.get("runs") or []:
+        runs_by_doc.setdefault(str(run.get("document_id")), []).append(run)
+    statuses: dict[str, str] = {}
+    for doc_id, runs in runs_by_doc.items():
+        gateway = [r for r in runs if r.get("interface_id")]
+        failed = [r for r in gateway if r.get("status") != "success"]
+        statuses[doc_id] = "pending" if not gateway else str(failed[0].get("status")) if failed else "success"
+    for gap in results.get("not_run") or []:
+        doc_id = str(gap.get("document_id"))
+        if statuses.get(doc_id, "success") == "success":
+            statuses[doc_id] = "pending"
+    for skipped in results.get("skipped") or []:
+        statuses[str(skipped.get("document_id"))] = "skip"
+    return statuses
 
 
 # ---------------------------------------------------------------------------
@@ -154,15 +164,31 @@ def list_tests(
             for sid, sname in services_to_walk:
                 try:
                     detail = model_to_dict(await client.services.get(sid))
+                    results = model_to_dict(await client.services.test_results(sid))
                 except NotFoundError:
                     continue
+                statuses = _doc_statuses(results)
 
-                docs = detail.get("documents") or []
-                for doc in docs:
-                    doc_dict = doc if isinstance(doc, dict) else model_to_dict(doc)
-                    if not all_docs and not _is_executable_doc(doc_dict):
+                docs = [doc if isinstance(doc, dict) else model_to_dict(doc) for doc in detail.get("documents") or []]
+                if results.get("platform_service_id"):
+                    # A platform member is tested on its platform service's
+                    # documents (unitysvc#2622), not its own: list those.
+                    seen: dict[str, dict[str, Any]] = {}
+                    for item in (results.get("runs") or []) + (results.get("not_run") or []):
+                        doc_id = str(item.get("document_id"))
+                        seen.setdefault(
+                            doc_id,
+                            {
+                                "id": doc_id,
+                                "title": item.get("document_title") or "",
+                                "category": item.get("category") or "platform",
+                            },
+                        )
+                    docs = list(seen.values())
+                for doc_dict in docs:
+                    if not all_docs and not _is_executable_doc(doc_dict) and not results.get("platform_service_id"):
                         continue
-                    status = _doc_test_status(doc_dict)
+                    status = statuses.get(str(doc_dict.get("id")), "pending")
                     if status_filter and status != status_filter:
                         continue
                     rows.append(
@@ -232,76 +258,26 @@ def show_test(
         console.print("[red]✗[/red] Document id prefix must be at least 8 characters.")
         raise typer.Exit(code=1)
 
-    async def _impl() -> tuple[dict[str, Any], dict[str, Any]]:
+    async def _impl() -> tuple[dict[str, Any], dict[str, Any] | None]:
         # The backend's GET /seller/documents/{id} route already
         # accepts partial ids via complete_id() — a single indexed
         # prefix query on the document table resolves the UUID without
         # the client needing to enumerate services first.
         async with async_client(api_key, base_url) as client:
             doc = model_to_dict(await client.documents.get(raw_id))
+            # The latest recorded run of the document by one of the
+            # seller's services, with its output (unitysvc#2628). 404 means
+            # it has never run.
+            try:
+                run = model_to_dict(await client.documents.test_details(str(doc["id"])))
+            except NotFoundError:
+                run = None
+            return doc, run
 
-            # Bulky execution details (stdout/stderr/env/rendered script)
-            # are served per result cell by GET /documents/{id}/test-details
-            # (unitysvc#1901); meta.test keeps only the records. Fetch one
-            # detail per cell the meta says exists. A failed fetch (older
-            # backend without the endpoint, transient error) leaves the
-            # cell to the inline fields below.
-            details: dict[str, Any] = {}
-            meta = doc.get("meta") or {}
-            test = meta.get("test") if isinstance(meta, dict) else None
-
-            async def fetch(key: str, **selectors: Any) -> None:
-                try:
-                    details[key] = model_to_dict(await client.documents.test_details(str(doc["id"]), **selectors))
-                except Exception:  # noqa: BLE001 — any failure falls back to inline
-                    pass
-
-            if isinstance(test, dict):
-                tests_map = test.get("tests")
-                if isinstance(tests_map, dict) and tests_map:
-                    for iface_key, iface_data in tests_map.items():
-                        channels = iface_data.get("channels") if isinstance(iface_data, dict) else None
-                        if isinstance(channels, dict) and channels:
-                            for ch in channels:
-                                await fetch(f"iface:{iface_key}:{ch}", interface_id=iface_key, channel=ch)
-                        else:
-                            await fetch(f"iface:{iface_key}", interface_id=iface_key)
-                else:
-                    await fetch("flat")
-                upstream_channels = test.get("upstream_channels")
-                if isinstance(upstream_channels, dict) and upstream_channels:
-                    for ch in upstream_channels:
-                        await fetch(f"upstream:{ch}", upstream=True, channel=ch)
-                elif isinstance(test.get("upstream"), dict) and test["upstream"]:
-                    await fetch("upstream", upstream=True)
-            return doc, details
-
-    doc, cell_details = run_async(_impl(), error_prefix="Failed to show test")
-
-    _EXPIRED_HINT = (
-        "[yellow]details expired — re-run with `usvc seller services run-tests --force` to reproduce them[/yellow]"
-    )
-
-    def _merged_cell(inline: dict[str, Any], key: str) -> tuple[dict[str, Any], bool]:
-        """Overlay endpoint-served streams onto the inline record.
-
-        Returns ``(cell, expired)``. The inline record always carries
-        status/exit_code/error; the endpoint adds (or, for pre-transition
-        rows, repeats) the streams. ``expired`` means the blob aged out —
-        the record survives, the streams don't.
-        """
-        detail = cell_details.get(key)
-        if not detail:
-            return inline, False
-        if detail.get("expired"):
-            return inline, True
-        overlay = {k: v for k, v in detail.items() if v not in (None, "") and k not in ("source", "expired")}
-        return {**inline, **overlay}, False
+    doc, run = run_async(_impl(), error_prefix="Failed to show test")
 
     if output_format == "json":
-        if cell_details:
-            doc = {**doc, "test_details": cell_details}
-        console.print(json.dumps(doc, indent=2, default=str))
+        console.print(json.dumps({**doc, "latest_run": run}, indent=2, default=str))
         return
 
     console.print(f"\n[bold]{doc.get('title', '?')}[/bold]")
@@ -311,131 +287,175 @@ def show_test(
     table.add_row("id", str(doc.get("id", "")))
     table.add_row("category", str(doc.get("category", "")))
     table.add_row("mime_type", str(doc.get("mime_type", "")))
-    status = _doc_test_status(doc)
+    meta = doc.get("meta") or {}
+    test = meta.get("test") if isinstance(meta, dict) else None
+    skipped = isinstance(test, dict) and test.get("status") == "skip"
+    status = "skip" if skipped else str((run or {}).get("status") or "pending")
     status_color = "green" if status == "success" else "red" if status not in ("pending", "skip") else "yellow"
     table.add_row("status", f"[{status_color}]{status}[/{status_color}]")
     if doc.get("filename"):
         table.add_row("filename", str(doc["filename"]))
-    if doc.get("executed_at"):
-        table.add_row("executed_at", str(doc["executed_at"]))
-    if doc.get("skipped_at"):
-        table.add_row("skipped_at", str(doc["skipped_at"]))
+    if run and run.get("executed_at"):
+        table.add_row("executed_at", str(run["executed_at"]))
+    if run and run.get("exit_code") is not None:
+        table.add_row("exit_code", str(run["exit_code"]))
     console.print(table)
 
-    # meta.test holds the execution outcome recorded by the Celery
-    # worker (exit_code, stdout, stderr, error, masked env vars).
-    # These are the fields sellers actually need when a script fails,
-    # so print them even though the top-level table doesn't include
-    # them.
-    meta = doc.get("meta") or {}
-    test = meta.get("test") if isinstance(meta, dict) else None
-    if isinstance(test, dict):
-        flat, flat_expired = _merged_cell(test, "flat")
-        if flat_expired:
-            console.print(f"\n{_EXPIRED_HINT}")
-        if flat.get("error"):
-            console.print(f"\n[bold red]Error:[/bold red] {flat['error']}")
-        if flat.get("exit_code") is not None:
-            console.print(f"[cyan]exit_code:[/cyan] {flat['exit_code']}")
-        if flat.get("stdout"):
-            console.print("\n[bold]stdout:[/bold]")
-            console.print(str(flat["stdout"]))
-        if flat.get("stderr"):
-            console.print("\n[bold]stderr:[/bold]")
-            console.print(str(flat["stderr"]))
-        env = flat.get("env")
-        if isinstance(env, dict) and env:
-            console.print("\n[bold]env:[/bold]")
-            env_table = Table(show_header=False, box=None, padding=(0, 2))
-            env_table.add_column("Key", style="cyan")
-            env_table.add_column("Value")
-            for k, v in env.items():
-                env_table.add_row(k, str(v))
-            console.print(env_table)
+    if run is None:
+        console.print("\n[dim]No recorded run — use `usvc seller services run-tests` to run it.[/dim]\n")
+        return
+    _print_run_output(run)
+    console.print(
+        "\n[dim]Latest run across your services; per-service results: "
+        "usvc seller services show-test-results <service>[/dim]\n"
+    )
 
-        # Per-interface results. The map is keyed by access_interface
-        # id (stringified UUID) so results for documents shared across
-        # multiple services don't collide; the human-friendly interface
-        # name is carried inside each entry for display.
-        tests = test.get("tests")
-        if isinstance(tests, dict) and tests:
-            console.print("\n[bold]Per-interface results[/bold]")
-            for iface_key, iface_data in tests.items():
-                if not isinstance(iface_data, dict):
-                    continue
-                display = iface_data.get("name") or iface_key
-                console.print(f"  • [cyan]{display}[/cyan] [dim]({iface_key})[/dim]")
-                channels = iface_data.get("channels")
-                cells: list[tuple[str | None, dict[str, Any], str]] = (
-                    [(ch, rec, f"iface:{iface_key}:{ch}") for ch, rec in channels.items() if isinstance(rec, dict)]
-                    if isinstance(channels, dict) and channels
-                    else [(None, iface_data, f"iface:{iface_key}")]
-                )
-                for ch_name, inline, detail_key in cells:
-                    if ch_name is not None:
-                        console.print(f"    [cyan]channel: {ch_name}[/cyan]")
-                    indent = "      " if ch_name is None else "        "
-                    cell, expired = _merged_cell(inline, detail_key)
-                    if expired:
-                        console.print(f"{indent}{_EXPIRED_HINT}")
-                    # Sticky pass (unitysvc#1902): the cell may be an inherited
-                    # pass (never executed for this interface), and a later
-                    # transient failure never demotes it — it lands alongside
-                    # as ``last_attempt``.
-                    if cell.get("outcome") == "already_passed":
-                        console.print(
-                            f"{indent}[green]passed earlier[/green] [dim](inherited from an identical run)[/dim]"
-                        )
-                    for k in ("status", "exit_code", "stdout", "stderr", "error"):
-                        v = cell.get(k)
-                        if v not in (None, ""):
-                            console.print(f"{indent}{k}: {v}")
-                    attempt = cell.get("last_attempt")
-                    if isinstance(attempt, dict) and attempt:
-                        console.print(
-                            f"{indent}[yellow]last attempt: {attempt.get('status')}"
-                            f"{' — ' + str(attempt['error']) if attempt.get('error') else ''}"
-                            "[/yellow] [dim](earned pass retained)[/dim]"
-                        )
-                    # The rendered script that actually executed on this interface (#1268).
-                    rendered = cell.get("rendered_script")
-                    if rendered:
-                        console.print(f"{indent}[bold]rendered script (executed):[/bold]")
-                        console.print(_truncate_for_display(str(rendered)))
-        elif flat.get("rendered_script"):
-            # Single-doc result: the rendered script lives at the top level.
-            console.print("\n[bold]rendered script (executed):[/bold]")
-            console.print(_truncate_for_display(str(flat["rendered_script"])))
 
-        # Per-channel upstream probe results (#1281/#1297). A multi-channel
-        # service is probed once per upstream access channel; the enrollment
-        # channel is probed via its ops enrollment. ``upstream`` (singleton,
-        # representative) is shown only when the per-channel map is absent.
-        upstream_channels = test.get("upstream_channels")
-        if isinstance(upstream_channels, dict) and upstream_channels:
-            console.print("\n[bold]Per-channel upstream results[/bold]")
-            for ch_name, rec in upstream_channels.items():
-                if not isinstance(rec, dict):
-                    continue
-                console.print(f"  • [cyan]{ch_name}[/cyan]")
-                cell, expired = _merged_cell(rec, f"upstream:{ch_name}")
-                if expired:
-                    console.print(f"      {_EXPIRED_HINT}")
-                for k in ("status", "exit_code", "stdout", "stderr", "error"):
-                    v = cell.get(k)
-                    if v not in (None, ""):
-                        console.print(f"      {k}: {v}")
-        elif isinstance(test.get("upstream"), dict) and test["upstream"]:
-            console.print("\n[bold]Upstream result[/bold]")
-            cell, expired = _merged_cell(test["upstream"], "upstream")
-            if expired:
-                console.print(f"      {_EXPIRED_HINT}")
-            for k in ("status", "exit_code", "stdout", "stderr", "error"):
-                v = cell.get(k)
-                if v not in (None, ""):
-                    console.print(f"      {k}: {v}")
+def _print_run_output(output: dict[str, Any]) -> None:
+    """Print a run's error, streams, masked env and rendered script."""
+    if output.get("expired"):
+        console.print(
+            "\n[yellow]output expired — re-run with `usvc seller services run-tests --force` to reproduce it[/yellow]"
+        )
+    if output.get("error"):
+        console.print(f"\n[bold red]Error:[/bold red] {output['error']}")
+    if output.get("stdout"):
+        console.print("\n[bold]stdout:[/bold]")
+        console.print(str(output["stdout"]))
+    if output.get("stderr"):
+        console.print("\n[bold]stderr:[/bold]")
+        console.print(str(output["stderr"]))
+    env = output.get("env")
+    if isinstance(env, dict) and env:
+        console.print("\n[bold]env:[/bold]")
+        env_table = Table(show_header=False, box=None, padding=(0, 2))
+        env_table.add_column("Key", style="cyan")
+        env_table.add_column("Value")
+        for k, v in env.items():
+            env_table.add_row(k, str(v))
+        console.print(env_table)
+    if output.get("rendered_script"):
+        console.print("\n[bold]rendered script (executed):[/bold]")
+        console.print(_truncate_for_display(str(output["rendered_script"])))
 
-    console.print()
+
+# ---------------------------------------------------------------------------
+# show-test-results
+# ---------------------------------------------------------------------------
+def _show_test_results(
+    name: str | None,
+    service_id: str | None,
+    run_id: str | None,
+    output_format: str,
+    api_key: str | None,
+    base_url: str,
+) -> None:
+    if (name is None) == (service_id is None):
+        console.print("[red]Error:[/red] provide exactly one of: positional NAME or --id.")
+        raise typer.Exit(code=1)
+    from .services import _resolve_single_target_id
+
+    sid = _resolve_single_target_id(api_key, base_url, name=name, service_id=service_id)
+
+    async def _impl() -> tuple[dict[str, Any], dict[str, Any] | None]:
+        async with async_client(api_key, base_url) as client:
+            results = model_to_dict(await client.services.test_results(sid))
+            output = None
+            if run_id is not None:
+                matches = [str(r["id"]) for r in results.get("runs") or [] if str(r["id"]).startswith(run_id)]
+                if len(matches) != 1:
+                    raise ValueError(
+                        f"run id '{run_id}' matches {len(matches)} of this service's runs; "
+                        "give more characters (see the run ids listed without --run)"
+                    )
+                output = model_to_dict(await client.services.test_run_output(sid, matches[0]))
+            return results, output
+
+    results, output = run_async(_impl(), error_prefix="Failed to show test results")
+
+    if output_format == "json":
+        console.print(json.dumps(output if output is not None else results, indent=2, default=str))
+        return
+    if output is not None:
+        console.print(f"\n[bold]run {run_id}[/bold]: {output.get('status')} (exit {output.get('exit_code')})")
+        _print_run_output(output)
+        console.print()
+        return
+
+    if results.get("platform_service_id"):
+        console.print(
+            f"\nPlatform member of [bold]{results.get('platform_service_name')}[/bold] — tested on its "
+            "documents through /p, pinned to this service."
+        )
+    verdict = "[green]passed[/green]" if results.get("passed") else f"[red]{results.get('error') or 'not passed'}[/red]"
+    console.print(f"\nVerdict: {verdict}")
+
+    runs = results.get("runs") or []
+    if runs:
+        table = Table(title="Runs")
+        for col in ("run", "document", "interface", "channel", "status", "exit", "executed_at"):
+            table.add_column(col)
+        for r in runs:
+            status = str(r.get("status"))
+            color = "green" if status == "success" else "red"
+            stale = " [yellow](stale)[/yellow]" if r.get("stale") else ""
+            table.add_row(
+                str(r.get("id", ""))[:8],
+                str(r.get("document_title") or str(r.get("document_id", ""))[:8]),
+                str(r.get("interface_id") or "")[:8] or "upstream",
+                str(r.get("channel_name") or "-"),
+                f"[{color}]{status}[/{color}]{stale}",
+                "-" if r.get("exit_code") is None else str(r.get("exit_code")),
+                str(r.get("executed_at") or "-"),
+            )
+        console.print(table)
+    for gap in results.get("not_run") or []:
+        console.print(f"[yellow]not run ({gap.get('reason')}):[/yellow] {gap.get('document_title')}")
+    for skipped in results.get("skipped") or []:
+        console.print(f"[dim]skipped:[/dim] {skipped.get('document_title')}")
+    if runs:
+        console.print("\n[dim]Output of a run: usvc seller services show-test-results <service> --run <run>[/dim]\n")
+
+
+_RUN_OPTION_HELP = "Run id (or ≥8-char prefix) to print the output of: stdout, stderr, env, rendered script."
+
+
+@services_app.command("show-test-results")
+def show_test_results(
+    name: str | None = typer.Argument(
+        None,
+        help="Service by service_name (= listing.name). Errors on multiple matches — use --id.",
+    ),
+    service_id: str | None = typer.Option(None, "--id", help="Service ID (full or partial, ≥8 chars)."),
+    run_id: str | None = typer.Option(None, "--run", "-r", help=_RUN_OPTION_HELP),
+    output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Show a service's test results: verdict, recorded runs, missing runs.
+
+    Every runner (submission review, run-tests, single-document runs, the
+    daily sweep) records its runs per service. A platform member's runs are
+    of its platform service's documents, pinned to it.
+
+        usvc seller services show-test-results cohere/command-r
+        usvc seller services show-test-results --id 6c55d6d9 --run 1f2e3d4c
+    """
+    _show_test_results(name, service_id, run_id, output_format, api_key, base_url)
+
+
+@services_app.command("show-platform-tests", hidden=True)
+def show_platform_tests(
+    name: str | None = typer.Argument(None, help="Platform member by service_name."),
+    service_id: str | None = typer.Option(None, "--id", help="Service ID (full or partial, ≥8 chars)."),
+    run_id: str | None = typer.Option(None, "--run", "-r", help=_RUN_OPTION_HELP),
+    output_format: str = typer.Option("table", "--format", "-f", help="Output format: table | json."),
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Alias of ``show-test-results`` — the name platform-member rejection
+    messages point at."""
+    _show_test_results(name, service_id, run_id, output_format, api_key, base_url)
 
 
 # ---------------------------------------------------------------------------
@@ -639,10 +659,10 @@ def run_tests(
     ``upstream_fault``.
 
     Replaces the previous local-execution path
-    (unitysvc/unitysvc#1105).  Test results are persisted on the
-    backend in ``Document.meta.test.tests[<iface_id>]``; the rendered
-    table here is a summary.  Use ``usvc seller services show-test --doc-id <id>``
-    to see full stdout/stderr for any failure.
+    (unitysvc/unitysvc#1105).  Each run is recorded for the service on the
+    backend; the rendered table here is a summary.  Use
+    ``usvc seller services show-test-results <service> --run <run>`` to see
+    full stdout/stderr for any failure.
 
     Targeting:
         usvc seller services run-tests cohere/command-r-plus
@@ -664,14 +684,10 @@ def run_tests(
         console.print("[red]✗[/red] --document-id prefix must be at least 8 characters.")
         raise typer.Exit(code=1)
     if category is not None and (document_id is not None or test_file is not None):
-        console.print(
-            "[red]Error:[/red] --category is mutually exclusive with --document-id and --test-file."
-        )
+        console.print("[red]Error:[/red] --category is mutually exclusive with --document-id and --test-file.")
         raise typer.Exit(code=1)
     if category is not None and category not in EXECUTABLE_CATEGORIES:
-        console.print(
-            f"[red]✗[/red] --category must be one of {sorted(EXECUTABLE_CATEGORIES)!r}; got {category!r}."
-        )
+        console.print(f"[red]✗[/red] --category must be one of {sorted(EXECUTABLE_CATEGORIES)!r}; got {category!r}.")
         raise typer.Exit(code=1)
 
     if name is not None:
@@ -802,7 +818,7 @@ def _render_run_tests_result(result: Any) -> int:
     if result.fail_count:
         console.print(
             f"[red]✗ Failed:[/red] {result.fail_count}/{total} "
-            f"(see [bold]usvc seller services show-test --doc-id <id>[/bold] "
+            f"(see [bold]usvc seller services show-test-results <service>[/bold] "
             f"for full stdout/stderr)"
         )
         return 1
@@ -902,5 +918,5 @@ def unskip_test(
 
 
 # Quiet ruff about the imported _unwrap_response which we don't use directly here.
-__all__ = ["list_tests", "show_test", "run_tests", "skip_test", "unskip_test"]
+__all__ = ["list_tests", "show_test", "show_test_results", "run_tests", "skip_test", "unskip_test"]
 _unwrap_response  # noqa: B018  — keep import to make refactor easy

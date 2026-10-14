@@ -15,6 +15,8 @@ from ..models.service_visibility_enum import ServiceVisibilityEnum, check_servic
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.catalog_service_performance import CatalogServicePerformance
+    from ..models.service_probe_result import ServiceProbeResult
     from ..models.service_public_last_health_check_type_0 import ServicePublicLastHealthCheckType0
     from ..models.service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
 
@@ -82,12 +84,16 @@ class ServicePublic:
     review_count: int | Unset = 0
     average_rating: float | None | Unset = UNSET
     last_health_check: None | ServicePublicLastHealthCheckType0 | Unset = UNSET
+    performance: CatalogServicePerformance | None | Unset = UNSET
+    last_probe: None | ServiceProbeResult | Unset = UNSET
     ops_subscription_id: None | Unset | UUID = UNSET
     ops_customer_id: None | Unset | UUID = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.catalog_service_performance import CatalogServicePerformance
+        from ..models.service_probe_result import ServiceProbeResult
         from ..models.service_public_last_health_check_type_0 import ServicePublicLastHealthCheckType0
         from ..models.service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
 
@@ -218,6 +224,22 @@ class ServicePublic:
         else:
             last_health_check = self.last_health_check
 
+        performance: dict[str, Any] | None | Unset
+        if isinstance(self.performance, Unset):
+            performance = UNSET
+        elif isinstance(self.performance, CatalogServicePerformance):
+            performance = self.performance.to_dict()
+        else:
+            performance = self.performance
+
+        last_probe: dict[str, Any] | None | Unset
+        if isinstance(self.last_probe, Unset):
+            last_probe = UNSET
+        elif isinstance(self.last_probe, ServiceProbeResult):
+            last_probe = self.last_probe.to_dict()
+        else:
+            last_probe = self.last_probe
+
         ops_subscription_id: None | str | Unset
         if isinstance(self.ops_subscription_id, Unset):
             ops_subscription_id = UNSET
@@ -291,6 +313,10 @@ class ServicePublic:
             field_dict["average_rating"] = average_rating
         if last_health_check is not UNSET:
             field_dict["last_health_check"] = last_health_check
+        if performance is not UNSET:
+            field_dict["performance"] = performance
+        if last_probe is not UNSET:
+            field_dict["last_probe"] = last_probe
         if ops_subscription_id is not UNSET:
             field_dict["ops_subscription_id"] = ops_subscription_id
         if ops_customer_id is not UNSET:
@@ -302,6 +328,8 @@ class ServicePublic:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.catalog_service_performance import CatalogServicePerformance
+        from ..models.service_probe_result import ServiceProbeResult
         from ..models.service_public_last_health_check_type_0 import ServicePublicLastHealthCheckType0
         from ..models.service_public_routing_vars_type_0 import ServicePublicRoutingVarsType0
 
@@ -520,6 +548,40 @@ class ServicePublic:
 
         last_health_check = _parse_last_health_check(d.pop("last_health_check", UNSET))
 
+        def _parse_performance(data: object) -> CatalogServicePerformance | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                performance_type_0 = CatalogServicePerformance.from_dict(data)
+
+                return performance_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(CatalogServicePerformance | None | Unset, data)
+
+        performance = _parse_performance(d.pop("performance", UNSET))
+
+        def _parse_last_probe(data: object) -> None | ServiceProbeResult | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                last_probe_type_0 = ServiceProbeResult.from_dict(data)
+
+                return last_probe_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | ServiceProbeResult | Unset, data)
+
+        last_probe = _parse_last_probe(d.pop("last_probe", UNSET))
+
         def _parse_ops_subscription_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
@@ -597,6 +659,8 @@ class ServicePublic:
             review_count=review_count,
             average_rating=average_rating,
             last_health_check=last_health_check,
+            performance=performance,
+            last_probe=last_probe,
             ops_subscription_id=ops_subscription_id,
             ops_customer_id=ops_customer_id,
             updated_at=updated_at,

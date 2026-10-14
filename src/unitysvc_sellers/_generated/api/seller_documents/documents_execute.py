@@ -17,6 +17,7 @@ def _get_kwargs(
     document_id: UUID,
     *,
     force: bool | Unset = False,
+    service_id: None | Unset | UUID = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -30,6 +31,15 @@ def _get_kwargs(
     params: dict[str, Any] = {}
 
     params["force"] = force
+
+    json_service_id: None | str | Unset
+    if isinstance(service_id, Unset):
+        json_service_id = UNSET
+    elif isinstance(service_id, UUID):
+        json_service_id = str(service_id)
+    else:
+        json_service_id = service_id
+    params["service_id"] = json_service_id
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -95,6 +105,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     force: bool | Unset = False,
+    service_id: None | Unset | UUID = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[DocumentExecuteResponse | ErrorResponse | HTTPValidationError]:
@@ -104,7 +115,10 @@ def sync_detailed(
 
     This is the seller's **pre-submission dry-run** tool: it queues a
     Celery task that runs the document's script against the platform's
-    ops_customer API key and records the result in ``meta.test``. It does
+    ops_customer API key and records the run in ``document_test_result``
+    for ``service_id`` — one of the seller's services carrying the document
+    (documents are shared between a service and its revisions); default: the
+    newest of them. It does
     **not** touch service status or trigger admin review — contrast with
     the formal submission flow via
     ``PATCH /seller/services/{id}`` (status=pending), which queues an
@@ -118,17 +132,12 @@ def sync_detailed(
     Test execution uses ``OPS_CUSTOMER_API_KEY`` for gateway access and
     injects the gateway URL + key as environment variables into the script.
 
-    Results are stored on ``document.meta.test``:
-    - ``status``: ``success|task_failed|script_failed|unexpected_output``.
-      ``unexpected_output`` is accepted from a seller reporting an
-      externally-run test; the platform itself never produces it any more.
-    - ``error``: error message when status != success
-    - ``executed_at``: ISO timestamp of execution
-    - ``exit_code``, ``stdout``, ``stderr`` (truncated to 10KB)
-    - ``output_contains`` is gone (unitysvc#2490). A test passes or fails on
-      its exit code alone — stdout gates nothing — so assert inside the script
-      and exit non-zero. Ingest strips the key from ``meta`` if it is still
-      present, which is what the shipped presets do until they migrate.
+    The run records ``status`` (``success|task_failed|script_failed``),
+    ``error``, ``exit_code`` and ``executed_at``; stdout, stderr, the masked
+    env and the rendered script are kept in S3 (read them with
+    ``GET /seller/documents/{id}/test-details``). A test passes or fails on
+    its exit code alone (unitysvc#2490) — assert inside the script and exit
+    non-zero.
 
     Set ``force=true`` to re-run a document whose test already recorded a
     success.
@@ -136,6 +145,7 @@ def sync_detailed(
     Args:
         document_id (UUID):
         force (bool | Unset):  Default: False.
+        service_id (None | Unset | UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -150,6 +160,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         document_id=document_id,
         force=force,
+        service_id=service_id,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -166,6 +177,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     force: bool | Unset = False,
+    service_id: None | Unset | UUID = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> DocumentExecuteResponse | ErrorResponse | HTTPValidationError | None:
@@ -175,7 +187,10 @@ def sync(
 
     This is the seller's **pre-submission dry-run** tool: it queues a
     Celery task that runs the document's script against the platform's
-    ops_customer API key and records the result in ``meta.test``. It does
+    ops_customer API key and records the run in ``document_test_result``
+    for ``service_id`` — one of the seller's services carrying the document
+    (documents are shared between a service and its revisions); default: the
+    newest of them. It does
     **not** touch service status or trigger admin review — contrast with
     the formal submission flow via
     ``PATCH /seller/services/{id}`` (status=pending), which queues an
@@ -189,17 +204,12 @@ def sync(
     Test execution uses ``OPS_CUSTOMER_API_KEY`` for gateway access and
     injects the gateway URL + key as environment variables into the script.
 
-    Results are stored on ``document.meta.test``:
-    - ``status``: ``success|task_failed|script_failed|unexpected_output``.
-      ``unexpected_output`` is accepted from a seller reporting an
-      externally-run test; the platform itself never produces it any more.
-    - ``error``: error message when status != success
-    - ``executed_at``: ISO timestamp of execution
-    - ``exit_code``, ``stdout``, ``stderr`` (truncated to 10KB)
-    - ``output_contains`` is gone (unitysvc#2490). A test passes or fails on
-      its exit code alone — stdout gates nothing — so assert inside the script
-      and exit non-zero. Ingest strips the key from ``meta`` if it is still
-      present, which is what the shipped presets do until they migrate.
+    The run records ``status`` (``success|task_failed|script_failed``),
+    ``error``, ``exit_code`` and ``executed_at``; stdout, stderr, the masked
+    env and the rendered script are kept in S3 (read them with
+    ``GET /seller/documents/{id}/test-details``). A test passes or fails on
+    its exit code alone (unitysvc#2490) — assert inside the script and exit
+    non-zero.
 
     Set ``force=true`` to re-run a document whose test already recorded a
     success.
@@ -207,6 +217,7 @@ def sync(
     Args:
         document_id (UUID):
         force (bool | Unset):  Default: False.
+        service_id (None | Unset | UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -222,6 +233,7 @@ def sync(
         document_id=document_id,
         client=client,
         force=force,
+        service_id=service_id,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
@@ -232,6 +244,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     force: bool | Unset = False,
+    service_id: None | Unset | UUID = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[DocumentExecuteResponse | ErrorResponse | HTTPValidationError]:
@@ -241,7 +254,10 @@ async def asyncio_detailed(
 
     This is the seller's **pre-submission dry-run** tool: it queues a
     Celery task that runs the document's script against the platform's
-    ops_customer API key and records the result in ``meta.test``. It does
+    ops_customer API key and records the run in ``document_test_result``
+    for ``service_id`` — one of the seller's services carrying the document
+    (documents are shared between a service and its revisions); default: the
+    newest of them. It does
     **not** touch service status or trigger admin review — contrast with
     the formal submission flow via
     ``PATCH /seller/services/{id}`` (status=pending), which queues an
@@ -255,17 +271,12 @@ async def asyncio_detailed(
     Test execution uses ``OPS_CUSTOMER_API_KEY`` for gateway access and
     injects the gateway URL + key as environment variables into the script.
 
-    Results are stored on ``document.meta.test``:
-    - ``status``: ``success|task_failed|script_failed|unexpected_output``.
-      ``unexpected_output`` is accepted from a seller reporting an
-      externally-run test; the platform itself never produces it any more.
-    - ``error``: error message when status != success
-    - ``executed_at``: ISO timestamp of execution
-    - ``exit_code``, ``stdout``, ``stderr`` (truncated to 10KB)
-    - ``output_contains`` is gone (unitysvc#2490). A test passes or fails on
-      its exit code alone — stdout gates nothing — so assert inside the script
-      and exit non-zero. Ingest strips the key from ``meta`` if it is still
-      present, which is what the shipped presets do until they migrate.
+    The run records ``status`` (``success|task_failed|script_failed``),
+    ``error``, ``exit_code`` and ``executed_at``; stdout, stderr, the masked
+    env and the rendered script are kept in S3 (read them with
+    ``GET /seller/documents/{id}/test-details``). A test passes or fails on
+    its exit code alone (unitysvc#2490) — assert inside the script and exit
+    non-zero.
 
     Set ``force=true`` to re-run a document whose test already recorded a
     success.
@@ -273,6 +284,7 @@ async def asyncio_detailed(
     Args:
         document_id (UUID):
         force (bool | Unset):  Default: False.
+        service_id (None | Unset | UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -287,6 +299,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         document_id=document_id,
         force=force,
+        service_id=service_id,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -301,6 +314,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     force: bool | Unset = False,
+    service_id: None | Unset | UUID = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> DocumentExecuteResponse | ErrorResponse | HTTPValidationError | None:
@@ -310,7 +324,10 @@ async def asyncio(
 
     This is the seller's **pre-submission dry-run** tool: it queues a
     Celery task that runs the document's script against the platform's
-    ops_customer API key and records the result in ``meta.test``. It does
+    ops_customer API key and records the run in ``document_test_result``
+    for ``service_id`` — one of the seller's services carrying the document
+    (documents are shared between a service and its revisions); default: the
+    newest of them. It does
     **not** touch service status or trigger admin review — contrast with
     the formal submission flow via
     ``PATCH /seller/services/{id}`` (status=pending), which queues an
@@ -324,17 +341,12 @@ async def asyncio(
     Test execution uses ``OPS_CUSTOMER_API_KEY`` for gateway access and
     injects the gateway URL + key as environment variables into the script.
 
-    Results are stored on ``document.meta.test``:
-    - ``status``: ``success|task_failed|script_failed|unexpected_output``.
-      ``unexpected_output`` is accepted from a seller reporting an
-      externally-run test; the platform itself never produces it any more.
-    - ``error``: error message when status != success
-    - ``executed_at``: ISO timestamp of execution
-    - ``exit_code``, ``stdout``, ``stderr`` (truncated to 10KB)
-    - ``output_contains`` is gone (unitysvc#2490). A test passes or fails on
-      its exit code alone — stdout gates nothing — so assert inside the script
-      and exit non-zero. Ingest strips the key from ``meta`` if it is still
-      present, which is what the shipped presets do until they migrate.
+    The run records ``status`` (``success|task_failed|script_failed``),
+    ``error``, ``exit_code`` and ``executed_at``; stdout, stderr, the masked
+    env and the rendered script are kept in S3 (read them with
+    ``GET /seller/documents/{id}/test-details``). A test passes or fails on
+    its exit code alone (unitysvc#2490) — assert inside the script and exit
+    non-zero.
 
     Set ``force=true`` to re-run a document whose test already recorded a
     success.
@@ -342,6 +354,7 @@ async def asyncio(
     Args:
         document_id (UUID):
         force (bool | Unset):  Default: False.
+        service_id (None | Unset | UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -358,6 +371,7 @@ async def asyncio(
             document_id=document_id,
             client=client,
             force=force,
+            service_id=service_id,
             authorization=authorization,
             x_role_id=x_role_id,
         )

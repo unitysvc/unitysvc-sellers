@@ -23,9 +23,11 @@ if TYPE_CHECKING:
     from ._generated.models.service_delete_response import ServiceDeleteResponse
     from ._generated.models.service_detail_response import ServiceDetailResponse
     from ._generated.models.service_public import ServicePublic
+    from ._generated.models.service_test_results_response import ServiceTestResultsResponse
     from ._generated.models.service_update_response import ServiceUpdateResponse
     from ._generated.models.service_upload_response import ServiceUploadResponse
     from ._generated.models.task_queued_response import TaskQueuedResponse
+    from ._generated.models.test_run_output_response import TestRunOutputResponse
     from .aclient import AsyncClient
 
 
@@ -456,6 +458,29 @@ class AsyncServices:
                 service_id=str(service_id),
                 client=self._client,
                 body=ServiceUpdate.from_dict(body),
+            )
+        )
+
+    async def test_results(self, service_id: str | UUID) -> ServiceTestResultsResponse:
+        """See :meth:`unitysvc_sellers.services.Services.test_results`."""
+        from ._generated.api.seller_services import services_test_results
+
+        return unwrap(
+            await services_test_results.asyncio_detailed(
+                service_id=str(service_id),
+                client=self._client,
+            )
+        )
+
+    async def test_run_output(self, service_id: str | UUID, run_id: str | UUID) -> TestRunOutputResponse:
+        """See :meth:`unitysvc_sellers.services.Services.test_run_output`."""
+        from ._generated.api.seller_services import services_test_run_output
+
+        return unwrap(
+            await services_test_run_output.asyncio_detailed(
+                service_id=str(service_id),
+                run_id=UUID(str(run_id)),
+                client=self._client,
             )
         )
 
