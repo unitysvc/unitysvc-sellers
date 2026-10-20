@@ -7,7 +7,7 @@ and [Create from a System Template](../guides/create-from-template.md).
 
 ## Motivation
 
-`unitysvc-services-resp` ships six services (`resp200` … `resp503`) that differ
+`unitysvc-system-services` ships six services (`resp200` … `resp503`) that differ
 in **three values** — an HTTP `status`, a `label` ("OK", "Service Unavailable",
 …), and a one-line `blurb` — and are otherwise identical. Six hand-written
 `offering.json` + `listing.json` pairs is six copies of one shape. We want
