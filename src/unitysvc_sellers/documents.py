@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from ._generated.types import UNSET
 from ._http import unwrap
 
 if TYPE_CHECKING:
@@ -48,15 +49,14 @@ class Documents:
         channel: str | None = None,
         upstream: bool = False,
     ) -> TestDetailResponse:
-        """Execution details (stdout/stderr/masked env/rendered script) for
-        one test-result cell (unitysvc#1901).
+        """Execution details (stdout/stderr/masked env/rendered script) of the
+        latest recorded run of the document by one of the seller's services.
 
-        Selectors mirror how results are recorded: none → the flat
-        single-document block; ``interface_id`` (+ optional ``channel``) →
-        that gateway cell; ``upstream=True`` (+ optional ``channel``) → the
-        upstream probe record. ``expired=True`` on the response means the
-        cell's detail blob aged out of retention — re-run the test to
-        reproduce the details.
+        Selectors narrow the run: none → the newest run; ``interface_id``
+        (+ optional ``channel``) → that gateway run; ``upstream=True``
+        (+ optional ``channel``) → the upstream probe. ``expired=True`` means
+        the run's output aged out of retention — re-run the test to reproduce
+        it. A service's full result set is :meth:`Services.test_results`.
         """
         from ._generated.api.seller_documents import documents_test_details
 
@@ -75,13 +75,17 @@ class Documents:
         document_id: str | UUID,
         *,
         force: bool = False,
+        service_id: str | UUID | None = None,
     ) -> DocumentExecuteResponse:
         """Execute a code-example / connectivity-test document.
 
         Args:
             document_id: The document to execute.
-            force: If True, execute even if the document was previously
-                marked skipped or has a recent successful run.
+            force: If True, execute even if the run has already passed.
+            service_id: The service to run it for — documents are shared
+                between a service and its revisions. Default: the newest of
+                the seller's services carrying the document. The run is
+                recorded for that service (see :meth:`Services.test_results`).
         """
         from ._generated.api.seller_documents import documents_execute
 
@@ -90,6 +94,7 @@ class Documents:
                 document_id=UUID(str(document_id)),
                 client=self._client,
                 force=force,
+                service_id=UUID(str(service_id)) if service_id is not None else UNSET,
             )
         )
 
@@ -98,7 +103,10 @@ class Documents:
         document_id: str | UUID,
         body: DocumentTestUpdate | dict[str, Any],
     ) -> DocumentTestStatusResponse:
-        """Update a document's test state (skip / unskip / mark pass-fail)."""
+        """Skip (``{"status": "skip"}``) or unskip (``{"status": "pending"}``) a
+        document's test. Unskipping also forgets the document's recorded runs,
+        so the next run re-proves it. Results are recorded only by the
+        platform's own runners."""
         from ._generated.api.seller_documents import documents_update_test
         from ._generated.models.document_test_update import DocumentTestUpdate
 

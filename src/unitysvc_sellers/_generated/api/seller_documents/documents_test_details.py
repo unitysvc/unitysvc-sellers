@@ -117,15 +117,15 @@ def sync_detailed(
 ) -> Response[ErrorResponse | HTTPValidationError | TestDetailResponse]:
     """Get Document Test Details
 
-     Full execution details (stdout/stderr/masked env/rendered script) for
-    one test-result cell of a document (#1901).
+     Full execution details (stdout/stderr/masked env/rendered script) of the
+    latest recorded run of a document by one of the caller's services.
 
-    Selectors mirror how results are recorded: none → the single-document
-    block; ``interface_id`` (+ optional ``channel``) → that gateway cell;
-    ``upstream=true`` (+ optional ``channel``) → the upstream probe record.
-    404 means no such cell was ever recorded; ``expired=true`` means the
-    cell exists but its detail blob aged out of retention — re-run the test
-    to reproduce the details.
+    Selectors narrow the run: none → the newest run; ``interface_id`` (+
+    optional ``channel``) → that gateway run; ``upstream=true`` (+ optional
+    ``channel``) → the upstream probe. 404 means no such run was recorded;
+    ``expired=true`` means it was, but (some of) its output aged out of
+    retention — re-run the test to reproduce it. A service's full result set
+    is at ``GET /seller/services/{id}/test-results``.
 
     Supports partial document ID matching (minimum 8 characters).
 
@@ -173,15 +173,15 @@ def sync(
 ) -> ErrorResponse | HTTPValidationError | TestDetailResponse | None:
     """Get Document Test Details
 
-     Full execution details (stdout/stderr/masked env/rendered script) for
-    one test-result cell of a document (#1901).
+     Full execution details (stdout/stderr/masked env/rendered script) of the
+    latest recorded run of a document by one of the caller's services.
 
-    Selectors mirror how results are recorded: none → the single-document
-    block; ``interface_id`` (+ optional ``channel``) → that gateway cell;
-    ``upstream=true`` (+ optional ``channel``) → the upstream probe record.
-    404 means no such cell was ever recorded; ``expired=true`` means the
-    cell exists but its detail blob aged out of retention — re-run the test
-    to reproduce the details.
+    Selectors narrow the run: none → the newest run; ``interface_id`` (+
+    optional ``channel``) → that gateway run; ``upstream=true`` (+ optional
+    ``channel``) → the upstream probe. 404 means no such run was recorded;
+    ``expired=true`` means it was, but (some of) its output aged out of
+    retention — re-run the test to reproduce it. A service's full result set
+    is at ``GET /seller/services/{id}/test-results``.
 
     Supports partial document ID matching (minimum 8 characters).
 
@@ -224,15 +224,15 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | HTTPValidationError | TestDetailResponse]:
     """Get Document Test Details
 
-     Full execution details (stdout/stderr/masked env/rendered script) for
-    one test-result cell of a document (#1901).
+     Full execution details (stdout/stderr/masked env/rendered script) of the
+    latest recorded run of a document by one of the caller's services.
 
-    Selectors mirror how results are recorded: none → the single-document
-    block; ``interface_id`` (+ optional ``channel``) → that gateway cell;
-    ``upstream=true`` (+ optional ``channel``) → the upstream probe record.
-    404 means no such cell was ever recorded; ``expired=true`` means the
-    cell exists but its detail blob aged out of retention — re-run the test
-    to reproduce the details.
+    Selectors narrow the run: none → the newest run; ``interface_id`` (+
+    optional ``channel``) → that gateway run; ``upstream=true`` (+ optional
+    ``channel``) → the upstream probe. 404 means no such run was recorded;
+    ``expired=true`` means it was, but (some of) its output aged out of
+    retention — re-run the test to reproduce it. A service's full result set
+    is at ``GET /seller/services/{id}/test-results``.
 
     Supports partial document ID matching (minimum 8 characters).
 
@@ -278,15 +278,15 @@ async def asyncio(
 ) -> ErrorResponse | HTTPValidationError | TestDetailResponse | None:
     """Get Document Test Details
 
-     Full execution details (stdout/stderr/masked env/rendered script) for
-    one test-result cell of a document (#1901).
+     Full execution details (stdout/stderr/masked env/rendered script) of the
+    latest recorded run of a document by one of the caller's services.
 
-    Selectors mirror how results are recorded: none → the single-document
-    block; ``interface_id`` (+ optional ``channel``) → that gateway cell;
-    ``upstream=true`` (+ optional ``channel``) → the upstream probe record.
-    404 means no such cell was ever recorded; ``expired=true`` means the
-    cell exists but its detail blob aged out of retention — re-run the test
-    to reproduce the details.
+    Selectors narrow the run: none → the newest run; ``interface_id`` (+
+    optional ``channel``) → that gateway run; ``upstream=true`` (+ optional
+    ``channel``) → the upstream probe. 404 means no such run was recorded;
+    ``expired=true`` means it was, but (some of) its output aged out of
+    retention — re-run the test to reproduce it. A service's full result set
+    is at ``GET /seller/services/{id}/test-results``.
 
     Supports partial document ID matching (minimum 8 characters).
 

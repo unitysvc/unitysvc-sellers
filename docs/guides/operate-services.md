@@ -84,7 +84,8 @@ end-to-end through the gateway with a server-side diagnostic:
 ```bash
 usvc seller services run-tests  acme/llama-8b   # run its testable documents server-side
 usvc seller services list-tests acme/llama-8b   # which documents are testable
-usvc seller services show-test  acme/llama-8b   # latest result for a document
+usvc seller services show-test-results acme/llama-8b  # verdict + recorded runs (--run RUN for output)
+usvc seller services show-test  DOCUMENT_ID     # latest run of one document
 usvc seller services skip-test  acme/llama-8b   # exclude a doc from testing…
 usvc seller services unskip-test acme/llama-8b  # …and put it back
 ```

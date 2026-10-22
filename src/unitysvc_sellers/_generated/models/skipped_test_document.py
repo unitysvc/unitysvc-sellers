@@ -2,32 +2,54 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="DocumentTestUpdateTestsType0")
+T = TypeVar("T", bound="SkippedTestDocument")
 
 
 @_attrs_define
-class DocumentTestUpdateTestsType0:
+class SkippedTestDocument:
+    """A test document the seller marked ``skip``."""
+
+    document_id: UUID
+    document_title: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        document_id = str(self.document_id)
+
+        document_title = self.document_title
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "document_id": document_id,
+                "document_title": document_title,
+            }
+        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        document_test_update_tests_type_0 = cls()
+        document_id = UUID(d.pop("document_id"))
 
-        document_test_update_tests_type_0.additional_properties = d
-        return document_test_update_tests_type_0
+        document_title = d.pop("document_title")
+
+        skipped_test_document = cls(
+            document_id=document_id,
+            document_title=document_title,
+        )
+
+        skipped_test_document.additional_properties = d
+        return skipped_test_document
 
     @property
     def additional_keys(self) -> list[str]:

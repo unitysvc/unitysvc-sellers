@@ -317,6 +317,7 @@ usvc seller services update [NAME]
 # Document tests (registered under services; NAME selects services, doc ids select docs)
 usvc seller services list-tests   [NAME] [--all] [--format table|json]
 usvc seller services show-test    [DOCUMENT_ID] [--format table|json]
+usvc seller services show-test-results [NAME] [--id ID] [--run RUN_ID] [--format table|json]
 usvc seller services run-tests    [NAME] [--document-id DOC_ID] [--force]
 usvc seller services skip-test    DOCUMENT_ID
 usvc seller services unskip-test  DOCUMENT_ID

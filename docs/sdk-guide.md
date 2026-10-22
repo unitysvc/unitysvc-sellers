@@ -627,10 +627,11 @@ What the backend does under the hood:
 3.  On any iface-level gateway failure, renders+executes the same
     document in upstream mode (cached per-doc — a single upstream
     config drives all ifaces) for fault attribution.
-4.  Persists per-(doc × iface) results to
-    `Document.meta.test.tests[<iface_id>]` (readable later via
-    `usvc seller services show-test --doc-id <id>` for full
-    stdout/stderr).
+4.  Records each (doc × iface × channel) run for the service — read them
+    with `client.services.test_results(service_id)` and one run's full
+    stdout/stderr/rendered script with
+    `client.services.test_run_output(service_id, run_id)` (CLI:
+    `usvc seller services show-test-results <service> [--run <run>]`).
 5.  Restores the snapshotted status and returns the summary.
 
 The SDK call blocks until the task completes; under the hood it

@@ -98,7 +98,8 @@ def sync_detailed(
      List the ``active`` templates a seller can instantiate.
 
     Only active templates are selectable for net-new service creation; draft
-    and deprecated versions are hidden from this list.
+    and deprecated versions are hidden from this list, as are member templates
+    of platform services still awaiting approval (#2569).
 
     Args:
         skip (int | Unset):  Default: 0.
@@ -144,7 +145,8 @@ def sync(
      List the ``active`` templates a seller can instantiate.
 
     Only active templates are selectable for net-new service creation; draft
-    and deprecated versions are hidden from this list.
+    and deprecated versions are hidden from this list, as are member templates
+    of platform services still awaiting approval (#2569).
 
     Args:
         skip (int | Unset):  Default: 0.
@@ -185,7 +187,8 @@ async def asyncio_detailed(
      List the ``active`` templates a seller can instantiate.
 
     Only active templates are selectable for net-new service creation; draft
-    and deprecated versions are hidden from this list.
+    and deprecated versions are hidden from this list, as are member templates
+    of platform services still awaiting approval (#2569).
 
     Args:
         skip (int | Unset):  Default: 0.
@@ -229,7 +232,8 @@ async def asyncio(
      List the ``active`` templates a seller can instantiate.
 
     Only active templates are selectable for net-new service creation; draft
-    and deprecated versions are hidden from this list.
+    and deprecated versions are hidden from this list, as are member templates
+    of platform services still awaiting approval (#2569).
 
     Args:
         skip (int | Unset):  Default: 0.

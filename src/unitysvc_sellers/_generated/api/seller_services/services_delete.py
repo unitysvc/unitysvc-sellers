@@ -100,6 +100,9 @@ def sync_detailed(
     1. It belongs to the current seller.
     2. It has never been active (current status is not active/suspended/
        deprecated). Services that have been active are kept for audit trail.
+    3. For a platform service: no member service was generated from its member
+       template (those belong to other sellers — an admin delete removes them
+       together). Its member template family is deleted with it.
 
     When ``dryrun=true``, the deletion is not performed — only the
     eligibility check runs and the result is returned in the response
@@ -162,6 +165,9 @@ def sync(
     1. It belongs to the current seller.
     2. It has never been active (current status is not active/suspended/
        deprecated). Services that have been active are kept for audit trail.
+    3. For a platform service: no member service was generated from its member
+       template (those belong to other sellers — an admin delete removes them
+       together). Its member template family is deleted with it.
 
     When ``dryrun=true``, the deletion is not performed — only the
     eligibility check runs and the result is returned in the response
@@ -219,6 +225,9 @@ async def asyncio_detailed(
     1. It belongs to the current seller.
     2. It has never been active (current status is not active/suspended/
        deprecated). Services that have been active are kept for audit trail.
+    3. For a platform service: no member service was generated from its member
+       template (those belong to other sellers — an admin delete removes them
+       together). Its member template family is deleted with it.
 
     When ``dryrun=true``, the deletion is not performed — only the
     eligibility check runs and the result is returned in the response
@@ -279,6 +288,9 @@ async def asyncio(
     1. It belongs to the current seller.
     2. It has never been active (current status is not active/suspended/
        deprecated). Services that have been active are kept for audit trail.
+    3. For a platform service: no member service was generated from its member
+       template (those belong to other sellers — an admin delete removes them
+       together). Its member template family is deleted with it.
 
     When ``dryrun=true``, the deletion is not performed — only the
     eligibility check runs and the result is returned in the response

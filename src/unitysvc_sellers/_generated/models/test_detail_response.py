@@ -21,16 +21,14 @@ T = TypeVar("T", bound="TestDetailResponse")
 
 @_attrs_define
 class TestDetailResponse:
-    """GET /seller/documents/{id}/test-details — one result cell's details.
+    """GET /seller/documents/{id}/test-details — one recorded run's details.
 
     Serves the bulky per-execution fields (stdout/stderr/masked env/rendered
-    script) for one ``meta.test`` cell. During the #1901 transition the
-    fields come either from the cell's content-addressed S3 blob
-    (``source="blob"``) or from the legacy inline meta fields
-    (``source="inline"``). ``expired=True`` means the cell exists but its
-    blob has aged out of ``TEST_DETAIL_RETENTION_DAYS`` — re-run the test to
-    reproduce the details; ``status``/``executed_at`` still describe the
-    recorded outcome.
+    script) of a run recorded in ``document_test_result``, read from S3
+    (``source="blob"``). ``expired=True`` means the run exists but (some of)
+    its output has aged out of ``TEST_DETAIL_RETENTION_DAYS`` — re-run the
+    test to reproduce the details; ``status``/``executed_at`` still describe
+    the recorded outcome.
 
     """
 

@@ -99,7 +99,8 @@ def sync_detailed(
     given (it survives a rename), else by this seller's platform service of
     that name. Its listing must declare the ``/p`` address it serves.
 
-    Requires a ``trusted`` or ``partner`` seller. The response is ``202`` with
+    Requires a ``trusted`` or ``partner`` seller; for now, the Labs seller
+    (resale settlement exists only for Labs). The response is ``202`` with
     the ingest ``task_id``; the task result carries the platform service id,
     the action taken and the member template id.
 
@@ -156,7 +157,8 @@ def sync(
     given (it survives a rename), else by this seller's platform service of
     that name. Its listing must declare the ``/p`` address it serves.
 
-    Requires a ``trusted`` or ``partner`` seller. The response is ``202`` with
+    Requires a ``trusted`` or ``partner`` seller; for now, the Labs seller
+    (resale settlement exists only for Labs). The response is ``202`` with
     the ingest ``task_id``; the task result carries the platform service id,
     the action taken and the member template id.
 
@@ -208,7 +210,8 @@ async def asyncio_detailed(
     given (it survives a rename), else by this seller's platform service of
     that name. Its listing must declare the ``/p`` address it serves.
 
-    Requires a ``trusted`` or ``partner`` seller. The response is ``202`` with
+    Requires a ``trusted`` or ``partner`` seller; for now, the Labs seller
+    (resale settlement exists only for Labs). The response is ``202`` with
     the ingest ``task_id``; the task result carries the platform service id,
     the action taken and the member template id.
 
@@ -263,7 +266,8 @@ async def asyncio(
     given (it survives a rename), else by this seller's platform service of
     that name. Its listing must declare the ``/p`` address it serves.
 
-    Requires a ``trusted`` or ``partner`` seller. The response is ``202`` with
+    Requires a ``trusted`` or ``partner`` seller; for now, the Labs seller
+    (resale settlement exists only for Labs). The response is ``202`` with
     the ingest ``task_id``; the task result carries the platform service id,
     the action taken and the member template id.
 

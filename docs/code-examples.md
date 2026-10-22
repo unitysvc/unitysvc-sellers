@@ -87,7 +87,7 @@ The diagnostic runs **server-side** inside the cluster — the gateway probe exe
 **Characteristics:**
 
 -   No `UNITYSVC_API_KEY` needed in the local environment — the server uses the ops customer's bearer token
--   Per-(doc × iface) results land on `Document.meta.test.tests[<iface_id>]`; full stdout/stderr available via `usvc seller services show-test --doc-id <id>`
+-   Each (doc × iface) run is recorded for the service; see them with `usvc seller services show-test-results <service>`, and one run's full stdout/stderr with `--run <run>`
 -   Suitable for development, validation, and CI/CD
 
 ### Comparison
@@ -99,7 +99,7 @@ The diagnostic runs **server-side** inside the cluster — the gateway probe exe
 | `SERVICE_BASE_URL` | In-cluster gateway URL | In-cluster gateway URL |
 | `UNITYSVC_API_KEY` | Ops customer key (server-side) | Ops customer key (server-side) |
 | Upstream-fallback attribution | ✓ | ✓ |
-| Result viewing | Web UI | `show-test --doc-id` for full output |
+| Result viewing | Web UI | `show-test-results <service> [--run <run>]` for full output |
 | Use Case | One-off validation | Scripting, CI/CD, batch |
 
 ### Recommended Workflow
