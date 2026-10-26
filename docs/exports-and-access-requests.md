@@ -1,10 +1,9 @@
-# Exports & Dependencies
+# Exports & Customer Access Requests
 
 How a service declares what other services may ask of it (`exports`), and how a
-service declares what it needs from other services (`depends_on`). It is the
-`export` / `import` pattern of a programming language, applied to services: a
-service that depends on others is a *composite* service, and the customer
-approves each dependency when they enroll.
+seller asks the customers who enroll in their service for access to other
+services on their behalf (`customer_access_requests`). A service built on
+others this way is a *composite* service.
 
 > **Status.** The formats below are defined and validated by `unitysvc-core`
 > (0.2.36 and later), so `usvc_seller specs validate` checks them today. The
@@ -14,20 +13,29 @@ approves each dependency when they enroll.
 
 ## The model
 
-- **Exports** live in your service's own `offering.json`. They say which
+Three stages:
+
+- **Exports** live in a service's own `offering.json`. They say which
   permissions and which customization options other services may request.
   Most services declare nothing: every service exports `invoke` (calling it,
   on every route) by default.
-- **Dependencies** live on a channel in `upstream_access_config`, as
-  `depends_on`. Each entry names another service and what your service needs
-  from it — for example an uptime monitor that writes to the customer's
-  `log` and alerts through `notify`.
-- **The customer decides.** When a customer enrolls in your service, they see
-  each dependency with your justification, confirm or change its options,
-  and set limits. What they approve becomes a *policy* on the API key your
-  service uses on their behalf.
+- **Customer access requests** live on a channel in `upstream_access_config`,
+  as `customer_access_requests`. Each one asks the enrolling customer for
+  permission to use another service **through their account and authority** —
+  for example an uptime monitor that writes to the customer's `log` and alerts
+  the customer through `notify`. A request grants nothing by itself.
+- **The key's policy** is what the customer actually approves. When a customer
+  enrolls in your service, they see each request with your justification,
+  approve or decline it, confirm or change its options, and set limits. What
+  they approve becomes the *policy* on the API key your service uses on their
+  behalf.
 
-There is no central list of services or permissions: a dependency is checked
+Calls made under an approved request run under the customer's delegated
+identity, within the permissions, options and limits they approved. The
+target's exports say what *can* be requested; only the customer's approval,
+recorded in the key's policy, gives your service the authority to do it.
+
+There is no central list of services or permissions: a request is checked
 against the target service's own `exports`, read from the published catalog.
 
 ## Exports
@@ -103,7 +111,7 @@ including limits only your service can apply, such as a message size. They
 are not for limiting how often or how much a caller uses you: the platform
 does that for every service (see [Limits](#limits)).
 
-## Dependencies
+## Customer access requests
 
 On any channel of `upstream_access_config`:
 
@@ -112,7 +120,7 @@ On any channel of `upstream_access_config`:
   "upstream_access_config": {
     "default": {
       "base_url": "https://checks.example.com/run",
-      "depends_on": [
+      "customer_access_requests": [
         {
           "object": "service:log",
           "permissions": ["invoke"],
@@ -136,7 +144,7 @@ On any channel of `upstream_access_config`:
 
 | Field | Required | Description |
 | --- | --- | --- |
-| `object` | yes | The service depended on: `service:<name>`. No wildcards. |
+| `object` | yes | The service requested: `service:<name>`. No wildcards. |
 | `permissions` | yes | Permissions from the target's exports: `invoke`, or a named one it declares. |
 | `justification` | yes | Why your service needs it, in words the customer reads before approving. |
 | `required` | no | `true` if your service can't work without it; the customer may decline the others. Default `false`. |
@@ -148,10 +156,10 @@ form**. The customer confirms or changes the options within what the target
 exports, sets the limits, and may add limits of their own. What they approve
 becomes the policy on the key your service uses for them.
 
-Each channel declares its own `depends_on`, so different plans of one service
-can depend on different things — for example a channel that uses the
-customer's own `ai` (and is priced lower) beside a managed channel that uses
-yours.
+Each channel declares its own `customer_access_requests`, so different plans
+of one service can ask for different things — for example a channel that uses
+the customer's own `ai` (and is priced lower) beside a managed channel that
+uses yours.
 
 ## Limits
 
@@ -194,14 +202,14 @@ query string, so options don't apply there.
 
 - **`exports`**: permissions and their routes; that `options` is a valid JSON
   Schema object within the restrictions above.
-- **`depends_on`**: every field's shape, the `options` query string, and the
-  limit keys and values.
+- **`customer_access_requests`**: every field's shape, the `options` query
+  string, and the limit keys and values.
 
-Once the catalog check is available, a dependency that asks for more than the
+Once the catalog check is available, a request that asks for more than the
 default — a permission other than `invoke`, or any option — is also checked
 against the target's published exports: the permission must exist, each option
 must be exported, and each value must satisfy its schema. An `invoke`-only
-dependency, and limits, never need that lookup. Backend ingest runs the same
+request, and limits, never need that lookup. Backend ingest runs the same
 checks when you upload.
 
 ## See also

@@ -84,7 +84,7 @@ nav:
       - Service Templates: service-templates.md
       - Pricing: pricing.md
       - Secrets & Variables: secrets-and-variables.md
-      - Exports & Dependencies: exports-and-dependencies.md
+      - Exports & Customer Access Requests: exports-and-access-requests.md
       - Names & Routing: naming-conventions.md
       - After You Publish: seller-lifecycle.md
   - Guides:
