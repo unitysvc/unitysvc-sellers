@@ -138,6 +138,7 @@ Service files define the service offering from the upstream provider's perspecti
 | `details`      | object                | Service-specific features and information                     |
 | `payout_price` | [Pricing](pricing.md) | Seller pricing information (what seller charges UnitySVC)     |
 | `documents`    | dict of DocumentData  | Technical specs, documentation, keyed by title                |
+| `exports`      | object                | What other services may request from this one: named permissions and a JSON Schema of customization options (see [Exports & Dependencies](exports-and-dependencies.md#exports)) |
 
 ### ServiceType Enum Values
 
@@ -789,6 +790,7 @@ recognizes:
 | `is_active`           | boolean            | Whether the channel is active (default: true)                                                             |
 | `is_primary`          | boolean            | Whether this is the primary channel (default: false)                                                     |
 | `sort_order`          | integer            | Channel selection order (default: 0)                                                                      |
+| `depends_on`          | array of object    | Other services this channel needs, approved by the customer at enrollment (see [Exports & Dependencies](exports-and-dependencies.md#dependencies)) |
 
 **Note:** The channel name is specified as the dict key, not as a field within the object.
 
