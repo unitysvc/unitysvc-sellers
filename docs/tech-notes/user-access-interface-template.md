@@ -94,27 +94,25 @@ Enrollment-scoped `AccessInterface` records are only visible to the enrollment t
 3. `{{ enrollment.code }}` resolves to the enrollment's 4-character code (assigned at enrollment creation)
 4. The resolved upstream URL is used to forward the request — no upstream `AccessInterface` records are created per enrollment
 
-## Deferring expansion: the `raw` block
+## Templates inside transformers
 
-The backend Jinja-expands **every** string in an `upstream_access_config` channel at routing time (using the enrollment context above). That breaks values that carry **their own** template syntax meant for a *later* stage — most often **request/response transformers**, whose `{{ … }}` templates are evaluated by the gateway's transformer engine against per-request data, not by the backend against enrollment context. Left alone, the backend's Jinja pass would consume or mangle templates that were never meant for it.
+The gateway renders `{{ params.* }}`, `{{ enrollment.* }}`, `{{ routing_vars.* }}`, `{{ path.* }}` and `{{ service_name }}` across the **whole** selected channel at request time, `request_transformer` included. After rendering, any `{{ … }}` left in the channel makes it unroutable: the gateway treats it as an unsatisfied template rather than forward it.
 
-Wrap those values in a **`raw`** block. Within a channel the backend:
-
-1. **Skips** the `raw` subtree during Jinja2 expansion — its contents pass through **verbatim**.
-2. After expanding the rest of the channel, **hoists** `raw`'s keys up into the channel (shallow merge) and **removes** the `raw` key.
-
-So `raw` is purely an authoring marker for "don't Jinja-expand this here." It never appears in the resolved config — its contents land at the channel level as if written there directly.
+So a transformer that needs its own per-request template (a `body_transformer` reading `_body`, for example) must not use `{{ … }}` for it. Use the transformer engine's raw-output tags `{* … *}` instead, with `_escape_json(...)` where the value lands inside a JSON string:
 
 ```json
 {
     "upstream_access_config": {
-        "managed": {
+        "default": {
             "access_method": "http",
             "base_url": "https://api.example.com/{{ enrollment.code }}",
             "api_key": "${ secrets.UPSTREAM_KEY }",
-            "raw": {
-                "request_transformer": {
-                    "body": { "model": "{{ model }}" }
+            "request_transformer": {
+                "body_transformer": {
+                    "request": {
+                        "input_format": "json",
+                        "template": "{\"title\":{* _escape_json(_body.title or \"\") *}}"
+                    }
                 }
             }
         }
@@ -122,14 +120,9 @@ So `raw` is purely an authoring marker for "don't Jinja-expand this here." It ne
 }
 ```
 
-Here `base_url` is Jinja-expanded by the backend (`{{ enrollment.code }}` → `CEFF`), while the transformer's `{{ model }}` is preserved untouched for the gateway. After processing, the channel resolves to `{ access_method, base_url: ".../CEFF", api_key: <resolved>, request_transformer: {…verbatim…} }` — no `raw` key.
+Here the gateway renders `{{ enrollment.code }}` in `base_url` and leaves the `{* … *}` tags for the transformer engine.
 
-**Important — `raw` defers Jinja2 only, not secrets.** Because `raw`'s contents are merged into the channel **before** secret resolution, `${ secrets.* }` / `${ customer_secrets.* }` references *inside* `raw` are still resolved. `raw` skips `{{ … }}`, not `${ … }`.
-
-**Scope notes:**
-- The hoist-and-remove runs **per channel** (the top level of each `upstream_access_config` entry). A `raw` block is preserved verbatim wherever it appears, but only a channel-top-level `raw` is merged up and dropped.
-- `raw` keys **override** same-named expanded keys (shallow merge, `raw` wins).
-- Multi-server channels: whether `raw` is also hoisted *inside* each `servers[]` entry is an open build-time question — see [unitysvc/unitysvc#1299](https://github.com/unitysvc/unitysvc/issues/1299).
+An earlier version let you wrap such values in a `raw` block to skip a backend Jinja pass. That pass no longer exists, and `raw` is no longer accepted in an `upstream_access_config` channel: write its keys on the channel (or server) directly.
 
 ## Consistency with Service Groups
 
