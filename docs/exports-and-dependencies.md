@@ -24,7 +24,7 @@ approves each dependency when they enroll.
   `log` and alerts through `notify`.
 - **The customer decides.** When a customer enrolls in your service, they see
   each dependency with your justification, confirm or change its options,
-  and set limits. What they approve becomes a *grant* on the API key your
+  and set limits. What they approve becomes a *policy* on the API key your
   service uses on their behalf.
 
 There is no central list of services or permissions: a dependency is checked
@@ -144,7 +144,7 @@ On any channel of `upstream_access_config`:
 `options` and `limits` here are **suggestions that pre-fill the enrollment
 form**. The customer confirms or changes the options within what the target
 exports, sets the limits, and may add limits of their own. What they approve
-becomes the grant on the key your service uses for them.
+becomes the policy on the key your service uses for them.
 
 Each channel declares its own `depends_on`, so different plans of one service
 can depend on different things — for example a channel that uses the
@@ -161,13 +161,13 @@ nothing from the target's exports. Keys:
 | `count_per_hour`, `count_per_day`, `count_per_month`, `count_total` | positive integer: number of calls |
 | `amount_per_hour`, `amount_per_day`, `amount_per_month`, `amount_total` | positive decimal (as a number or string): money spent |
 
-Limits are counted per grant — this customer's enrollment's calls to that
+Limits are counted per policy entry — this customer's enrollment's calls to that
 service — and the gateway refuses further calls once one is reached.
 Enforcement follows the usage stream, so a burst can slightly overshoot.
 
 ## How options reach your service
 
-When a call is made with a grant, the gateway appends the grant's options to
+When a call is made with a key whose policy sets options for your service, the gateway appends them to
 your upstream URL as query arguments:
 
 ```
@@ -176,10 +176,10 @@ https://your-service.example.com/endpoint?log_level=warn&max_size=2000
 
 What your service can rely on:
 
-- The values come from the customer's grant. The gateway strips any query
+- The values come from the customer's policy. The gateway strips any query
   argument the caller sent under one of your exported option names before
-  appending the grant's, so a caller cannot override its own grant.
-- An option the grant doesn't set is not sent: apply your `default`.
+  appending the policy's, so a caller cannot override its own policy.
+- An option the policy doesn't set is not sent: apply your `default`.
 - Enrollment parameters keep working as before (`{{ params.X }}` in your
   channel config).
 
