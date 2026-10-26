@@ -93,6 +93,8 @@ so each option must be a single query value:
   `style: form, explode: false` convention). Nested objects are refused.
 - **All options are optional**: no `required`, and only declared properties are
   accepted.
+- **Self-contained**: no `$ref`. The schema is validated as written and never
+  fetches anything.
 - **`default`** is what your service does when the option is not sent. It is
   shown to the customer; the gateway does not send it.
 
