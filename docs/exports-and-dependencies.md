@@ -16,8 +16,10 @@ approves each dependency when they enroll.
 
 - **Exports** live in your service's own `offering.json`. They say which
   permissions and which customization options other services may request.
-  Most services declare nothing: every service exports `invoke` (calling it,
-  on every route) by default.
+  Most services declare nothing: a service that declares no `permissions`
+  exports one, `invoke` (calling it, on every route). A service that declares
+  `permissions` exports exactly those, and `invoke` only if it declares it
+  too; a data service such as `me` exports `read` / `write` and no `invoke`.
 - **Dependencies** live on a channel in `upstream_access_config`, as
   `depends_on`. Each entry names another service and what your service needs
   from it — for example an uptime monitor that writes to the customer's
@@ -83,20 +85,21 @@ object — the same format as a listing's
 optional `options_ui_schema` for form hints. The customer's enrollment form is
 rendered from it.
 
-Options are delivered to your service as **query arguments on the upstream
-URL** (see [How options reach your service](#how-options-reach-your-service)),
-so each option must be a single query value:
+A customer sets options when approving a dependency, and a grant records
+them in query-string syntax (`"log_level=warn"`), so each option must be a
+single value. That syntax is only how a grant stores them, not how they reach
+a service (see [How options reach your service](#how-options-reach-your-service)):
 
 - **Names**: lowercase letters, digits and `_`.
 - **Types**: `string`, `integer`, `number`, `boolean`, or an `array` of strings
-  (sent comma-joined: `fields=contact.email,location`, the OpenAPI
+  (written comma-joined: `profile=contact.email,location`, the OpenAPI
   `style: form, explode: false` convention). Nested objects are refused.
 - **All options are optional**: no `required`, and only declared properties are
   accepted.
 - **Self-contained**: no `$ref`. The schema is validated as written and never
   fetches anything.
-- **`default`** is what your service does when the option is not sent. It is
-  shown to the customer; the gateway does not send it.
+- **`default`** is what applies when the customer's policy doesn't set the
+  option. It is shown to the customer.
 
 Options are for customizing what *your* service does for a caller —
 including limits only your service can apply, such as a message size. They
@@ -169,24 +172,25 @@ Enforcement follows the usage stream, so a burst can slightly overshoot.
 
 ## How options reach your service
 
-When a call is made with a key whose policy sets options for your service, the gateway appends them to
-your upstream URL as query arguments:
+**Not through your upstream URL.** The gateway never changes your channel's
+`base_url` or query to carry options, and never sends a customer's policy to
+your upstream: the options a customer chose are their private decision.
 
-```
-https://your-service.example.com/endpoint?log_level=warn&max_size=2000
-```
+How an option takes effect depends on how the target service is implemented:
 
-What your service can rely on:
+- **Services implemented in the gateway** (`me`, `log`, `ai`, `notify`,
+  `email`, `bill`) read the calling key's policy directly and apply its
+  options themselves. For example, `me` returns only the profile paths a
+  grant's `profile` option lists.
+- **A service proxied to an upstream**, such as yours, can only be influenced
+  through that upstream's own interface. An option would take effect only
+  where your channel's configuration maps it into the upstream request in a
+  form your upstream understands (for example a request transformer setting
+  a body field). That mapping isn't available yet, so options you declare on
+  your own service are shown to customers but not enforced for now.
 
-- The values come from the customer's policy. The gateway strips any query
-  argument the caller sent under one of your exported option names before
-  appending the policy's, so a caller cannot override its own policy.
-- An option the policy doesn't set is not sent: apply your `default`.
-- Enrollment parameters keep working as before (`{{ params.X }}` in your
-  channel config).
-
-Read options as ordinary query arguments. For an SMTP channel there is no
-query string, so options don't apply there.
+Enrollment parameters keep working as before (`{{ params.X }}` in your channel
+config).
 
 ## Validation
 
@@ -197,12 +201,12 @@ query string, so options don't apply there.
 - **`depends_on`**: every field's shape, the `options` query string, and the
   limit keys and values.
 
-Once the catalog check is available, a dependency that asks for more than the
-default — a permission other than `invoke`, or any option — is also checked
-against the target's published exports: the permission must exist, each option
-must be exported, and each value must satisfy its schema. An `invoke`-only
-dependency, and limits, never need that lookup. Backend ingest runs the same
-checks when you upload.
+Once the catalog check is available, every dependency is also checked against
+the target's published exports: each permission must be one the target
+exports (`invoke` included, since a service that declares permissions may not
+export it), each option must be exported, and each value must satisfy its
+schema. Limits never need that lookup. Backend ingest runs the same checks
+when you upload.
 
 ## See also
 
