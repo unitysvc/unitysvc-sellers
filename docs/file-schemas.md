@@ -372,6 +372,37 @@ Listing files define how a seller presents/sells a service to end users.
 | `user_parameters_schema`    | object                | JSON schema defining user parameters for subscriptions (see [User Parameters](#user-parameters)) |
 | `user_parameters_ui_schema` | object                | UI schema for user parameter form rendering (see [User Parameters](#user-parameters))            |
 | `service_options`           | object                | Service-specific options (see [Service Options](#service-options))                               |
+| `audience`                  | array of string       | Who the service is for and what a buyer must know before enrolling (see [Audience](#audience))   |
+
+### Audience
+
+`audience` is an optional list of short, plain-text phrases that tell a buyer
+**who the service is for and what they must know before enrolling**:
+
+```json
+{
+  "audience": [
+    "Rice University students (enrollment at Rice required)",
+    "US customers only / export restrictions may apply"
+  ]
+}
+```
+
+- The phrases are shown prominently before a customer enrolls (on the service
+  page and in the enrollment dialog), and assistants such as unitysvc.ai read
+  them, with a customer's own profile, to recommend services.
+- They are **informational only**. UnitySVC cannot verify claims like "Rice
+  student" or "US resident", so it never blocks an enrollment on them; the
+  customer decides, and your own terms govern.
+- Rules: at most 8 phrases, each 1-120 characters after trimming, plain text
+  only (no URLs, no markup such as `<b>`, `[link](...)` or backticks, no line
+  breaks), and no phrase twice. Put details in the description or documents.
+
+`audience` complements [`capabilities`](#capabilities) on the offering:
+**capabilities say what the service does; audience says who it is for.**
+
+Validated by `unitysvc-core` 0.2.36 and later. The platform's display of the
+phrases is rolling out separately (unitysvc/unitysvc#2717).
 
 ### Service Options
 
