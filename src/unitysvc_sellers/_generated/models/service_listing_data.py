@@ -76,6 +76,10 @@ class ServiceListingData:
     """ JSON Schema for user parameters """
     user_parameters_ui_schema: None | ServiceListingDataUserParametersUiSchemaType0 | Unset = UNSET
     """ UI schema for user parameters form rendering """
+    audience: list[str] | None | Unset = UNSET
+    """ Who the service is for and what a buyer must know before enrolling, as short plain-text phrases (e.g. 'US
+    customers only / export restrictions may apply'). Shown before enrollment; informational only, never enforced.
+    At most 8 phrases of 1-120 characters, no URLs or markup. """
     service_options: None | ServiceListingDataServiceOptionsType0 | Unset = UNSET
     """ Service-specific options that modify backend behavior. Keys are option names, values are option
     configurations. The backend decides which options it supports. """
@@ -155,6 +159,15 @@ class ServiceListingData:
         else:
             user_parameters_ui_schema = self.user_parameters_ui_schema
 
+        audience: list[str] | None | Unset
+        if isinstance(self.audience, Unset):
+            audience = UNSET
+        elif isinstance(self.audience, list):
+            audience = self.audience
+
+        else:
+            audience = self.audience
+
         service_options: dict[str, Any] | None | Unset
         if isinstance(self.service_options, Unset):
             service_options = UNSET
@@ -184,6 +197,8 @@ class ServiceListingData:
             field_dict["user_parameters_schema"] = user_parameters_schema
         if user_parameters_ui_schema is not UNSET:
             field_dict["user_parameters_ui_schema"] = user_parameters_ui_schema
+        if audience is not UNSET:
+            field_dict["audience"] = audience
         if service_options is not UNSET:
             field_dict["service_options"] = service_options
 
@@ -325,6 +340,23 @@ class ServiceListingData:
 
         user_parameters_ui_schema = _parse_user_parameters_ui_schema(d.pop("user_parameters_ui_schema", UNSET))
 
+        def _parse_audience(data: object) -> list[str] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                audience_type_0 = cast(list[str], data)
+
+                return audience_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[str] | None | Unset, data)
+
+        audience = _parse_audience(d.pop("audience", UNSET))
+
         def _parse_service_options(data: object) -> None | ServiceListingDataServiceOptionsType0 | Unset:
             if data is None:
                 return data
@@ -352,6 +384,7 @@ class ServiceListingData:
             documents=documents,
             user_parameters_schema=user_parameters_schema,
             user_parameters_ui_schema=user_parameters_ui_schema,
+            audience=audience,
             service_options=service_options,
         )
 

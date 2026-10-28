@@ -62,9 +62,9 @@ documentation with examples, see the [SDK Guide](sdk-guide.md).
     options:
       show_root_heading: true
 
-### Files
+### Enrollments
 
-::: unitysvc_sellers.files.Files
+::: unitysvc_sellers.enrollments.Enrollments
     options:
       show_root_heading: true
 

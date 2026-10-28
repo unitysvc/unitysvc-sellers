@@ -1,39 +1,42 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar
+from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="SellerFileDownloadResponse")
+if TYPE_CHECKING:
+    from ..models.webhook_endpoint_public import WebhookEndpointPublic
+
+
+T = TypeVar("T", bound="WebhookEndpointsPublic")
 
 
 @_attrs_define
-class SellerFileDownloadResponse:
-    """Presigned download URL for one seller account file."""
-
-    key: str
-    url: str
-    expires_in: int
+class WebhookEndpointsPublic:
+    data: list[WebhookEndpointPublic]
+    count: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        key = self.key
+        from ..models.webhook_endpoint_public import WebhookEndpointPublic
 
-        url = self.url
+        data = []
+        for data_item_data in self.data:
+            data_item = data_item_data.to_dict()
+            data.append(data_item)
 
-        expires_in = self.expires_in
+        count = self.count
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "key": key,
-                "url": url,
-                "expires_in": expires_in,
+                "data": data,
+                "count": count,
             }
         )
 
@@ -41,21 +44,25 @@ class SellerFileDownloadResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.webhook_endpoint_public import WebhookEndpointPublic
+
         d = dict(src_dict)
-        key = d.pop("key")
+        data = []
+        _data = d.pop("data")
+        for data_item_data in _data:
+            data_item = WebhookEndpointPublic.from_dict(data_item_data)
 
-        url = d.pop("url")
+            data.append(data_item)
 
-        expires_in = d.pop("expires_in")
+        count = d.pop("count")
 
-        seller_file_download_response = cls(
-            key=key,
-            url=url,
-            expires_in=expires_in,
+        webhook_endpoints_public = cls(
+            data=data,
+            count=count,
         )
 
-        seller_file_download_response.additional_properties = d
-        return seller_file_download_response
+        webhook_endpoints_public.additional_properties = d
+        return webhook_endpoints_public
 
     @property
     def additional_keys(self) -> list[str]:

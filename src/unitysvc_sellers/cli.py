@@ -8,7 +8,6 @@ import typer
 
 from . import specs as specs_group
 from ._experimental import experimental_enabled
-from .commands import files as files_cmd
 from .commands import groups as groups_cmd
 from .commands import promotions as promotions_cmd
 from .commands import secrets as secrets_cmd
@@ -59,7 +58,6 @@ app.add_typer(services_cmd.app, name="services")
 app.add_typer(promotions_cmd.app, name="promotions")
 app.add_typer(groups_cmd.app, name="groups")
 app.add_typer(secrets_cmd.app, name="secrets")
-app.add_typer(files_cmd.app, name="files")
 app.add_typer(templates_cmd.app, name="templates")
 
 # Experimental command groups (unitysvc#1540) are registered only when the user

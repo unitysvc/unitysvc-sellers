@@ -504,42 +504,17 @@
         }
       }
     },
-    "/files/list": {
+    "/enrollments": {
       "get": {
         "tags": [
-          "seller",
-          "account-files"
+          "seller-enrollments"
         ],
-        "summary": "List Seller Files",
-        "description": "List the seller's account files (one folder level per call).\n\nReturned keys and prefixes are relative to the seller root. A missing\nbucket reads as an empty listing (the bucket is provisioned out of\nband).",
-        "operationId": "seller-list_seller_files",
+        "summary": "List Seller Enrollments",
+        "description": "List the enrollments in the seller's services, newest first.",
+        "operationId": "enrollments_list",
         "parameters": [
           {
-            "name": "path",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "Folder path relative to the seller root",
-              "default": "",
-              "title": "Path"
-            },
-            "description": "Folder path relative to the seller root"
-          },
-          {
-            "name": "max_keys",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 1000,
-              "minimum": 1,
-              "default": 100,
-              "title": "Max Keys"
-            }
-          },
-          {
-            "name": "continuation_token",
+            "name": "cursor",
             "in": "query",
             "required": false,
             "schema": {
@@ -551,8 +526,61 @@
                   "type": "null"
                 }
               ],
-              "title": "Continuation Token"
-            }
+              "description": "Opaque pagination cursor from a previous response's `next_cursor`. Omit to start from the first page.",
+              "title": "Cursor"
+            },
+            "description": "Opaque pagination cursor from a previous response's `next_cursor`. Omit to start from the first page."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Page size (default 50, max 200).",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Page size (default 50, max 200)."
+          },
+          {
+            "name": "service_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this service's enrollments",
+              "title": "Service Id"
+            },
+            "description": "Only this service's enrollments"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ServiceEnrollmentStatusEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status",
+              "title": "Status"
+            },
+            "description": "Filter by status"
           },
           {
             "name": "authorization",
@@ -593,10 +621,30 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SellerFilesListResponse"
+                  "$ref": "#/components/schemas/CursorPage_SellerEnrollmentPublic_"
                 }
               }
             }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
           },
           "422": {
             "description": "Validation Error",
@@ -611,37 +659,23 @@
         }
       }
     },
-    "/files/download": {
-      "get": {
+    "/enrollments/{enrollment_id}/lease": {
+      "post": {
         "tags": [
-          "seller",
-          "account-files"
+          "seller-enrollments"
         ],
-        "summary": "Download Seller File",
-        "description": "Generate a short-TTL presigned download URL for one seller file.\n\nThe object must exist (404 otherwise) and always resolves under the\nseller's own root \u2014 ``key`` is relative, so other tenants' folders\ncannot be addressed.",
-        "operationId": "seller-download_seller_file",
+        "summary": "Lease Enrollment Key",
+        "description": "Lease a key that acts for this enrollment, with the policy the customer\napproved. It expires within an hour; return it when the work is done.",
+        "operationId": "enrollments_lease",
         "parameters": [
           {
-            "name": "key",
-            "in": "query",
+            "name": "enrollment_id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Object key relative to the seller root",
-              "title": "Key"
-            },
-            "description": "Object key relative to the seller root"
-          },
-          {
-            "name": "expires_in",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 3600,
-              "minimum": 60,
-              "default": 900,
-              "title": "Expires In"
+              "format": "uuid",
+              "title": "Enrollment Id"
             }
           },
           {
@@ -683,10 +717,40 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SellerFileDownloadResponse"
+                  "$ref": "#/components/schemas/EnrollmentKeyLease"
                 }
               }
             }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "description": "Validation Error",
@@ -701,16 +765,25 @@
         }
       }
     },
-    "/files/upload": {
+    "/enrollments/{enrollment_id}/lease/return": {
       "post": {
         "tags": [
-          "seller",
-          "account-files"
+          "seller-enrollments"
         ],
-        "summary": "Upload Seller File",
-        "description": "Mint a presigned-POST ticket for one direct-to-storage upload.\n\nBytes never transit this API: POST the returned ``fields`` plus the\nfile (last, field name ``file``) as multipart form data to ``url``.\nThe key lands under the seller root at ``{path}{filename}`` (existing\nobjects with the same key are overwritten, like a home directory);\nthe size ceiling is enforced by the signed policy, not the declared\n``size``.",
-        "operationId": "seller-upload_seller_file",
+        "summary": "Return Enrollment Key",
+        "description": "Return a leased key: it expires now. Returning a key twice, or one that\nwas since leased again, does nothing.",
+        "operationId": "enrollments_return_lease",
         "parameters": [
+          {
+            "name": "enrollment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            }
+          },
           {
             "name": "authorization",
             "in": "header",
@@ -749,21 +822,34 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SellerFileUploadRequest"
+                "$ref": "#/components/schemas/EnrollmentKeyReturn"
               }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "Successful Response",
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccountFileUploadTicket"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
-            }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
           },
           "422": {
             "description": "Validation Error",
@@ -4012,6 +4098,879 @@
           }
         }
       }
+    },
+    "/webhook-event-types": {
+      "get": {
+        "tags": [
+          "seller-webhooks"
+        ],
+        "summary": "List Webhook Event Types",
+        "description": "The event types an endpoint can subscribe to, with what each means.",
+        "operationId": "seller-webhooks-list_webhook_event_types",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEventTypesPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks": {
+      "post": {
+        "tags": [
+          "seller-webhooks"
+        ],
+        "summary": "Create Webhook Endpoint",
+        "description": "Register an endpoint. The response carries its signing secret, shown once.\n\n``enabled_events`` entries are exact types, ``<prefix>.*``, or ``*``.\nA seller can have at most 5 endpoints.",
+        "operationId": "seller-webhooks-create_webhook_endpoint",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookEndpointCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointWithSecret"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "seller-webhooks"
+        ],
+        "summary": "List Webhook Endpoints",
+        "description": "The current seller's endpoints. Secrets are never listed.",
+        "operationId": "seller-webhooks-list_webhook_endpoints",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointsPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/{endpoint_id}": {
+      "get": {
+        "tags": [
+          "seller-webhooks"
+        ],
+        "summary": "Get Webhook Endpoint",
+        "operationId": "seller-webhooks-get_webhook_endpoint",
+        "parameters": [
+          {
+            "name": "endpoint_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Endpoint Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "seller-webhooks"
+        ],
+        "summary": "Update Webhook Endpoint",
+        "description": "Change an endpoint's URL, description, events, or status.\n\nA disabled endpoint receives nothing until it is enabled again.",
+        "operationId": "seller-webhooks-update_webhook_endpoint",
+        "parameters": [
+          {
+            "name": "endpoint_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Endpoint Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookEndpointUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "seller-webhooks"
+        ],
+        "summary": "Delete Webhook Endpoint",
+        "description": "Delete an endpoint and its signing secrets.\n\nIts test events go with it; other events stay.",
+        "operationId": "seller-webhooks-delete_webhook_endpoint",
+        "parameters": [
+          {
+            "name": "endpoint_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Endpoint Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/{endpoint_id}/roll-secret": {
+      "post": {
+        "tags": [
+          "seller-webhooks"
+        ],
+        "summary": "Roll Webhook Secret",
+        "description": "Replace the signing secret. The response carries the new one, shown once.\n\nFor ``expires_in_hours`` (at most 24) deliveries carry a second ``v1``\nsignature made with the old secret, so receivers can switch without\nrejecting anything. ``0`` retires the old secret at once.",
+        "operationId": "seller-webhooks-roll_webhook_secret",
+        "parameters": [
+          {
+            "name": "endpoint_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Endpoint Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookRollSecret"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointWithSecret"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/{endpoint_id}/test": {
+      "post": {
+        "tags": [
+          "seller-webhooks"
+        ],
+        "summary": "Send Test Webhook",
+        "description": "Send a ``webhook_endpoint.test`` event to this endpoint only.\n\nDelivery is asynchronous; read the returned event to see how it went.",
+        "operationId": "seller-webhooks-send_test_webhook",
+        "parameters": [
+          {
+            "name": "endpoint_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Endpoint Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEventPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhook-events": {
+      "get": {
+        "tags": [
+          "seller-webhooks"
+        ],
+        "summary": "List Webhook Events",
+        "description": "The current seller's events from the last 30 days, newest first.\n\nAfter an outage, list ``status=failed`` or ``status=expired`` and resend.",
+        "operationId": "seller-webhooks-list_webhook_events",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/WebhookEventStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Skip"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEventsPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhook-events/{event_id}": {
+      "get": {
+        "tags": [
+          "seller-webhooks"
+        ],
+        "summary": "Get Webhook Event",
+        "operationId": "seller-webhooks-get_webhook_event",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEventPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhook-events/{event_id}/resend": {
+      "post": {
+        "tags": [
+          "seller-webhooks"
+        ],
+        "summary": "Resend Webhook Event",
+        "description": "Deliver an event again to every endpoint that should get it.\n\nThat includes endpoints that already succeeded. They receive the same event\nid, so a receiver that already processed it can recognize the repeat.",
+        "operationId": "seller-webhooks-resend_webhook_event",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEventPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4138,67 +5097,6 @@
           "mcp"
         ],
         "title": "AccessMethodEnum"
-      },
-      "AccountFileObject": {
-        "properties": {
-          "key": {
-            "type": "string",
-            "title": "Key"
-          },
-          "size": {
-            "type": "integer",
-            "title": "Size"
-          },
-          "last_modified": {
-            "type": "string",
-            "title": "Last Modified"
-          }
-        },
-        "type": "object",
-        "required": [
-          "key",
-          "size",
-          "last_modified"
-        ],
-        "title": "AccountFileObject",
-        "description": "One object in an account-files listing (key relative to the scope root)."
-      },
-      "AccountFileUploadTicket": {
-        "properties": {
-          "key": {
-            "type": "string",
-            "title": "Key"
-          },
-          "url": {
-            "type": "string",
-            "title": "Url"
-          },
-          "fields": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Fields"
-          },
-          "expires_in": {
-            "type": "integer",
-            "title": "Expires In"
-          },
-          "max_bytes": {
-            "type": "integer",
-            "title": "Max Bytes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "key",
-          "url",
-          "fields",
-          "expires_in",
-          "max_bytes"
-        ],
-        "title": "AccountFileUploadTicket",
-        "description": "Presigned-POST ticket for one direct-to-storage upload.\n\nPOST ``fields`` plus the file (as the last form field, named\n``file``) as multipart form data to ``url``. The size ceiling and\nexact key are enforced by the signed policy, not by the client."
       },
       "Body_seller-upload_file": {
         "properties": {
@@ -4391,6 +5289,38 @@
           "data"
         ],
         "title": "CursorPage[PriceRulePublic]"
+      },
+      "CursorPage_SellerEnrollmentPublic_": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SellerEnrollmentPublic"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "CursorPage[SellerEnrollmentPublic]"
       },
       "CursorPage_ServiceGroupPublic_": {
         "properties": {
@@ -4784,6 +5714,51 @@
         ],
         "title": "DocumentTestUpdate",
         "description": "Request body for updating document test status.\n\nThe ``status`` field drives dispatch:\n\n- ``skip`` \u2014 mark the test as skipped (stamps ``skipped_at`` /\n  ``skipped_by``). Rejected for ``connectivity_test`` documents (only\n  ``code_example`` can be skipped).\n- ``pending`` \u2014 unskip, and forget the document's recorded runs\n  (including earned sticky passes), so the next run re-proves it.\n\nTest results are recorded only by the platform's own runners; a seller\ncannot report one.\n\nThis endpoint replaces the previously-separate /skip and /unskip routes,\nwhich dispatched to the same backing field via different HTTP verbs."
+      },
+      "EnrollmentKeyLease": {
+        "properties": {
+          "key_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Key Id"
+          },
+          "apikey_identifier": {
+            "type": "string",
+            "title": "Apikey Identifier"
+          },
+          "apikey": {
+            "type": "string",
+            "title": "Apikey"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key_id",
+          "apikey_identifier",
+          "apikey",
+          "expires_at"
+        ],
+        "title": "EnrollmentKeyLease",
+        "description": "A key acting for the enrollment, returned once. Return it when done."
+      },
+      "EnrollmentKeyReturn": {
+        "properties": {
+          "apikey": {
+            "type": "string",
+            "title": "Apikey"
+          }
+        },
+        "type": "object",
+        "required": [
+          "apikey"
+        ],
+        "title": "EnrollmentKeyReturn",
+        "description": "The leased key being returned."
       },
       "ErrorResponse": {
         "properties": {
@@ -5517,111 +6492,82 @@
         "title": "SecretsPublic",
         "description": "List of secrets with count."
       },
-      "SellerFileDownloadResponse": {
+      "SellerEnrollmentPublic": {
         "properties": {
-          "key": {
+          "id": {
             "type": "string",
-            "title": "Key"
+            "format": "uuid",
+            "title": "Id"
           },
-          "url": {
+          "service_id": {
             "type": "string",
-            "title": "Url"
+            "format": "uuid",
+            "title": "Service Id"
           },
-          "expires_in": {
-            "type": "integer",
-            "title": "Expires In"
-          }
-        },
-        "type": "object",
-        "required": [
-          "key",
-          "url",
-          "expires_in"
-        ],
-        "title": "SellerFileDownloadResponse",
-        "description": "Presigned download URL for one seller account file."
-      },
-      "SellerFileUploadRequest": {
-        "properties": {
-          "filename": {
+          "channel": {
             "type": "string",
-            "title": "Filename"
+            "title": "Channel"
           },
-          "size": {
-            "type": "integer",
-            "title": "Size"
+          "code": {
+            "type": "string",
+            "title": "Code"
           },
-          "content_type": {
+          "status": {
+            "$ref": "#/components/schemas/ServiceEnrollmentStatusEnum"
+          },
+          "parameters": {
             "anyOf": [
               {
-                "type": "string"
+                "additionalProperties": true,
+                "type": "object"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Content Type"
+            "title": "Parameters"
           },
-          "path": {
-            "type": "string",
-            "title": "Path",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "filename",
-          "size"
-        ],
-        "title": "SellerFileUploadRequest",
-        "description": "Mint request for one direct-to-storage upload."
-      },
-      "SellerFilesListResponse": {
-        "properties": {
-          "path": {
-            "type": "string",
-            "title": "Path"
-          },
-          "objects": {
-            "items": {
-              "$ref": "#/components/schemas/AccountFileObject"
-            },
-            "type": "array",
-            "title": "Objects"
-          },
-          "common_prefixes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Common Prefixes"
-          },
-          "is_truncated": {
-            "type": "boolean",
-            "title": "Is Truncated"
-          },
-          "next_continuation_token": {
+          "expires_at": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "format": "date-time"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Next Continuation Token"
+            "title": "Expires At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "type": "object",
         "required": [
-          "path",
-          "objects",
-          "common_prefixes",
-          "is_truncated",
-          "next_continuation_token"
+          "id",
+          "service_id",
+          "channel",
+          "code",
+          "status",
+          "created_at"
         ],
-        "title": "SellerFilesListResponse",
-        "description": "One page of a seller account-files listing."
+        "title": "SellerEnrollmentPublic",
+        "description": "An enrollment in one of the seller's services, without the customer's\nidentity. Sensitive parameters are masked."
       },
       "SellerPromotionCreate": {
         "properties": {
@@ -6078,6 +7024,18 @@
         ],
         "title": "ServiceDocumentItem",
         "description": "Document pointer embedded in ``ServiceDetailResponse``.\n\nIncludes the fields the seller UI needs to render the documents tab\n(split by ``context_type``, show MIME type / visibility, and display\ntest status via ``meta``). File content still requires\n``GET /seller/documents/{id}``."
+      },
+      "ServiceEnrollmentStatusEnum": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "incomplete",
+          "active",
+          "paused",
+          "cancelled"
+        ],
+        "title": "ServiceEnrollmentStatusEnum",
+        "description": "Status of a customer's service enrollment.\n\nWorkflow for services requiring parameters (user_parameters_schema exists):\n\n    [not enrolled] \u2192 (enroll) \u2192 pending \u2192 (task completes) \u2192 incomplete \u2192 (configure) \u2192 active\n                          \u2502                                                                \u2193\n                          \u2502                                  paused \u2190 (pause) \u2190\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n                          \u2502\n                          \u2514\u2500\u2192 active  (if required secret already exists)\n\nWorkflow for services without parameters:\n\n    [not enrolled] \u2192 (enroll) \u2192 pending \u2192 (task completes) \u2192 active\n                                                                \u2193\n                                  paused \u2190 (pause) \u2190\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\nStates:\n- pending: Celery task is processing (transient, show spinner)\n- incomplete: Needs user configuration (required parameters not provided)\n- active: Enrolled and fully configured\n- paused: Enrolled but temporarily disabled\n- cancelled: Enrollment cancelled\n\nSecrets do not affect enrollment status \u2014 they are resolved at routing time."
       },
       "ServiceGroupCreate": {
         "properties": {
@@ -6551,6 +7509,21 @@
             "title": "User Parameters Ui Schema",
             "description": "UI schema for user parameters form rendering"
           },
+          "audience": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audience",
+            "description": "Who the service is for and what a buyer must know before enrolling, as short plain-text phrases (e.g. 'US customers only / export restrictions may apply'). Shown before enrollment; informational only, never enforced. At most 8 phrases of 1-120 characters, no URLs or markup."
+          },
           "service_options": {
             "anyOf": [
               {
@@ -6660,6 +7633,19 @@
             ],
             "title": "Upstream Access Config",
             "description": "Upstream access channels, keyed by channel name"
+          },
+          "exports": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exports",
+            "description": "How other services may use this one (what a customer access request can ask for): {\"permissions\": {<name>: [\"<METHOD> /<path>\", ...]}, \"options\": <JSON Schema object of the options a grant may set>, \"options_ui_schema\": <rjsf uiSchema>}. Without permissions, the service exports one, invoke, on every route; with permissions, exactly those (invoke only if declared), so a data service declaring read/write is never reached by invoke or service:*. Omitted: invoke only, no options. See unitysvc_core.grants."
           },
           "documents": {
             "anyOf": [
@@ -7978,6 +8964,17 @@
             ],
             "title": "Interface Id"
           },
+          "channel_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel Name"
+          },
           "reason": {
             "type": "string",
             "enum": [
@@ -8139,6 +9136,418 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WebhookEndpointCreate": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "title": "Url"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "enabled_events": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Enabled Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "enabled_events"
+        ],
+        "title": "WebhookEndpointCreate"
+      },
+      "WebhookEndpointPublic": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "enabled_events": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Enabled Events"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WebhookEndpointStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "description",
+          "enabled_events",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "WebhookEndpointPublic"
+      },
+      "WebhookEndpointStatus": {
+        "type": "string",
+        "enum": [
+          "enabled",
+          "disabled"
+        ],
+        "title": "WebhookEndpointStatus"
+      },
+      "WebhookEndpointUpdate": {
+        "properties": {
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "enabled_events": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled Events"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WebhookEndpointStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "WebhookEndpointUpdate"
+      },
+      "WebhookEndpointWithSecret": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "enabled_events": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Enabled Events"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WebhookEndpointStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "description",
+          "enabled_events",
+          "status",
+          "created_at",
+          "updated_at",
+          "secret"
+        ],
+        "title": "WebhookEndpointWithSecret",
+        "description": "Returned only by create and roll-secret: the one time the secret is shown."
+      },
+      "WebhookEndpointsPublic": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/WebhookEndpointPublic"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "count"
+        ],
+        "title": "WebhookEndpointsPublic"
+      },
+      "WebhookEventPublic": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Data"
+          },
+          "endpoint_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endpoint Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WebhookEventStatus"
+          },
+          "resent_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resent At"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "results": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "created_at",
+          "data",
+          "endpoint_id",
+          "status",
+          "resent_at",
+          "attempts",
+          "last_attempt_at",
+          "last_error",
+          "results"
+        ],
+        "title": "WebhookEventPublic"
+      },
+      "WebhookEventStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "delivering",
+          "succeeded",
+          "failed",
+          "expired"
+        ],
+        "title": "WebhookEventStatus"
+      },
+      "WebhookEventType": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "description"
+        ],
+        "title": "WebhookEventType"
+      },
+      "WebhookEventTypesPublic": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/WebhookEventType"
+            },
+            "type": "array",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "WebhookEventTypesPublic"
+      },
+      "WebhookEventsPublic": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/WebhookEventPublic"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "count"
+        ],
+        "title": "WebhookEventsPublic"
+      },
+      "WebhookRollSecret": {
+        "properties": {
+          "expires_in_hours": {
+            "type": "integer",
+            "maximum": 24.0,
+            "minimum": 0.0,
+            "title": "Expires In Hours",
+            "description": "How long the old secret keeps signing",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "WebhookRollSecret"
       }
     }
   },

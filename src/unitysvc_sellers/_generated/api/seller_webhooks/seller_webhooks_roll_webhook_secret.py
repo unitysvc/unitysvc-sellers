@@ -1,20 +1,22 @@
 from http import HTTPStatus
 from typing import Any, cast
 from urllib.parse import quote
+from uuid import UUID
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
-from ...models.seller_file_download_response import SellerFileDownloadResponse
+from ...models.webhook_endpoint_with_secret import WebhookEndpointWithSecret
+from ...models.webhook_roll_secret import WebhookRollSecret
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
+    endpoint_id: UUID,
     *,
-    key: str,
-    expires_in: int | Unset = 900,
+    body: WebhookRollSecret,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -25,19 +27,16 @@ def _get_kwargs(
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
-    params: dict[str, Any] = {}
-
-    params["key"] = key
-
-    params["expires_in"] = expires_in
-
-    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
     _kwargs: dict[str, Any] = {
-        "method": "get",
-        "url": "/files/download",
-        "params": params,
+        "method": "post",
+        "url": "/webhooks/{endpoint_id}/roll-secret".format(
+            endpoint_id=quote(str(endpoint_id), safe=""),
+        ),
     }
+
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -45,9 +44,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | SellerFileDownloadResponse | None:
+) -> HTTPValidationError | WebhookEndpointWithSecret | None:
     if response.status_code == 200:
-        response_200 = SellerFileDownloadResponse.from_dict(response.json())
+        response_200 = WebhookEndpointWithSecret.from_dict(response.json())
 
         return response_200
 
@@ -64,7 +63,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | SellerFileDownloadResponse]:
+) -> Response[HTTPValidationError | WebhookEndpointWithSecret]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -74,38 +73,38 @@ def _build_response(
 
 
 def sync_detailed(
+    endpoint_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    key: str,
-    expires_in: int | Unset = 900,
+    body: WebhookRollSecret,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | SellerFileDownloadResponse]:
-    """Download Seller File
+) -> Response[HTTPValidationError | WebhookEndpointWithSecret]:
+    """Roll Webhook Secret
 
-     Generate a short-TTL presigned download URL for one seller file.
+     Replace the signing secret. The response carries the new one, shown once.
 
-    The object must exist (404 otherwise) and always resolves under the
-    seller's own root — ``key`` is relative, so other tenants' folders
-    cannot be addressed.
+    For ``expires_in_hours`` (at most 24) deliveries carry a second ``v1``
+    signature made with the old secret, so receivers can switch without
+    rejecting anything. ``0`` retires the old secret at once.
 
     Args:
-        key (str): Object key relative to the seller root
-        expires_in (int | Unset):  Default: 900.
+        endpoint_id (UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
+        body (WebhookRollSecret):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | SellerFileDownloadResponse]
+        Response[HTTPValidationError | WebhookEndpointWithSecret]
     """
 
     kwargs = _get_kwargs(
-        key=key,
-        expires_in=expires_in,
+        endpoint_id=endpoint_id,
+        body=body,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -118,77 +117,77 @@ def sync_detailed(
 
 
 def sync(
+    endpoint_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    key: str,
-    expires_in: int | Unset = 900,
+    body: WebhookRollSecret,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | SellerFileDownloadResponse | None:
-    """Download Seller File
+) -> HTTPValidationError | WebhookEndpointWithSecret | None:
+    """Roll Webhook Secret
 
-     Generate a short-TTL presigned download URL for one seller file.
+     Replace the signing secret. The response carries the new one, shown once.
 
-    The object must exist (404 otherwise) and always resolves under the
-    seller's own root — ``key`` is relative, so other tenants' folders
-    cannot be addressed.
+    For ``expires_in_hours`` (at most 24) deliveries carry a second ``v1``
+    signature made with the old secret, so receivers can switch without
+    rejecting anything. ``0`` retires the old secret at once.
 
     Args:
-        key (str): Object key relative to the seller root
-        expires_in (int | Unset):  Default: 900.
+        endpoint_id (UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
+        body (WebhookRollSecret):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | SellerFileDownloadResponse
+        HTTPValidationError | WebhookEndpointWithSecret
     """
 
     return sync_detailed(
+        endpoint_id=endpoint_id,
         client=client,
-        key=key,
-        expires_in=expires_in,
+        body=body,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
 
 
 async def asyncio_detailed(
+    endpoint_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    key: str,
-    expires_in: int | Unset = 900,
+    body: WebhookRollSecret,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | SellerFileDownloadResponse]:
-    """Download Seller File
+) -> Response[HTTPValidationError | WebhookEndpointWithSecret]:
+    """Roll Webhook Secret
 
-     Generate a short-TTL presigned download URL for one seller file.
+     Replace the signing secret. The response carries the new one, shown once.
 
-    The object must exist (404 otherwise) and always resolves under the
-    seller's own root — ``key`` is relative, so other tenants' folders
-    cannot be addressed.
+    For ``expires_in_hours`` (at most 24) deliveries carry a second ``v1``
+    signature made with the old secret, so receivers can switch without
+    rejecting anything. ``0`` retires the old secret at once.
 
     Args:
-        key (str): Object key relative to the seller root
-        expires_in (int | Unset):  Default: 900.
+        endpoint_id (UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
+        body (WebhookRollSecret):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | SellerFileDownloadResponse]
+        Response[HTTPValidationError | WebhookEndpointWithSecret]
     """
 
     kwargs = _get_kwargs(
-        key=key,
-        expires_in=expires_in,
+        endpoint_id=endpoint_id,
+        body=body,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -199,40 +198,40 @@ async def asyncio_detailed(
 
 
 async def asyncio(
+    endpoint_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    key: str,
-    expires_in: int | Unset = 900,
+    body: WebhookRollSecret,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | SellerFileDownloadResponse | None:
-    """Download Seller File
+) -> HTTPValidationError | WebhookEndpointWithSecret | None:
+    """Roll Webhook Secret
 
-     Generate a short-TTL presigned download URL for one seller file.
+     Replace the signing secret. The response carries the new one, shown once.
 
-    The object must exist (404 otherwise) and always resolves under the
-    seller's own root — ``key`` is relative, so other tenants' folders
-    cannot be addressed.
+    For ``expires_in_hours`` (at most 24) deliveries carry a second ``v1``
+    signature made with the old secret, so receivers can switch without
+    rejecting anything. ``0`` retires the old secret at once.
 
     Args:
-        key (str): Object key relative to the seller root
-        expires_in (int | Unset):  Default: 900.
+        endpoint_id (UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
+        body (WebhookRollSecret):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | SellerFileDownloadResponse
+        HTTPValidationError | WebhookEndpointWithSecret
     """
 
     return (
         await asyncio_detailed(
+            endpoint_id=endpoint_id,
             client=client,
-            key=key,
-            expires_in=expires_in,
+            body=body,
             authorization=authorization,
             x_role_id=x_role_id,
         )

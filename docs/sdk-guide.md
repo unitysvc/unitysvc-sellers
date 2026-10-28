@@ -92,7 +92,7 @@ asyncio.run(main())
 
 ## Resource namespaces
 
-Both clients expose the same eight resource namespaces as lazy
+Both clients expose the same resource namespaces as lazy
 properties:
 
 | Namespace            | Underlying endpoints                                          | Purpose                                                                 |
@@ -101,6 +101,7 @@ properties:
 | `client.templates`   | `/seller/templates/*`                                         | Browse the platform service-template catalog (read-only: list / get)    |
 | `client.promotions`  | `/seller/promotions/*`                                        | CRUD on seller-funded promotion codes                                   |
 | `client.groups`      | `/seller/service-groups/*`                                    | CRUD on service groups                                                  |
+| `client.enrollments` | `/seller/enrollments/*`                                       | Poll the enrollments in your services; lease a key that acts for one    |
 | `client.documents`   | `/seller/documents/*`                                         | Fetch document file content, execute (gateway dispatch), update test    |
 | `client.secrets`     | `/seller/secrets/*`                                           | Create, rotate, list, and delete encrypted seller secrets               |
 | `client.tasks`       | `/seller/tasks/*`                                             | Poll Celery task state for async operations (notably service upload)   |
@@ -405,6 +406,75 @@ with Client() as client:
 Manager-style calls (`client.groups.update(group_id, body)`,
 `client.groups.delete(group_id)`) remain available for the case
 where you only have an id.
+
+## `client.enrollments`
+
+Find the customers enrolled in your services and act for them, with no
+webhook. A worker polls the enrollments, leases a key for each one, and
+uses it with the customer SDK ([`unitysvc`](https://pypi.org/project/unitysvc/))
+to read what the customer shared through Me and to notify them:
+
+```python
+from unitysvc import Client as CustomerClient
+from unitysvc_sellers import Client as SellerClient
+
+with SellerClient(api_key=seller_key) as seller:
+    for enrollment in seller.enrollments.iter_all(service_id=service_id, status="active"):
+        with seller.enrollments.lease_key(enrollment.id) as credential:
+            with CustomerClient(api_key=credential.apikey, api_base_url=gateway_url) as customer:
+                response = customer.dispatch("me/profile", method="GET")
+                response.raise_for_status()
+                result = do_work(response.json()["profile"], enrollment.parameters)
+                response = customer.dispatch("notify", json={"title": "Result", "body": result})
+                response.raise_for_status()
+```
+
+- `list(service_id=, status=, cursor=, limit=)` returns one page
+  (`data`, `next_cursor`, `has_more`), newest first; `iter_all(...)`
+  follows the cursor. Each enrollment has its id, service, channel,
+  code, status, masked `parameters` and timestamps, never the
+  customer's identity.
+- `lease_key(enrollment_id)` leases a key for the `with` block and
+  returns it on the way out, even when the block raises. The key acts
+  for the enrolled customer with the policy they approved, and expires
+  within an hour (never after the enrollment) if it is not returned.
+  The plaintext `apikey` is shown once.
+- `acquire_key(enrollment_id)` / `release_key(enrollment_id, apikey)`
+  are the two halves, for work that outlives one block. Releasing a key
+  twice, or after it was leased again, does nothing.
+
+Errors: `NotFoundError` for an enrollment outside your services,
+`ValidationError` when it is not active or the customer delegated
+nothing, `ConflictError` when it already has the maximum number of live
+keys. Catch them per enrollment so one failure does not stop the scan.
+
+With `AsyncClient`, `iter_all` is an async iterator and `lease_key` an
+async context manager. Each concurrent job leases its own key and opens
+its own customer client; never swap the key on a shared client:
+
+```python
+limit = asyncio.Semaphore(8)
+
+async def handle(seller, enrollment):
+    async with limit:
+        try:
+            async with seller.enrollments.lease_key(enrollment.id) as credential:
+                async with CustomerAsyncClient(api_key=credential.apikey, api_base_url=gateway_url) as customer:
+                    ...
+        except Exception as exc:  # a failing task would cancel the whole TaskGroup
+            log.warning("enrollment %s: %s", enrollment.id, exc)
+
+async with SellerAsyncClient(api_key=seller_key) as seller:
+    async with asyncio.TaskGroup() as tg:
+        async for enrollment in seller.enrollments.iter_all(service_id=service_id, status="active"):
+            tg.create_task(handle(seller, enrollment))
+```
+
+Polling reports the enrollments as they are now, not what changed:
+an `active` scan cannot show a cancellation, so reconcile the work you
+are running against each completed scan (or scan every status). A lease
+controls a credential, not who does the work, so the same enrollment
+comes back on every poll: deduplicate work and notifications yourself.
 
 ## `client.documents`
 

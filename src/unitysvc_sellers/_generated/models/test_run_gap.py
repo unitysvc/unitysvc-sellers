@@ -24,6 +24,7 @@ class TestRunGap:
     document_id: UUID
     document_title: str
     interface_id: None | Unset | UUID = UNSET
+    channel_name: None | str | Unset = UNSET
     reason: TestRunGapReason | Unset = "missing"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -40,6 +41,12 @@ class TestRunGap:
         else:
             interface_id = self.interface_id
 
+        channel_name: None | str | Unset
+        if isinstance(self.channel_name, Unset):
+            channel_name = UNSET
+        else:
+            channel_name = self.channel_name
+
         reason: str | Unset = UNSET
         if not isinstance(self.reason, Unset):
             reason = self.reason
@@ -54,6 +61,8 @@ class TestRunGap:
         )
         if interface_id is not UNSET:
             field_dict["interface_id"] = interface_id
+        if channel_name is not UNSET:
+            field_dict["channel_name"] = channel_name
         if reason is not UNSET:
             field_dict["reason"] = reason
 
@@ -83,6 +92,15 @@ class TestRunGap:
 
         interface_id = _parse_interface_id(d.pop("interface_id", UNSET))
 
+        def _parse_channel_name(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        channel_name = _parse_channel_name(d.pop("channel_name", UNSET))
+
         _reason = d.pop("reason", UNSET)
         reason: TestRunGapReason | Unset
         if isinstance(_reason, Unset):
@@ -94,6 +112,7 @@ class TestRunGap:
             document_id=document_id,
             document_title=document_title,
             interface_id=interface_id,
+            channel_name=channel_name,
             reason=reason,
         )
 
