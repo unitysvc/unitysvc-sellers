@@ -78,6 +78,12 @@ This pulls in [`unitysvc-core`](https://pypi.org/project/unitysvc-core/)
 for the shared data models, JSON schemas, and generic file validator;
 plus `httpx`, `attrs`, `typer`, and `rich`.
 
+This release requires `unitysvc-core>=0.3.0`, which types
+`upstream_access_config` channels and moves enrollment parameters from the
+listing to the channel that reads them. Specs written for older releases need
+migrating; see
+[Migrating to unitysvc-core 0.3.0](https://unitysvc-sellers.readthedocs.io/en/latest/file-schemas/#migrating-to-unitysvc-core-030).
+
 ## Programmatic usage
 
 ```python

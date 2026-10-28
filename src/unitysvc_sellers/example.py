@@ -226,6 +226,18 @@ def extract_upstream_channels_from_offering(
         return {}
 
 
+def channel_testing_defaults(channel: Any) -> dict[str, Any]:
+    """The values a channel is tested with: its ``params.testing_defaults``.
+
+    They render the channel's ``{{ params.X }}`` templates in a local test, as
+    the platform's own test enrollment does (unitysvc-core 0.3.0 declares
+    enrollment parameters on the channel that reads them).
+    """
+    params = channel.get("params") if isinstance(channel, dict) else None
+    defaults = params.get("testing_defaults") if isinstance(params, dict) else None
+    return defaults if isinstance(defaults, dict) else {}
+
+
 def document_applies_to_channel(allowed_channels: list[str] | None, channel_name: str | None) -> bool:
     """Whether a document applies to a given upstream channel.
 
@@ -287,20 +299,6 @@ def discover_code_examples(
 
         # Load upstream interfaces from offering (cross-product with documents)
         upstream_channels = extract_upstream_channels_from_offering(listing_file)
-
-        # For byok services, ops_testing_parameters provides upstream credentials
-        service_options = listing_data.get("service_options", {}) or {}
-        default_params = service_options.get("ops_testing_parameters", {}) or {}
-
-        if not upstream_channels and default_params:
-            # No upstream interfaces defined — create one from ops_testing_parameters
-            upstream_channels = {"default": dict(default_params)}
-        elif upstream_channels and default_params:
-            # Override api_key/base_url with ops_testing_parameters
-            for _name, iface_data in upstream_channels.items():
-                for field in ("api_key", "base_url"):
-                    if field in default_params:
-                        iface_data[field] = default_params[field]
 
         # upstream_access_config is protocol-specific (HTTP, S3, SMTP, etc.)
         # — no structural validation here; the gateway handles interpretation.
@@ -484,15 +482,15 @@ def load_upstream_access_interface(listing_file: Path) -> dict[str, str] | None:
         rendered_vars = expand_template_strings(listing_so.get("enrollment_vars", {}) or {})
         rendered_vars = {k: resolve_secret_ref(str(v), f"enrollment_vars.{k}") for k, v in rendered_vars.items()}
 
-        # Merge ops_testing_parameters as the "params" context
-        # (simulates what the backend does at enrollment time)
-        ops_params = listing_so.get("ops_testing_parameters", {}) or {}
         routing_vars = listing_so.get("routing_vars", {}) or {}
 
         # Extract credentials from upstream_access_config (dict keyed by name)
         # Use first interface for credentials
         upstream_channels = offering.get("upstream_access_config", {})
         first_interface: dict[str, Any] = next(iter(upstream_channels.values()), {}) if upstream_channels else {}
+        # The channel's test values are the "params" context (simulates what
+        # the backend does at enrollment time).
+        ops_params = channel_testing_defaults(first_interface)
         first_interface = expand_template_strings(
             first_interface,
             extra_context={
@@ -1172,7 +1170,7 @@ def run_local(
         listing_so = example.get("listing_data", {}).get("service_options", {}) or {}
         rendered_vars = expand_template_strings(listing_so.get("enrollment_vars", {}) or {})
         rendered_vars = {k: resolve_secret_ref(str(v), f"enrollment_vars.{k}") for k, v in rendered_vars.items()}
-        ops_params = listing_so.get("ops_testing_parameters", {}) or {}
+        ops_params = channel_testing_defaults(example.get("upstream_channel"))
         routing_vars = listing_so.get("routing_vars", {}) or {}
         iface = expand_template_strings(
             example.get("upstream_channel", {}),

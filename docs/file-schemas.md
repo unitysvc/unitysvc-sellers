@@ -17,8 +17,8 @@ the data. The schemas (with their historical version names) are:
 
 Two terms recur throughout these schemas, and they name **orthogonal** axes — don't conflate them:
 
-- An **upstream access channel** ("channel") is one named entry in an offering's `upstream_access_config`. Each channel is a complete way for the gateway to reach the upstream: a wire protocol (`access_method`), an endpoint (`base_url`), a credential (`api_key`), and a `routing_key`. Channel entries are **free-form objects** — the platform reads them as opaque config, so protocol-specific shapes (SMTP host/port, S3 bucket/region) live here too. Channel names are free-form (e.g. `"managed"`, `"byok"`, `"managed-eu"`). The gateway selects one channel per request. A channel answers *how the request is fulfilled and billed*, and is gated by **secret** availability. A channel may optionally replace its flat `base_url` / `api_key` with a list of interchangeable **`servers`** (same `channel_type`) for capacity and failover — see [Multi-server channels](service-types.md#multi-server-channels-capacity-failover) (planned).
-- A **user access interface** is one named entry in a listing's `user_access_interfaces` — the downstream, customer-facing endpoint the customer connects *to* (canonical, `/g/<group>`, `/p/<pool>`, `/e/<code>`). An interface answers *how you connect, and whether you may*, and is gated by **enrollment** / group membership.
+- An **upstream access channel** ("channel") is one named entry in an offering's `upstream_access_config`. Each channel is a complete way for the gateway to reach the upstream: a protocol (`access_method`: `http`, `smtp`, `s3` or `mcp`), a rank (`sort_order`), the enrollment parameters it asks for (`params`), and one or more typed **servers** holding the connection (`base_url`, `api_key`, `routing_key`, …). Channel names are short identifiers (e.g. `"managed"`, `"byok"`, `"plus"`, `"managed-eu"`). The gateway selects one channel per request. A channel answers *how the request is fulfilled and billed*, and is gated by **secret** availability (and, for an enrollable channel, enrollment). See [Upstream access channels](#upstream-access-config).
+- A **user access interface** is one named entry in a listing's `user_access_interfaces`: the service's canonical, customer-facing address on one of the platform gateways. The platform adds the other ways to reach it (`/a/<alias>`, `/g/<group>`, `/e/<CODE>` for an enrollment). An interface answers *how you connect*. See [Canonical user access interfaces](#canonical-user-access-interfaces).
 
 Channel selection happens per request regardless of which interface URL the customer hits, so the two are separable lists, not a matrix.
 
@@ -123,7 +123,7 @@ Service files define the service offering from the upstream provider's perspecti
 | `service_type`               | enum                        | Service category (see [ServiceTypeEnum values](#servicetype-enum-values))                                                                                                         |
 | `summary`                    | string (max 200)            | One-line marketplace summary, shown on collapsed catalog rows and cards (unitysvc#1838)                                                                                          |
 | `description`                | string                      | Long-form service description (the summary carries the teaser; no paragraph conventions)                                                                                          |
-| `upstream_access_config` | dict of channel objects | How the gateway reaches the upstream, keyed by **channel name**; each entry is an **upstream access channel** (a free-form object — see [Upstream access channel object](#upstream-access-channel-object)) (see [Upstream access channels vs. user access interfaces](#upstream-access-channels-vs-user-access-interfaces)). Supports Jinja2 templates (e.g. `{{ enrollment.code }}`); expanded at gateway routing time using enrollment context. |
+| `upstream_access_config` | dict of channel objects | How the gateway reaches the upstream, keyed by **channel name**; each entry is a typed **upstream access channel** (see [Upstream access channels](#upstream-access-config)). String values may be templates (`{{ params.X }}`, `{{ enrollment.code }}`, `${ secrets.X }`, …), rendered at gateway routing time. |
 | `time_created`               | datetime (ISO 8601)         | Timestamp when offering was created                                                                                                                                               |
 
 ### Optional Fields
@@ -333,9 +333,9 @@ max_output_tokens = 4096
 supports_function_calling = true
 supports_vision = true
 
-[upstream_access_config."OpenAI API"]
-access_method = "http"
+[upstream_access_config.managed]
 base_url = "https://api.openai.com/v1"
+api_key = "${ secrets.OPENAI_API_KEY }"
 
 [payout_price]
 currency = "USD"
@@ -345,6 +345,366 @@ type = "one_million_tokens"
 input = "30.00"
 output = "60.00"
 ```
+
+### Upstream access channels (`upstream_access_config`) {#upstream-access-config}
+
+`upstream_access_config` says how the gateway reaches the upstream. It maps a **channel name** to a **channel**; each channel is one complete way to reach the upstream (its protocol, credential, rank, what it asks the enrolling customer for, and its servers), and the gateway picks one channel per request.
+
+Since `unitysvc-core` 0.3.0 (unitysvc-sellers after 0.3.14) channels are typed (`UpstreamAccessConfig` / `ChannelConfig`, unitysvc/unitysvc#2730): `usvc seller specs validate` checks every field below, refuses unknown keys, and refuses [retired keys](#retired-and-unknown-channel-keys) with what to do instead.
+
+```json
+"upstream_access_config": {
+  "managed": {
+    "base_url": "https://api.openai.com/v1",
+    "api_key": "${ secrets.OPENAI_API_KEY }"
+  }
+}
+```
+
+#### Channel names
+
+The name is the dict key. It is also the value `<service>@<channel>` selects and the key of [channel-keyed pricing](pricing.md#channel-based-pricing-channel), so it follows the variant-tag grammar (`validate_channel_name`):
+
+- non-empty, and **no `@`** (the `<name>@<channel>` selector delimiter);
+- one or more `/`-separated segments, each made of letters, digits, `.`, `-` and `_`, starting with a letter or digit (single-character names are allowed).
+
+`managed`, `byok`, `plus`, `managed-eu`, `s3_upstream` are valid; `OpenAI API` (space), `plus@eu` (`@`) and `-plus` (leading `-`) are refused.
+
+#### Channel keys
+
+These keys describe the channel as a whole. The connection itself lives in [servers](#servers).
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `access_method` | `"http"` \| `"smtp"` \| `"s3"` \| `"mcp"` | `"http"` | The upstream protocol. It selects the server type: [HTTP](#http-servers), [SMTP](#smtp-servers), [S3](#s3-servers) or [MCP](#mcp-servers). Any other value is refused: `access_method must be one of 'http', 'smtp', 's3', 'mcp'`. |
+| `type` | `"unbound"` \| `"secret_bound"` \| `"enrollable"` \| `"me_bound"` \| `"external"` | derived | Normally derived by the platform from the channel's configuration; declare `external` (or `enrollable`) to state it. |
+| `description` | string | none | Display text. |
+| `is_active` | boolean | `true` | Inactive channels are skipped. |
+| `sort_order` | integer | none | Channel rank, lowest first. Replaces `is_primary`. |
+| `request_formats` | array of string | none | The request formats the channel serves. |
+| `applicable_interfaces` | array of string | none | The user access interfaces that reach this channel (display only). |
+| `rate_limit_refs` | array of string | none | Names of the provider's rate limits this channel consumes; see [Provider-account rate-limit refs](#provider-account-rate-limit-refs). |
+| `customer_access_requests` | array of object | none | What the enrolling customer is asked to approve: using other services through their account. See [Exports & Dependencies](exports-and-dependencies.md#customer-access-requests). Formerly `grants`. |
+| `params` | object | none | The enrollment parameters the channel reads. See [Enrollment Parameters](#enrollment-parameters). |
+| `servers` | array of server | `[]` | The connection, typed by `access_method`. See [Servers](#servers). |
+
+The channel name is the dict key, never a field.
+
+#### Servers
+
+A channel's connection lives in `servers`, a list of servers of the channel's protocol. The common one-server case writes the connection fields **directly on the channel** instead; they are read as `servers[0]`. These two channels are the same:
+
+```json
+"managed": {
+  "base_url": "https://api.deepseek.com",
+  "api_key": "${ secrets.DEEPSEEK_API_KEY }"
+}
+```
+
+```json
+"managed": {
+  "servers": [
+    { "base_url": "https://api.deepseek.com", "api_key": "${ secrets.DEEPSEEK_API_KEY }" }
+  ]
+}
+```
+
+When a channel has **both** direct connection fields and `servers`, each server inherits every direct field it does not set itself (the gateway's rule). Write shared values (a `routing_key`, an `api_key`) once on the channel and only what differs on each server. How the gateway spreads load and fails over across servers is described in [Multi-server channels](service-types.md#multi-server-channels-capacity-failover).
+
+Every server, whatever its protocol, may set:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | string | Server name, unique within the channel |
+| `weight` | integer | Relative share of traffic among the channel's servers |
+| `acceptable_formats` | array of string | Request formats this server accepts |
+
+Unknown server fields are refused, as on the channel.
+
+##### HTTP servers
+
+`access_method: "http"` (the default). An HTTP upstream, or a platform service named by a scheme such as `notify://` or `me://`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `base_url` | string, **required** | Upstream base URL |
+| `api_key` | string | The upstream credential: a secret reference, or one of the dispositions `""`, `"__strip__"`, `"__forward__"`, `"__sigv4__"` (see [api_key values](#api_key-values)) |
+| `routing_key` | object | Values the gateway routes on, e.g. `{"model": "gpt-4o"}` |
+| `upstream_format` | string | The request format the upstream speaks |
+| `request_transformer` | object | How the gateway rewrites a request before sending it upstream (see [request_transformer](#request_transformer)) |
+| `access_key`, `secret_key`, `session_token`, `region` | string | AWS SigV4 signing credentials, used with `api_key: "__sigv4__"` |
+| `sigv4_service` | string | AWS service name in the SigV4 credential scope, e.g. `"bedrock"` |
+| `method` | string | Delivery to an HTTP endpoint (smtp-gateway, notify): the HTTP method |
+| `payload_format` | string | Delivery: body format sent upstream, e.g. `msg` |
+| `auth_mode` | string | Delivery: `forward`, `static`, `customer_token` or `none` |
+| `auth_token` | string | Delivery: the token for `auth_mode` |
+| `headers` | object of string | Delivery: extra request headers |
+| `max_message_bytes` | integer or string | Delivery: largest message accepted |
+| `tls_verify` | boolean or string | Delivery: verify the upstream's TLS certificate |
+| `smtp_target`, `smtp_host`, `smtp_username`, `smtp_password`, `mail_from`, `mail_to` | string | `notify://smtp` delivery |
+| `smtp_port` | integer or string | `notify://smtp` delivery |
+| `smtp_tls` | boolean or string | `notify://smtp` delivery |
+
+###### `api_key` values
+
+On a channel or server, `api_key` is either a credential reference or a **disposition** saying what the gateway does with the customer's UnitySVC key (svcpass) on the way upstream:
+
+| Value | Meaning |
+| --- | --- |
+| `${ secrets.NAME }` | The seller's credential (a managed channel) |
+| `${ customer_secrets.NAME }`, `${ customer_secrets.NAME ?? default }` | The customer's credential (BYOK), optionally with a fallback |
+| `${ customer_secrets.{{ params.X }} }` | A customer credential whose secret name the customer gives at enrollment as parameter `X` |
+| `""` or `"__strip__"` | Strip the header that carries svcpass; send no credential |
+| `"__forward__"` | Forward svcpass verbatim. Only to a trusted platform host: `base_url` must have a literal host that is `svcpass.com`, `unitysvc.com`, or a subdomain of either; a templated, missing or external host is refused |
+| `"__sigv4__"` | Strip the client credential and re-sign the finalized request with AWS SigV4. Requires non-empty `access_key`, `secret_key` and `sigv4_service` (usually secret references); `session_token` is optional and `region` defaults to `us-east-1` |
+
+Any other value is refused: a plain-text key never appears in a spec. (A Jinja `{% … %}` conditional that renders to one of the forms above is accepted.) The dispositions are valid only on a channel or server; a parameter value such as `params.testing_defaults.api_key` must be a secret reference.
+
+###### `request_transformer`
+
+| Key | Type | Description |
+| --- | --- | --- |
+| `llm_translator` | string or object | Translate between LLM request dialects (a preset name or its config) |
+| `msg_transformer` | object | Map the standard `msg` envelope |
+| `proxy_rewrite` | object | Rewrite the upstream path and headers |
+| `body_transformer` | object | Rewrite the request body |
+| `set_body` | string | Replace the request body with this template |
+
+Unknown keys are refused.
+
+##### SMTP servers
+
+`access_method: "smtp"`. An SMTP relay.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `host` | string, **required** | Relay host |
+| `port` | integer or string | Relay port |
+| `username` | string | SMTP AUTH username |
+| `password` | string | SMTP AUTH password (a secret reference) |
+| `tls` | boolean or string | Use TLS |
+| `to` | string | Recipient that replaces the message's own |
+
+##### S3 servers
+
+`access_method: "s3"`. An S3-compatible bucket. (This replaces the retired `storage_type: "s3"` on an `http` channel.)
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `bucket` | string, **required** | Bucket name |
+| `region` | string | Bucket region |
+| `s3_endpoint` | string | Endpoint of an S3-compatible store (R2, MinIO, …) |
+| `access_key`, `secret_key`, `session_token` | string | Credentials (secret references) |
+| `base_path` | string | Key prefix inside the bucket |
+| `addressing_style` | `"path"` \| `"virtual"` | Path-style or virtual-hosted-style bucket addressing |
+| `proxy_mode` | `"proxy"` \| `"redirect"` | Stream objects through the gateway (`proxy`), or answer with a presigned redirect the client follows (`redirect`, the default) |
+
+##### MCP servers
+
+`access_method: "mcp"`. A remote MCP server (streamable HTTP). An offering with an MCP channel must have `service_type: "mcp"`, and an `mcp` service must have at least one MCP channel.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `base_url` | string, **required** | The MCP server's URL |
+| `auth_mode` | string | `customer_token`, `forward`, `static` or `none` |
+| `api_key` | string | Credential (a secret reference) |
+| `credential` | string | Credential (a secret reference) |
+| `headers` | object of string | Extra request headers |
+| `allowed_hosts` | array of string | Hosts the server may be reached on |
+
+#### Templates in channel values
+
+Any string in a channel or server may be a template. The platform renders it **per request, at gateway routing time**, for the enrollment (if any) the request belongs to:
+
+| Form | Value |
+| --- | --- |
+| `{{ params.X }}` | The enrollment's parameter `X`, declared in this channel's [`params`](#enrollment-parameters) |
+| `{{ enrollment.code }}`, `{{ enrollment.id }}` | The enrollment's 4-character code and its id |
+| `{{ routing_vars.X }}` | The listing's `service_options.routing_vars.X` |
+| `${ secrets.X }` | The seller's secret `X` |
+| `${ customer_secrets.X }` | The customer's secret `X` |
+| `${ customer_secrets.X ?? default }` | The customer's secret `X`, or `default` when they have none |
+| `${ customer_secrets.{{ params.X }} }` | The customer's secret named by parameter `X` |
+
+Because any connection field may be a template, the numeric and boolean connection fields (`port`, `smtp_port`, `max_message_bytes`, `tls`, `smtp_tls`, `tls_verify`) also accept strings, such as `"port": "{{ params.port }}"`.
+
+A secret reference must render to `${ secrets.NAME }` / `${ customer_secrets.NAME }` with a plain identifier (letters, digits, `_`), optionally with `?? default`. Bracket lookup and composite expressions are refused. `specs validate` renders `{{ params.X }}` with the channel's `params.testing_defaults` and `{{ routing_vars.X }}` with the listing's `service_options.routing_vars`, so an undefined name is an error.
+
+The gateway renders these templates across the **whole** channel, `request_transformer` included, and a channel with any `{{ … }}` left unresolved is unroutable. A transformer's own per-request template must therefore use `{* … *}` rather than `{{ … }}`. See [Templates inside transformers](tech-notes/user-access-interface-template.md#templates-inside-transformers).
+
+#### Retired and unknown channel keys
+
+A channel refuses any key not listed above (or, for the one-server shorthand, in its server table). These retired keys are refused with an error of the form `'<key>' is not supported: <what to do instead>`:
+
+| Key | What to do instead |
+| --- | --- |
+| `raw` | move its keys onto the channel (or server) itself |
+| `is_primary` | channels rank by `sort_order` (lowest first); remove `is_primary` |
+| `user_parameters_schema` | declare the channel's parameters as `params.schema` |
+| `user_parameters_ui_schema` | move it to `params.ui_schema` |
+| `ops_testing_parameters` | move it to `params.testing_defaults` |
+| `grants` | renamed to `customer_access_requests` |
+| `rate_limits` | nothing reads a channel's `rate_limits`; declare limits on the provider and name them in `rate_limit_refs`, or remove it |
+| `storage_type` | set `access_method` `s3` instead |
+| `response_rules` | no gateway reads it; remove it |
+| `timeout_ms` | no gateway reads it; remove it |
+| `transport` | no gateway reads it; remove it |
+| `customer_secrets_required` | the platform derives it at upload; remove it |
+| `customer_secrets_optional` | the platform derives it at upload; remove it |
+
+Other keys that older docs or specs used, such as `ops_rate_limit_refs` and `depends_on` (now `customer_access_requests`), are simply unknown and refused. See [Migrating to unitysvc-core 0.3.0](#migrating-to-unitysvc-core-030).
+
+#### Examples
+
+**An LLM with a managed channel and a BYOK channel.** One-server shorthand: the connection fields sit on the channel. The managed channel ranks first and spends the seller's provider quota; the BYOK channel uses the customer's own key.
+
+```json
+"upstream_access_config": {
+  "managed": {
+    "base_url": "https://api.fireworks.ai/inference/v1",
+    "api_key": "${ secrets.FIREWORKS_API_KEY }",
+    "routing_key": { "model": "accounts/fireworks/models/glm-5" },
+    "rate_limit_refs": ["fireworks_concurrency", "fireworks_perminute"],
+    "sort_order": 0
+  },
+  "byok": {
+    "base_url": "https://api.fireworks.ai/inference/v1",
+    "api_key": "${ customer_secrets.FIREWORKS_API_KEY }",
+    "routing_key": { "model": "accounts/fireworks/models/glm-5" },
+    "sort_order": 1
+  }
+}
+```
+
+**A multi-server channel.** The `routing_key` is written once on the channel and inherited by both servers.
+
+```json
+"upstream_access_config": {
+  "managed": {
+    "routing_key": { "model": "deepseek-v4-pro" },
+    "servers": [
+      { "name": "primary", "base_url": "https://api.deepseek.com", "api_key": "${ secrets.DEEPSEEK_KEY_A }", "weight": 3 },
+      { "name": "backup", "base_url": "https://api-backup.deepseek.com", "api_key": "${ secrets.DEEPSEEK_KEY_B }", "weight": 1 }
+    ]
+  }
+}
+```
+
+**An enrollable `plus` channel beside a free channel.** The `plus` channel reads two enrollment parameters and declares them in its own `params`; a request to the canonical address is served by `byok`, and each `plus` enrollment is reached at `/e/<CODE>`.
+
+```json
+"upstream_access_config": {
+  "byok": {
+    "base_url": "${ customer_secrets.HTTP_RELAY_BASE_URL }",
+    "api_key": "${ customer_secrets.HTTP_RELAY_API_KEY }"
+  },
+  "plus": {
+    "base_url": "{{ params.base_url }}",
+    "api_key": "${ customer_secrets.{{ params.api_key_secret }} }",
+    "params": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "base_url": { "type": "string", "title": "Upstream URL" },
+          "api_key_secret": { "type": "string", "title": "Secret holding your API key", "default": "HTTP_RELAY_API_KEY" }
+        },
+        "required": ["base_url", "api_key_secret"]
+      },
+      "ui_schema": { "base_url": { "ui:placeholder": "https://api.example.com" } },
+      "testing_defaults": {
+        "base_url": "https://mock.unitysvc.dev/http",
+        "api_key_secret": "HTTP_RELAY_API_KEY"
+      }
+    }
+  }
+}
+```
+
+**An SMTP relay.**
+
+```json
+"upstream_access_config": {
+  "mail_relay": {
+    "access_method": "smtp",
+    "host": "smtp.sendgrid.net",
+    "port": 587,
+    "tls": true,
+    "username": "apikey",
+    "password": "${ secrets.SENDGRID_API_KEY }"
+  }
+}
+```
+
+**An S3 bucket.**
+
+```json
+"upstream_access_config": {
+  "s3_upstream": {
+    "access_method": "s3",
+    "bucket": "demo",
+    "region": "us-east-1",
+    "s3_endpoint": "https://s3.example.com",
+    "base_path": "demo/",
+    "access_key": "${ secrets.S3_ACCESS_KEY }",
+    "secret_key": "${ secrets.S3_SECRET_KEY }",
+    "proxy_mode": "proxy"
+  }
+}
+```
+
+**A remote MCP server** (`service_type: "mcp"`):
+
+```json
+"upstream_access_config": {
+  "upstream": {
+    "access_method": "mcp",
+    "base_url": "https://mcp.example.com/mcp",
+    "auth_mode": "none"
+  }
+}
+```
+
+#### Provider-account rate-limit refs
+
+Provider-level `rate_limits` define **named seller-scoped buckets**. A channel
+opts into those buckets with `rate_limit_refs` (a channel's own `rate_limits`
+is retired):
+
+Provider file:
+
+```json
+{
+  "name": "fireworks",
+  "contact_email": "ops@example.com",
+  "homepage": "https://fireworks.ai",
+  "time_created": "2026-01-01T00:00:00Z",
+  "rate_limits": [
+    { "name": "fireworks_concurrency", "unit": "concurrent", "limit": 8 },
+    { "name": "fireworks_perminute", "unit": "requests", "limit": 60, "window": "minute" }
+  ]
+}
+```
+
+Offering file:
+
+```json
+{
+  "upstream_access_config": {
+    "managed": {
+      "base_url": "https://api.fireworks.ai/inference/v1",
+      "api_key": "${ secrets.FIREWORKS_API_KEY }",
+      "rate_limit_refs": ["fireworks_concurrency", "fireworks_perminute"]
+    }
+  }
+}
+```
+
+Any selected channel referencing `fireworks_perminute` consumes the same seller
+bucket for that seller, even across services or provider records. Use the same
+name when multiple channels spend the same upstream account quota; use different
+names when different API keys/accounts have independent quotas. Do not put
+`rate_limit_refs` on a BYOK channel: production BYOK traffic spends the
+customer's provider quota, not yours.
 
 ## Schema: listing_v1
 
@@ -363,15 +723,14 @@ Listing files define how a seller presents/sells a service to end users.
 
 | Field                       | Type                  | Description                                                                                      |
 | --------------------------- | --------------------- | ------------------------------------------------------------------------------------------------ |
-| `name`                      | string                | Listing identifier (defaults to filename without extension, max 255 chars)                       |
+| `name`                      | string                | The service identifier, `<provider>/<service-name>[@variant]` (required in practice; see [Names & Routing](naming-conventions.md)), max 255 chars |
 | `display_name`              | string                | Customer-facing name (max 200 chars)                                                             |
 | `status`                    | enum                  | Status: `draft` (skip upload), `ready` (ready for review), `deprecated`                          |
-| `service_options`           | object                | Service lifecycle and testing options, including `default_visibility` and `ops_testing_parameters` |
 | `list_price`                | [Pricing](pricing.md) | Customer-facing pricing (what customer pays)                                                     |
 | `documents`                 | dict of DocumentData  | SLAs, documentation, guides, keyed by title                                                      |
-| `user_parameters_schema`    | object                | JSON schema defining user parameters for subscriptions (see [User Parameters](#user-parameters)) |
-| `user_parameters_ui_schema` | object                | UI schema for user parameter form rendering (see [User Parameters](#user-parameters))            |
 | `service_options`           | object                | Service-specific options (see [Service Options](#service-options))                               |
+
+A listing declares **no enrollment parameters**: `user_parameters_schema` and `user_parameters_ui_schema` are refused. Each channel declares the parameters it reads; see [Enrollment Parameters](#enrollment-parameters).
 | `audience`                  | array of string       | Who the service is for and what a buyer must know before enrolling (see [Audience](#audience))   |
 
 ### Audience
@@ -408,11 +767,17 @@ phrases is rolling out separately (unitysvc/unitysvc#2717).
 
 The `service_options` field configures backend behavior for service listings. All fields are optional.
 
-| Field                    | Type   | Description                                                                    |
-| ------------------------ | ------ | ------------------------------------------------------------------------------ |
-| `ops_testing_parameters` | object | Default parameter values for testing (see [User Parameters](#user-parameters)) |
-| `routing_vars`           | object | Seller-managed operational variables, referenced as `{{ routing_vars.X }}`     |
-| `enrollment`             | object | Per-enrollment configuration — enrollment limits (see below)    |
+| Field                             | Type    | Description                                                                    |
+| --------------------------------- | ------- | ------------------------------------------------------------------------------ |
+| `default_visibility`              | string  | Visibility applied by upload: `public`, `unlisted` or `private` (see below)    |
+| `routing_vars`                    | object  | Seller-managed operational variables, read by channels as `{{ routing_vars.X }}` |
+| `enrollment`                      | object  | Per-enrollment configuration: enrollment limits (see below)                    |
+| `prompt_recurrence`               | boolean | Prompt for recurrence options during enrollment (see [Recurrent services](service-types.md#recurrent-services)) |
+| `recurrence_min_interval_seconds` | integer | Minimum recurrence interval                                                    |
+| `recurrence_max_interval_seconds` | integer | Maximum recurrence interval                                                    |
+| `recurrence_allow_cron`           | boolean | Allow cron expressions                                                         |
+
+Any other key is refused. `ops_testing_parameters` is retired: the values a channel is tested with are its [`params.testing_defaults`](#enrollment-parameters).
 
 **Enrollment configuration (`enrollment`):**
 
@@ -423,8 +788,9 @@ All enrollment-related options live under a single `enrollment` object:
 | `limit`              | integer | Maximum total active enrollments for this service (global)                                                                                                                                              |
 | `limit_per_customer` | integer | Maximum active enrollments per customer                                                                                                                                                                 |
 | `limit_per_user`     | integer | Maximum active enrollments per user (creator)                                                                                                                                                           |
+| `required`           | boolean | `true` declares that using the service requires an enrollment even when nothing in its configuration does (required parameters, an enrollable channel), e.g. for MCP services whose gate is enforced outside the routing layer |
 
-> **No `enrollment_vars`.** Every enrollment automatically carries a unique code, available in any template as `{{ enrollment.code }}` (also reachable at `/e/<code>`). Reference it **directly** in `user_access_interfaces` / `upstream_access_config` — there is no per-enrollment variable to declare. The old `service_options.enrollment_vars` mechanism has been removed.
+> **No `enrollment_vars`.** Every enrollment automatically carries a unique code, available to channel templates as `{{ enrollment.code }}`; the enrollment itself is reached at `/e/<CODE>`. There is no per-enrollment variable to declare; the old `service_options.enrollment_vars` mechanism has been removed.
 
 **Enrollment limits:**
 
@@ -439,8 +805,7 @@ All enrollment-related options live under a single `enrollment` object:
 {
     "service_options": {
         "default_visibility": "public",
-        "ops_testing_parameters": {
-            "api_key": "${ secrets.SERVICE_API_KEY }",
+        "routing_vars": {
             "region": "us-east-1"
         },
         "enrollment": {
@@ -458,8 +823,7 @@ All enrollment-related options live under a single `enrollment` object:
 [service_options]
 default_visibility = "public"
 
-[service_options.ops_testing_parameters]
-api_key = "${ secrets.SERVICE_API_KEY }"
+[service_options.routing_vars]
 region = "us-east-1"
 
 [service_options.enrollment]
@@ -476,9 +840,8 @@ changed by `services set-visibility`. To move a private service back to
 
 ### Listing Name Field
 
-- **Automatic naming**: If `name` is omitted, uses filename (without extension)
-- **Multiple listings**: Use descriptive filenames for different tiers/marketplaces
-- **Example**: `listing-premium.json` → `name = "listing-premium"`
+- `name` is the service identifier: `<provider>/<service-name>`, matching the folder under `specs/`, with an optional `@variant` (`openai/gpt-4@premium`)
+- **Multiple listings**: put each variant in its own file (`listing-premium.json`) and give each its own `@variant` name
 
 ### status Values (Listing)
 
@@ -486,18 +849,74 @@ changed by `services set-visibility`. To move a private service back to
 - `ready` - Ready for admin review and testing
 - `deprecated` - No longer offered to new customers
 
-### Gateway Base URL
+### Canonical user access interfaces
 
-The `base_url` field in `user_access_interfaces` uses a `${..._GATEWAY_BASE_URL}` placeholder that the platform resolves at runtime. UnitySVC provides multiple protocol-specific gateways, each with its own base URL:
+A user access interface is the service's **canonical address**, the same for every caller. Its `base_url` starts with one of the four gateway placeholders, which the platform resolves:
 
-| Gateway | Placeholder | Protocol | Example URL |
-| ------- | ----------- | -------- | ----------- |
-| API Gateway (APISIX) | `${API_GATEWAY_BASE_URL}` | HTTP/HTTPS | `https://api.unitysvc.com` |
-| S3 Gateway | `${S3_GATEWAY_BASE_URL}` | S3 API | `https://s3.unitysvc.com` |
-| SMTP Gateway | `${SMTP_GATEWAY_BASE_URL}` | SMTP | `smtp://smtp.unitysvc.com:587` |
-| SSH Gateway | `${SSH_GATEWAY_BASE_URL}` | SSH | `ssh://ssh.unitysvc.com:22` |
+| Gateway | Placeholder | Protocol | Interface shape |
+| ------- | ----------- | -------- | --------------- |
+| API Gateway | `${API_GATEWAY_BASE_URL}` | HTTP/HTTPS | `${API_GATEWAY_BASE_URL}` plus an optional `/` and path |
+| S3 Gateway | `${S3_GATEWAY_BASE_URL}` | S3 API | `${S3_GATEWAY_BASE_URL}/<bucket alias>`; the alias must be a valid S3 bucket name (3-63 lowercase letters, digits or hyphens, starting and ending with a letter or digit) |
+| SMTP Gateway | `${SMTP_GATEWAY_BASE_URL}` | SMTP | exactly `${SMTP_GATEWAY_BASE_URL}`, with a non-empty `routing_key.username` |
+| MCP Gateway | `${MCP_GATEWAY_BASE_URL}` | MCP | exactly `${MCP_GATEWAY_BASE_URL}`, with `access_method: "mcp"` and a `routing_key.namespace` (lowercase letters, digits and `_`, starting with a letter or digit, at most 24 characters) |
 
-Use the placeholder that matches the `access_method` of your service. Most services use the HTTP API gateway (`${API_GATEWAY_BASE_URL}`).
+`usvc seller specs validate` (unitysvc-core 0.3.0, `validate_listing_interfaces_are_canonical`) renders `{{ service_name }}` first (to `listing.name`), then requires:
+
+- **A gateway address.** `base_url` is one of the four placeholders above, optionally followed by `/` and a path. Never an external URL (`https://api.example.com/v1`), another `${...}` variable, or a secret reference.
+- **No other template.** `{{ service_name }}` is the only value the platform fills in when it stores an interface. Anything else, such as `{{ routing_vars.X }}`, would stay literal and never route.
+- **Nothing per-enrollment.** An interface may not read `enrollment.*` or `params.*`: an enrollment is reached at **`/e/<CODE>`** on the API gateway, an address the platform provides, so don't declare an interface for it. The one exception is `{{ enrollment.code }}` as the **whole** SMTP `routing_key.username`, or the **whole** S3 bucket segment (`${S3_GATEWAY_BASE_URL}/{{ enrollment.code }}`), as a reminder of the per-enrollment address on protocols without a path for it.
+
+On the API gateway, the first path segment is free when it has two or more characters (`{{ service_name }}`, a provider path routed by `routing_key`). Single-character first segments are reserved for platform primitives: listings may use only `/a/<alias>` (a movable pointer, see [Names & Routing](naming-conventions.md)). `${API_GATEWAY_BASE_URL}/p/<route>` is reserved for [platform services](guides/publish-platform-services.md).
+
+```json
+"user_access_interfaces": {
+  "canonical": {
+    "access_method": "http",
+    "base_url": "${API_GATEWAY_BASE_URL}/{{ service_name }}"
+  }
+}
+```
+
+The other gateways:
+
+```json
+// S3
+"s3_gateway": { "access_method": "http", "base_url": "${S3_GATEWAY_BASE_URL}/demo-s3" }
+
+// SMTP
+"smtp_gateway": {
+  "access_method": "smtp",
+  "base_url": "${SMTP_GATEWAY_BASE_URL}",
+  "routing_key": { "username": "smtp-relay" }
+}
+
+// MCP
+"mcp_gateway": {
+  "access_method": "mcp",
+  "base_url": "${MCP_GATEWAY_BASE_URL}",
+  "routing_key": { "namespace": "unitysvc" }
+}
+
+// Per-enrollment reminders: the only place {{ enrollment.code }} may appear
+"smtp_enrollment": {
+  "access_method": "smtp",
+  "base_url": "${SMTP_GATEWAY_BASE_URL}",
+  "routing_key": { "username": "{{ enrollment.code }}" }
+}
+"s3_enrollment": { "access_method": "http", "base_url": "${S3_GATEWAY_BASE_URL}/{{ enrollment.code }}" }
+```
+
+Refused:
+
+```text
+https://api.example.com/v1                                   external URL
+${API_GATEWAY_BASE_URL}/{{ service_name }}/{{ enrollment.code }}   per-enrollment; use /e/<CODE>
+${API_GATEWAY_BASE_URL}/{{ params.endpoint }}                 per-enrollment
+${API_GATEWAY_BASE_URL}/{{ routing_vars.region }}             template other than service_name
+${API_GATEWAY_BASE_URL}/p/openai                              /p is for platform services
+${API_GATEWAY_BASE_URL}/u/{{ service_name }}                  reserved single-letter prefix
+${SSH_GATEWAY_BASE_URL}                                       not a gateway
+```
 
 ### Example (TOML)
 
@@ -505,17 +924,14 @@ Use the placeholder that matches the `access_method` of your service. Most servi
 # File: specs/openai/gpt-4/listing-premium.toml
 # This listing automatically belongs to the gpt-4 offering in the same directory
 # and the openai provider in the parent directory.
-name = "listing-premium"
+name = "openai/gpt-4@premium"
 display_name = "GPT-4 Premium Access"
 status = "ready"
 time_created = "2024-01-25T16:00:00Z"
 
-[user_access_interfaces."OpenAI API Access"]
+[user_access_interfaces.canonical]
 access_method = "http"
-base_url = "${API_GATEWAY_BASE_URL}/p/openai"
-
-[user_access_interfaces."OpenAI API Access".routing_key]
-model = "gpt-4"
+base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}"
 
 [list_price]
 currency = "USD"
@@ -531,176 +947,183 @@ category = "getting_started"
 mime_type = "markdown"
 ```
 
-## User Parameters
+## Enrollment Parameters
 
-User parameters collect **configuration values** from customers during enrollment. These are real settings the customer chooses (model preferences, regions, feature flags) — not API keys or credentials.
+Enrollment parameters collect **configuration values** from a customer when they enroll: real settings they choose (a folder, a region, their own endpoint URL, the *name* of the secret that holds their key). They are not credentials; a credential is a [secret](#secrets-seller-owned-vs-customer-owned), and a parameter may at most name one.
 
-> **Note**: API keys and credentials are handled separately through [Secrets](#secrets-for-sensitive-information), not through user parameters. See [BYOK Services](#byok-services-bring-your-own-key) for how to set up services that require a customer's API key.
-
-### Overview
-
-User parameters enable dynamic service configuration through:
-
-1. **`user_parameters_schema`** - JSON Schema defining parameters, validation rules, and UI components
-2. **`user_parameters_ui_schema`** - UI customization for form rendering
-3. **`service_options.ops_testing_parameters`** - Default values for testing parameters before deployment
-
-Services that define `user_parameters_schema` **require enrollment** — the customer must provide their configuration before using the service.
-
-### user_parameters_schema
-
-Defines the parameters users must provide when enrolling in a service. Uses [JSON Schema](https://json-schema.org/) format with extensions from [react-jsonschema-form](https://rjsf-team.github.io/react-jsonschema-form/).
-
-**Common properties:**
-
-- `type` - Data type: `"string"`, `"number"`, `"boolean"`, `"object"`, `"array"`
-- `title` - Human-readable field label
-- `description` - Help text shown to users
-- `default` - Default value for the field
-- `enum` - List of allowed values (creates dropdown)
-- `required` - Array of required field names
-
-**Example:**
+Since `unitysvc-core` 0.3.0 (unitysvc/unitysvc#2726), **each channel declares the parameters it reads**, in its own `params` object, so each plan of a service asks only for what it needs. A listing declares none.
 
 ```json
-{
-    "type": "object",
-    "title": "Service Configuration",
-    "properties": {
-        "model": {
-            "type": "string",
-            "title": "Model",
-            "description": "Model to use",
-            "enum": ["gpt-4", "gpt-3.5-turbo"],
-            "default": "gpt-4"
-        },
-        "temperature": {
-            "type": "number",
-            "title": "Temperature",
-            "description": "Sampling temperature (0-2)",
-            "default": 0.7,
-            "minimum": 0,
-            "maximum": 2
-        }
-    },
-    "required": ["model"]
-}
-```
-
-### user_parameters_ui_schema
-
-Customizes how the form is rendered. Controls field order, visibility, widgets, and presentation.
-
-**Common UI options:**
-
-- `ui:widget` - Widget type: `"textarea"`, `"password"`, `"select"`, `"radio"`, `"checkbox"`
-- `ui:placeholder` - Placeholder text
-- `ui:help` - Additional help text
-- `ui:description` - Field description text
-- `ui:disabled` - Disable field
-- `ui:order` - Field display order
-
-**Example:**
-
-```json
-{
-    "model": {
-        "ui:widget": "select"
-    },
-    "temperature": {
-        "ui:widget": "range"
-    },
-    "ui:order": ["model", "temperature"]
-}
-```
-
-### service_options.ops_testing_parameters
-
-Provides default parameter values for testing services before deployment. Required when `user_parameters_schema` defines required parameters without default values.
-
-**Key requirements:**
-
-1. **All required parameters must have defaults** - Each parameter in `user_parameters_schema.required` must have either a `default` in the schema OR a value in `ops_testing_parameters`
-2. **Must be testable** - Values must allow the service to be tested successfully
-
-**Example:**
-
-```json
-{
-    "service_options": {
-        "ops_testing_parameters": {
-            "model": "gpt-4",
-            "temperature": 0.7
-        }
-    }
-}
-```
-
-### Complete Example (JSON)
-
-A service with user-configurable parameters (model, token limits, streaming):
-
-```json
-{
-    "display_name": "Custom AI Service",
-    "status": "ready",
-    "user_parameters_schema": {
+"upstream_access_config": {
+  "plus": {
+    "base_url": "https://relay.example.com/{{ params.folder }}",
+    "api_key": "${ secrets.RELAY_API_KEY }",
+    "params": {
+      "schema": {
         "type": "object",
-        "title": "Service Configuration",
         "properties": {
-            "model": {
-                "type": "string",
-                "title": "Model",
-                "enum": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
-                "default": "gpt-4"
-            },
-            "max_tokens": {
-                "type": "integer",
-                "title": "Max Tokens",
-                "default": 1000,
-                "minimum": 1,
-                "maximum": 4096
-            },
-            "enable_streaming": {
-                "type": "boolean",
-                "title": "Enable Streaming",
-                "default": false
-            }
+          "folder": { "type": "string", "title": "Folder", "default": "inbox" }
         },
-        "required": ["model"]
-    },
-    "user_parameters_ui_schema": {
-        "model": { "ui:widget": "select" },
-        "max_tokens": { "ui:widget": "range" },
-        "enable_streaming": { "ui:widget": "checkbox" },
-        "ui:order": ["model", "max_tokens", "enable_streaming"]
-    },
-    "service_options": {
-        "ops_testing_parameters": {
-            "model": "gpt-4",
-            "max_tokens": 1000,
-            "enable_streaming": false
-        }
-    },
-    "user_access_interfaces": {
-        "API Access": {
-            "access_method": "http",
-            "base_url": "${API_GATEWAY_BASE_URL}/p/my-service"
-        }
+        "required": ["folder"]
+      },
+      "ui_schema": { "folder": { "ui:help": "Messages are filed here" } },
+      "testing_defaults": { "folder": "ops" }
     }
+  }
 }
 ```
 
-### Validation Rules
+### The `params` object
 
-The SDK validates user parameters during `usvc seller specs validate`:
+| Key | Type | Description |
+| --- | --- | --- |
+| `schema` | object, **required** | A [JSON Schema](https://json-schema.org/) of the parameters, rendered as the customer's enrollment form ([react-jsonschema-form](https://rjsf-team.github.io/react-jsonschema-form/)). A property's own `default` pre-fills the form. |
+| `ui_schema` | object | Form hints (an rjsf `uiSchema`): `ui:widget`, `ui:placeholder`, `ui:help`, `ui:order`, … |
+| `testing_defaults` | object | The values the platform tests the channel with. Every required parameter needs one. |
 
-1. All parameters in `user_parameters_schema.required` must have either a `default` in the schema or a value in `ops_testing_parameters`
-2. If required parameters exist without defaults, `service_options.ops_testing_parameters` must be defined
+No other key is accepted in `params`. `testing_defaults` is what the platform's test enrollment uses for gateway tests and what `usvc seller specs run-tests` renders the channel's `{{ params.X }}` with locally; `specs validate` also renders `${ customer_secrets.{{ params.X }} }` with it, so the result must be a valid secret name. A `testing_defaults.api_key` must be a secret reference.
 
+The channel's templates read a parameter as `{{ params.NAME }}` (see [Templates in channel values](#templates-in-channel-values)). A customer reaches their enrollment at `/e/<CODE>` on the API gateway; the listing never declares that address (see [Canonical user access interfaces](#canonical-user-access-interfaces)).
+
+### Rules
+
+`usvc seller specs validate` checks these on every offering, and backend ingest runs the same checks when you upload:
+
+1. **A channel that reads `{{ params.* }}` must declare `params`.** Otherwise: `upstream_access_config.<channel> reads enrollment parameters but declares no params; each channel declares the parameters it uses`.
+2. **A channel reads only the parameters it declares** (in `params.schema.properties` or `required`). Another channel's `params` does not count.
+3. **Every required parameter has a value in `params.testing_defaults`.** A property's schema `default` pre-fills the customer's form but does not satisfy this rule.
+4. **Every required parameter is read**, by its own channel or by document content (a document's inline content, or a `.j2` document's template source). Another channel's use does not count, and neither do metadata fields such as `display_name` or `description`, which are never rendered with `params`. Dynamic access (`params[name]` with a variable, iterating `params`) counts as reading every parameter. A deprecated listing or offering is exempt, so it can still be retired.
+
+Each channel that declares a required parameter also makes the service need an enrollment: the customer fills in the form, and the platform gives the enrollment its `/e/<CODE>` address.
+
+### Migrating to unitysvc-core 0.3.0
+
+`unitysvc-core` 0.3.0 refuses the listing-level parameter fields and the retired channel keys. Update specs before moving to a unitysvc-sellers release that requires it.
+
+**Parameters move from the listing to the channel that reads them:**
+
+| Before (listing) | After (the reading channel) |
+| --- | --- |
+| `user_parameters_schema` | `upstream_access_config.<channel>.params.schema` |
+| `user_parameters_ui_schema` | `upstream_access_config.<channel>.params.ui_schema` |
+| `service_options.ops_testing_parameters` | `upstream_access_config.<channel>.params.testing_defaults` |
+
+Before, `listing.json`:
+
+```json
+{
+  "user_parameters_schema": {
+    "type": "object",
+    "properties": {
+      "base_url": { "type": "string", "title": "Upstream URL" },
+      "api_key_secret": { "type": "string", "default": "HTTP_RELAY_API_KEY" }
+    },
+    "required": ["base_url", "api_key_secret"]
+  },
+  "user_parameters_ui_schema": { "base_url": { "ui:placeholder": "https://api.example.com" } },
+  "service_options": {
+    "ops_testing_parameters": {
+      "base_url": "https://mock.unitysvc.dev/http",
+      "api_key_secret": "HTTP_RELAY_API_KEY"
+    }
+  }
+}
 ```
-✗ Required parameters missing default values in service_options.ops_testing_parameters: ['model']
+
+and `offering.json`:
+
+```json
+"upstream_access_config": {
+  "plus": {
+    "access_method": "http",
+    "base_url": "{{ params.base_url }}",
+    "api_key": "${ customer_secrets.{{ params.api_key_secret }} }",
+    "is_primary": true
+  }
+}
 ```
+
+After, the listing has none of the three, and `offering.json` holds them on the `plus` channel:
+
+```json
+"upstream_access_config": {
+  "plus": {
+    "base_url": "{{ params.base_url }}",
+    "api_key": "${ customer_secrets.{{ params.api_key_secret }} }",
+    "sort_order": 0,
+    "params": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "base_url": { "type": "string", "title": "Upstream URL" },
+          "api_key_secret": { "type": "string", "default": "HTTP_RELAY_API_KEY" }
+        },
+        "required": ["base_url", "api_key_secret"]
+      },
+      "ui_schema": { "base_url": { "ui:placeholder": "https://api.example.com" } },
+      "testing_defaults": {
+        "base_url": "https://mock.unitysvc.dev/http",
+        "api_key_secret": "HTTP_RELAY_API_KEY"
+      }
+    }
+  }
+}
+```
+
+When several channels read the same parameter, each declares it. A required parameter that relied on its schema `default` for testing now also needs a `testing_defaults` value. The old fields are refused with:
+
+- listing `user_parameters_schema`: `Enrollment parameters are declared on the listing (user_parameters_schema); declare them in the params of the channel that reads them instead (unitysvc/unitysvc#2726).`
+- listing `user_parameters_ui_schema`: refused as an unknown field.
+- `service_options.ops_testing_parameters`: `service_options.ops_testing_parameters is not supported: enrollment parameters are declared per channel; move the values to upstream_access_config.<channel>.params.testing_defaults (unitysvc/unitysvc#2726)`.
+
+**Other channel keys:**
+
+| Before | After |
+| --- | --- |
+| `"rate_limits": [...]` on a channel | Remove it. Declare limits on the provider (`provider.json` `rate_limits`) and name them in the channel's `rate_limit_refs`. |
+| `"ops_rate_limit_refs": [...]` | Remove it (unknown key). |
+| `"access_method": "http", "storage_type": "s3"` | `"access_method": "s3"`; the bucket fields stay as they are. |
+| `"is_primary": true` | `"sort_order": 0` (lowest first; give the other channels higher numbers). |
+| `timeout_ms`, `transport`, `response_rules` | Remove them; no gateway reads them. |
+| `"raw": {...}` | Move its keys onto the channel (or server) itself. |
+| `grants` / `depends_on` | Rename to `customer_access_requests`. |
+| `customer_secrets_required`, `customer_secrets_optional` | Remove them; the platform derives them at upload. |
+| A channel name with a space or `@` (`"OpenAI API"`) | Rename to a valid [channel name](#channel-names) (`managed`); update channel-keyed `list_price` keys to match. |
+
+For example, an S3 channel:
+
+```json
+// Before
+"s3_upstream": {
+  "access_method": "http",
+  "storage_type": "s3",
+  "bucket": "demo",
+  "region": "us-east-1",
+  "access_key": "${ secrets.S3_ACCESS_KEY }",
+  "secret_key": "${ secrets.S3_SECRET_KEY }"
+}
+
+// After
+"s3_upstream": {
+  "access_method": "s3",
+  "bucket": "demo",
+  "region": "us-east-1",
+  "access_key": "${ secrets.S3_ACCESS_KEY }",
+  "secret_key": "${ secrets.S3_SECRET_KEY }"
+}
+```
+
+And an MCP channel:
+
+```json
+// Before
+"unitysvc": { "access_method": "mcp", "base_url": "https://mcp.example.com/mcp", "auth_mode": "none", "timeout_ms": 30000, "transport": "streamable_http" }
+
+// After
+"unitysvc": { "access_method": "mcp", "base_url": "https://mcp.example.com/mcp", "auth_mode": "none" }
+```
+
+Listings also change: a user access interface must be a [canonical gateway address](#canonical-user-access-interfaces), so an interface that read `{{ enrollment.code }}`, `{{ params.X }}` or `{{ routing_vars.X }}` (other than the SMTP and S3 exceptions), or pointed at an external URL, must be removed or rewritten.
 
 ### Resources
 
@@ -716,11 +1139,11 @@ references**, and the **namespace declares who owns the secret**:
 |-----------|-------|-----------|----------|
 | `${ secrets.NAME }` | **Seller** | the seller's secret store | Managed services (seller pays the upstream) |
 | `${ customer_secrets.NAME }` | **Customer** | the customer's secret store | BYOK (customer brings their own key) |
-| `${ customer_secrets.{{ param }} }` | **Customer** | the customer's secret store | BYOE (key name resolved per-enrollment) |
+| `${ customer_secrets.{{ params.X }} }` | **Customer** | the customer's secret store | BYOE (key name given per enrollment as parameter `X`) |
 
-A reference is valid in any `api_key` field — typically
-`upstream_access_config.*.api_key` (the upstream call), but also
-`service_options.ops_testing_parameters` and `request_transformer` values. The
+A reference is valid in any channel or server string, typically
+`upstream_access_config.<channel>.api_key` (the upstream call), but also
+`params.testing_defaults` and `request_transformer` values. The
 **namespace**, not the location, is what determines ownership.
 
 ## BYOK Services (Bring Your Own Key)
@@ -736,8 +1159,7 @@ namespace:
     "service_type": "llm",
     "summary": "Cohere's Command R conversational model, via your own API key.",
     "upstream_access_config": {
-        "Cohere API": {
-            "access_method": "http",
+        "byok": {
             "base_url": "https://api.cohere.com/v2",
             "api_key": "${ customer_secrets.COHERE_API_KEY }",
             "routing_key": { "model": "command-r" }
@@ -746,13 +1168,14 @@ namespace:
 }
 ```
 
-That's it — no `user_parameters_schema` for the key. The
+That's it: no enrollment parameter for the key. The
 `${ customer_secrets.COHERE_API_KEY }` reference **is** the declaration: the
 platform auto-detects that the customer must store a secret named
 `COHERE_API_KEY`, shows a "Bring your own key" badge, resolves the secret from
 the customer's store at routing time, and returns a clear error if it's missing.
 Because the customer just stores a secret (no enrollment record), a BYOK service
-needs **no enrollment** unless it *also* has a `user_parameters_schema`.
+needs **no enrollment** unless a channel *also* declares required
+[enrollment parameters](#enrollment-parameters).
 
 A **Managed** service is identical except it uses the seller's own key —
 `"api_key": "${ secrets.COHERE_API_KEY }"` — so the seller, not the customer,
@@ -770,7 +1193,7 @@ usvc seller specs run-tests cohere/command-r
 
 The test runner resolves `${ customer_secrets.COHERE_API_KEY }` (or
 `${ secrets.… }`) by looking up `COHERE_API_KEY` in the shell environment — for
-secrets in any location (access interfaces, `ops_testing_parameters`, request
+secrets in any location (channels, servers, `params.testing_defaults`, request
 transformers).
 
 ## Data Types
@@ -788,8 +1211,8 @@ credentials or transformers (those are the channel's job).
 
 | Field           | Type    | Description                                                          |
 | --------------- | ------- | ------------------------------------------------------------------- |
-| `access_method` | enum    | Access method: `http` (default), `websocket`, `grpc`                |
-| `base_url`      | string  | Customer-facing endpoint URL (max 500 chars)                        |
+| `access_method` | enum    | Access method: `http` (default), `websocket`, `grpc`, `smtp`, `mcp` |
+| `base_url`      | string  | Canonical gateway address (max 500 chars); see [Canonical user access interfaces](#canonical-user-access-interfaces) |
 | `description`   | string  | Interface description (max 500 chars)                               |
 | `routing_key`   | object  | Optional routing key for request matching                           |
 | `is_active`     | boolean | Whether interface is active (default: true)                         |
@@ -798,225 +1221,37 @@ credentials or transformers (those are the channel's job).
 
 > `rate_limits`, `constraints`, and `response_rules` are **no longer accepted**
 > on a user access interface (unitysvc/unitysvc#1717). `constraints` was never
-> enforced and was dropped.
+> enforced and was dropped. Unlike a channel, an interface keeps `is_primary`.
 
 ### Upstream access channel object
 
-One named entry in an offering's `upstream_access_config`. **Free-form** — the
-platform reads it as an opaque object, so nothing is required across channels
-(an `http` channel has `base_url`; `smtp` has host/port; `s3` has bucket/region).
-A `raw` block is not accepted. The keys the gateway recognizes:
-
-| Field                 | Type               | Description                                                                                               |
-| --------------------- | ------------------ | --------------------------------------------------------------------------------------------------------- |
-| `access_method`       | enum               | Wire protocol: `http` (default), `websocket`, `grpc`, `smtp`                                              |
-| `base_url`            | string             | Upstream endpoint URL (optional — absent for `smtp`/`s3` and other non-HTTP channels)                     |
-| `api_key`             | string             | Upstream credential / svcpass disposition: `${ secrets.VAR }` (see [Secrets](#secrets-for-sensitive-information)) |
-| `routing_key`         | object             | Optional routing key for request matching                                                                 |
-| `rate_limit_refs`    | array of string    | Seller-scoped provider-account buckets to consume whenever this channel is selected. Names must come from provider `rate_limits[].name`. |
-| `ops_rate_limit_refs` | array of string   | Buckets to consume only during UnitySVC seller/ops testing when customer-secret refs are satisfied from seller secrets. |
-| `request_transformer` | object             | Request transformation config (keys: `proxy_rewrite`, `body_transformer`)                                 |
-| `response_rules`      | object             | Per-status-code triggers → `log` / `flag` / `notify`. See [Response rules](#response-rules).               |
-| `is_active`           | boolean            | Whether the channel is active (default: true)                                                             |
-| `is_primary`          | boolean            | Whether this is the primary channel (default: false)                                                     |
-| `sort_order`          | integer            | Channel selection order (default: 0)                                                                      |
-| `depends_on`          | array of object    | Other services this channel needs, approved by the customer at enrollment (see [Exports & Dependencies](exports-and-dependencies.md#dependencies)) |
-
-**Note:** The channel name is specified as the dict key, not as a field within the object.
-
-#### Provider-account rate-limit refs
-
-Provider-level `rate_limits` define **named seller-scoped buckets**. A channel
-opts into those buckets with `rate_limit_refs`:
-
-Provider file:
-
-```json
-{
-  "name": "fireworks",
-  "contact_email": "ops@example.com",
-  "homepage": "https://fireworks.ai",
-  "time_created": "2026-01-01T00:00:00Z",
-  "rate_limits": [
-    { "name": "fireworks_concurrency", "unit": "concurrent", "limit": 8 },
-    { "name": "fireworks_perminute", "unit": "requests", "limit": 60, "window": "minute" }
-  ]
-}
-```
-
-Offering file:
-
-```json
-{
-  "upstream_access_config": {
-    "managed": {
-      "access_method": "http",
-      "base_url": "https://api.fireworks.ai/inference/v1",
-      "api_key": "${ secrets.FIREWORKS_API_KEY }",
-      "rate_limit_refs": ["fireworks_concurrency", "fireworks_perminute"]
-    }
-  }
-}
-```
-
-Any selected channel referencing `fireworks_perminute` consumes the same seller
-bucket for that seller, even across services or provider records. Use the same
-name when multiple channels spend the same upstream account quota; use different
-names when different API keys/accounts have independent quotas.
-
-`ops_rate_limit_refs` is for seller testing of BYOK-shaped channels. During
-UnitySVC ops tests, the synthetic ops customer may not have customer-owned
-secrets, so the gateway can satisfy `${ customer_secrets.NAME }` from the
-seller's secret store. In that case the request is spending seller quota during
-testing, but production BYOK customers still spend their own provider quota.
-
-```json
-{
-  "upstream_access_config": {
-    "byok": {
-      "access_method": "http",
-      "base_url": "https://api.fireworks.ai/inference/v1",
-      "api_key": "${ customer_secrets.FIREWORKS_API_KEY }",
-      "ops_rate_limit_refs": ["fireworks_concurrency", "fireworks_perminute"]
-    }
-  }
-}
-```
-
-Do not put normal `rate_limit_refs` on a true production BYOK channel unless the
-channel should always consume seller-owned upstream quota.
-
-#### Response rules
-
-`response_rules` on an access interface (typically the offering's `upstream_access_config` channel) tells the gateway what to do based on the **upstream HTTP status code** of each proxied request: record it, flag it, or send a notification. It's a dict keyed by a rule id; each rule has a `priority`, a `status_code` condition, and one or more `actions`.
-
-```json
-"response_rules": {
-  "on_server_error": {
-    "name": "Upstream 5xx",
-    "priority": 100,
-    "conditions": { "status_code": { "op": "gte", "value": 500 } },
-    "actions": {
-      "log": true,
-      "flag": true,
-      "notify": {
-        "title": "Upstream error",
-        "message": "{{ method }} {{ path }} returned {{ status_code }}",
-        "type": "error"
-      }
-    }
-  }
-}
-```
-
-**Rule fields**
-
-| Field | Description |
-| --- | --- |
-| `name` | Human-readable label (shown on notifications). |
-| `priority` | Integer; higher is evaluated first. Among matching `notify` rules, the **highest-priority one** is the notification that fires. |
-| `enabled` | Optional boolean, default `true`. Set `false` to keep a rule without evaluating it. |
-| `conditions.status_code` | `{ "op": <operator>, "value": <v> }` — the only supported condition (see below). |
-| `conditions.match` | Optional, `"all"` (default) or `"any"` — how multiple conditions combine. Only `status_code` exists today, so this rarely matters. |
-| `actions.log` | `true` → the request appears in the customer's request logs. |
-| `actions.flag` | `true` → the request is flagged (surfaced in dashboards/alerts). |
-| `actions.notify` | Object → send a notification (see below). |
-
-**`status_code` operators:** `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `between` (`value` is `[low, high]`, inclusive), `in` / `not_in` (`value` is a list), `exists`, `not_exists`.
-
-**`notify` action**
-
-| Field | Description |
-| --- | --- |
-| `title` | Notification title. |
-| `message` | Notification body. |
-| `type` | Optional: `info` (default), `success`, `warning`, `error`. |
-| `category` | Optional: `service` (default), `wallet`, `security`, `billing`. |
-| `link` | Optional URL. |
-
-A notify rule delivers an **in-app notification** to the requesting user and, if that customer has configured a `/b/notification` broadcast group, fans out to its targets (email, Discord, …). Repeated identical alerts for the same `(user, service, rule, status)` are de-duplicated over a short window, so a flapping upstream won't spam.
-
-**Template variables** — `title`, `message`, and `link` support simple `{{ var }}` substitution over a fixed set:
-
-`{{ status_code }}`, `{{ method }}`, `{{ path }}`, `{{ response_time_ms }}`, `{{ rule_id }}`, `{{ rule_name }}`.
-
-> Only these variables, and only plain `{{ var }}` substitution — no conditionals or loops, and **no response-body fields**. Matching and templating are status-code based because at evaluation time the gateway only has a truncated/streamed view of the response body, so body-based rules were unreliable and have been removed.
-
-**Platform defaults.** Every service already has sensible defaults that your rules are **merged over** (a rule you define under the same key replaces the default):
-
-- **Production:** `log` + `flag` on `5xx`, on `429`, and `log` on `4xx`. No notifications by default.
-- **Dev/test** (an unpublished service tested via the ops account): additionally `log` everything and `notify` on errors, for visibility while you iterate.
-
-So you usually only add a rule when you want a **notification** on a specific status, or to change the default log/flag behavior.
+One named entry in an offering's `upstream_access_config`. Channels are typed:
+see [Upstream access channels](#upstream-access-config) for every key, the
+server types, templating, and the retired keys.
 
 #### Jinja2 Template Values
 
-String values in `user_access_interfaces` and `upstream_access_config` can use **Jinja2 template syntax** for dynamic rendering at enrollment time. Templates are rendered with an enrollment context that includes enrollment parameters, customer ID, and enrollment ID.
+Templates are rendered in two places, differently:
 
-> In an `upstream_access_config` channel the gateway renders these templates at request time across the whole channel, `request_transformer` included, and a channel with any `{{ … }}` left unresolved is unroutable. A transformer's own per-request template must therefore use `{* … *}` rather than `{{ … }}`. See [Templates inside transformers](tech-notes/user-access-interface-template.md#templates-inside-transformers).
+- **Channels** (`upstream_access_config`): any string may be a template, rendered **per request at gateway routing time** with the enrollment's `params`, `enrollment.code` / `enrollment.id`, and the listing's `routing_vars`. See [Templates in channel values](#templates-in-channel-values). No per-enrollment record is created.
+- **User access interfaces** (`user_access_interfaces`): only `{{ service_name }}`, rendered to `listing.name` when the platform stores the interface. An interface is canonical, so it never reads `params`, `routing_vars` or `enrollment` (except `{{ enrollment.code }}` as the whole SMTP username or S3 bucket segment). See [Canonical user access interfaces](#canonical-user-access-interfaces).
 
-**Template context variables:**
+Every enrollment has a unique, stable **4-character code** (Crockford base32, e.g. `CEFF`), available to channel templates as `{{ enrollment.code }}`. It is also the enrollment's address: **every enrollment is reachable at `/e/<CODE>`** on the API gateway, which the platform provides. `/e/` is reserved; do not use it in `base_url`.
 
-| Variable                 | Type   | Description                                          |
-| ------------------------ | ------ | --------------------------------------------------- |
-| `enrollment.code`        | string | The enrollment's unique **4-character** reference code |
-| `enrollment.id`          | string | Enrollment UUID                                     |
-| `enrollment.customer_id` | string | Customer UUID                                       |
-| `enrollment.parameters`  | dict   | All enrollment parameters                           |
+> **Migration:** `enrollment.code` replaces the old `enrollment_code()` function. Use `{{ enrollment.code }}` instead of `{{ enrollment_code(6) }}` (the code is always 4 characters).
 
-Every enrollment has a unique, stable **4-character code** (Crockford base32, e.g. `CEFF`), available as `{{ enrollment.code }}` and identical across `user_access_interfaces` and `upstream_access_config`. The same code is a built-in routing handle: **every enrollment is reachable at `/e/<code>`** regardless of its `base_url`. `/e/` is reserved — do not use it in `base_url`.
-
-> **Migration:** `enrollment.code` replaces the old `enrollment_code()` function. Use `{{ enrollment.code }}` instead of `{{ enrollment_code(6) }}` (the length argument is gone — the code is always 4 characters).
-
-**Behavior:**
-
-- `user_access_interfaces`: templates are rendered at **enrollment time**, creating enrollment-scoped `AccessInterface` records
-- `upstream_access_config`: templates are rendered at **gateway routing time**, using the enrollment context to resolve the upstream target per-request (no enrollment-scoped records are created)
-- Interfaces without template syntax are treated as static and shared across enrollments (listing-scoped)
-- On template rendering errors, the original string value is preserved
-
-**Example — user access interface (TOML):**
-
-```toml
-[user_access_interfaces.ntfy-gateway]
-access_method = "http"
-base_url = "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment.code }}"
-description = "Your ntfy notification endpoint"
-```
-
-**Example (JSON):**
-
-```json
-{
-    "user_access_interfaces": {
-        "ntfy-gateway": {
-            "access_method": "http",
-            "base_url": "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment.code }}",
-            "description": "Your ntfy notification endpoint"
-        }
-    }
-}
-```
-
-After enrollment, the `base_url` is rendered with the generated code (e.g., `${API_GATEWAY_BASE_URL}/ntfy/VTXBNM`), creating an enrollment-scoped access interface visible only to that enrollment.
-
-**Example — upstream access interface with template:**
-
-The corresponding upstream interface in the offering can reference the same `{{ enrollment.code }}` to route requests to the correct upstream target:
+**Example: a per-enrollment upstream.** The channel routes each enrollment to its own upstream topic; the customer calls `${API_GATEWAY_BASE_URL}/e/<CODE>`, and the listing declares only the canonical interface.
 
 ```json
 {
     "upstream_access_config": {
-        "ntfy-upstream": {
-            "access_method": "http",
+        "plus": {
             "base_url": "https://ntfy.svcpass.com/{{ enrollment.code }}",
-            "description": "Private ntfy instance"
+            "description": "Private ntfy topic per enrollment"
         }
     }
 }
 ```
-
-Unlike user interfaces, upstream templates are **not** materialized at enrollment time. They are rendered at gateway routing time — the gateway identifies the enrollment from the inbound request, then expands the upstream template with the enrollment's `enrollment.code` to determine the final upstream URL.
 
 #### Routing Key
 
@@ -1035,14 +1270,14 @@ The `routing_key` field enables fine-grained request routing when multiple servi
 {
     "user_access_interfaces": {
         "GPT-4 API": {
-            "base_url": "${API_GATEWAY_BASE_URL}/p/openai",
+            "base_url": "${API_GATEWAY_BASE_URL}/openai",
             "routing_key": { "model": "gpt-4" }
         }
     }
 }
 ```
 
-When a request arrives at `/p/openai` with `{"model": "gpt-4", "messages": [...]}`, the gateway extracts `{"model": "gpt-4"}` and routes to the matching listing.
+When a request arrives at `/openai` with `{"model": "gpt-4", "messages": [...]}`, the gateway extracts `{"model": "gpt-4"}` and routes to the matching listing.
 
 ### Pricing Object
 
@@ -1131,7 +1366,7 @@ One ceiling your provider grants **your account**, declared in
 
 | Field         | Type    | Description                                                                                   |
 | ------------- | ------- | --------------------------------------------------------------------------------------------- |
-| `name`        | string  | Seller-scoped bucket name referenced by channel `rate_limit_refs` / `ops_rate_limit_refs` |
+| `name`        | string  | Seller-scoped bucket name referenced by channel `rate_limit_refs`                         |
 | `limit`       | integer | Maximum allowed — in flight for `concurrent`, per window otherwise                            |
 | `unit`        | enum    | What is limited: `requests`, `tokens`, `input_tokens`, `output_tokens`, `bytes`, `concurrent` |
 | `window`      | enum    | Time window: `second`, `minute`, `hour`, `day`, `month`. Required for every unit **except** `concurrent`, which takes none. |
@@ -1222,17 +1457,17 @@ ${ secrets.MY_PROVIDER_KEY }
 
 The following fields require secrets references (plain text API keys are not allowed):
 
-- `upstream_access_config.<name>.api_key` - API keys for upstream provider access
-- `user_access_interfaces.<name>.api_key` - API keys for user-facing interfaces
-- `service_options.ops_testing_parameters.api_key` - Ops testing API key parameters
+- `upstream_access_config.<channel>.api_key` and each `servers[].api_key`: API keys for upstream provider access (or one of the [dispositions](#api_key-values))
+- `upstream_access_config.<channel>.params.testing_defaults.api_key`: a test value for an `api_key` parameter
+
+A user access interface carries no credentials.
 
 ### Example Usage
 
 **TOML:**
 
 ```toml
-[upstream_access_config."OpenAI API"]
-access_method = "http"
+[upstream_access_config.managed]
 base_url = "https://api.openai.com/v1"
 api_key = "${ secrets.OPENAI_API_KEY }"
 ```
@@ -1242,8 +1477,7 @@ api_key = "${ secrets.OPENAI_API_KEY }"
 ```json
 {
     "upstream_access_config": {
-        "OpenAI API": {
-            "access_method": "http",
+        "managed": {
             "base_url": "https://api.openai.com/v1",
             "api_key": "${ secrets.OPENAI_API_KEY }"
         }
@@ -1299,8 +1533,9 @@ The SDK preserves the original format when updating files.
 
 ## See Also
 
-- [Service Options](#service-options) - Configure subscription limits and backend behavior
-- [User Parameters](#user-parameters) - Define and collect subscription configuration
+- [Service Options](#service-options) - Configure enrollment limits and backend behavior
+- [Upstream access channels](#upstream-access-config) - Channels, servers, templates and retired keys
+- [Enrollment Parameters](#enrollment-parameters) - Parameters a channel asks the enrolling customer for
 - [Service Groups](#schema-service_group_v1) - Organize services with rule-based membership
 - [Pricing Specification](pricing.md) - Complete pricing documentation
 - [Author & Upload Specs](guides/author-specs.md) - File organization & upload

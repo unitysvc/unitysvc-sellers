@@ -91,11 +91,11 @@ Documents are defined in your listing files at the top level. The listing automa
 
 ```json
 {
-    "name": "listing-default",
+    "name": "openai/gpt-4",
     "user_access_interfaces": {
-        "API Interface": {
+        "canonical": {
             "access_method": "http",
-            "base_url": "https://api.example.com/v1"
+            "base_url": "${API_GATEWAY_BASE_URL}/{{ service_name }}"
         }
     },
     "documents": {

@@ -11,6 +11,7 @@ from unitysvc_core.models.base import DocumentCategoryEnum
 from unitysvc_sellers.example import (
     MissingSecretEnvVar,
     build_upstream_template_context,
+    channel_testing_defaults,
     discover_code_examples,
     document_applies_to_channel,
     execute_code_example,
@@ -501,3 +502,16 @@ def test_resolve_secret_ref_empty_env_preserved(monkeypatch: pytest.MonkeyPatch)
     """``??`` coalesces on null, not empty — an empty env value is kept."""
     monkeypatch.setenv("MY_TOKEN", "")
     assert resolve_secret_ref("${ secrets.MY_TOKEN ?? fallback }", "api_key") == ""
+
+
+def test_channel_testing_defaults() -> None:
+    """A channel's own params.testing_defaults render its {{ params.X }} in a local test."""
+    params = {"schema": {}, "testing_defaults": {"folder": "ops"}}
+    channel = {"base_url": "https://u/{{ params.folder }}", "params": params}
+    assert channel_testing_defaults(channel) == {"folder": "ops"}
+    assert (
+        expand_template_strings(channel, extra_context={"params": channel_testing_defaults(channel)})["base_url"]
+        == "https://u/ops"
+    )
+    for no_defaults in (None, {}, {"params": None}, {"params": {"schema": {}}}, {"params": {"testing_defaults": []}}):
+        assert channel_testing_defaults(no_defaults) == {}
