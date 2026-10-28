@@ -8,54 +8,26 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="AccountFileObject")
+T = TypeVar("T", bound="WebhookEventPublicResults")
 
 
 @_attrs_define
-class AccountFileObject:
-    """One object in an account-files listing (key relative to the scope root)."""
-
-    key: str
-    size: int
-    last_modified: str
+class WebhookEventPublicResults:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        key = self.key
-
-        size = self.size
-
-        last_modified = self.last_modified
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "key": key,
-                "size": size,
-                "last_modified": last_modified,
-            }
-        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        key = d.pop("key")
+        webhook_event_public_results = cls()
 
-        size = d.pop("size")
-
-        last_modified = d.pop("last_modified")
-
-        account_file_object = cls(
-            key=key,
-            size=size,
-            last_modified=last_modified,
-        )
-
-        account_file_object.additional_properties = d
-        return account_file_object
+        webhook_event_public_results.additional_properties = d
+        return webhook_event_public_results
 
     @property
     def additional_keys(self) -> list[str]:

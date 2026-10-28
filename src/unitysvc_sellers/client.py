@@ -2,7 +2,8 @@
 
 The :class:`Client` is a thin facade over the auto-generated low-level
 client in :mod:`unitysvc_sellers._generated`. It exposes resource
-namespaces (``services``, ``promotions``, ``groups``, ``documents``)
+namespaces (``services``, ``enrollments``, ``promotions``, ``groups``,
+``documents``, …)
 that map 1:1 to the seller-tagged backend routes.
 
 Example::
@@ -59,7 +60,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from .documents import Documents
-    from .files import Files
+    from .enrollments import Enrollments
     from .groups import Groups
     from .promotions import Promotions
     from .secrets import Secrets
@@ -121,7 +122,7 @@ class Client:
         # via the cached properties below.
         self._services: Services | None = None
         self._promotions: Promotions | None = None
-        self._files: Files | None = None
+        self._enrollments: Enrollments | None = None
         self._groups: Groups | None = None
         self._documents: Documents | None = None
         self._tasks: Tasks | None = None
@@ -175,12 +176,12 @@ class Client:
         return self._groups
 
     @property
-    def files(self) -> Files:
-        if self._files is None:
-            from .files import Files
+    def enrollments(self) -> Enrollments:
+        if self._enrollments is None:
+            from .enrollments import Enrollments
 
-            self._files = Files(self._client)
-        return self._files
+            self._enrollments = Enrollments(self._client, parent=self)
+        return self._enrollments
 
     @property
     def documents(self) -> Documents:

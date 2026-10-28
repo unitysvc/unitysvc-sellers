@@ -38,7 +38,7 @@ from .client import DEFAULT_SELLER_API_URL, ENV_SELLER_API_KEY, ENV_SELLER_API_U
 
 if TYPE_CHECKING:
     from .adocuments import AsyncDocuments
-    from .afiles import AsyncFiles
+    from .aenrollments import AsyncEnrollments
     from .agroups import AsyncGroups
     from .apromotions import AsyncPromotions
     from .asecrets import AsyncSecrets
@@ -91,7 +91,7 @@ class AsyncClient:
 
         self._services: AsyncServices | None = None
         self._promotions: AsyncPromotions | None = None
-        self._files: AsyncFiles | None = None
+        self._enrollments: AsyncEnrollments | None = None
         self._groups: AsyncGroups | None = None
         self._documents: AsyncDocuments | None = None
         self._tasks: AsyncTasks | None = None
@@ -140,12 +140,12 @@ class AsyncClient:
         return self._groups
 
     @property
-    def files(self) -> AsyncFiles:
-        if self._files is None:
-            from .afiles import AsyncFiles
+    def enrollments(self) -> AsyncEnrollments:
+        if self._enrollments is None:
+            from .aenrollments import AsyncEnrollments
 
-            self._files = AsyncFiles(self._client)
-        return self._files
+            self._enrollments = AsyncEnrollments(self._client, parent=self)
+        return self._enrollments
 
     @property
     def documents(self) -> AsyncDocuments:

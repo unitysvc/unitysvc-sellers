@@ -1,20 +1,20 @@
 from http import HTTPStatus
 from typing import Any, cast
 from urllib.parse import quote
+from uuid import UUID
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.account_file_upload_ticket import AccountFileUploadTicket
 from ...models.http_validation_error import HTTPValidationError
-from ...models.seller_file_upload_request import SellerFileUploadRequest
+from ...models.message import Message
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
+    endpoint_id: UUID,
     *,
-    body: SellerFileUploadRequest,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -26,13 +26,11 @@ def _get_kwargs(
         headers["x-role-id"] = x_role_id
 
     _kwargs: dict[str, Any] = {
-        "method": "post",
-        "url": "/files/upload",
+        "method": "delete",
+        "url": "/webhooks/{endpoint_id}".format(
+            endpoint_id=quote(str(endpoint_id), safe=""),
+        ),
     }
-
-    _kwargs["json"] = body.to_dict()
-
-    headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -40,9 +38,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> AccountFileUploadTicket | HTTPValidationError | None:
+) -> HTTPValidationError | Message | None:
     if response.status_code == 200:
-        response_200 = AccountFileUploadTicket.from_dict(response.json())
+        response_200 = Message.from_dict(response.json())
 
         return response_200
 
@@ -59,7 +57,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[AccountFileUploadTicket | HTTPValidationError]:
+) -> Response[HTTPValidationError | Message]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,38 +67,33 @@ def _build_response(
 
 
 def sync_detailed(
+    endpoint_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: SellerFileUploadRequest,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[AccountFileUploadTicket | HTTPValidationError]:
-    """Upload Seller File
+) -> Response[HTTPValidationError | Message]:
+    """Delete Webhook Endpoint
 
-     Mint a presigned-POST ticket for one direct-to-storage upload.
+     Delete an endpoint and its signing secrets.
 
-    Bytes never transit this API: POST the returned ``fields`` plus the
-    file (last, field name ``file``) as multipart form data to ``url``.
-    The key lands under the seller root at ``{path}{filename}`` (existing
-    objects with the same key are overwritten, like a home directory);
-    the size ceiling is enforced by the signed policy, not the declared
-    ``size``.
+    Its test events go with it; other events stay.
 
     Args:
+        endpoint_id (UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (SellerFileUploadRequest): Mint request for one direct-to-storage upload.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[AccountFileUploadTicket | HTTPValidationError]
+        Response[HTTPValidationError | Message]
     """
 
     kwargs = _get_kwargs(
-        body=body,
+        endpoint_id=endpoint_id,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -113,77 +106,67 @@ def sync_detailed(
 
 
 def sync(
+    endpoint_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: SellerFileUploadRequest,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> AccountFileUploadTicket | HTTPValidationError | None:
-    """Upload Seller File
+) -> HTTPValidationError | Message | None:
+    """Delete Webhook Endpoint
 
-     Mint a presigned-POST ticket for one direct-to-storage upload.
+     Delete an endpoint and its signing secrets.
 
-    Bytes never transit this API: POST the returned ``fields`` plus the
-    file (last, field name ``file``) as multipart form data to ``url``.
-    The key lands under the seller root at ``{path}{filename}`` (existing
-    objects with the same key are overwritten, like a home directory);
-    the size ceiling is enforced by the signed policy, not the declared
-    ``size``.
+    Its test events go with it; other events stay.
 
     Args:
+        endpoint_id (UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (SellerFileUploadRequest): Mint request for one direct-to-storage upload.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        AccountFileUploadTicket | HTTPValidationError
+        HTTPValidationError | Message
     """
 
     return sync_detailed(
+        endpoint_id=endpoint_id,
         client=client,
-        body=body,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
 
 
 async def asyncio_detailed(
+    endpoint_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: SellerFileUploadRequest,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[AccountFileUploadTicket | HTTPValidationError]:
-    """Upload Seller File
+) -> Response[HTTPValidationError | Message]:
+    """Delete Webhook Endpoint
 
-     Mint a presigned-POST ticket for one direct-to-storage upload.
+     Delete an endpoint and its signing secrets.
 
-    Bytes never transit this API: POST the returned ``fields`` plus the
-    file (last, field name ``file``) as multipart form data to ``url``.
-    The key lands under the seller root at ``{path}{filename}`` (existing
-    objects with the same key are overwritten, like a home directory);
-    the size ceiling is enforced by the signed policy, not the declared
-    ``size``.
+    Its test events go with it; other events stay.
 
     Args:
+        endpoint_id (UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (SellerFileUploadRequest): Mint request for one direct-to-storage upload.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[AccountFileUploadTicket | HTTPValidationError]
+        Response[HTTPValidationError | Message]
     """
 
     kwargs = _get_kwargs(
-        body=body,
+        endpoint_id=endpoint_id,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -194,40 +177,35 @@ async def asyncio_detailed(
 
 
 async def asyncio(
+    endpoint_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: SellerFileUploadRequest,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> AccountFileUploadTicket | HTTPValidationError | None:
-    """Upload Seller File
+) -> HTTPValidationError | Message | None:
+    """Delete Webhook Endpoint
 
-     Mint a presigned-POST ticket for one direct-to-storage upload.
+     Delete an endpoint and its signing secrets.
 
-    Bytes never transit this API: POST the returned ``fields`` plus the
-    file (last, field name ``file``) as multipart form data to ``url``.
-    The key lands under the seller root at ``{path}{filename}`` (existing
-    objects with the same key are overwritten, like a home directory);
-    the size ceiling is enforced by the signed policy, not the declared
-    ``size``.
+    Its test events go with it; other events stay.
 
     Args:
+        endpoint_id (UUID):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (SellerFileUploadRequest): Mint request for one direct-to-storage upload.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        AccountFileUploadTicket | HTTPValidationError
+        HTTPValidationError | Message
     """
 
     return (
         await asyncio_detailed(
+            endpoint_id=endpoint_id,
             client=client,
-            body=body,
             authorization=authorization,
             x_role_id=x_role_id,
         )

@@ -17,8 +17,12 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import httpx
 import mistune
 from mistune.renderers.markdown import MarkdownRenderer
+
+# Streaming budget for presigned uploads: generous read/write, normal connect.
+_STORAGE_TIMEOUT = httpx.Timeout(30.0, read=600.0, write=600.0)
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
@@ -134,10 +138,6 @@ def _process_markdown(client: AuthenticatedClient, md_path: Path) -> bytes:
         text = re.sub(rf'(\bsrc=["\'])({escaped})(["\'])', rf"\g<1>{new_url}\g<3>", text)
 
     return text.encode("utf-8")
-
-
-# Same streaming budget files.py uses: generous read/write, normal connect.
-from .files import _STORAGE_TIMEOUT  # noqa: E402
 
 
 def upload_file(

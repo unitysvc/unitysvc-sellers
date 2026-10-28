@@ -7,15 +7,17 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
-from ...models.seller_files_list_response import SellerFilesListResponse
+from ...models.webhook_event_status import WebhookEventStatus, check_webhook_event_status
+from ...models.webhook_events_public import WebhookEventsPublic
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     *,
-    path: str | Unset = "",
-    max_keys: int | Unset = 100,
-    continuation_token: None | str | Unset = UNSET,
+    type_: None | str | Unset = UNSET,
+    status: None | Unset | WebhookEventStatus = UNSET,
+    skip: int | Unset = 0,
+    limit: int | Unset = 50,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -28,22 +30,31 @@ def _get_kwargs(
 
     params: dict[str, Any] = {}
 
-    params["path"] = path
-
-    params["max_keys"] = max_keys
-
-    json_continuation_token: None | str | Unset
-    if isinstance(continuation_token, Unset):
-        json_continuation_token = UNSET
+    json_type_: None | str | Unset
+    if isinstance(type_, Unset):
+        json_type_ = UNSET
     else:
-        json_continuation_token = continuation_token
-    params["continuation_token"] = json_continuation_token
+        json_type_ = type_
+    params["type"] = json_type_
+
+    json_status: None | str | Unset
+    if isinstance(status, Unset):
+        json_status = UNSET
+    elif isinstance(status, str):
+        json_status = status
+    else:
+        json_status = status
+    params["status"] = json_status
+
+    params["skip"] = skip
+
+    params["limit"] = limit
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/files/list",
+        "url": "/webhook-events",
         "params": params,
     }
 
@@ -53,9 +64,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | SellerFilesListResponse | None:
+) -> HTTPValidationError | WebhookEventsPublic | None:
     if response.status_code == 200:
-        response_200 = SellerFilesListResponse.from_dict(response.json())
+        response_200 = WebhookEventsPublic.from_dict(response.json())
 
         return response_200
 
@@ -72,7 +83,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | SellerFilesListResponse]:
+) -> Response[HTTPValidationError | WebhookEventsPublic]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -84,24 +95,24 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-    path: str | Unset = "",
-    max_keys: int | Unset = 100,
-    continuation_token: None | str | Unset = UNSET,
+    type_: None | str | Unset = UNSET,
+    status: None | Unset | WebhookEventStatus = UNSET,
+    skip: int | Unset = 0,
+    limit: int | Unset = 50,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | SellerFilesListResponse]:
-    """List Seller Files
+) -> Response[HTTPValidationError | WebhookEventsPublic]:
+    """List Webhook Events
 
-     List the seller's account files (one folder level per call).
+     The current seller's events from the last 30 days, newest first.
 
-    Returned keys and prefixes are relative to the seller root. A missing
-    bucket reads as an empty listing (the bucket is provisioned out of
-    band).
+    After an outage, list ``status=failed`` or ``status=expired`` and resend.
 
     Args:
-        path (str | Unset): Folder path relative to the seller root Default: ''.
-        max_keys (int | Unset):  Default: 100.
-        continuation_token (None | str | Unset):
+        type_ (None | str | Unset):
+        status (None | Unset | WebhookEventStatus):
+        skip (int | Unset):  Default: 0.
+        limit (int | Unset):  Default: 50.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -110,13 +121,14 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | SellerFilesListResponse]
+        Response[HTTPValidationError | WebhookEventsPublic]
     """
 
     kwargs = _get_kwargs(
-        path=path,
-        max_keys=max_keys,
-        continuation_token=continuation_token,
+        type_=type_,
+        status=status,
+        skip=skip,
+        limit=limit,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -131,24 +143,24 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
-    path: str | Unset = "",
-    max_keys: int | Unset = 100,
-    continuation_token: None | str | Unset = UNSET,
+    type_: None | str | Unset = UNSET,
+    status: None | Unset | WebhookEventStatus = UNSET,
+    skip: int | Unset = 0,
+    limit: int | Unset = 50,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | SellerFilesListResponse | None:
-    """List Seller Files
+) -> HTTPValidationError | WebhookEventsPublic | None:
+    """List Webhook Events
 
-     List the seller's account files (one folder level per call).
+     The current seller's events from the last 30 days, newest first.
 
-    Returned keys and prefixes are relative to the seller root. A missing
-    bucket reads as an empty listing (the bucket is provisioned out of
-    band).
+    After an outage, list ``status=failed`` or ``status=expired`` and resend.
 
     Args:
-        path (str | Unset): Folder path relative to the seller root Default: ''.
-        max_keys (int | Unset):  Default: 100.
-        continuation_token (None | str | Unset):
+        type_ (None | str | Unset):
+        status (None | Unset | WebhookEventStatus):
+        skip (int | Unset):  Default: 0.
+        limit (int | Unset):  Default: 50.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -157,14 +169,15 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | SellerFilesListResponse
+        HTTPValidationError | WebhookEventsPublic
     """
 
     return sync_detailed(
         client=client,
-        path=path,
-        max_keys=max_keys,
-        continuation_token=continuation_token,
+        type_=type_,
+        status=status,
+        skip=skip,
+        limit=limit,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
@@ -173,24 +186,24 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-    path: str | Unset = "",
-    max_keys: int | Unset = 100,
-    continuation_token: None | str | Unset = UNSET,
+    type_: None | str | Unset = UNSET,
+    status: None | Unset | WebhookEventStatus = UNSET,
+    skip: int | Unset = 0,
+    limit: int | Unset = 50,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | SellerFilesListResponse]:
-    """List Seller Files
+) -> Response[HTTPValidationError | WebhookEventsPublic]:
+    """List Webhook Events
 
-     List the seller's account files (one folder level per call).
+     The current seller's events from the last 30 days, newest first.
 
-    Returned keys and prefixes are relative to the seller root. A missing
-    bucket reads as an empty listing (the bucket is provisioned out of
-    band).
+    After an outage, list ``status=failed`` or ``status=expired`` and resend.
 
     Args:
-        path (str | Unset): Folder path relative to the seller root Default: ''.
-        max_keys (int | Unset):  Default: 100.
-        continuation_token (None | str | Unset):
+        type_ (None | str | Unset):
+        status (None | Unset | WebhookEventStatus):
+        skip (int | Unset):  Default: 0.
+        limit (int | Unset):  Default: 50.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -199,13 +212,14 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | SellerFilesListResponse]
+        Response[HTTPValidationError | WebhookEventsPublic]
     """
 
     kwargs = _get_kwargs(
-        path=path,
-        max_keys=max_keys,
-        continuation_token=continuation_token,
+        type_=type_,
+        status=status,
+        skip=skip,
+        limit=limit,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -218,24 +232,24 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-    path: str | Unset = "",
-    max_keys: int | Unset = 100,
-    continuation_token: None | str | Unset = UNSET,
+    type_: None | str | Unset = UNSET,
+    status: None | Unset | WebhookEventStatus = UNSET,
+    skip: int | Unset = 0,
+    limit: int | Unset = 50,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | SellerFilesListResponse | None:
-    """List Seller Files
+) -> HTTPValidationError | WebhookEventsPublic | None:
+    """List Webhook Events
 
-     List the seller's account files (one folder level per call).
+     The current seller's events from the last 30 days, newest first.
 
-    Returned keys and prefixes are relative to the seller root. A missing
-    bucket reads as an empty listing (the bucket is provisioned out of
-    band).
+    After an outage, list ``status=failed`` or ``status=expired`` and resend.
 
     Args:
-        path (str | Unset): Folder path relative to the seller root Default: ''.
-        max_keys (int | Unset):  Default: 100.
-        continuation_token (None | str | Unset):
+        type_ (None | str | Unset):
+        status (None | Unset | WebhookEventStatus):
+        skip (int | Unset):  Default: 0.
+        limit (int | Unset):  Default: 50.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -244,15 +258,16 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | SellerFilesListResponse
+        HTTPValidationError | WebhookEventsPublic
     """
 
     return (
         await asyncio_detailed(
             client=client,
-            path=path,
-            max_keys=max_keys,
-            continuation_token=continuation_token,
+            type_=type_,
+            status=status,
+            skip=skip,
+            limit=limit,
             authorization=authorization,
             x_role_id=x_role_id,
         )

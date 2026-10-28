@@ -8,74 +8,64 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="SellerFileUploadRequest")
+T = TypeVar("T", bound="WebhookEndpointCreate")
 
 
 @_attrs_define
-class SellerFileUploadRequest:
-    """Mint request for one direct-to-storage upload."""
-
-    filename: str
-    size: int
-    content_type: None | str | Unset = UNSET
-    path: str | Unset = ""
+class WebhookEndpointCreate:
+    url: str
+    enabled_events: list[str]
+    description: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        filename = self.filename
+        url = self.url
 
-        size = self.size
+        enabled_events = self.enabled_events
 
-        content_type: None | str | Unset
-        if isinstance(self.content_type, Unset):
-            content_type = UNSET
+        description: None | str | Unset
+        if isinstance(self.description, Unset):
+            description = UNSET
         else:
-            content_type = self.content_type
-
-        path = self.path
+            description = self.description
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "filename": filename,
-                "size": size,
+                "url": url,
+                "enabled_events": enabled_events,
             }
         )
-        if content_type is not UNSET:
-            field_dict["content_type"] = content_type
-        if path is not UNSET:
-            field_dict["path"] = path
+        if description is not UNSET:
+            field_dict["description"] = description
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        filename = d.pop("filename")
+        url = d.pop("url")
 
-        size = d.pop("size")
+        enabled_events = cast(list[str], d.pop("enabled_events"))
 
-        def _parse_content_type(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             return cast(None | str | Unset, data)
 
-        content_type = _parse_content_type(d.pop("content_type", UNSET))
+        description = _parse_description(d.pop("description", UNSET))
 
-        path = d.pop("path", UNSET)
-
-        seller_file_upload_request = cls(
-            filename=filename,
-            size=size,
-            content_type=content_type,
-            path=path,
+        webhook_endpoint_create = cls(
+            url=url,
+            enabled_events=enabled_events,
+            description=description,
         )
 
-        seller_file_upload_request.additional_properties = d
-        return seller_file_upload_request
+        webhook_endpoint_create.additional_properties = d
+        return webhook_endpoint_create
 
     @property
     def additional_keys(self) -> list[str]:

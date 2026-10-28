@@ -14,6 +14,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
     from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
+    from ..models.service_offering_data_exports_type_0 import ServiceOfferingDataExportsType0
     from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
     from ..models.service_offering_data_upstream_access_config_type_0 import (
         ServiceOfferingDataUpstreamAccessConfigType0,
@@ -77,6 +78,12 @@ class ServiceOfferingData:
     """ Payout pricing: How to calculate seller payout """
     upstream_access_config: None | ServiceOfferingDataUpstreamAccessConfigType0 | Unset = UNSET
     """ Upstream access channels, keyed by channel name """
+    exports: None | ServiceOfferingDataExportsType0 | Unset = UNSET
+    """ How other services may use this one (what a customer access request can ask for): {"permissions": {<name>:
+    ["<METHOD> /<path>", ...]}, "options": <JSON Schema object of the options a grant may set>, "options_ui_schema":
+    <rjsf uiSchema>}. Without permissions, the service exports one, invoke, on every route; with permissions,
+    exactly those (invoke only if declared), so a data service declaring read/write is never reached by invoke or
+    service:*. Omitted: invoke only, no options. See unitysvc_core.grants. """
     documents: None | ServiceOfferingDataDocumentsType0 | Unset = UNSET
     """ Documents associated with the service, keyed by title """
     currency: CurrencyEnum | Unset = UNSET
@@ -88,6 +95,7 @@ class ServiceOfferingData:
     def to_dict(self) -> dict[str, Any]:
         from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
         from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
+        from ..models.service_offering_data_exports_type_0 import ServiceOfferingDataExportsType0
         from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
         from ..models.service_offering_data_upstream_access_config_type_0 import (
             ServiceOfferingDataUpstreamAccessConfigType0,
@@ -141,6 +149,14 @@ class ServiceOfferingData:
         else:
             upstream_access_config = self.upstream_access_config
 
+        exports: dict[str, Any] | None | Unset
+        if isinstance(self.exports, Unset):
+            exports = UNSET
+        elif isinstance(self.exports, ServiceOfferingDataExportsType0):
+            exports = self.exports.to_dict()
+        else:
+            exports = self.exports
+
         documents: dict[str, Any] | None | Unset
         if isinstance(self.documents, Unset):
             documents = UNSET
@@ -185,6 +201,8 @@ class ServiceOfferingData:
             field_dict["payout_price"] = payout_price
         if upstream_access_config is not UNSET:
             field_dict["upstream_access_config"] = upstream_access_config
+        if exports is not UNSET:
+            field_dict["exports"] = exports
         if documents is not UNSET:
             field_dict["documents"] = documents
         if currency is not UNSET:
@@ -198,6 +216,7 @@ class ServiceOfferingData:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
         from ..models.service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
+        from ..models.service_offering_data_exports_type_0 import ServiceOfferingDataExportsType0
         from ..models.service_offering_data_payout_price_type_0 import ServiceOfferingDataPayoutPriceType0
         from ..models.service_offering_data_upstream_access_config_type_0 import (
             ServiceOfferingDataUpstreamAccessConfigType0,
@@ -286,6 +305,23 @@ class ServiceOfferingData:
 
         upstream_access_config = _parse_upstream_access_config(d.pop("upstream_access_config", UNSET))
 
+        def _parse_exports(data: object) -> None | ServiceOfferingDataExportsType0 | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                exports_type_0 = ServiceOfferingDataExportsType0.from_dict(data)
+
+                return exports_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | ServiceOfferingDataExportsType0 | Unset, data)
+
+        exports = _parse_exports(d.pop("exports", UNSET))
+
         def _parse_documents(data: object) -> None | ServiceOfferingDataDocumentsType0 | Unset:
             if data is None:
                 return data
@@ -338,6 +374,7 @@ class ServiceOfferingData:
             details=details,
             payout_price=payout_price,
             upstream_access_config=upstream_access_config,
+            exports=exports,
             documents=documents,
             currency=currency,
             tags=tags,
