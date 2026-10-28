@@ -31,6 +31,7 @@ Key differences from the legacy ``data/`` layout, all enforced here:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import typer
 import unitysvc_core
@@ -48,13 +49,6 @@ from .utils import PLATFORM_SERVICES_DIRNAME, is_hidden_path
 
 app = typer.Typer(help="Local operations on the flat specs/ layout")
 console = Console()
-
-# Filename stem → core schema name. The filename is the discriminator now.
-FILENAME_TO_SCHEMA: dict[str, str] = {
-    "provider": "provider_v1",
-    "offering": "offering_v1",
-    "listing": "listing_v1",
-}
 
 # Spec files that must exist in every service folder (service.json is optional).
 REQUIRED_KINDS: tuple[str, ...] = ("provider", "offering", "listing")
@@ -129,10 +123,13 @@ def validate_service_folder(validator: DataValidator, root: Path, folder: Path) 
         else:
             kind_files[kind] = single  # type: ignore[assignment]
 
-    # Per-file validation, keyed by filename rather than a ``schema`` field.
+    # Load each spec file once. Core validates the three together, each one
+    # the others' context (the listing's routing_vars, the offering's channel
+    # parameters, the provider's name), without reading them again.
+    loaded: dict[str, dict[str, Any]] = {}
     for kind, path in kind_files.items():
         data, load_errors = validator.load_data_file(path)
-        if load_errors or data is None:
+        if load_errors or not isinstance(data, dict):
             errors.extend(f"{path.relative_to(root)}: {e}" for e in (load_errors or ["failed to load"]))
             continue
         if "schema" in data:
@@ -140,32 +137,35 @@ def validate_service_folder(validator: DataValidator, root: Path, folder: Path) 
                 f"{path.relative_to(root)}: remove the 'schema' field — the filename is the "
                 f"discriminator in the specs/ layout"
             )
-        try:
-            ok, file_errors = validator.validate_data_file(
-                path, schema_name=FILENAME_TO_SCHEMA[kind], check_name_consistency=False
-            )
-        except Exception as exc:  # noqa: BLE001 — surface, don't crash the run
-            ok, file_errors = False, [f"validation raised {type(exc).__name__}: {exc}"]
-        if not ok:
-            errors.extend(f"{path.relative_to(root)}: {e}" for e in file_errors)
+        loaded[kind] = data
+    try:
+        results = validator.validate_service(
+            provider=loaded.get("provider"),
+            offering=loaded.get("offering"),
+            listing=loaded.get("listing"),
+            service_dir=folder,
+        )
+    except Exception as exc:  # noqa: BLE001 — surface, don't crash the run
+        results = {kind: [f"validation raised {type(exc).__name__}: {exc}"] for kind in loaded}
+    for kind, file_errors in results.items():
+        errors.extend(f"{kind_files[kind].relative_to(root)}: {e}" for e in file_errors)
 
     # The folder path under specs/ must equal the listing (service) name.
-    if "listing" in kind_files:
-        data, load_errors = validator.load_data_file(kind_files["listing"])
-        if not load_errors and isinstance(data, dict):
-            # A channel-keyed price's headline is the only string the catalog
-            # row renders, so it has to describe every channel — see
-            # price_headline for the failure this caught in production.
-            errors.extend(
-                f"{kind_files['listing'].relative_to(root)}: {e}"
-                for e in check_channel_price_headline(data.get("list_price"))
+    listing = loaded.get("listing")
+    if listing is not None:
+        # A channel-keyed price's headline is the only string the catalog
+        # row renders, so it has to describe every channel — see
+        # price_headline for the failure this caught in production.
+        errors.extend(
+            f"{kind_files['listing'].relative_to(root)}: {e}"
+            for e in check_channel_price_headline(listing.get("list_price"))
+        )
+        listing_name = listing.get("name")
+        if listing_name != rel_folder:
+            errors.append(
+                f"{rel_folder}: listing name {listing_name!r} does not match the folder path "
+                f"{rel_folder!r} — the folder under specs/ must be the service name"
             )
-            listing_name = data.get("name")
-            if listing_name != rel_folder:
-                errors.append(
-                    f"{rel_folder}: listing name {listing_name!r} does not match the folder path "
-                    f"{rel_folder!r} — the folder under specs/ must be the service name"
-                )
 
     # Optional service.json: if present, must be a JSON object.
     service_file = folder / "service.json"

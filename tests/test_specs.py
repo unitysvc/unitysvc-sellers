@@ -236,3 +236,47 @@ def test_has_service_id_flag(specs_repo: Path) -> None:
     (folder / "service.json").write_text('{"service_id": "abc-123"}\n')
     result = _run(specs_repo, "--has-service-id")
     assert result.exit_code == 0, result.output
+
+
+def _edit(path: Path, **changes: object) -> None:
+    data = json.loads(path.read_text())
+    data.update(changes)
+    path.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def test_channel_parameters_validate_with_their_offering(specs_repo: Path) -> None:
+    """The offering and listing are validated together: a channel's required
+    parameter read only by a listing document counts as used."""
+    folder = specs_repo / "specs" / "provider2" / "service2"
+    offering = json.loads((folder / "offering.json").read_text())
+    channel = next(iter(offering["upstream_access_config"].values()))
+    channel["params"] = {"schema": {"required": ["region"]}, "testing_defaults": {"region": "us"}}
+    _edit(folder / "offering.json", upstream_access_config=offering["upstream_access_config"])
+
+    result = _run(specs_repo)
+    assert result.exit_code == 1
+    assert "required parameter(s) region" in _norm(result.output)
+
+    # A template document reading the parameter is a consumer: its source is
+    # read from the service folder, as the SDK uploads it.
+    (folder / "region.sh.j2").write_text('echo "{{ params.region }}"\n')
+    listing = json.loads((folder / "listing.json").read_text())
+    listing["documents"]["Region example"] = {
+        "category": "code_example",
+        "description": "Prints the region",
+        "file_path": "region.sh.j2",
+        "mime_type": "bash",
+    }
+    (folder / "listing.json").write_text(json.dumps(listing, indent=2) + "\n")
+    result = _run(specs_repo)
+    assert result.exit_code == 0, _norm(result.output)
+
+
+def test_listing_parameters_are_refused(specs_repo: Path) -> None:
+    folder = specs_repo / "specs" / "provider2" / "service2"
+    _edit(folder / "listing.json", user_parameters_schema={"required": ["region"]})
+
+    result = _run(specs_repo)
+    assert result.exit_code == 1
+    assert "provider2/service2/listing.json:" in _norm(result.output)
+    assert "user_parameters_schema" in _norm(result.output)

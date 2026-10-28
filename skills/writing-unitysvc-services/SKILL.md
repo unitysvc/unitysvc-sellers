@@ -19,6 +19,8 @@ source ~/.zshrc
 
 `~/.zshrc` defines `UNITYSVC_SELLER_API_KEY`, `UNITYSVC_SELLER_API_URL` (= `https://seller.staging.unitysvc.com/v1/`), and `UNITYSVC_API_KEY` (the same svcpass key used to authenticate as a customer to the gateway). If a command returns 401 or "Missing svcpass API key", you forgot to source.
 
+**Spec version.** This skill describes the spec of `unitysvc-core` 0.3.0, required by the unitysvc-sellers release after 0.3.14 (`unitysvc-core>=0.3.0`). Its validator refuses specs written for older releases: enrollment parameters on the listing (`user_parameters_schema`, `user_parameters_ui_schema`, `service_options.ops_testing_parameters`), retired channel keys (`raw`, `is_primary`, `rate_limits`, `storage_type`, `timeout_ms`, `transport`, `response_rules`, `grants`, …), unknown channel keys, channel names with spaces or `@`, and non-canonical user access interfaces. Demo and production repos may still carry the old shapes until they are migrated; when copying from them, translate per **§11** and `docs/file-schemas.md` § *Migrating to unitysvc-core 0.3.0*.
+
 ## 1. Find the right pattern first — don't write blind
 
 The single highest-leverage move when starting a new service is to **find an existing service that already works and copy its shape**. The canonical catalog of patterns lives in [`unitysvc-services-demo`](https://github.com/unitysvc/unitysvc-services-demo). Each subdirectory under `specs/unitysvc-demo/` is a minimal working example of one delivery pattern. The table in `specs/README.md` maps patterns to use cases:
@@ -29,17 +31,17 @@ The single highest-leverage move when starting a new service is to **find an exi
 | `llm` | OpenAI-compatible LLM with token pricing |
 | `byok` | customer brings their own API key |
 | `byoe` | customer brings both endpoint URL and key |
-| `params` | per-enrollment routing key from a user parameter |
+| `params` | per-enrollment upstream value from an enrollment parameter (declared in the channel's `params`) |
 | `byoe-params` | parameterized customer-secret *names* |
 | `multi-channel` | one offering with several upstream channels (e.g. free `byok` + paid `plus`), channel-keyed pricing |
-| `enrollment` | per-enrollment URL fragment via the intrinsic `{{ enrollment.code }}` |
+| `enrollment` | per-enrollment upstream URL fragment via the intrinsic `{{ enrollment.code }}` in the channel |
 | `recurrent` | scheduled / recurrence service |
 | `routing_vars` | seller knobs editable after activation |
 | `s3` / `s3-byoe` / `s3-byoe-params` | S3 gateway variants |
 | `smtp` / `smtp-byoe` / `smtp-byoe-params` | SMTP gateway variants |
 | `transformer` | gateway body-transform / forwarder pattern |
 
-**Concrete instruction:** before drafting any file, `ls ~/unitysvc/unitysvc-services-demo/specs/unitysvc-demo/` and `cat` the closest match's `offering.json` + `listing.json`. Copy fields you don't yet understand verbatim; you can simplify later. The schemas allow extra fields and reject missing required ones — having too much from a working example is safer than too little from your imagination.
+**Concrete instruction:** before drafting any file, `ls ~/unitysvc/unitysvc-services-demo/specs/unitysvc-demo/` and `cat` the closest match's `offering.json` + `listing.json`. Copy fields you don't yet understand verbatim; you can simplify later. The schemas reject missing required fields — having too much from a working example is safer than too little from your imagination. (Exception: channels are typed since `unitysvc-core` 0.3.0 and refuse unknown or retired keys, so `specs validate` tells you which copied channel keys to drop or move.)
 
 When the closest demo is itself not enough — e.g. provider-specific routing oddities — look at a real production repo that ships the same shape:
 - LLM with BYOK: `~/unitysvc/unitysvc-services-anthropic` / `…-cohere` / `…-deepseek`
@@ -170,18 +172,29 @@ A bare name (no `/`) is a top-level handle and currently accepted without provid
 
 ### `user_access_interfaces.<iface>.base_url` grammar
 
-The validator only constrains the path **after** `${API_GATEWAY_BASE_URL}/`. The portion before the first dynamic marker (`{{`, `{%`, `${`) is treated as the static identifier prefix and validated; everything from the marker on is per-enrollment substitution.
+A user access interface is the service's **canonical address**, the same for every caller (`validate_listing_interfaces_are_canonical`, unitysvc-core 0.3.0). After `{{ service_name }}` is rendered (it is the **only** template allowed), `base_url` must be one of the four gateways, optionally followed by `/` and a path:
+
+- `${API_GATEWAY_BASE_URL}[/path]` — HTTP. A single-letter first segment is reserved (only `/a/<alias>`; `/p/<route>` is for platform services only).
+- `${S3_GATEWAY_BASE_URL}/<bucket-alias>` — S3 (alias = valid S3 bucket name).
+- `${SMTP_GATEWAY_BASE_URL}` exactly, with a non-empty `routing_key.username`.
+- `${MCP_GATEWAY_BASE_URL}` exactly, with `access_method: "mcp"` and `routing_key.namespace`.
+
+No external URL, other `${...}` variable, secret reference, `{{ routing_vars.X }}`, `{{ params.X }}` or `{{ enrollment.* }}`. An enrollment is reached at `/e/<CODE>`, which the platform provides — never declare it. The one exception: `{{ enrollment.code }}` as the **whole** SMTP `routing_key.username` or the **whole** S3 bucket segment.
 
 ```
-✓ ${API_GATEWAY_BASE_URL}/{{ service_name }}                            (most common — runtime substitution)
-✓ ${API_GATEWAY_BASE_URL}/{{ service_name }}/{{ enrollment.code }}
+✓ ${API_GATEWAY_BASE_URL}/{{ service_name }}                            (the canonical form)
 ✓ ${API_GATEWAY_BASE_URL}/a/cohere-latest                               (movable-pointer convention; see below)
 ✓ ${API_GATEWAY_BASE_URL}                                               (gateway root; platform-native interfaces)
-✗ ${API_GATEWAY_BASE_URL}/cohere                                        (literal provider segment, no {{ service_name }})
-✗ ${API_GATEWAY_BASE_URL}/cohere/command-r                              (literal <provider>/<service>)
+✓ ${API_GATEWAY_BASE_URL}/cohere                                        (literal multi-char segment: accepted, but prefer {{ service_name }})
+✓ ${SMTP_GATEWAY_BASE_URL}  + routing_key.username = "{{ enrollment.code }}"
+✓ ${S3_GATEWAY_BASE_URL}/{{ enrollment.code }}
+✗ ${API_GATEWAY_BASE_URL}/{{ service_name }}/{{ enrollment.code }}      (per-enrollment — use /e/<CODE>)
+✗ ${API_GATEWAY_BASE_URL}/{{ params.endpoint }}                          (per-enrollment)
+✗ ${API_GATEWAY_BASE_URL}/p/openai                                      (/p is for platform services)
+✗ https://api.example.com/v1                                             (not a gateway)
 ```
 
-The `{{ service_name }}` form is preferred because the gateway resolves it from `listing.name` at request time — data files stay deployment-agnostic. Literal paths are rejected by the post-PR-1196 validator.
+The `{{ service_name }}` form is preferred because the platform renders it from `listing.name` when it stores the interface — data files stay deployment-agnostic.
 
 ### Reserved single-letter prefixes
 
@@ -197,7 +210,7 @@ Single-character first segments are reserved for the gateway's wrapper / primiti
 | `g/` | Groups |
 | `l/` | Logging |
 | `m/` | Memoize |
-| `p/` | (legacy — superseded; bare provider path is the modern form) |
+| `p/` | Platform services only (`/p/<route>`; see the `writing-unitysvc-platform-services` skill) |
 | `r/` | Recurrent |
 | `t/` | Tee (fire-and-forget mirror) |
 
@@ -304,7 +317,7 @@ usvc seller services run-tests --id 6c55d6d9 --force
 
 ### Why the pipeline order matters
 
-If step 3 (`specs run-tests`) passes but step 5 (`services run-tests`) fails, the upstream is healthy but the *gateway routing* or *svcpass attribution* is broken — that's almost always a wrong `user_access_interfaces.<iface>.base_url` (must use `{{ service_name }}`, see `unitysvc-sellers/docs/naming-conventions.md`) or a misconfigured `api_key` disposition (`unitysvc/unitysvc#1198` — unset/empty/`__strip__`/`__forward__`/literal).
+If step 3 (`specs run-tests`) passes but step 5 (`services run-tests`) fails, the upstream is healthy but the *gateway routing* or *svcpass attribution* is broken — that's almost always a wrong `user_access_interfaces.<iface>.base_url` (must use `{{ service_name }}`, see `unitysvc-sellers/docs/naming-conventions.md`) or a misconfigured `api_key` disposition (`unitysvc/unitysvc#1198` — `""`/`__strip__`/`__forward__`/`__sigv4__` or a secret reference; see `docs/file-schemas.md` § *api_key values*).
 
 To upload a single service in isolation (faster than uploading the whole repo):
 
@@ -403,7 +416,7 @@ When the user says "add a service to repo X":
 1. **Identify the closest pattern** — `ls ~/unitysvc/unitysvc-services-demo/specs/unitysvc-demo/` and pick one. Copy `offering.json`, `listing.json` into a `specs/<provider>/<name>/` folder in the target repo as a starting point.
 2. **Decide concrete vs. param-file** — one service: hand-write the `specs/<provider>/<name>/` folder. A collection of similar services: set up a `templates/<name>/` + param files first (§6).
 3. **Fill in the offering** — name, service_type, capabilities, upstream_access_config, payout_price. Cross-check against `unitysvc-sellers/docs/file-schemas.md` for field semantics. **`capabilities` entries are either an official id or `name | explanation`** — see [file-schemas.md § Capabilities](https://unitysvc-sellers.readthedocs.io/en/latest/file-schemas/#capabilities). A bare entry must exactly match an official id (`chat`, `embed`, `http-relay`, `deliver-message`, …); any other bare string (`llm`, `vision`, `http_relay`) is rejected at upload. When nothing official fits, write `name | explanation`, where the explanation says what the caller sends, gets back, when, and what it does not do. A chat model that accepts images declares both `chat` and `image-text-to-text`. Attributes that merely *qualify* a capability — `tools`, `thinking`, context size — go in `details`, never in `capabilities`. **For secret references:** put sensitive values behind `${ customer_secrets.<NAME> }` with a service-specific prefix (`SMTP_RELAY_HOST`, not bare `SMTP_HOST`); put operational config in direct params or as literal fields with `?? default` fallbacks. See **§11**.
-4. **Fill in the listing** — name (per `naming-conventions.md`), list_price (per `pricing.md`), user_access_interfaces base_url (`${API_GATEWAY_BASE_URL}/{{ service_name }}` for normal services; bare top-level for platform-internal), documents block. **For `-plus` services**: `ops_testing_parameters` holds literal values (host, port, etc.); only `*_secret` keys name a seller secret. `user_parameters_schema` `*_secret` defaults point at the non-plus literal name. See **§11**.
+4. **Fill in the listing** — name (per `naming-conventions.md`), list_price (per `pricing.md`), one canonical user_access_interfaces entry (`${API_GATEWAY_BASE_URL}/{{ service_name }}` for normal services; bare top-level for platform-internal; see §3), documents block. The listing declares **no** enrollment parameters. **For `-plus` services** the parameters go on the `plus` channel in the offering: `params.schema` (`*_secret` defaults point at the non-plus literal name) and `params.testing_defaults` (literal values; only `*_secret` keys name a seller secret). See **§11**.
 5. **Add the connectivity test** — preset if a stock one fits; local Jinja file otherwise. Make sure it handles both `localtesting` modes if it isn't purely env-var-driven.
 6. **Validate, format** — fix anything `usvc seller specs validate` complains about; `usvc seller specs format` to canonicalize.
 7. **Local run-tests** — `usvc seller specs run-tests <name>` against the live upstream.
@@ -415,7 +428,10 @@ When the user says "add a service to repo X":
 
 | Symptom | Likely cause | Where to look |
 |---|---|---|
-| `validate` fails with "base_url must route by service identifier" | Literal `<provider>/<service>` path in user_access_interfaces | `unitysvc-sellers/docs/naming-conventions.md` — switch to `${API_GATEWAY_BASE_URL}/{{ service_name }}` |
+| `validate`: "a user access interface is the service's canonical address and may not read enrollment.* or params.*" / "is not a gateway address" / "the only template a user access interface may use is {{ service_name }}" | Interface reads a per-enrollment value, points at an external URL, or uses another template | `docs/file-schemas.md` § *Canonical user access interfaces* — use `${API_GATEWAY_BASE_URL}/{{ service_name }}`; per-enrollment values go in the channel, the enrollment is reached at `/e/<CODE>` |
+| `validate`: "'<key>' is not supported: …" on a channel | A retired channel key (`raw`, `is_primary`, `rate_limits`, `storage_type`, `timeout_ms`, `transport`, `response_rules`, `grants`, `user_parameters_schema`, …) | Do what the message says; `docs/file-schemas.md` § *Retired and unknown channel keys* |
+| `validate`: "Enrollment parameters are declared on the listing (user_parameters_schema)…" or "service_options.ops_testing_parameters is not supported" | Pre-0.3.0 listing-level parameters | Move them to the reading channel's `params.schema` / `params.ui_schema` / `params.testing_defaults` (§11) |
+| `validate`: "reads enrollment parameters but declares no params" / "required parameter(s) X need a value in …params.testing_defaults" / "are used by neither the channel nor document content" | Channel `params` rules | Declare `params` on every channel that reads `{{ params.* }}`; give each required param a testing default; read each required param in that channel or in a document, or drop it from `required` |
 | `validate` fails with "listing name … first segment must be the provider slug" | Namespaced name doesn't match provider | Rename to `<provider-slug>/<bare>` or use a bare top-level name |
 | `specs run-tests` succeeds, `services run-tests` 404s | Service not yet uploaded, or uploaded under a different name | Re-run `usvc seller specs upload <name>` and check `usvc seller services list <name>` |
 | Gateway returns 401 with "Missing svcpass API key" | Customer not authenticated; case-sensitive `Bearer` required | `Authorization: Bearer <svcpass_…>` (capital B) or `x-api-key: …` |
@@ -425,22 +441,22 @@ When the user says "add a service to repo X":
 | `specs upload` fails with `[Errno 21] Is a directory: '.../<other-service>'` | A description / tutorial markdown contains a relative link to a sibling **directory** like `[label](../smtp-to-msg/)`. The uploader's markdown scanner picks up local refs as S3 assets and `open()` blows up on the directory | Replace directory-target links with prose, or point them at a specific file inside the sibling (e.g. `../smtp-to-msg/msg-description.md`). |
 | `validate` fails: "listing name 'X' does not match the folder path 'P'" | `listing.name` isn't `<provider>/<bare>` matching the folder under `specs/` | Set `listing.name` = the folder path; keep `offering.name` bare (§2) |
 
-## 11. Secrets, parameters, and ops_testing wiring
+## 11. Secrets, parameters, and testing wiring
 
 Service definitions reference customer-supplied values through one of three forms — knowing which is which avoids the two most common upload-time errors.
 
 ### Upstream access channels (the `upstream_access_config` entries)
 
-Each named entry in `upstream_access_config` is an **upstream access channel** — one complete way for the gateway to reach the upstream (`access_method` + `base_url` + `api_key` + `routing_key` + `rate_limits`). Names are free-form (`managed`, `byok`, `plus`). Its **`channel_type`** is *derived from the channel's own config*, never hand-labelled:
+Each named entry in `upstream_access_config` is an **upstream access channel** — one complete way for the gateway to reach the upstream. Channels are **typed** (unitysvc-core 0.3.0): `access_method` (`http` default, `smtp`, `s3`, `mcp`) selects the server type; the channel holds `type`, `description`, `is_active`, `sort_order` (rank, lowest first), `request_formats`, `applicable_interfaces`, `rate_limit_refs`, `customer_access_requests`, `params` and `servers`; the connection (`base_url`, `api_key`, `routing_key`, … or `host`/`port`, `bucket`/`region`, …) lives in `servers`, or directly on the channel as the one-server shorthand. Unknown keys are refused; retired keys (`raw`, `is_primary`, `rate_limits`, `storage_type`, `timeout_ms`, `transport`, `response_rules`, `grants`, `customer_secrets_required/optional`, the parameter trio) are refused with a hint. Names are identifiers — letters, digits, `.`, `-`, `_`, `/`-separated segments, no spaces, no `@` (`managed`, `byok`, `plus`). Full reference: `docs/file-schemas.md` § *Upstream access channels*. Its **`channel_type`** is *derived from the channel's own config*, never hand-labelled:
 
 - `managed` — seller's key, `${ secrets.* }`
 - `byok` — customer's key `${ customer_secrets.* }`, static endpoint
 - `byoe` — customer's key **and** a customer-templated `base_url`
-- `enrollable` (the **`plus`** channel) — references `{{ params.* }}` / `{{ enrollment.* }}` (precedence over byok/byoe); the customer binds it per enrollment and reaches it at `/e/<code>`
+- `enrollable` (the **`plus`** channel) — references `{{ params.* }}` / `{{ enrollment.* }}` (precedence over byok/byoe) and declares those params in its own `params`; the customer binds it per enrollment and reaches it at `/e/<code>`
 
 One offering may expose several channels; the gateway picks one per request (by customer-secret satisfiability, `routing_key` match, or the `_channel=<name>` selector), and a **channel-keyed `list_price`** (`"type": "channel"`, with a `default`) prices each separately — see `docs/pricing.md`. The headline pattern (#1305): a free open channel (`byok`/`managed`) **co-exists** with a paid enrollable `plus` channel on one listing — a canonical request is served by the open channel, while each `plus` enrollment is reached at `/e/<code>`. See the `multi-channel` demo and `unitysvc-services-http/specs/http-relay`.
 
-Orthogonal to channels are **user access interfaces** (`user_access_interfaces`, the downstream URLs customers connect to). Conventions: name the single static-URL interface **`canonical`** (`${API_GATEWAY_BASE_URL}/{% raw %}{{ service_name }}{% endraw %}`) — don't invent a per-service name; and do **not** declare a separate `enrollment` interface — the platform's `/e/<code>` already reaches enrollments and binds their params, and the service stays `enrollment_required` via its required `user_parameters_schema` params. A channel is *how a request is fulfilled & billed* (gated by secrets); an interface is *how you connect* (gated by enrollment) — they pair freely, not as a matrix.
+Orthogonal to channels are **user access interfaces** (`user_access_interfaces`, the canonical downstream address customers connect to). Conventions: name the single static-URL interface **`canonical`** (`${API_GATEWAY_BASE_URL}/{% raw %}{{ service_name }}{% endraw %}`) — don't invent a per-service name; and do **not** declare an `enrollment` interface — the validator refuses per-enrollment interfaces, the platform's `/e/<code>` already reaches enrollments and binds their params, and the service stays enrollment-required via the `plus` channel's required `params`. A channel is *how a request is fulfilled & billed* (gated by secrets); an interface is *how you connect* — they pair freely, not as a matrix.
 
 ### Three shapes a reference can take
 
@@ -489,12 +505,34 @@ This is the **one** justified exception to the "operational URLs are direct para
 
 The seed-secrets CI step grep-matches against bare names, so collisions are silent bugs. Pick the namespace once when the service is created.
 
-### `ops_testing_parameters` shape — literals, not template refs
+### Enrollment parameters live on the channel that reads them
 
-For `-plus` (multi-enrollment) services, `service_options.ops_testing_parameters` defines the synthetic enrollment the platform uses for gateway tests. The values are **literals** — what the platform plugs in directly — except for one special case:
+Since unitysvc-core 0.3.0 a listing declares **no** parameters. Each channel that reads `{{ params.* }}` declares them in its own `params` object:
 
 ```json
-"ops_testing_parameters": {
+"plus": {
+  "access_method": "smtp",
+  "host": "{{ params.host }}",
+  "port": "{{ params.port }}",
+  "password": "${ customer_secrets.{{ params.password_secret }} }",
+  "params": {
+    "schema":           { "type": "object", "properties": { … }, "required": [ … ] },
+    "ui_schema":        { … },
+    "testing_defaults": { … }
+  }
+}
+```
+
+Rules (`specs validate` and backend ingest): a channel reading `{{ params.* }}` must declare `params`; it may read only params its `schema` declares; every **required** param needs a value in `testing_defaults` (a schema `default` does not count); every required param must be read by that channel or by document content (another channel's use doesn't count). Numeric/boolean connection fields accept template strings (`"port": "{{ params.port }}"`).
+
+Migrating an old spec: listing `user_parameters_schema` → channel `params.schema`; `user_parameters_ui_schema` → `params.ui_schema`; `service_options.ops_testing_parameters` → `params.testing_defaults` — on **each** channel that reads them. See `docs/file-schemas.md` § *Migrating to unitysvc-core 0.3.0*.
+
+### `params.testing_defaults` shape — literals, not template refs
+
+For `-plus` (multi-enrollment) services, the channel's `params.testing_defaults` defines the synthetic enrollment the platform uses for gateway tests (and `specs run-tests` uses locally). The values are **literals** — what the platform plugs in directly — except for one special case:
+
+```json
+"testing_defaults": {
   "host":            "mailpit.svcmarket.com",
   "port":            1025,
   "username":        "",
@@ -506,15 +544,15 @@ For `-plus` (multi-enrollment) services, `service_options.ops_testing_parameters
 - All non-`_secret` keys are **literal values** of the right type (string / int / bool). Do **not** wrap them in `${ customer_secrets.X }` — that's the wrong primitive, even though the platform may resolve it at upload time by accident.
 - Keys ending in `_secret` (`password_secret`, `api_key_secret`) name a seller secret. The platform looks up the value at test time. Default them to the corresponding non-plus service's literal secret name (e.g. `SMTP_RELAY_PASSWORD`, `HTTP_RELAY_API_KEY`).
 
-### `-plus` `user_parameters_schema` defaults
+### `-plus` `params.schema` defaults
 
-Same convention in the customer-facing parameter schema:
+Same convention in the customer-facing parameter schema (a property's `default` pre-fills the enrollment form):
 
 - Non-secret params (`host`, `port`, `username`, `tls`, `base_url`) get **direct literal defaults** of the right type.
 - `*_secret` params **default to the non-plus literal secret name**. This makes an empty-params enrollment work out of the box against the seller-seeded fixture, and the seed-secrets grep over the non-plus offering picks the name up transparently — no per-enrollment fix-up needed for the common case.
 
 ```json
-"user_parameters_schema": {
+"schema": {
   "type": "object",
   "required": [],
   "properties": {

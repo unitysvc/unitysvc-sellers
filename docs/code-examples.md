@@ -118,7 +118,7 @@ Tests run through the UnitySVC gateway. Only these variables are available:
 
 | Variable | Source | Description |
 |----------|--------|-------------|
-| `SERVICE_BASE_URL` | `user_access_interfaces.base_url` | Gateway endpoint URL (e.g. `https://api.svcpass.com/u/openai`, `smtp://smtp.svcpass.com:587`) |
+| `SERVICE_BASE_URL` | `user_access_interfaces.base_url` | Gateway endpoint URL (e.g. `https://api.svcpass.com/openai/gpt-4`, `smtp://smtp.svcpass.com:587`) |
 | `UNITYSVC_API_KEY` | Customer API key | Authentication key for the gateway |
 | Routing key entries | `user_access_interfaces.routing_key` | Flattened as uppercased env vars (e.g. `{"username": "foo"}` → `USERNAME=foo`, `{"model": "gpt-4"}` → `MODEL=gpt-4`) |
 
@@ -236,30 +236,28 @@ Your code examples should **always** read credentials from these environment var
 
 ### 3. Add to Service Listing Documents
 
-Code examples are referenced in your `listing.json` or `listing.toml` file under the `documents` array at the listing level (not inside interfaces). The listing automatically belongs to the offering in the same directory:
+Code examples are referenced in your `listing.json` or `listing.toml` file under the `documents` object (keyed by title) at the listing level (not inside interfaces). The listing automatically belongs to the offering in the same directory:
 
 ```json
 {
-    "name": "listing-default",
-    "user_access_interfaces": [
-        {
-            "interface_type": "openai_chat_completions",
-            "base_url": "https://api.example.com/v1"
+    "name": "openai/gpt-4",
+    "user_access_interfaces": {
+        "canonical": {
+            "access_method": "http",
+            "base_url": "${API_GATEWAY_BASE_URL}/{{ service_name }}"
         }
-    ],
-    "documents": [
-        {
-            "category": "code_examples",
-            "title": "Python Example",
+    },
+    "documents": {
+        "Python Example": {
+            "category": "code_example",
             "file_path": "../../docs/example.py.j2",
             "mime_type": "python",
             "is_public": true,
             "meta": {
-                "requirements": ["httpx"],
-                "expect": "✓ Test passed"
+                "requirements": ["httpx"]
             }
         }
-    ]
+    }
 }
 ```
 
@@ -711,26 +709,24 @@ Reference the code example in your `listing.json` file at the listing level (not
 
 ```json
 {
-    "name": "listing-default",
-    "user_access_interfaces": [
-        {
-            "interface_type": "openai_chat_completions",
-            "base_url": "https://api.example.com/v1"
+    "name": "openai/gpt-4",
+    "user_access_interfaces": {
+        "canonical": {
+            "access_method": "http",
+            "base_url": "${API_GATEWAY_BASE_URL}/{{ service_name }}"
         }
-    ],
-    "documents": [
-        {
-            "category": "code_examples",
-            "title": "Python code example",
+    },
+    "documents": {
+        "Python code example": {
+            "category": "code_example",
             "file_path": "../../docs/test.py.j2",
             "mime_type": "python",
             "is_public": true,
             "meta": {
-                "requirements": ["httpx"],
-                "expect": "✓ Test passed"
+                "requirements": ["httpx"]
             }
         }
-    ]
+    }
 }
 ```
 

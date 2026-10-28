@@ -1,13 +1,15 @@
 # Exports & Dependencies
 
 How a service declares what other services may ask of it (`exports`), and how a
-service declares what it needs from other services (`depends_on`). It is the
+service asks the enrolling customer for access to other services
+(`customer_access_requests`). It is the
 `export` / `import` pattern of a programming language, applied to services: a
 service that depends on others is a *composite* service, and the customer
 approves each dependency when they enroll.
 
 > **Status.** The formats below are defined and validated by `unitysvc-core`
-> (0.2.36 and later), so `usvc_seller specs validate` checks them today. The
+> (0.3.0 and later; earlier releases called the field `depends_on`, and
+> before that `grants`), so `usvc_seller specs validate` checks them today. The
 > platform side is rolling out (unitysvc/unitysvc#2720): publishing exports in
 > the catalog, the enrollment consent form, and enforcement at the gateway.
 > Until then, declaring them is safe but has no effect on routing.
@@ -20,9 +22,9 @@ approves each dependency when they enroll.
   exports one, `invoke` (calling it, on every route). A service that declares
   `permissions` exports exactly those, and `invoke` only if it declares it
   too; a data service such as `me` exports `read` / `write` and no `invoke`.
-- **Dependencies** live on a channel in `upstream_access_config`, as
-  `depends_on`. Each entry names another service and what your service needs
-  from it — for example an uptime monitor that writes to the customer's
+- **Customer access requests** live on a channel in `upstream_access_config`,
+  as `customer_access_requests`. Each entry names another service and what
+  your service needs from it — for example an uptime monitor that writes to the customer's
   `log` and alerts through `notify`.
 - **The customer decides.** When a customer enrolls in your service, they see
   each dependency with your justification, confirm or change its options,
@@ -70,9 +72,11 @@ Top level of `offering.json`:
 
 ### `permissions`
 
-`invoke` is always exported and covers every route; don't declare it. Declare
-a named permission only when callers should be able to get *less* than full
-access — for example read-only. Each permission lists the routes it covers as
+Without `permissions`, your service exports one permission, `invoke`, covering
+every route (`"* /*"`); that is what `service:<name>` and the `service:*`
+wildcard grant. Declare named permissions only when callers should be able to
+get *less* than full access — for example read-only. A service that declares
+`permissions` exports exactly those, and `invoke` only if it declares it too. Each permission lists the routes it covers as
 `"<METHOD> /<path>"`, with `*` for any method or as a glob in the path.
 Permissions are never inferred from HTTP methods: `POST /chat/completions`
 reads nothing and modifies nothing, so method alone says nothing about intent.
@@ -80,8 +84,8 @@ reads nothing and modifies nothing, so method alone says nothing about intent.
 ### `options`
 
 The customizations your service accepts from callers, as a **JSON Schema**
-object — the same format as a listing's
-[`user_parameters_schema`](file-schemas.md#user_parameters_schema), with an
+object — the same format as a channel's
+[`params.schema`](file-schemas.md#enrollment-parameters), with an
 optional `options_ui_schema` for form hints. The customer's enrollment form is
 rendered from it.
 
@@ -106,7 +110,7 @@ including limits only your service can apply, such as a message size. They
 are not for limiting how often or how much a caller uses you: the platform
 does that for every service (see [Limits](#limits)).
 
-## Dependencies
+## Customer access requests
 
 On any channel of `upstream_access_config`:
 
@@ -115,7 +119,7 @@ On any channel of `upstream_access_config`:
   "upstream_access_config": {
     "default": {
       "base_url": "https://checks.example.com/run",
-      "depends_on": [
+      "customer_access_requests": [
         {
           "object": "service:log",
           "permissions": ["invoke"],
@@ -139,7 +143,7 @@ On any channel of `upstream_access_config`:
 
 | Field | Required | Description |
 | --- | --- | --- |
-| `object` | yes | The service depended on: `service:<name>`. No wildcards. |
+| `object` | yes | The service depended on: `service:<name>`. No wildcards. (Or `apikey`, below.) |
 | `permissions` | yes | Permissions from the target's exports: `invoke`, or a named one it declares. |
 | `justification` | yes | Why your service needs it, in words the customer reads before approving. |
 | `required` | no | `true` if your service can't work without it; the customer may decline the others. Default `false`. |
@@ -151,7 +155,13 @@ form**. The customer confirms or changes the options within what the target
 exports, sets the limits, and may add limits of their own. What they approve
 becomes the policy on the key your service uses for them.
 
-Each channel declares its own `depends_on`, so different plans of one service
+A longer-lived key for your service's work is requested with one `apikey`
+entry: `{"object": "apikey", "limits": {"api_key_lifespan": 14400}, "justification": "Batch runs take up to four hours"}`.
+It takes only `limits` (exactly `api_key_lifespan`, whole seconds from 1 to
+86400) and a `justification`, and grants nothing. Without it, a key leased for
+the enrollment lives one hour.
+
+Each channel declares its own `customer_access_requests`, so different plans of one service
 can depend on different things — for example a channel that uses the
 customer's own `ai` (and is priced lower) beside a managed channel that uses
 yours.
@@ -189,8 +199,8 @@ How an option takes effect depends on how the target service is implemented:
   a body field). That mapping isn't available yet, so options you declare on
   your own service are shown to customers but not enforced for now.
 
-Enrollment parameters keep working as before (`{{ params.X }}` in your channel
-config).
+Enrollment parameters keep working alongside (`{{ params.X }}` in your channel
+config, declared in the channel's `params`).
 
 ## Validation
 
@@ -198,7 +208,7 @@ config).
 
 - **`exports`**: permissions and their routes; that `options` is a valid JSON
   Schema object within the restrictions above.
-- **`depends_on`**: every field's shape, the `options` query string, and the
+- **`customer_access_requests`**: every field's shape, the `options` query string, and the
   limit keys and values.
 
 Once the catalog check is available, every dependency is also checked against
@@ -212,6 +222,6 @@ when you upload.
 
 - [File Schemas](file-schemas.md) — the `offering_v1` fields and the
   upstream access channel object
-- [User Parameters](file-schemas.md#user-parameters) — enrollment parameters,
+- [Enrollment Parameters](file-schemas.md#enrollment-parameters) — enrollment parameters,
   the other way a customer customizes a service
 - [Secrets & Variables](secrets-and-variables.md) — customer and seller secrets

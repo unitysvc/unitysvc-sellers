@@ -73,8 +73,7 @@ A **managed channel** uses the seller's key (`${ secrets.* }`), so the seller pr
 // specs/openai/gpt-4/offering.json — seller's upstream credentials
 {
     "upstream_access_config": {
-        "OpenAI API": {
-            "access_method": "http",
+        "managed": {
             "base_url": "https://api.openai.com/v1",
             "api_key": "${ secrets.OPENAI_API_KEY }",
             "rate_limit_refs": ["openai_perminute", "openai_concurrency"]
@@ -87,10 +86,9 @@ A **managed channel** uses the seller's key (`${ secrets.* }`), so the seller pr
 // specs/openai/gpt-4/listing.json — customer-facing gateway path
 {
     "user_access_interfaces": {
-        "OpenAI API Access": {
+        "canonical": {
             "access_method": "http",
-            "base_url": "${API_GATEWAY_BASE_URL}/p/openai",
-            "routing_key": { "model": "gpt-4" }
+            "base_url": "${API_GATEWAY_BASE_URL}/{{ service_name }}"
         }
     }
 }
@@ -111,11 +109,9 @@ A **BYOK channel** uses the customer's key (`${ customer_secrets.* }`), so the c
 // specs/groq/llama-3.3-70b/offering.json
 {
     "upstream_access_config": {
-        "Groq API": {
-            "access_method": "http",
+        "byok": {
             "base_url": "https://api.groq.com/openai/v1",
             "api_key": "${ customer_secrets.GROQ_API_KEY }",
-            "ops_rate_limit_refs": ["groq_perminute", "groq_concurrency"],
             "routing_key": { "model": "llama-3.3-70b-versatile" }
         }
     }
@@ -129,32 +125,44 @@ The **namespace** of the reference — not its location — declares who owns th
 | `${ secrets.NAME }` | Seller | Seller's secret store |
 | `${ customer_secrets.NAME }` | Customer (BYOK) | Customer's secret store |
 
-A `${ customer_secrets.X }` reference is also its own declaration — the platform auto-detects the customer-required secret by scanning for it; no separate `user_parameters_schema` entry is needed. See [File Schemas](file-schemas.md) for the full BYOK model.
+A `${ customer_secrets.X }` reference is also its own declaration — the platform auto-detects the customer-required secret by scanning for it; no enrollment parameter is needed. See [File Schemas](file-schemas.md) for the full BYOK model.
 
 True production BYOK traffic spends the customer's provider quota, not yours, so
-do not add normal `rate_limit_refs` to a BYOK channel. Add
-`ops_rate_limit_refs` only when UnitySVC seller/ops testing should consume your
-declared provider bucket because the ops customer uses seller-secret fallback.
+do not add `rate_limit_refs` to a BYOK channel. (`ops_rate_limit_refs` is not a
+channel key; it is refused.)
 
 ### BYOE (Bring Your Own Endpoint)
 
-A **BYOE channel** uses the customer's key *and* a customer-templated `base_url`, so the customer provides the URL of their own service instance (e.g., self-hosted Ollama). Enrollment required. The key name is supplied per-enrollment via Jinja indirection inside the `customer_secrets` namespace:
+A **BYOE channel** uses the customer's key *and* a customer-templated `base_url`, so the customer provides the URL of their own service instance (e.g., self-hosted Ollama). Enrollment required. The channel declares the [enrollment parameters](file-schemas.md#enrollment-parameters) it reads, and the key name is supplied per enrollment via Jinja indirection inside the `customer_secrets` namespace:
 
 ```json
 // specs/ollama/byoe/offering.json — templates resolve from enrollment parameters
 {
     "upstream_access_config": {
-        "Ollama API": {
-            "access_method": "http",
-            "base_url": "{{ base_url }}",
-            "api_key": "${ customer_secrets.{{ api_key_secret }} }"
+        "byoe": {
+            "base_url": "{{ params.base_url }}",
+            "api_key": "${ customer_secrets.{{ params.api_key_secret }} }",
+            "params": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "base_url": { "type": "string", "title": "Your Ollama URL" },
+                        "api_key_secret": { "type": "string", "title": "Secret holding your API key" }
+                    },
+                    "required": ["base_url", "api_key_secret"]
+                },
+                "testing_defaults": {
+                    "base_url": "https://mock.unitysvc.dev/ollama",
+                    "api_key_secret": "OLLAMA_API_KEY"
+                }
+            }
         }
     }
 }
 ```
 
 Two-phase resolution:
-1. **Jinja rendering** (enrollment parameters): `{{ base_url }}` → `http://my-server:11434`, `{{ api_key_secret }}` → `MY_KEY`
+1. **Jinja rendering** (enrollment parameters): `{{ params.base_url }}` → `http://my-server:11434`, `{{ params.api_key_secret }}` → `MY_KEY`
 2. **Secret resolution**: `${ customer_secrets.MY_KEY }` → the actual key value from the customer's secret store
 
 ### Multi-channel services
@@ -194,9 +202,10 @@ How the gateway resolves a channel:
 1. **`servers` present** — pick one server by `weight`, lift its fields onto the channel, then route as usual.
 2. **No `servers`** — use the channel's own top-level fields (the single-server case is unchanged).
 
-Server entries are **free-form** — their fields are whatever that `access_method` needs (an `http`
-server has `base_url` / `api_key`; an `smtp` server carries different keys), exactly the fields you'd
-otherwise place at the channel level, plus an optional `weight`.
+Server entries are typed by the channel's `access_method` (an `http` server has `base_url` / `api_key`;
+an `smtp` server has `host` / `port`; see [Servers](file-schemas.md#servers)), exactly the fields you'd
+otherwise place at the channel level, plus optional `name`, `weight` and `acceptable_formats`. When a
+channel has both, each server inherits the channel-level connection fields it does not set itself.
 
 - **Capacity** — `weight` spreads steady-state load proportionally (`weight: 3` takes ~3× the traffic
   of `weight: 1`; omitted weights are equal).
@@ -238,18 +247,20 @@ For services where customers pay for duration (compute, content libraries), the 
 
 ### Per-enrollment code in URLs
 
-When a URL needs a per-enrollment value (e.g. a unique topic code), reference the
-intrinsic `{{ enrollment.code }}` **directly** — every enrollment has a unique code,
+When the *upstream* URL needs a per-enrollment value (e.g. a unique topic code), reference the
+intrinsic `{{ enrollment.code }}` **directly** in the channel — every enrollment has a unique code,
 so no per-enrollment variable needs to be declared:
 
 ```toml
-[user_access_interfaces.gateway]
-access_method = "http"
-base_url = "${API_GATEWAY_BASE_URL}/ntfy/{{ enrollment.code }}"
+[upstream_access_config.plus]
+base_url = "https://ntfy.svcpass.com/{{ enrollment.code }}"
 ```
 
-`{{ enrollment.code }}` renders to the enrollment's unique code (e.g. `CEFF`) at enrollment
-time. The same enrollment is also reachable directly at `/e/CEFF` regardless of `base_url`.
+`{{ enrollment.code }}` renders to the enrollment's unique code (e.g. `CEFF`) at routing time.
+The customer reaches the enrollment at `${API_GATEWAY_BASE_URL}/e/CEFF`, an address the platform
+provides. A user access interface stays canonical: it never reads `{{ enrollment.code }}`, except
+as the whole SMTP `routing_key.username` or S3 bucket segment (see
+[Canonical user access interfaces](file-schemas.md#canonical-user-access-interfaces)).
 
 
 See [file-schemas.md](file-schemas.md#jinja2-template-values) for the full templating model, and
@@ -259,8 +270,8 @@ See [file-schemas.md](file-schemas.md#jinja2-template-values) for the full templ
 
 | Aspect | Managed | BYOK | BYOE | Recurrent | Subscription |
 |--------|---------|------|------|-----------|-------------|
-| **api_key reference** | `${ secrets.X }` (seller) | `${ customer_secrets.X }` (customer) | `${ customer_secrets.{{ param }} }` | Same as base | Same as base |
-| **upstream base_url** | Static URL | Static URL | `{{ base_url }}` | Same as base | Same as base |
+| **api_key reference** | `${ secrets.X }` (seller) | `${ customer_secrets.X }` (customer) | `${ customer_secrets.{{ params.X }} }` | Same as base | Same as base |
+| **upstream base_url** | Static URL | Static URL | `{{ params.base_url }}` | Same as base | Same as base |
 | **Enrollment?** | No | No | Yes | Yes | Yes |
 | **Customer provides** | Nothing | API key | Endpoint URL | Schedule | Nothing |
 | **Pricing** | Per-request/token | Per-request/token | Per-request/token | Per-request/token | Time-based (daily/hourly) |
@@ -269,8 +280,9 @@ See [file-schemas.md](file-schemas.md#jinja2-template-values) for the full templ
 
 | Condition | Why |
 |-----------|-----|
-| `user_parameters_schema` is non-empty | Customer must provide configuration |
-| A `user_access_interfaces` / `upstream_access_config` template references `{{ enrollment.* }}` or `{{ params.* }}` | Per-enrollment URL templating |
+| A channel declares required `params` | Customer must provide configuration |
+| An `upstream_access_config` template references `{{ enrollment.* }}` or `{{ params.* }}` | Per-enrollment upstream templating |
+| `service_options.enrollment.required` is `true` | Declared explicitly (e.g. MCP services) |
 | `prompt_recurrence` is true | Per-enrollment schedule |
 | Subscription pricing | Heartbeat linked to enrollment lifecycle |
 

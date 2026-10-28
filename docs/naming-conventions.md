@@ -1,7 +1,7 @@
 # Service Names & `base_url` Naming Conventions
 
 This page documents how the platform names services and how the
-`user_access_interfaces[].base_url` field must reference that name. The
+`user_access_interfaces.<name>.base_url` field should reference that name. The
 rules exist so customers can predict how to reach your services, so the
 gateway can resolve every published URL unambiguously, and so future
 platform features can reserve URL namespaces (memoization, request logs,
@@ -70,44 +70,46 @@ name = "cohere/command-r-plus@byok"                   # with variant tag
 name = "ntfy"
 ```
 
-## `base_url` must route by `{{ service_name }}`
+## `base_url` should route by `{{ service_name }}`
 
-A `user_access_interfaces[].base_url` does **not** hard-code the service
-path. It references the service identifier through the
-`{{ service_name }}` Jinja variable, which the platform renders to
-`listing.name` when the access interface is materialized. This keeps the
-routable path bound to the name automatically.
+A `user_access_interfaces.<name>.base_url` is the service's canonical
+address. The recommended form references the service identifier through
+`{{ service_name }}`, which the platform renders to `listing.name` when it
+stores the interface. This keeps the routable path bound to the name
+automatically. `{{ service_name }}` is the **only** template an interface may
+use (see [Canonical user access interfaces](file-schemas.md#canonical-user-access-interfaces)).
 
 ```toml
 # The canonical form — service_name leads the path
 base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}"
 
-# With a static or dynamic suffix
+# With a static suffix
 base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}/v1/chat/completions"
-base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}/{{ enrollment.code }}"
-
-# Wrapper-stack primitive prefixes may precede it
-base_url = "${API_GATEWAY_BASE_URL}/u/{{ service_name }}"
 
 # The /a/ movable-pointer convention (#1139)
 base_url = "${API_GATEWAY_BASE_URL}/a/cohere-latest"
 ```
 
+A literal multi-character first segment (`${API_GATEWAY_BASE_URL}/cohere`,
+with listings told apart by `routing_key`) is also accepted, but ties the
+address to a path you must keep in sync by hand.
+
 **Rejected:**
 
 ```toml
-# Literal <provider>/<service> path — use {{ service_name }} instead
-base_url = "${API_GATEWAY_BASE_URL}/cohere/command-r-plus"
+# Reserved single-letter prefixes (only /a/ is open to listings)
+base_url = "${API_GATEWAY_BASE_URL}/u/{{ service_name }}"
 
-# The removed /p/ route primitive
+# /p/<route> is reserved for platform services
 base_url = "${API_GATEWAY_BASE_URL}/p/cohere"
-```
 
-A `base_url` is accepted when, after `${API_GATEWAY_BASE_URL}`, it
-**references `{{ service_name }}`**, is an **`/a/<alias>`** movable
-pointer, is the **gateway root** (`${API_GATEWAY_BASE_URL}` alone), or is
-**entirely dynamic** from its first segment (e.g. a BYOE
-`${API_GATEWAY_BASE_URL}/{{ params.endpoint }}`).
+# Per-enrollment values: an enrollment is reached at /e/<CODE>, which the platform provides
+base_url = "${API_GATEWAY_BASE_URL}/{{ service_name }}/{{ enrollment.code }}"
+base_url = "${API_GATEWAY_BASE_URL}/{{ params.endpoint }}"
+
+# Not a gateway address
+base_url = "https://api.cohere.com/v2"
+```
 
 ## The name grammar
 
@@ -155,7 +157,7 @@ URL without changing the seller's published path:
 | `g/` | **Groups** | Address a service group rather than a single listing. |
 | `l/` | **Logging** | Force a request to be captured in the customer's call log. |
 | `m/` | **Memoize** | Cache the response in the gateway. |
-| `p/` | (removed) | Was the explicit `/p/<provider>` prefix; superseded by `{{ service_name }}` (#1138). |
+| `p/` | **Platform services** | `/p/<route>` addresses a [platform service](guides/publish-platform-services.md); only a platform service's listing may declare it. |
 | `r/` | **Recurrent** | Register a recurring scheduled call. |
 | `t/` | **Tee** | Fire-and-forget mirror of a request to a second service. |
 
@@ -172,7 +174,6 @@ which are intentionally mutable (`a/cohere-latest`).
 ```toml
 base_url = "${API_GATEWAY_BASE_URL}/a/cohere-latest"
 base_url = "${API_GATEWAY_BASE_URL}/a/anthropic/claude-opus-latest"
-base_url = "${API_GATEWAY_BASE_URL}/a/cohere-latest/{{ enrollment.code }}"
 ```
 
 After the leading `a/` is stripped, the remaining alias is validated
