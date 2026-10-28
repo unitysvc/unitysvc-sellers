@@ -17,7 +17,7 @@ the data. The schemas (with their historical version names) are:
 
 Two terms recur throughout these schemas, and they name **orthogonal** axes — don't conflate them:
 
-- An **upstream access channel** ("channel") is one named entry in an offering's `upstream_access_config`. Each channel is a complete way for the gateway to reach the upstream: a wire protocol (`access_method`), an endpoint (`base_url`), a credential (`api_key`), and a `routing_key`. Channel entries are **free-form objects** — the platform reads them as opaque config, so protocol-specific shapes (SMTP host/port, S3 bucket/region, a `raw` passthrough block) live here too. Channel names are free-form (e.g. `"managed"`, `"byok"`, `"managed-eu"`). The gateway selects one channel per request. A channel answers *how the request is fulfilled and billed*, and is gated by **secret** availability. A channel may optionally replace its flat `base_url` / `api_key` with a list of interchangeable **`servers`** (same `channel_type`) for capacity and failover — see [Multi-server channels](service-types.md#multi-server-channels-capacity-failover) (planned).
+- An **upstream access channel** ("channel") is one named entry in an offering's `upstream_access_config`. Each channel is a complete way for the gateway to reach the upstream: a wire protocol (`access_method`), an endpoint (`base_url`), a credential (`api_key`), and a `routing_key`. Channel entries are **free-form objects** — the platform reads them as opaque config, so protocol-specific shapes (SMTP host/port, S3 bucket/region) live here too. Channel names are free-form (e.g. `"managed"`, `"byok"`, `"managed-eu"`). The gateway selects one channel per request. A channel answers *how the request is fulfilled and billed*, and is gated by **secret** availability. A channel may optionally replace its flat `base_url` / `api_key` with a list of interchangeable **`servers`** (same `channel_type`) for capacity and failover — see [Multi-server channels](service-types.md#multi-server-channels-capacity-failover) (planned).
 - A **user access interface** is one named entry in a listing's `user_access_interfaces` — the downstream, customer-facing endpoint the customer connects *to* (canonical, `/g/<group>`, `/p/<pool>`, `/e/<code>`). An interface answers *how you connect, and whether you may*, and is gated by **enrollment** / group membership.
 
 Channel selection happens per request regardless of which interface URL the customer hits, so the two are separable lists, not a matrix.
@@ -804,9 +804,8 @@ credentials or transformers (those are the channel's job).
 
 One named entry in an offering's `upstream_access_config`. **Free-form** — the
 platform reads it as an opaque object, so nothing is required across channels
-(an `http` channel has `base_url`; `smtp` has host/port; `s3` has bucket/region;
-a `raw` channel wraps arbitrary passthrough fields). The keys the gateway
-recognizes:
+(an `http` channel has `base_url`; `smtp` has host/port; `s3` has bucket/region).
+A `raw` block is not accepted. The keys the gateway recognizes:
 
 | Field                 | Type               | Description                                                                                               |
 | --------------------- | ------------------ | --------------------------------------------------------------------------------------------------------- |
@@ -954,7 +953,7 @@ So you usually only add a rule when you want a **notification** on a specific st
 
 String values in `user_access_interfaces` and `upstream_access_config` can use **Jinja2 template syntax** for dynamic rendering at enrollment time. Templates are rendered with an enrollment context that includes enrollment parameters, customer ID, and enrollment ID.
 
-> A `raw` block inside an `upstream_access_config` channel is **not** Jinja2-expanded — its contents are passed through verbatim and merged into the channel — for values carrying their own templates (e.g. request/response transformers). `${ … }` secrets inside `raw` are still resolved. See [Deferring expansion: the `raw` block](tech-notes/user-access-interface-template.md#deferring-expansion-the-raw-block).
+> In an `upstream_access_config` channel the gateway renders these templates at request time across the whole channel, `request_transformer` included, and a channel with any `{{ … }}` left unresolved is unroutable. A transformer's own per-request template must therefore use `{* … *}` rather than `{{ … }}`. See [Templates inside transformers](tech-notes/user-access-interface-template.md#templates-inside-transformers).
 
 **Template context variables:**
 
