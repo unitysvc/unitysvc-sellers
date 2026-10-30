@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     from .enrollments import Enrollments
     from .groups import Groups
     from .promotions import Promotions
+    from .rooms import Rooms
     from .secrets import Secrets
     from .services import Services
     from .tasks import Tasks
@@ -128,6 +129,7 @@ class Client:
         self._tasks: Tasks | None = None
         self._templates: Templates | None = None
         self._secrets: Secrets | None = None
+        self._rooms: Rooms | None = None
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -206,6 +208,15 @@ class Client:
 
             self._templates = Templates(self._client)
         return self._templates
+
+    @property
+    def rooms(self) -> Rooms:
+        """Rooms and messages for this account."""
+        if self._rooms is None:
+            from .rooms import Rooms
+
+            self._rooms = Rooms(self._client)
+        return self._rooms
 
     @property
     def secrets(self) -> Secrets:

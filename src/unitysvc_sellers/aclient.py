@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from .aenrollments import AsyncEnrollments
     from .agroups import AsyncGroups
     from .apromotions import AsyncPromotions
+    from .arooms import AsyncRooms
     from .asecrets import AsyncSecrets
     from .aservices import AsyncServices
     from .atasks import AsyncTasks
@@ -97,6 +98,7 @@ class AsyncClient:
         self._tasks: AsyncTasks | None = None
         self._templates: AsyncTemplates | None = None
         self._secrets: AsyncSecrets | None = None
+        self._rooms: AsyncRooms | None = None
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -170,6 +172,15 @@ class AsyncClient:
 
             self._templates = AsyncTemplates(self._client)
         return self._templates
+
+    @property
+    def rooms(self) -> AsyncRooms:
+        """Rooms and messages for this account."""
+        if self._rooms is None:
+            from .arooms import AsyncRooms
+
+            self._rooms = AsyncRooms(self._client)
+        return self._rooms
 
     @property
     def secrets(self) -> AsyncSecrets:

@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any
 
 import httpx
 
@@ -8,7 +7,7 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
 from ...models.service_template_summaries_public import ServiceTemplateSummariesPublic
-from ...models.service_type_enum import ServiceTypeEnum, check_service_type_enum
+from ...models.service_type_enum import ServiceTypeEnum
 from ...types import UNSET, Response, Unset
 
 

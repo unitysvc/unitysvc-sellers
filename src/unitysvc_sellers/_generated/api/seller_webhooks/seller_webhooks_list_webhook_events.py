@@ -1,13 +1,12 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
-from ...models.webhook_event_status import WebhookEventStatus, check_webhook_event_status
+from ...models.webhook_event_status import WebhookEventStatus
 from ...models.webhook_events_public import WebhookEventsPublic
 from ...types import UNSET, Response, Unset
 

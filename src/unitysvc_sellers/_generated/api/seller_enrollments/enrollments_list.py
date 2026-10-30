@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any
 from uuid import UUID
 
 import httpx
@@ -10,7 +9,7 @@ from ...client import AuthenticatedClient, Client
 from ...models.cursor_page_seller_enrollment_public import CursorPageSellerEnrollmentPublic
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
-from ...models.service_enrollment_status_enum import ServiceEnrollmentStatusEnum, check_service_enrollment_status_enum
+from ...models.service_enrollment_status_enum import ServiceEnrollmentStatusEnum
 from ...types import UNSET, Response, Unset
 
 
