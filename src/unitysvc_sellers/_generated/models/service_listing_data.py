@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -15,10 +15,6 @@ if TYPE_CHECKING:
     from ..models.service_listing_data_list_price_type_0 import ServiceListingDataListPriceType0
     from ..models.service_listing_data_service_options_type_0 import ServiceListingDataServiceOptionsType0
     from ..models.service_listing_data_user_access_interfaces_type_0 import ServiceListingDataUserAccessInterfacesType0
-    from ..models.service_listing_data_user_parameters_schema_type_0 import ServiceListingDataUserParametersSchemaType0
-    from ..models.service_listing_data_user_parameters_ui_schema_type_0 import (
-        ServiceListingDataUserParametersUiSchemaType0,
-    )
 
 
 T = TypeVar("T", bound="ServiceListingData")
@@ -72,10 +68,6 @@ class ServiceListingData:
     """ User access interfaces for the listing, keyed by name """
     documents: None | ServiceListingDataDocumentsType0 | Unset = UNSET
     """ Documents associated with the listing, keyed by title (e.g., service level agreements) """
-    user_parameters_schema: None | ServiceListingDataUserParametersSchemaType0 | Unset = UNSET
-    """ JSON Schema for user parameters """
-    user_parameters_ui_schema: None | ServiceListingDataUserParametersUiSchemaType0 | Unset = UNSET
-    """ UI schema for user parameters form rendering """
     audience: list[str] | None | Unset = UNSET
     """ Who the service is for and what a buyer must know before enrolling, as short plain-text phrases (e.g. 'US
     customers only / export restrictions may apply'). Shown before enrollment; informational only, never enforced.
@@ -91,12 +83,6 @@ class ServiceListingData:
         from ..models.service_listing_data_service_options_type_0 import ServiceListingDataServiceOptionsType0
         from ..models.service_listing_data_user_access_interfaces_type_0 import (
             ServiceListingDataUserAccessInterfacesType0,
-        )
-        from ..models.service_listing_data_user_parameters_schema_type_0 import (
-            ServiceListingDataUserParametersSchemaType0,
-        )
-        from ..models.service_listing_data_user_parameters_ui_schema_type_0 import (
-            ServiceListingDataUserParametersUiSchemaType0,
         )
 
         name: None | str | Unset
@@ -143,22 +129,6 @@ class ServiceListingData:
         else:
             documents = self.documents
 
-        user_parameters_schema: dict[str, Any] | None | Unset
-        if isinstance(self.user_parameters_schema, Unset):
-            user_parameters_schema = UNSET
-        elif isinstance(self.user_parameters_schema, ServiceListingDataUserParametersSchemaType0):
-            user_parameters_schema = self.user_parameters_schema.to_dict()
-        else:
-            user_parameters_schema = self.user_parameters_schema
-
-        user_parameters_ui_schema: dict[str, Any] | None | Unset
-        if isinstance(self.user_parameters_ui_schema, Unset):
-            user_parameters_ui_schema = UNSET
-        elif isinstance(self.user_parameters_ui_schema, ServiceListingDataUserParametersUiSchemaType0):
-            user_parameters_ui_schema = self.user_parameters_ui_schema.to_dict()
-        else:
-            user_parameters_ui_schema = self.user_parameters_ui_schema
-
         audience: list[str] | None | Unset
         if isinstance(self.audience, Unset):
             audience = UNSET
@@ -193,10 +163,6 @@ class ServiceListingData:
             field_dict["user_access_interfaces"] = user_access_interfaces
         if documents is not UNSET:
             field_dict["documents"] = documents
-        if user_parameters_schema is not UNSET:
-            field_dict["user_parameters_schema"] = user_parameters_schema
-        if user_parameters_ui_schema is not UNSET:
-            field_dict["user_parameters_ui_schema"] = user_parameters_ui_schema
         if audience is not UNSET:
             field_dict["audience"] = audience
         if service_options is not UNSET:
@@ -211,12 +177,6 @@ class ServiceListingData:
         from ..models.service_listing_data_service_options_type_0 import ServiceListingDataServiceOptionsType0
         from ..models.service_listing_data_user_access_interfaces_type_0 import (
             ServiceListingDataUserAccessInterfacesType0,
-        )
-        from ..models.service_listing_data_user_parameters_schema_type_0 import (
-            ServiceListingDataUserParametersSchemaType0,
-        )
-        from ..models.service_listing_data_user_parameters_ui_schema_type_0 import (
-            ServiceListingDataUserParametersUiSchemaType0,
         )
 
         d = dict(src_dict)
@@ -304,42 +264,6 @@ class ServiceListingData:
 
         documents = _parse_documents(d.pop("documents", UNSET))
 
-        def _parse_user_parameters_schema(data: object) -> None | ServiceListingDataUserParametersSchemaType0 | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                user_parameters_schema_type_0 = ServiceListingDataUserParametersSchemaType0.from_dict(data)
-
-                return user_parameters_schema_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(None | ServiceListingDataUserParametersSchemaType0 | Unset, data)
-
-        user_parameters_schema = _parse_user_parameters_schema(d.pop("user_parameters_schema", UNSET))
-
-        def _parse_user_parameters_ui_schema(
-            data: object,
-        ) -> None | ServiceListingDataUserParametersUiSchemaType0 | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                user_parameters_ui_schema_type_0 = ServiceListingDataUserParametersUiSchemaType0.from_dict(data)
-
-                return user_parameters_ui_schema_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(None | ServiceListingDataUserParametersUiSchemaType0 | Unset, data)
-
-        user_parameters_ui_schema = _parse_user_parameters_ui_schema(d.pop("user_parameters_ui_schema", UNSET))
-
         def _parse_audience(data: object) -> list[str] | None | Unset:
             if data is None:
                 return data
@@ -382,8 +306,6 @@ class ServiceListingData:
             currency=currency,
             user_access_interfaces=user_access_interfaces,
             documents=documents,
-            user_parameters_schema=user_parameters_schema,
-            user_parameters_ui_schema=user_parameters_ui_schema,
             audience=audience,
             service_options=service_options,
         )

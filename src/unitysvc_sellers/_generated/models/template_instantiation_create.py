@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -31,8 +31,6 @@ class TemplateInstantiationCreate:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.template_instantiation_create_parameters import TemplateInstantiationCreateParameters
-
         template_id = str(self.template_id)
 
         name: None | str | Unset

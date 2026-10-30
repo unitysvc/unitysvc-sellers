@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -44,10 +44,6 @@ class ServiceTestResultsResponse:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.skipped_test_document import SkippedTestDocument
-        from ..models.test_run import TestRun
-        from ..models.test_run_gap import TestRunGap
-
         service_id = str(self.service_id)
 
         passed = self.passed

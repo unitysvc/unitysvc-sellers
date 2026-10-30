@@ -32,6 +32,8 @@ from .group_type_enum import GroupTypeEnum
 from .http_validation_error import HTTPValidationError
 from .listing_status_enum import ListingStatusEnum
 from .message import Message
+from .msg_format_enum import MsgFormatEnum
+from .msg_type_enum import MsgTypeEnum
 from .offering_status_enum import OfferingStatusEnum
 from .platform_service_upload import PlatformServiceUpload
 from .price_rule_apply_at_enum import PriceRuleApplyAtEnum
@@ -47,6 +49,27 @@ from .provider_data import ProviderData
 from .provider_data_documents_type_0 import ProviderDataDocumentsType0
 from .provider_data_documents_type_0_additional_property import ProviderDataDocumentsType0AdditionalProperty
 from .provider_status_enum import ProviderStatusEnum
+from .room_invitation_code import RoomInvitationCode
+from .room_invitation_codes import RoomInvitationCodes
+from .room_invitation_create import RoomInvitationCreate
+from .room_invitation_create_role import RoomInvitationCreateRole
+from .room_join_request import RoomJoinRequest
+from .room_list import RoomList
+from .room_member_view import RoomMemberView
+from .room_members import RoomMembers
+from .room_message_page import RoomMessagePage
+from .room_message_view import RoomMessageView
+from .room_message_view_attachments_item import RoomMessageViewAttachmentsItem
+from .room_message_view_event_data_type_0 import RoomMessageViewEventDataType0
+from .room_message_view_links_item import RoomMessageViewLinksItem
+from .room_post_origin import RoomPostOrigin
+from .room_post_request import RoomPostRequest
+from .room_post_request_links_item import RoomPostRequestLinksItem
+from .room_post_response import RoomPostResponse
+from .room_post_response_routed import RoomPostResponseRouted
+from .room_settings_update import RoomSettingsUpdate
+from .room_summary import RoomSummary
+from .room_view import RoomView
 from .run_tests_response import RunTestsResponse
 from .secret_owner_type_enum import SecretOwnerTypeEnum
 from .secret_public import SecretPublic
@@ -89,8 +112,6 @@ from .service_listing_data_user_access_interfaces_type_0 import ServiceListingDa
 from .service_listing_data_user_access_interfaces_type_0_additional_property import (
     ServiceListingDataUserAccessInterfacesType0AdditionalProperty,
 )
-from .service_listing_data_user_parameters_schema_type_0 import ServiceListingDataUserParametersSchemaType0
-from .service_listing_data_user_parameters_ui_schema_type_0 import ServiceListingDataUserParametersUiSchemaType0
 from .service_offering_data import ServiceOfferingData
 from .service_offering_data_details_type_0 import ServiceOfferingDataDetailsType0
 from .service_offering_data_documents_type_0 import ServiceOfferingDataDocumentsType0
@@ -205,6 +226,8 @@ __all__ = (
     "HTTPValidationError",
     "ListingStatusEnum",
     "Message",
+    "MsgFormatEnum",
+    "MsgTypeEnum",
     "OfferingStatusEnum",
     "PlatformServiceUpload",
     "PriceRuleApplyAtEnum",
@@ -220,6 +243,27 @@ __all__ = (
     "ProviderDataDocumentsType0",
     "ProviderDataDocumentsType0AdditionalProperty",
     "ProviderStatusEnum",
+    "RoomInvitationCode",
+    "RoomInvitationCodes",
+    "RoomInvitationCreate",
+    "RoomInvitationCreateRole",
+    "RoomJoinRequest",
+    "RoomList",
+    "RoomMembers",
+    "RoomMemberView",
+    "RoomMessagePage",
+    "RoomMessageView",
+    "RoomMessageViewAttachmentsItem",
+    "RoomMessageViewEventDataType0",
+    "RoomMessageViewLinksItem",
+    "RoomPostOrigin",
+    "RoomPostRequest",
+    "RoomPostRequestLinksItem",
+    "RoomPostResponse",
+    "RoomPostResponseRouted",
+    "RoomSettingsUpdate",
+    "RoomSummary",
+    "RoomView",
     "RunTestsResponse",
     "SecretOwnerTypeEnum",
     "SecretPublic",
@@ -258,8 +302,6 @@ __all__ = (
     "ServiceListingDataServiceOptionsType0",
     "ServiceListingDataUserAccessInterfacesType0",
     "ServiceListingDataUserAccessInterfacesType0AdditionalProperty",
-    "ServiceListingDataUserParametersSchemaType0",
-    "ServiceListingDataUserParametersUiSchemaType0",
     "ServiceOfferingData",
     "ServiceOfferingDataDetailsType0",
     "ServiceOfferingDataDocumentsType0",

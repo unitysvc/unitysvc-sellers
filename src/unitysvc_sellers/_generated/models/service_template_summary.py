@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -48,9 +48,6 @@ class ServiceTemplateSummary:
     def to_dict(self) -> dict[str, Any]:
         from ..models.service_template_summary_parameter_ui_schema_type_0 import (
             ServiceTemplateSummaryParameterUiSchemaType0,
-        )
-        from ..models.service_template_summary_service_template_summary_parameter_schema import (
-            ServiceTemplateSummaryServiceTemplateSummaryParameterSchema,
         )
 
         id = str(self.id)

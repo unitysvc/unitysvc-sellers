@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "UnitySVC Seller API",
+    "title": "Isolated PR2808 review Seller API",
     "version": "1.0.0"
   },
   "paths": {
@@ -1998,6 +1998,839 @@
               }
             },
             "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Post Room Message",
+        "description": "Post a message; the room comes from a leading ``@handle``, else the\naccount's ``me`` room.",
+        "operationId": "seller-rooms-post_room_message",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomPostRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomPostResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "List Rooms",
+        "description": "The rooms the account is in, with its role in each, most recently\nactive first. A key limited by ``room=`` sees only its rooms.",
+        "operationId": "seller-rooms-list_rooms",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rooms of this kind",
+              "title": "Kind"
+            },
+            "description": "Only rooms of this kind"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/join": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Join Room",
+        "description": "Join a room with an invitation code, as this account. Already a\nmember: nothing changes and the code isn't used up. A key limited by\n``room=`` can't join rooms.",
+        "operationId": "seller-rooms-join_room",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomJoinRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}": {
+      "patch": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Update Room Settings",
+        "description": "Change the owner's room name, Markdown description or mutable rules.\n\nSingleton rooms keep their fixed retention and lifetime. The key's\naccount must be the room owner; an api:rooms write grant alone is not ownership.",
+        "operationId": "seller-rooms-update_room_settings",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomSettingsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Post Room Message To",
+        "description": "Post a message to the room named by ``target`` (a room id, or a\nhandle such as ``me``); falls back to ``me`` if the account can't post\nthere.",
+        "operationId": "seller-rooms-post_room_message_to",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomPostRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomPostResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Get Room Messages",
+        "description": "The room named by ``target`` (id or handle) and its stored messages\nafter ``after``, oldest first.",
+        "operationId": "seller-rooms-get_room_messages",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The previous page's next",
+              "title": "After"
+            },
+            "description": "The previous page's next"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/members": {
+      "get": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "List Room Members",
+        "description": "The room's active member accounts. Private delivery settings are omitted.",
+        "operationId": "seller-rooms-list_room_members",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomMembers"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/codes": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Create Room Invitation Code",
+        "description": "Create an invitation code for the room. Owners may invite up to\n``moderator``, moderators up to ``member``.",
+        "operationId": "seller-rooms-create_room_invitation_code",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomInvitationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInvitationCode"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "List Room Invitation Codes",
+        "description": "The room's invitation codes; by default only usable ones. Needs\n``write``, since a code admits whoever holds it.",
+        "operationId": "seller-rooms-list_room_invitation_codes",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInvitationCodes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/codes/{code_id}": {
+      "delete": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Revoke Room Invitation Code",
+        "description": "Revoke a code: no one new can join with it. Members who joined\nwith it stay.",
+        "operationId": "seller-rooms-revoke_room_invitation_code",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "code_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Code Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInvitationCode"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -5891,6 +6724,26 @@
         ],
         "title": "Message"
       },
+      "MsgFormatEnum": {
+        "type": "string",
+        "enum": [
+          "text",
+          "markdown"
+        ],
+        "title": "MsgFormatEnum",
+        "description": "The msg envelope's ``format`` (``html`` is deprecated)."
+      },
+      "MsgTypeEnum": {
+        "type": "string",
+        "enum": [
+          "info",
+          "success",
+          "warning",
+          "failure"
+        ],
+        "title": "MsgTypeEnum",
+        "description": "The msg envelope's ``type`` (notification-services.md \u00a74)."
+      },
       "OfferingStatusEnum": {
         "type": "string",
         "enum": [
@@ -6284,6 +7137,942 @@
         ],
         "title": "ProviderStatusEnum",
         "description": "Status values that sellers can set for providers.\n\nSeller-accessible statuses:\n- draft: Work in progress, skipped during publish\n- ready: Complete and ready for admin review\n- deprecated: Provider is retired/end of life"
+      },
+      "RoomInvitationCode": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "use_count": {
+            "type": "integer",
+            "title": "Use Count"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "token",
+          "role",
+          "status",
+          "use_count",
+          "expires_at",
+          "created_at"
+        ],
+        "title": "RoomInvitationCode"
+      },
+      "RoomInvitationCodes": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/RoomInvitationCode"
+            },
+            "type": "array",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "RoomInvitationCodes"
+      },
+      "RoomInvitationCreate": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "readonly",
+              "member",
+              "moderator"
+            ],
+            "title": "Role",
+            "default": "member"
+          },
+          "expires_in_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 365.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Days",
+            "description": "Defaults to 7 days"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses",
+            "description": "None = unlimited"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "title": "RoomInvitationCreate",
+        "description": "A code for others to join the room with (#2819)."
+      },
+      "RoomJoinRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 4,
+            "title": "Token",
+            "description": "The invitation code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "RoomJoinRequest"
+      },
+      "RoomList": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/RoomSummary"
+            },
+            "type": "array",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "RoomList"
+      },
+      "RoomMemberView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "account_type": {
+            "type": "string",
+            "title": "Account Type"
+          },
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Joined At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "account_type",
+          "account_id",
+          "name",
+          "role",
+          "joined_at"
+        ],
+        "title": "RoomMemberView"
+      },
+      "RoomMembers": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/RoomMemberView"
+            },
+            "type": "array",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "RoomMembers"
+      },
+      "RoomMessagePage": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/RoomMessageView"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "next"
+        ],
+        "title": "RoomMessagePage"
+      },
+      "RoomMessageView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "sent_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Sent At"
+          },
+          "sender_type": {
+            "type": "string",
+            "title": "Sender Type"
+          },
+          "sender_member_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender Member Id"
+          },
+          "sender_name": {
+            "type": "string",
+            "title": "Sender Name"
+          },
+          "via": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Via"
+          },
+          "origin_service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Service"
+          },
+          "origin_author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Author"
+          },
+          "reply_to_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply To Id"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event"
+          },
+          "event_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Data"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "format": {
+            "type": "string",
+            "title": "Format"
+          },
+          "links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Links"
+          },
+          "attachments": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Attachments"
+          },
+          "is_internal": {
+            "type": "boolean",
+            "title": "Is Internal"
+          },
+          "is_system": {
+            "type": "boolean",
+            "title": "Is System"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "offset",
+          "sent_at",
+          "sender_type",
+          "sender_member_id",
+          "sender_name",
+          "via",
+          "origin_service",
+          "origin_author",
+          "reply_to_id",
+          "event",
+          "event_data",
+          "title",
+          "body",
+          "type",
+          "format",
+          "links",
+          "attachments",
+          "is_internal",
+          "is_system"
+        ],
+        "title": "RoomMessageView"
+      },
+      "RoomPostOrigin": {
+        "properties": {
+          "service": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Service",
+            "description": "Bridge the message came through"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id",
+            "description": "Message id on the external platform"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author",
+            "description": "Display name of the external person"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service"
+        ],
+        "title": "RoomPostOrigin"
+      },
+      "RoomPostRequest": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 32000,
+            "minLength": 1,
+            "title": "Body"
+          },
+          "format": {
+            "$ref": "#/components/schemas/MsgFormatEnum",
+            "default": "text"
+          },
+          "type": {
+            "$ref": "#/components/schemas/MsgTypeEnum",
+            "default": "info"
+          },
+          "links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Links"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoomPostOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "client_message_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Message Id",
+            "description": "Idempotency key: retries with the same id post once. Defaults to origin.external_id."
+          }
+        },
+        "type": "object",
+        "required": [
+          "body"
+        ],
+        "title": "RoomPostRequest",
+        "description": "A message in the msg format."
+      },
+      "RoomPostResponse": {
+        "properties": {
+          "room_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Room Id"
+          },
+          "message_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Message Id"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "routed": {
+            "type": "string",
+            "enum": [
+              "room_id",
+              "handle",
+              "me"
+            ],
+            "title": "Routed"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "duplicate": {
+            "type": "boolean",
+            "title": "Duplicate",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "room_id",
+          "message_id",
+          "offset",
+          "routed"
+        ],
+        "title": "RoomPostResponse"
+      },
+      "RoomSettingsUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Markdown; null clears the description"
+          },
+          "retention_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2592000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Seconds"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "idle_expiry_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idle Expiry Seconds"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RoomSettingsUpdate"
+      },
+      "RoomSummary": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "retention_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Seconds",
+            "description": "Effective message retention; null when kept forever"
+          },
+          "keep_forever": {
+            "type": "boolean",
+            "title": "Keep Forever",
+            "default": false
+          },
+          "permanent": {
+            "type": "boolean",
+            "title": "Permanent",
+            "default": false
+          },
+          "fixed_membership": {
+            "type": "boolean",
+            "title": "Fixed Membership",
+            "default": false
+          },
+          "invitable": {
+            "type": "boolean",
+            "title": "Invitable",
+            "default": false
+          },
+          "can_manage": {
+            "type": "boolean",
+            "title": "Can Manage",
+            "default": false
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "idle_expiry_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idle Expiry Seconds"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "member_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Member Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "handle": {
+            "type": "string",
+            "title": "Handle"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "last_message_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Message At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "member_id",
+          "kind",
+          "name",
+          "handle",
+          "status",
+          "role",
+          "created_at"
+        ],
+        "title": "RoomSummary",
+        "description": "A room the account is in, and the account's place in it."
+      },
+      "RoomView": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "retention_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Seconds",
+            "description": "Effective message retention; null when kept forever"
+          },
+          "keep_forever": {
+            "type": "boolean",
+            "title": "Keep Forever",
+            "default": false
+          },
+          "permanent": {
+            "type": "boolean",
+            "title": "Permanent",
+            "default": false
+          },
+          "fixed_membership": {
+            "type": "boolean",
+            "title": "Fixed Membership",
+            "default": false
+          },
+          "invitable": {
+            "type": "boolean",
+            "title": "Invitable",
+            "default": false
+          },
+          "can_manage": {
+            "type": "boolean",
+            "title": "Can Manage",
+            "default": false
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "idle_expiry_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idle Expiry Seconds"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "member_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Member Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "handle": {
+            "type": "string",
+            "title": "Handle"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "messages": {
+            "$ref": "#/components/schemas/RoomMessagePage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "member_id",
+          "kind",
+          "name",
+          "handle",
+          "status",
+          "role",
+          "messages"
+        ],
+        "title": "RoomView"
       },
       "RunTestsResponse": {
         "properties": {
@@ -7482,32 +9271,6 @@
             ],
             "title": "Documents",
             "description": "Documents associated with the listing, keyed by title (e.g., service level agreements)"
-          },
-          "user_parameters_schema": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Parameters Schema",
-            "description": "JSON Schema for user parameters"
-          },
-          "user_parameters_ui_schema": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Parameters Ui Schema",
-            "description": "UI schema for user parameters form rendering"
           },
           "audience": {
             "anyOf": [

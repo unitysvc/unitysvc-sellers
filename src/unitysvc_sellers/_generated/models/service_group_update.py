@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -34,7 +34,6 @@ class ServiceGroupUpdate:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.group_service_member import GroupServiceMember
         from ..models.service_group_update_membership_rules_type_0 import ServiceGroupUpdateMembershipRulesType0
         from ..models.service_group_update_routing_policy_type_0 import ServiceGroupUpdateRoutingPolicyType0
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -10,7 +10,6 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.webhook_event_status import WebhookEventStatus, check_webhook_event_status
-from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.webhook_event_public_data import WebhookEventPublicData
@@ -36,9 +35,6 @@ class WebhookEventPublic:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.webhook_event_public_data import WebhookEventPublicData
-        from ..models.webhook_event_public_results import WebhookEventPublicResults
-
         id = str(self.id)
 
         type_ = self.type_

@@ -1,12 +1,12 @@
 from http import HTTPStatus
-from typing import Any, cast
+from typing import Any
 from urllib.parse import quote
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.document_category_enum import DocumentCategoryEnum, check_document_category_enum
+from ...models.document_category_enum import DocumentCategoryEnum
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...models.run_tests_response import RunTestsResponse

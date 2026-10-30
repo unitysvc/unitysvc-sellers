@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..types import UNSET, Unset
-
-T = TypeVar("T", bound="ServiceListingDataUserParametersSchemaType0")
+T = TypeVar("T", bound="RoomMessageViewEventDataType0")
 
 
 @_attrs_define
-class ServiceListingDataUserParametersSchemaType0:
+class RoomMessageViewEventDataType0:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -24,10 +22,10 @@ class ServiceListingDataUserParametersSchemaType0:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        service_listing_data_user_parameters_schema_type_0 = cls()
+        room_message_view_event_data_type_0 = cls()
 
-        service_listing_data_user_parameters_schema_type_0.additional_properties = d
-        return service_listing_data_user_parameters_schema_type_0
+        room_message_view_event_data_type_0.additional_properties = d
+        return room_message_view_event_data_type_0
 
     @property
     def additional_keys(self) -> list[str]:

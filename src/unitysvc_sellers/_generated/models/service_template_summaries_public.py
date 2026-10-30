@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, BinaryIO, Generator, TextIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.service_template_summary import ServiceTemplateSummary
@@ -24,8 +22,6 @@ class ServiceTemplateSummariesPublic:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.service_template_summary import ServiceTemplateSummary
-
         data = []
         for data_item_data in self.data:
             data_item = data_item_data.to_dict()

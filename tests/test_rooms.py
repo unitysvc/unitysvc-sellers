@@ -1,0 +1,176 @@
+"""Room facade wire contracts and typed parsing, through real generated clients."""
+
+import inspect
+import json
+
+import httpx
+import pytest
+
+from unitysvc_sellers import AsyncClient, Client
+from unitysvc_sellers.exceptions import NotFoundError
+
+ROOM = "11111111-1111-4111-8111-111111111111"
+MEMBER = "22222222-2222-4222-8222-222222222222"
+CODE = "33333333-3333-4333-8333-333333333333"
+MESSAGE = "44444444-4444-4444-8444-444444444444"
+AT = "2026-10-30T00:00:00Z"
+
+
+def summary(**overrides):
+    return {
+        "id": ROOM,
+        "member_id": MEMBER,
+        "kind": "helpdesk",
+        "name": "Help desk",
+        "handle": "helpdesk",
+        "status": "open",
+        "role": "owner",
+        "created_at": AT,
+        "description": "Talk with **support**",
+        "owner_name": "Acme",
+        "keep_forever": True,
+        "permanent": True,
+        "fixed_membership": True,
+        "can_manage": True,
+        **overrides,
+    }
+
+
+def invitation():
+    return {
+        "id": CODE,
+        "token": "ABCDEF",
+        "role": "member",
+        "status": "active",
+        "use_count": 0,
+        "max_uses": 3,
+        "expires_at": AT,
+        "created_at": AT,
+    }
+
+
+def transport(captured):
+    def handler(request):
+        captured.append(request)
+        path = request.url.path
+        if path.endswith("/missing"):
+            return httpx.Response(404, json={"detail": "Room not found"})
+        if path.endswith("/codes"):
+            return httpx.Response(
+                201 if request.method == "POST" else 200,
+                json=invitation() if request.method == "POST" else {"data": [invitation()]},
+            )
+        if "/codes/" in path:
+            return httpx.Response(200, json={**invitation(), "status": "revoked"})
+        if path.endswith("/members"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": MEMBER,
+                            "account_type": "seller",
+                            "account_id": ROOM,
+                            "name": "Acme",
+                            "role": "owner",
+                            "joined_at": AT,
+                        }
+                    ]
+                },
+            )
+        if path.endswith("/join"):
+            return httpx.Response(200, json=summary())
+        if request.method == "POST":
+            return httpx.Response(202, json={"room_id": ROOM, "message_id": MESSAGE, "offset": 42, "routed": "handle"})
+        if request.method == "PATCH":
+            return httpx.Response(200, json=summary(**json.loads(request.content)))
+        if path.endswith("/rooms"):
+            return httpx.Response(200, json={"data": [summary()]})
+        return httpx.Response(200, json={**summary(), "messages": {"data": [], "next": 41}})
+
+    return httpx.MockTransport(handler)
+
+
+def client_for(asynchronous, captured):
+    cls = AsyncClient if asynchronous else Client
+    client = cls(api_key="svcpass_test", base_url="https://test.example/v1/seller")
+    if asynchronous:
+        client._client.get_async_httpx_client()._transport = transport(captured)
+    else:
+        client._client.get_httpx_client()._transport = transport(captured)
+    return client
+
+
+async def call(resource, method, *args, **kwargs):
+    result = getattr(resource, method)(*args, **kwargs)
+    return await result if inspect.isawaitable(result) else result
+
+
+async def close(client, asynchronous):
+    if asynchronous:
+        await client.aclose()
+    else:
+        client.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_room_metadata_management_and_private_members(asynchronous):
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        listed = await call(client.rooms, "list", kind="helpdesk")
+        assert listed.data[0].owner_name == "Acme"
+        room = await call(client.rooms, "get", "helpdesk", after=40, limit=20)
+        assert room.description == "Talk with **support**"
+        assert room.messages.next_ == 41
+        changed = await call(client.rooms, "update", ROOM, description="# Our support", name="Support")
+        assert changed.description == "# Our support"
+        assert changed.name == "Support"
+        await call(client.rooms, "update", ROOM, description=None)
+        members = await call(client.rooms, "members", ROOM)
+        assert members.data[0].name == "Acme"
+        assert captured[0].url.params["kind"] == "helpdesk"
+        assert captured[1].url.params["after"] == "40"
+        assert json.loads(captured[2].content) == {"name": "Support", "description": "# Our support"}
+        assert json.loads(captured[3].content) == {"description": None}
+        assert captured[2].method == "PATCH"
+        assert captured[4].url.path.endswith(f"/rooms/{ROOM}/members")
+    finally:
+        await close(client, asynchronous)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_invitation_lifecycle_and_posting(asynchronous):
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        code = await call(client.rooms, "create_invitation", ROOM, role="member", max_uses=3)
+        assert code.token == "ABCDEF"
+        codes = await call(client.rooms, "invitations", ROOM, include_inactive=True)
+        assert len(codes.data) == 1
+        joined = await call(client.rooms, "join", "ABCDEF")
+        assert str(joined.id) == ROOM
+        revoked = await call(client.rooms, "revoke_invitation", ROOM, CODE)
+        assert revoked.status == "revoked"
+        posted = await call(client.rooms, "post", "helpdesk", body="Help", client_message_id="test-1")
+        assert posted.offset == 42
+        await call(client.rooms, "post", body="@helpdesk Help")
+        assert captured[3].method == "DELETE"
+        assert captured[4].url.path.endswith("/rooms/helpdesk")
+        assert captured[5].url.path.endswith("/rooms")
+        assert json.loads(captured[4].content)["client_message_id"] == "test-1"
+    finally:
+        await close(client, asynchronous)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_room_errors_are_sdk_errors(asynchronous):
+    client = client_for(asynchronous, [])
+    try:
+        with pytest.raises(NotFoundError):
+            await call(client.rooms, "get", "missing")
+    finally:
+        await close(client, asynchronous)

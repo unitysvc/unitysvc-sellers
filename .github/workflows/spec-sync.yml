@@ -18,6 +18,11 @@ on:
     # Daily, so backend drift surfaces even when this repo is quiet.
     - cron: "17 6 * * *"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "unitysvc/unitysvc ref to compare against"
+        required: false
+        default: ""
 
 jobs:
   spec-sync:
@@ -31,6 +36,7 @@ jobs:
         id: fetch
         env:
           TOKEN: ${{ secrets.UNITYSVC_SPEC_TOKEN }}
+          SPEC_REF: ${{ inputs.ref || vars.UNITYSVC_SPEC_REF || 'main' }}
         run: |
           if [ -z "${TOKEN}" ]; then
             echo "::warning::UNITYSVC_SPEC_TOKEN is not set; skipping the backend spec sync check."
@@ -41,7 +47,7 @@ jobs:
             -H "Authorization: Bearer ${TOKEN}" \
             -H "Accept: application/vnd.github.raw" \
             -o "${RUNNER_TEMP}/seller_api.json" \
-            "https://api.github.com/repos/unitysvc/unitysvc/contents/backend/generated/seller_api.json?ref=main"
+            "https://api.github.com/repos/unitysvc/unitysvc/contents/backend/generated/seller_api.json?ref=${SPEC_REF}"
       - name: Compare openapi.json with the backend projection
         if: steps.fetch.outputs.skip != 'true'
         run: python3 scripts/check_spec_sync.py "${RUNNER_TEMP}/seller_api.json"
