@@ -2,6 +2,8 @@ from typing import Literal, cast
 
 ServiceTypeEnum = Literal[
     "analytics",
+    "buy_and_sell",
+    "communication",
     "compute",
     "content",
     "database",
@@ -19,6 +21,8 @@ ServiceTypeEnum = Literal[
 
 SERVICE_TYPE_ENUM_VALUES: set[ServiceTypeEnum] = {
     "analytics",
+    "buy_and_sell",
+    "communication",
     "compute",
     "content",
     "database",

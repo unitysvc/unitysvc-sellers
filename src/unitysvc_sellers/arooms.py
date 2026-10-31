@@ -14,6 +14,7 @@ from ._http import unwrap
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
+    from ._generated.models.room_delivery import RoomDelivery
     from ._generated.models.room_invitation_code import RoomInvitationCode
     from ._generated.models.room_invitation_codes import RoomInvitationCodes
     from ._generated.models.room_list import RoomList
@@ -52,6 +53,24 @@ class AsyncRooms:
         from ._generated.api.seller_rooms import seller_rooms_list_room_members
 
         return unwrap(await seller_rooms_list_room_members.asyncio_detailed(target, client=self._client))
+
+    async def delivery(self, target: str) -> RoomDelivery:
+        """Read this account's notify/email delivery paths and whether they can be edited."""
+        from ._generated.api.seller_rooms import seller_rooms_get_room_delivery
+
+        return unwrap(await seller_rooms_get_room_delivery.asyncio_detailed(target, client=self._client))
+
+    async def set_delivery(self, target: str, *, notify: str | None = None, email: str | None = None) -> RoomDelivery:
+        """Set notify/email to auto, off or a delivery path. Omitted channels stay unchanged."""
+        from ._generated.api.seller_rooms import seller_rooms_update_room_delivery
+        from ._generated.models.room_delivery_update import RoomDeliveryUpdate
+
+        settings = {name: value for name, value in {"notify": notify, "email": email}.items() if value is not None}
+        return unwrap(
+            await seller_rooms_update_room_delivery.asyncio_detailed(
+                target, client=self._client, body=RoomDeliveryUpdate.from_dict(settings)
+            )
+        )
 
     async def update(self, target: str, **settings: Any) -> RoomSummary:
         """Update owner settings: name, Markdown description, retention_seconds, expires_at or

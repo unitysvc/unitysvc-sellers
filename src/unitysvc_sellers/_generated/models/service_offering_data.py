@@ -58,11 +58,9 @@ class ServiceOfferingData:
     """ Service description (long-form; the summary carries the teaser) """
     display_name: None | str | Unset = UNSET
     """ Human-readable service name for display (e.g., 'GPT-4 Turbo', 'Claude 3 Opus') """
-    service_type: ServiceTypeEnum | Unset = UNSET
-    """ Broad service category — defines the access pattern and protocol.
-
-    AI modalities (vision, tools, rerank, etc.) are tracked via the
-    `capabilities` list on ServiceOffering, not service_type. """
+    service_type: None | ServiceTypeEnum | Unset = UNSET
+    """ Category for grouping/comparison; omit it when none fits, and describe the service with capabilities and
+    tags """
     capabilities: list[str] | Unset = UNSET
     """ Specific features this service provides (e.g., 'text_to_speech', 'embedding') """
     status: OfferingStatusEnum | Unset = UNSET
@@ -113,8 +111,12 @@ class ServiceOfferingData:
         else:
             display_name = self.display_name
 
-        service_type: str | Unset = UNSET
-        if not isinstance(self.service_type, Unset):
+        service_type: None | str | Unset
+        if isinstance(self.service_type, Unset):
+            service_type = UNSET
+        elif isinstance(self.service_type, str):
+            service_type = self.service_type
+        else:
             service_type = self.service_type
 
         capabilities: list[str] | Unset = UNSET
@@ -238,12 +240,22 @@ class ServiceOfferingData:
 
         display_name = _parse_display_name(d.pop("display_name", UNSET))
 
-        _service_type = d.pop("service_type", UNSET)
-        service_type: ServiceTypeEnum | Unset
-        if isinstance(_service_type, Unset):
-            service_type = UNSET
-        else:
-            service_type = check_service_type_enum(_service_type)
+        def _parse_service_type(data: object) -> None | ServiceTypeEnum | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                service_type_type_0 = check_service_type_enum(data)
+
+                return service_type_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | ServiceTypeEnum | Unset, data)
+
+        service_type = _parse_service_type(d.pop("service_type", UNSET))
 
         capabilities = cast(list[str], d.pop("capabilities", UNSET))
 

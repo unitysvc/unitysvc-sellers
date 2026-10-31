@@ -49,6 +49,8 @@ from .provider_data import ProviderData
 from .provider_data_documents_type_0 import ProviderDataDocumentsType0
 from .provider_data_documents_type_0_additional_property import ProviderDataDocumentsType0AdditionalProperty
 from .provider_status_enum import ProviderStatusEnum
+from .room_delivery import RoomDelivery
+from .room_delivery_update import RoomDeliveryUpdate
 from .room_invitation_code import RoomInvitationCode
 from .room_invitation_codes import RoomInvitationCodes
 from .room_invitation_create import RoomInvitationCreate
@@ -243,6 +245,8 @@ __all__ = (
     "ProviderDataDocumentsType0",
     "ProviderDataDocumentsType0AdditionalProperty",
     "ProviderStatusEnum",
+    "RoomDelivery",
+    "RoomDeliveryUpdate",
     "RoomInvitationCode",
     "RoomInvitationCodes",
     "RoomInvitationCreate",

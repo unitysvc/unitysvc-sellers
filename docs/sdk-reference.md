@@ -40,6 +40,9 @@ room = client.rooms.get("helpdesk")
 client.rooms.post("helpdesk", body="Please help", client_message_id="support-1")
 client.rooms.update(str(room.id), description="Contact **our support team** here.")
 members = client.rooms.members(str(room.id))
+delivery = client.rooms.delivery(str(room.id))
+if delivery.can_edit:
+    client.rooms.set_delivery(str(room.id), notify="auto", email="off")
 ```
 
 Descriptions are owner-written Markdown. Policy fields such as `retention_seconds`,

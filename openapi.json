@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Isolated PR2808 review Seller API",
+    "title": "UnitySVC Seller API",
     "version": "1.0.0"
   },
   "paths": {
@@ -2500,6 +2500,164 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RoomView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/delivery": {
+      "get": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Get Room Delivery",
+        "description": "How this room reaches your account: its notify and email settings.",
+        "operationId": "seller-rooms-get_room_delivery",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomDelivery"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Update Room Delivery",
+        "description": "Change how this room reaches your account: ``auto``, ``off`` or a\npath for notify and email. A path is checked like the account's room\ndefaults.",
+        "operationId": "seller-rooms-update_room_delivery",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomDeliveryUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomDelivery"
                 }
               }
             }
@@ -7138,6 +7296,63 @@
         "title": "ProviderStatusEnum",
         "description": "Status values that sellers can set for providers.\n\nSeller-accessible statuses:\n- draft: Work in progress, skipped during publish\n- ready: Complete and ready for admin review\n- deprecated: Provider is retired/end of life"
       },
+      "RoomDelivery": {
+        "properties": {
+          "notify": {
+            "type": "string",
+            "title": "Notify"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "can_edit": {
+            "type": "boolean",
+            "title": "Can Edit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "notify",
+          "email",
+          "can_edit"
+        ],
+        "title": "RoomDelivery",
+        "description": "How the room reaches the calling account: ``auto``, ``off`` or a path\nfor each channel. A new member starts with its account's room defaults\n(``room-{notify,email}-as-{host,guest}``)."
+      },
+      "RoomDeliveryUpdate": {
+        "properties": {
+          "notify": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "title": "RoomDeliveryUpdate",
+        "description": "Fields left out keep their value."
+      },
       "RoomInvitationCode": {
         "properties": {
           "id": {
@@ -7839,6 +8054,18 @@
             "title": "Retention Seconds",
             "description": "Effective message retention; null when kept forever"
           },
+          "max_retention_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Retention Seconds",
+            "description": "The longest retention the owner may set; null when kept forever"
+          },
           "keep_forever": {
             "type": "boolean",
             "title": "Keep Forever",
@@ -7978,6 +8205,18 @@
             ],
             "title": "Retention Seconds",
             "description": "Effective message retention; null when kept forever"
+          },
+          "max_retention_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Retention Seconds",
+            "description": "The longest retention the owner may set; null when kept forever"
           },
           "keep_forever": {
             "type": "boolean",
@@ -9327,9 +9566,15 @@
             "description": "Human-readable service name for display (e.g., 'GPT-4 Turbo', 'Claude 3 Opus')"
           },
           "service_type": {
-            "$ref": "#/components/schemas/ServiceTypeEnum",
-            "description": "Category for grouping/comparison",
-            "default": "llm"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceTypeEnum"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Category for grouping/comparison; omit it when none fits, and describe the service with capabilities and tags"
           },
           "capabilities": {
             "items": {
@@ -10159,10 +10404,12 @@
           "mcp",
           "database",
           "monitoring",
-          "analytics"
+          "analytics",
+          "communication",
+          "buy_and_sell"
         ],
         "title": "ServiceTypeEnum",
-        "description": "Broad service category \u2014 defines the access pattern and protocol.\n\nAI modalities (vision, tools, rerank, etc.) are tracked via the\n`capabilities` list on ServiceOffering, not service_type."
+        "description": "Broad service category \u2014 defines the access pattern and protocol.\n\nOptional on an offering: a service that fits none leaves it out, and\ndescribes what it does with capabilities and tags.\n\nAI modalities (vision, tools, rerank, etc.) are tracked via the\n`capabilities` list on ServiceOffering, not service_type."
       },
       "ServiceUpdate": {
         "properties": {

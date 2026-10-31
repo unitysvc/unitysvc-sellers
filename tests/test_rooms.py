@@ -55,6 +55,11 @@ def transport(captured):
         path = request.url.path
         if path.endswith("/missing"):
             return httpx.Response(404, json={"detail": "Room not found"})
+        if path.endswith("/delivery"):
+            settings = {"notify": "auto", "email": "off", "can_edit": True}
+            if request.method == "PATCH":
+                settings.update(json.loads(request.content))
+            return httpx.Response(200, json=settings)
         if path.endswith("/codes"):
             return httpx.Response(
                 201 if request.method == "POST" else 200,
@@ -111,6 +116,30 @@ async def close(client, asynchronous):
         await client.aclose()
     else:
         client.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_room_delivery_paths_and_partial_updates(asynchronous):
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        delivery = await call(client.rooms, "delivery", ROOM)
+        assert delivery.notify == "auto"
+        assert delivery.email == "off"
+        assert delivery.can_edit is True
+
+        updated = await call(client.rooms, "set_delivery", ROOM, email="email")
+        assert updated.email == "email"
+        assert updated.notify == "auto"
+        assert captured[-1].method == "PATCH"
+        assert captured[-1].url.path.endswith(f"/rooms/{ROOM}/delivery")
+        assert json.loads(captured[-1].content) == {"email": "email"}
+
+        await call(client.rooms, "set_delivery", ROOM, notify="off", email="auto")
+        assert json.loads(captured[-1].content) == {"notify": "off", "email": "auto"}
+    finally:
+        await close(client, asynchronous)
 
 
 @pytest.mark.asyncio

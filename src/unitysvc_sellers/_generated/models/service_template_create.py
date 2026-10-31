@@ -49,6 +49,9 @@ class ServiceTemplateCreate:
     service_type: ServiceTypeEnum
     """ Broad service category — defines the access pattern and protocol.
 
+    Optional on an offering: a service that fits none leaves it out, and
+    describes what it does with capabilities and tags.
+
     AI modalities (vision, tools, rerank, etc.) are tracked via the
     `capabilities` list on ServiceOffering, not service_type. """
     offering_template: str
