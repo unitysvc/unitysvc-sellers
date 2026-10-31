@@ -46,8 +46,10 @@ if delivery.can_edit:
 ```
 
 Descriptions are owner-written Markdown. Policy fields such as `retention_seconds`,
-`keep_forever` and `permanent` describe the rules actually enforced by the server.
-Only owners can update settings, and singleton rooms keep their fixed rules.
+`max_retention_seconds`, `owner_sets_retention`, `keep_forever` and `permanent`
+describe the rules actually enforced by the server. A null maximum means the
+kind has no retention cap. Owners can change retention only when
+`owner_sets_retention` is true; permanent rooms keep their fixed lifetime.
 
 ::: unitysvc_sellers.rooms.Rooms
     options:

@@ -120,6 +120,45 @@ async def close(client, asynchronous):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("owner_sets_retention", [False, True])
+async def test_indefinite_room_retention_policy_is_typed(asynchronous, owner_sets_retention):
+    captured = []
+    client = client_for(asynchronous, captured)
+    policy = summary(
+        kind="helpdesk" if not owner_sets_retention else "discussion",
+        retention_seconds=None,
+        max_retention_seconds=None,
+        owner_sets_retention=owner_sets_retention,
+    )
+
+    def handler(request):
+        captured.append(request)
+        return httpx.Response(
+            200,
+            json={"data": [policy]}
+            if request.url.path.endswith("/rooms")
+            else {**policy, "messages": {"data": [], "next": None}},
+        )
+
+    wire = httpx.MockTransport(handler)
+    if asynchronous:
+        client._client.get_async_httpx_client()._transport = wire
+    else:
+        client._client.get_httpx_client()._transport = wire
+    try:
+        room = await call(client.rooms, "get", ROOM)
+        listed = await call(client.rooms, "list")
+        for parsed in [room, listed.data[0]]:
+            assert parsed.retention_seconds is None
+            assert parsed.max_retention_seconds is None
+            assert parsed.owner_sets_retention is owner_sets_retention
+            assert parsed.keep_forever is True
+    finally:
+        await close(client, asynchronous)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
 async def test_room_delivery_paths_and_partial_updates(asynchronous):
     captured = []
     client = client_for(asynchronous, captured)

@@ -7986,7 +7986,6 @@
             "anyOf": [
               {
                 "type": "integer",
-                "maximum": 2592000.0,
                 "minimum": 0.0
               },
               {
@@ -8052,7 +8051,7 @@
               }
             ],
             "title": "Retention Seconds",
-            "description": "Effective message retention; null when kept forever"
+            "description": "Effective message retention; null when kept indefinitely"
           },
           "max_retention_seconds": {
             "anyOf": [
@@ -8064,12 +8063,17 @@
               }
             ],
             "title": "Max Retention Seconds",
-            "description": "The longest retention the owner may set; null when kept forever"
+            "description": "The kind's longest retention; null when it has none"
           },
           "keep_forever": {
             "type": "boolean",
             "title": "Keep Forever",
             "default": false
+          },
+          "owner_sets_retention": {
+            "type": "boolean",
+            "title": "Owner Sets Retention",
+            "default": true
           },
           "permanent": {
             "type": "boolean",
@@ -8204,7 +8208,7 @@
               }
             ],
             "title": "Retention Seconds",
-            "description": "Effective message retention; null when kept forever"
+            "description": "Effective message retention; null when kept indefinitely"
           },
           "max_retention_seconds": {
             "anyOf": [
@@ -8216,12 +8220,17 @@
               }
             ],
             "title": "Max Retention Seconds",
-            "description": "The longest retention the owner may set; null when kept forever"
+            "description": "The kind's longest retention; null when it has none"
           },
           "keep_forever": {
             "type": "boolean",
             "title": "Keep Forever",
             "default": false
+          },
+          "owner_sets_retention": {
+            "type": "boolean",
+            "title": "Owner Sets Retention",
+            "default": true
           },
           "permanent": {
             "type": "boolean",

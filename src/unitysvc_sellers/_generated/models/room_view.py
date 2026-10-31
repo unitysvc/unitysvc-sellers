@@ -31,10 +31,11 @@ class RoomView:
     description: str | Unset = ""
     owner_name: None | str | Unset = UNSET
     retention_seconds: int | None | Unset = UNSET
-    """ Effective message retention; null when kept forever """
+    """ Effective message retention; null when kept indefinitely """
     max_retention_seconds: int | None | Unset = UNSET
-    """ The longest retention the owner may set; null when kept forever """
+    """ The kind's longest retention; null when it has none """
     keep_forever: bool | Unset = False
+    owner_sets_retention: bool | Unset = True
     permanent: bool | Unset = False
     fixed_membership: bool | Unset = False
     invitable: bool | Unset = False
@@ -82,6 +83,8 @@ class RoomView:
 
         keep_forever = self.keep_forever
 
+        owner_sets_retention = self.owner_sets_retention
+
         permanent = self.permanent
 
         fixed_membership = self.fixed_membership
@@ -128,6 +131,8 @@ class RoomView:
             field_dict["max_retention_seconds"] = max_retention_seconds
         if keep_forever is not UNSET:
             field_dict["keep_forever"] = keep_forever
+        if owner_sets_retention is not UNSET:
+            field_dict["owner_sets_retention"] = owner_sets_retention
         if permanent is not UNSET:
             field_dict["permanent"] = permanent
         if fixed_membership is not UNSET:
@@ -195,6 +200,8 @@ class RoomView:
 
         keep_forever = d.pop("keep_forever", UNSET)
 
+        owner_sets_retention = d.pop("owner_sets_retention", UNSET)
+
         permanent = d.pop("permanent", UNSET)
 
         fixed_membership = d.pop("fixed_membership", UNSET)
@@ -243,6 +250,7 @@ class RoomView:
             retention_seconds=retention_seconds,
             max_retention_seconds=max_retention_seconds,
             keep_forever=keep_forever,
+            owner_sets_retention=owner_sets_retention,
             permanent=permanent,
             fixed_membership=fixed_membership,
             invitable=invitable,
