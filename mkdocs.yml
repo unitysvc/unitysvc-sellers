@@ -97,6 +97,7 @@ nav:
       - Document Services: documenting-services.md
       - Test Services: code-examples.md
       - Operate Live Services: guides/operate-services.md
+      - Rooms: guides/rooms.md
       - Promotions, Groups & Secrets: guides/catalog-extras.md
   - Reference:
       - CLI Reference: cli-reference.md

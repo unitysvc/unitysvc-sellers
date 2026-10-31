@@ -28,6 +28,7 @@ $ usvc seller [OPTIONS] COMMAND [ARGS]...
 * `services`: Remote service operations (list, show,...
 * `promotions`: Remote promotion operations (list, show,...
 * `groups`: Remote service group operations (list,...
+* `rooms`: Rooms: list, read, post, settings,...
 * `secrets`: Remote secret operations (list, show, set,...
 * `templates`: Browse the system service-template catalog...
 
@@ -1224,6 +1225,274 @@ $ usvc seller groups upload [OPTIONS]
 
 **Options**:
 
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+## `usvc seller rooms`
+
+Rooms: list, read, post, settings, delivery and invitations.
+
+**Usage**:
+
+```console
+$ usvc seller rooms [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `list`: List the rooms the account can reach, most...
+* `show`: Show a room and its messages, oldest first.
+* `post`: Post a message to a room.
+* `members`: List the room&#x27;s members and their roles.
+* `set`: Change the room&#x27;s settings (owner only).
+* `delivery`: Show, or with --notify / --email change,...
+* `invite`: Create an invitation code for the room.
+* `invitations`: List the room&#x27;s invitation codes.
+* `revoke`: Revoke an invitation code.
+* `join`: Join a room with an invitation code.
+* `leave`: Leave a room you joined (chat rooms; the...
+
+### `usvc seller rooms list`
+
+List the rooms the account can reach, most recently active first.
+
+**Usage**:
+
+```console
+$ usvc seller rooms list [OPTIONS]
+```
+
+**Options**:
+
+* `--kind <str>`: Only rooms of this kind (chat, me, helpdesk).
+* `--enrollment <str>`: Only rooms of this enrollment.
+* `--service <str>`: Only rooms of this service (not its enrollments&#x27;).
+* `-f, --format <str>`: Output format: table | json.  [default: table]
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms show`
+
+Show a room and its messages, oldest first.
+
+**Usage**:
+
+```console
+$ usvc seller rooms show [OPTIONS] {room}
+```
+
+**Arguments**:
+
+* `room`: Room id or handle.  [required]
+
+**Options**:
+
+* `--after <int>`: Resume after this offset (a previous page&#x27;s next).
+* `--limit <int>`: Messages per page (at most 200).  [default: 50]
+* `-f, --format <str>`: Output format: table | json.  [default: table]
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms post`
+
+Post a message to a room.
+
+**Usage**:
+
+```console
+$ usvc seller rooms post [OPTIONS] {room} {text}
+```
+
+**Arguments**:
+
+* `room`: Room id or handle.  [required]
+* `text`: Message body.  [required]
+
+**Options**:
+
+* `--title <str>`: Optional title.
+* `--id <str>`: Idempotency key: retrying with the same key posts once.
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms members`
+
+List the room&#x27;s members and their roles.
+
+**Usage**:
+
+```console
+$ usvc seller rooms members [OPTIONS] {room}
+```
+
+**Arguments**:
+
+* `room`: Room id or handle.  [required]
+
+**Options**:
+
+* `-f, --format <str>`: Output format: table | json.  [default: table]
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms set`
+
+Change the room&#x27;s settings (owner only).
+
+**Usage**:
+
+```console
+$ usvc seller rooms set [OPTIONS] {room}
+```
+
+**Arguments**:
+
+* `room`: Room id or handle.  [required]
+
+**Options**:
+
+* `--name <str>`: New room name.
+* `--description <str>`: Markdown description; &#x27;&#x27; clears it.
+* `--retention <int>`: Seconds to keep messages (0 = don&#x27;t store).
+* `--status <str>`: active | readonly (only owner and moderators post).
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms delivery`
+
+Show, or with --notify / --email change, how this room reaches you.
+
+**Usage**:
+
+```console
+$ usvc seller rooms delivery [OPTIONS] {room}
+```
+
+**Arguments**:
+
+* `room`: Room id or handle.  [required]
+
+**Options**:
+
+* `--notify <str>`: auto | off | a notify service path.
+* `--email <str>`: auto | off | an email service path.
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms invite`
+
+Create an invitation code for the room.
+
+**Usage**:
+
+```console
+$ usvc seller rooms invite [OPTIONS] {room}
+```
+
+**Arguments**:
+
+* `room`: Room id or handle.  [required]
+
+**Options**:
+
+* `--role <str>`: readonly | member | moderator.  [default: member]
+* `--max-uses <int>`: Uses before the code stops working.
+* `--expires-in-days <int>`: Defaults to 7 days.
+* `--note <str>`: A note for yourself.
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms invitations`
+
+List the room&#x27;s invitation codes.
+
+**Usage**:
+
+```console
+$ usvc seller rooms invitations [OPTIONS] {room}
+```
+
+**Arguments**:
+
+* `room`: Room id or handle.  [required]
+
+**Options**:
+
+* `--all`: Include used-up, expired and revoked codes.
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms revoke`
+
+Revoke an invitation code.
+
+**Usage**:
+
+```console
+$ usvc seller rooms revoke [OPTIONS] {room} {code_id}
+```
+
+**Arguments**:
+
+* `room`: Room id or handle.  [required]
+* `code_id`: Invitation code id (from invitations).  [required]
+
+**Options**:
+
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms join`
+
+Join a room with an invitation code.
+
+**Usage**:
+
+```console
+$ usvc seller rooms join [OPTIONS] {code}
+```
+
+**Arguments**:
+
+* `code`: Invitation code.  [required]
+
+**Options**:
+
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms leave`
+
+Leave a room you joined (chat rooms; the owner can&#x27;t leave).
+
+**Usage**:
+
+```console
+$ usvc seller rooms leave [OPTIONS] {room}
+```
+
+**Arguments**:
+
+* `room`: Room id or handle.  [required]
+
+**Options**:
+
+* `-y, --yes`: Skip confirmation prompt.
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.

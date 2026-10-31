@@ -2,6 +2,7 @@
 
 import inspect
 import json
+from uuid import UUID
 
 import httpx
 import pytest
@@ -84,6 +85,8 @@ def transport(captured):
             )
         if path.endswith("/join"):
             return httpx.Response(200, json=summary())
+        if path.endswith("/leave"):
+            return httpx.Response(204)
         if request.method == "POST":
             return httpx.Response(202, json={"room_id": ROOM, "message_id": MESSAGE, "offset": 42, "routed": "handle"})
         if request.method == "PATCH":
@@ -255,5 +258,34 @@ async def test_owner_status_reaches_the_wire(asynchronous):
         assert changed.status == "readonly"
         await call(client.rooms, "update", ROOM, status="active")
         assert json.loads(captured[-1].content) == {"status": "active"}
+    finally:
+        await close(client, asynchronous)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_rooms_narrow_by_enrollment_and_service_and_leave(asynchronous):
+    """list() sends the scope filters, from an id or an SDK object, and
+    leave() posts to the room's leave route (unitysvc#2846 C2, C6)."""
+    captured = []
+    client = client_for(asynchronous, captured)
+    enrollment = "22222222-2222-4222-8222-222222222222"
+    service = "33333333-3333-4333-8333-333333333333"
+
+    class _Holder:
+        id = service
+
+    try:
+        listed = await call(client.rooms, "list", kind="chat", enrollment=enrollment)
+        assert listed.data[0].id == UUID(ROOM)
+        assert dict(captured[-1].url.params) == {"kind": "chat", "enrollment": enrollment}
+        await call(client.rooms, "list", service=_Holder())
+        assert dict(captured[-1].url.params) == {"service": service}
+        await call(client.rooms, "list")
+        assert dict(captured[-1].url.params) == {}
+
+        assert await call(client.rooms, "leave", ROOM) is None
+        assert captured[-1].method == "POST"
+        assert captured[-1].url.path.endswith(f"/rooms/{ROOM}/leave")
     finally:
         await close(client, asynchronous)

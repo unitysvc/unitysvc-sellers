@@ -1,5 +1,6 @@
 from http import HTTPStatus
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -13,6 +14,8 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     *,
     kind: None | str | Unset = UNSET,
+    enrollment: None | Unset | UUID = UNSET,
+    service: None | Unset | UUID = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -31,6 +34,24 @@ def _get_kwargs(
     else:
         json_kind = kind
     params["kind"] = json_kind
+
+    json_enrollment: None | str | Unset
+    if isinstance(enrollment, Unset):
+        json_enrollment = UNSET
+    elif isinstance(enrollment, UUID):
+        json_enrollment = str(enrollment)
+    else:
+        json_enrollment = enrollment
+    params["enrollment"] = json_enrollment
+
+    json_service: None | str | Unset
+    if isinstance(service, Unset):
+        json_service = UNSET
+    elif isinstance(service, UUID):
+        json_service = str(service)
+    else:
+        json_service = service
+    params["service"] = json_service
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -78,16 +99,21 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     kind: None | str | Unset = UNSET,
+    enrollment: None | Unset | UUID = UNSET,
+    service: None | Unset | UUID = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | RoomList]:
     """List Rooms
 
-     The rooms the account is in, with its role in each, most recently
-    active first. A key limited by ``room=`` sees only its rooms.
+     The rooms the account can reach, with its role in each, most
+    recently active first, optionally narrowed by kind, enrollment or
+    service. A key limited by ``room=`` sees only its rooms.
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
+        enrollment (None | Unset | UUID): Only rooms of this enrollment
+        service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -101,6 +127,8 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         kind=kind,
+        enrollment=enrollment,
+        service=service,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -116,16 +144,21 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     kind: None | str | Unset = UNSET,
+    enrollment: None | Unset | UUID = UNSET,
+    service: None | Unset | UUID = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> HTTPValidationError | RoomList | None:
     """List Rooms
 
-     The rooms the account is in, with its role in each, most recently
-    active first. A key limited by ``room=`` sees only its rooms.
+     The rooms the account can reach, with its role in each, most
+    recently active first, optionally narrowed by kind, enrollment or
+    service. A key limited by ``room=`` sees only its rooms.
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
+        enrollment (None | Unset | UUID): Only rooms of this enrollment
+        service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -140,6 +173,8 @@ def sync(
     return sync_detailed(
         client=client,
         kind=kind,
+        enrollment=enrollment,
+        service=service,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
@@ -149,16 +184,21 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     kind: None | str | Unset = UNSET,
+    enrollment: None | Unset | UUID = UNSET,
+    service: None | Unset | UUID = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | RoomList]:
     """List Rooms
 
-     The rooms the account is in, with its role in each, most recently
-    active first. A key limited by ``room=`` sees only its rooms.
+     The rooms the account can reach, with its role in each, most
+    recently active first, optionally narrowed by kind, enrollment or
+    service. A key limited by ``room=`` sees only its rooms.
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
+        enrollment (None | Unset | UUID): Only rooms of this enrollment
+        service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -172,6 +212,8 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         kind=kind,
+        enrollment=enrollment,
+        service=service,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -185,16 +227,21 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     kind: None | str | Unset = UNSET,
+    enrollment: None | Unset | UUID = UNSET,
+    service: None | Unset | UUID = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> HTTPValidationError | RoomList | None:
     """List Rooms
 
-     The rooms the account is in, with its role in each, most recently
-    active first. A key limited by ``room=`` sees only its rooms.
+     The rooms the account can reach, with its role in each, most
+    recently active first, optionally narrowed by kind, enrollment or
+    service. A key limited by ``room=`` sees only its rooms.
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
+        enrollment (None | Unset | UUID): Only rooms of this enrollment
+        service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -210,6 +257,8 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             kind=kind,
+            enrollment=enrollment,
+            service=service,
             authorization=authorization,
             x_role_id=x_role_id,
         )

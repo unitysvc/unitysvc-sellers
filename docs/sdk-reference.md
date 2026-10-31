@@ -35,6 +35,9 @@ documentation with examples, see the [SDK Guide](sdk-guide.md).
 
 ### Rooms
 
+The [Rooms guide](guides/rooms.md) explains kinds, roles, giving customers a
+room and enrollment email; this section is the reference.
+
 ```python
 room = client.rooms.get("helpdesk")
 client.rooms.post("helpdesk", body="Please help", client_message_id="support-1")
