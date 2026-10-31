@@ -195,8 +195,8 @@ upstream server, access method or user access interface:
 The kind and member cap are fixed. The room is owned by the enrolling
 customer and scoped to the enrollment: it is reachable while the enrollment is
 active, and again if the enrollment is reactivated. Owners edit the room's name
-and Markdown description, and its status (`active`, `paused` with an automatic
-reply, or `readonly`), after creation. Members join a `chat` room with an
+and Markdown description, and its status (`active`, or `readonly` for owner and
+moderator posts only), after creation. Members join a `chat` room with an
 invitation code.
 
 `chat` is the only kind provisioned today. Seller-owned `support` rooms (one

@@ -8000,7 +8000,6 @@
                 "type": "string",
                 "enum": [
                   "active",
-                  "paused",
                   "readonly"
                 ]
               },
@@ -8009,20 +8008,7 @@
               }
             ],
             "title": "Status",
-            "description": "The owner's operational status: paused auto-replies with pause_message; readonly lets only the owner and moderators post"
-          },
-          "pause_message": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pause Message",
-            "description": "Null clears it"
+            "description": "The owner's operational status; readonly lets only the owner and moderators post"
           }
         },
         "additionalProperties": false,
@@ -8107,17 +8093,6 @@
               }
             ],
             "title": "Status Changed At"
-          },
-          "pause_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pause Message"
           },
           "id": {
             "type": "string",
@@ -8259,17 +8234,6 @@
               }
             ],
             "title": "Status Changed At"
-          },
-          "pause_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pause Message"
           },
           "id": {
             "type": "string",

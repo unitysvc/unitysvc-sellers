@@ -21,10 +21,7 @@ class RoomSettingsUpdate:
     """ Markdown; null clears the description """
     retention_seconds: int | None | Unset = UNSET
     status: None | RoomSettingsUpdateStatusType0 | Unset = UNSET
-    """ The owner's operational status: paused auto-replies with pause_message; readonly lets only the owner and
-    moderators post """
-    pause_message: None | str | Unset = UNSET
-    """ Null clears it """
+    """ The owner's operational status; readonly lets only the owner and moderators post """
 
     def to_dict(self) -> dict[str, Any]:
         name: None | str | Unset
@@ -53,12 +50,6 @@ class RoomSettingsUpdate:
         else:
             status = self.status
 
-        pause_message: None | str | Unset
-        if isinstance(self.pause_message, Unset):
-            pause_message = UNSET
-        else:
-            pause_message = self.pause_message
-
         field_dict: dict[str, Any] = {}
 
         field_dict.update({})
@@ -70,8 +61,6 @@ class RoomSettingsUpdate:
             field_dict["retention_seconds"] = retention_seconds
         if status is not UNSET:
             field_dict["status"] = status
-        if pause_message is not UNSET:
-            field_dict["pause_message"] = pause_message
 
         return field_dict
 
@@ -123,21 +112,11 @@ class RoomSettingsUpdate:
 
         status = _parse_status(d.pop("status", UNSET))
 
-        def _parse_pause_message(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        pause_message = _parse_pause_message(d.pop("pause_message", UNSET))
-
         room_settings_update = cls(
             name=name,
             description=description,
             retention_seconds=retention_seconds,
             status=status,
-            pause_message=pause_message,
         )
 
         return room_settings_update

@@ -245,16 +245,15 @@ async def test_room_errors_are_sdk_errors(asynchronous):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("asynchronous", [False, True])
-async def test_owner_status_and_pause_message_reach_the_wire(asynchronous):
-    """rooms.update sends the operational status and auto-reply (#2843 S5b)."""
+async def test_owner_status_reaches_the_wire(asynchronous):
+    """rooms.update sends the owner's operational status (#2843 S5b)."""
     captured = []
     client = client_for(asynchronous, captured)
     try:
-        changed = await call(client.rooms, "update", ROOM, status="paused", pause_message="Back Monday")
-        assert json.loads(captured[-1].content) == {"status": "paused", "pause_message": "Back Monday"}
-        assert changed.status == "paused"
-        assert changed.pause_message == "Back Monday"
-        await call(client.rooms, "update", ROOM, status="active", pause_message=None)
-        assert json.loads(captured[-1].content) == {"status": "active", "pause_message": None}
+        changed = await call(client.rooms, "update", ROOM, status="readonly")
+        assert json.loads(captured[-1].content) == {"status": "readonly"}
+        assert changed.status == "readonly"
+        await call(client.rooms, "update", ROOM, status="active")
+        assert json.loads(captured[-1].content) == {"status": "active"}
     finally:
         await close(client, asynchronous)

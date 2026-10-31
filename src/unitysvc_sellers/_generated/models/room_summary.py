@@ -38,7 +38,6 @@ class RoomSummary:
     invitable: bool | Unset = False
     can_manage: bool | Unset = False
     status_changed_at: datetime.datetime | None | Unset = UNSET
-    pause_message: None | str | Unset = UNSET
     last_message_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -97,12 +96,6 @@ class RoomSummary:
         else:
             status_changed_at = self.status_changed_at
 
-        pause_message: None | str | Unset
-        if isinstance(self.pause_message, Unset):
-            pause_message = UNSET
-        else:
-            pause_message = self.pause_message
-
         last_message_at: None | str | Unset
         if isinstance(self.last_message_at, Unset):
             last_message_at = UNSET
@@ -145,8 +138,6 @@ class RoomSummary:
             field_dict["can_manage"] = can_manage
         if status_changed_at is not UNSET:
             field_dict["status_changed_at"] = status_changed_at
-        if pause_message is not UNSET:
-            field_dict["pause_message"] = pause_message
         if last_message_at is not UNSET:
             field_dict["last_message_at"] = last_message_at
 
@@ -227,15 +218,6 @@ class RoomSummary:
 
         status_changed_at = _parse_status_changed_at(d.pop("status_changed_at", UNSET))
 
-        def _parse_pause_message(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        pause_message = _parse_pause_message(d.pop("pause_message", UNSET))
-
         def _parse_last_message_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -272,7 +254,6 @@ class RoomSummary:
             invitable=invitable,
             can_manage=can_manage,
             status_changed_at=status_changed_at,
-            pause_message=pause_message,
             last_message_at=last_message_at,
         )
 

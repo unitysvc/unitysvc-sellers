@@ -1,10 +1,9 @@
 from typing import Literal, cast
 
-RoomSettingsUpdateStatusType0 = Literal["active", "paused", "readonly"]
+RoomSettingsUpdateStatusType0 = Literal["active", "readonly"]
 
 ROOM_SETTINGS_UPDATE_STATUS_TYPE_0_VALUES: set[RoomSettingsUpdateStatusType0] = {
     "active",
-    "paused",
     "readonly",
 }
 

@@ -40,7 +40,6 @@ class RoomView:
     invitable: bool | Unset = False
     can_manage: bool | Unset = False
     status_changed_at: datetime.datetime | None | Unset = UNSET
-    pause_message: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -98,12 +97,6 @@ class RoomView:
         else:
             status_changed_at = self.status_changed_at
 
-        pause_message: None | str | Unset
-        if isinstance(self.pause_message, Unset):
-            pause_message = UNSET
-        else:
-            pause_message = self.pause_message
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -138,8 +131,6 @@ class RoomView:
             field_dict["can_manage"] = can_manage
         if status_changed_at is not UNSET:
             field_dict["status_changed_at"] = status_changed_at
-        if pause_message is not UNSET:
-            field_dict["pause_message"] = pause_message
 
         return field_dict
 
@@ -220,15 +211,6 @@ class RoomView:
 
         status_changed_at = _parse_status_changed_at(d.pop("status_changed_at", UNSET))
 
-        def _parse_pause_message(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        pause_message = _parse_pause_message(d.pop("pause_message", UNSET))
-
         room_view = cls(
             id=id,
             member_id=member_id,
@@ -248,7 +230,6 @@ class RoomView:
             invitable=invitable,
             can_manage=can_manage,
             status_changed_at=status_changed_at,
-            pause_message=pause_message,
         )
 
         room_view.additional_properties = d
