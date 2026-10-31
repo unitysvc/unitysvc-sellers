@@ -10,6 +10,7 @@ from . import specs as specs_group
 from ._experimental import experimental_enabled
 from .commands import groups as groups_cmd
 from .commands import promotions as promotions_cmd
+from .commands import rooms as rooms_cmd
 from .commands import secrets as secrets_cmd
 from .commands import services as services_cmd
 from .commands import templates as templates_cmd
@@ -57,6 +58,7 @@ app.add_typer(specs_group.app, name="specs")
 app.add_typer(services_cmd.app, name="services")
 app.add_typer(promotions_cmd.app, name="promotions")
 app.add_typer(groups_cmd.app, name="groups")
+app.add_typer(rooms_cmd.app, name="rooms")
 app.add_typer(secrets_cmd.app, name="secrets")
 app.add_typer(templates_cmd.app, name="templates")
 
