@@ -75,6 +75,10 @@ if [ "${need_bootstrap}" = "1" ]; then
         "ruff==${PINNED_RUFF_VERSION}"
 fi
 
+# The generator's own cleanup integration must use the same pinned ruff as
+# the normalization below, including when the tool venv was just bootstrapped.
+export PATH="${REPO_ROOT}/.tool-venv/bin:${PATH}"
+
 # ---------------------------------------------------------------------------
 # Mirror the spec into the repo so the committed copy is always in sync
 # with what the generated client was last produced from. Reviewers of SDK

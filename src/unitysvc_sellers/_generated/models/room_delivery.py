@@ -1,0 +1,76 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any, TypeVar
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+T = TypeVar("T", bound="RoomDelivery")
+
+
+@_attrs_define
+class RoomDelivery:
+    """How the room reaches the calling account: ``auto``, ``off`` or a path
+    for each channel. A new member starts with its account's room defaults
+    (``room-{notify,email}-as-{host,guest}``).
+
+    """
+
+    notify: str
+    email: str
+    can_edit: bool
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        notify = self.notify
+
+        email = self.email
+
+        can_edit = self.can_edit
+
+        field_dict: dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "notify": notify,
+                "email": email,
+                "can_edit": can_edit,
+            }
+        )
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
+        notify = d.pop("notify")
+
+        email = d.pop("email")
+
+        can_edit = d.pop("can_edit")
+
+        room_delivery = cls(
+            notify=notify,
+            email=email,
+            can_edit=can_edit,
+        )
+
+        room_delivery.additional_properties = d
+        return room_delivery
+
+    @property
+    def additional_keys(self) -> list[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

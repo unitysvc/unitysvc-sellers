@@ -29,8 +29,11 @@ class RoomSummary:
     description: str | Unset = ""
     owner_name: None | str | Unset = UNSET
     retention_seconds: int | None | Unset = UNSET
-    """ Effective message retention; null when kept forever """
+    """ Effective message retention; null when kept indefinitely """
+    max_retention_seconds: int | None | Unset = UNSET
+    """ The kind's longest retention; null when it has none """
     keep_forever: bool | Unset = False
+    owner_sets_retention: bool | Unset = True
     permanent: bool | Unset = False
     fixed_membership: bool | Unset = False
     invitable: bool | Unset = False
@@ -71,7 +74,15 @@ class RoomSummary:
         else:
             retention_seconds = self.retention_seconds
 
+        max_retention_seconds: int | None | Unset
+        if isinstance(self.max_retention_seconds, Unset):
+            max_retention_seconds = UNSET
+        else:
+            max_retention_seconds = self.max_retention_seconds
+
         keep_forever = self.keep_forever
+
+        owner_sets_retention = self.owner_sets_retention
 
         permanent = self.permanent
 
@@ -123,8 +134,12 @@ class RoomSummary:
             field_dict["owner_name"] = owner_name
         if retention_seconds is not UNSET:
             field_dict["retention_seconds"] = retention_seconds
+        if max_retention_seconds is not UNSET:
+            field_dict["max_retention_seconds"] = max_retention_seconds
         if keep_forever is not UNSET:
             field_dict["keep_forever"] = keep_forever
+        if owner_sets_retention is not UNSET:
+            field_dict["owner_sets_retention"] = owner_sets_retention
         if permanent is not UNSET:
             field_dict["permanent"] = permanent
         if fixed_membership is not UNSET:
@@ -181,7 +196,18 @@ class RoomSummary:
 
         retention_seconds = _parse_retention_seconds(d.pop("retention_seconds", UNSET))
 
+        def _parse_max_retention_seconds(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        max_retention_seconds = _parse_max_retention_seconds(d.pop("max_retention_seconds", UNSET))
+
         keep_forever = d.pop("keep_forever", UNSET)
+
+        owner_sets_retention = d.pop("owner_sets_retention", UNSET)
 
         permanent = d.pop("permanent", UNSET)
 
@@ -246,7 +272,9 @@ class RoomSummary:
             description=description,
             owner_name=owner_name,
             retention_seconds=retention_seconds,
+            max_retention_seconds=max_retention_seconds,
             keep_forever=keep_forever,
+            owner_sets_retention=owner_sets_retention,
             permanent=permanent,
             fixed_membership=fixed_membership,
             invitable=invitable,

@@ -120,7 +120,6 @@ Service files define the service offering from the upstream provider's perspecti
 | Field                        | Type                        | Description                                                                                                                                                                       |
 | ---------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `name`                       | string                      | Service identifier (must match directory name, allows slashes for hierarchy)                                                                                                      |
-| `service_type`               | enum                        | Service category (see [ServiceTypeEnum values](#servicetype-enum-values))                                                                                                         |
 | `summary`                    | string (max 200)            | One-line marketplace summary, shown on collapsed catalog rows and cards (unitysvc#1838)                                                                                          |
 | `description`                | string                      | Long-form service description (the summary carries the teaser; no paragraph conventions)                                                                                          |
 | `upstream_access_config` | dict of channel objects | How the gateway reaches the upstream, keyed by **channel name**; each entry is a typed **upstream access channel** (see [Upstream access channels](#upstream-access-config)). String values may be templates (`{{ params.X }}`, `{{ enrollment.code }}`, `${ secrets.X }`, …), rendered at gateway routing time. |
@@ -130,6 +129,7 @@ Service files define the service offering from the upstream provider's perspecti
 
 | Field          | Type                  | Description                                                   |
 | -------------- | --------------------- | ------------------------------------------------------------- |
+| `service_type` | enum or null | Optional category, with no default; omit it when no category applies. Core 0.3.4 adds `communication` (Commons) and `buy_and_sell`. |
 | `display_name` | string                | Human-readable service name for display (e.g., 'GPT-4 Turbo') |
 | `capabilities` | array of string       | Specific features this service provides (see [Capabilities](#capabilities)) |
 | `logo`         | string/URL            | Path to logo or URL (converted to document)                   |
@@ -142,19 +142,14 @@ Service files define the service offering from the upstream provider's perspecti
 
 ### ServiceType Enum Values
 
-- `llm` - Large Language Model
-- `embedding` - Text embedding generation
-- `image_generation` - Image generation from prompts
-- `text_to_image` - Text to image conversion
-- `vision_language_model` - Image description/analysis
-- `speech_to_text` - Audio transcription
-- `text_to_speech` - Voice synthesis
-- `video_generation` - Video generation
-- `text_to_3d` - 3D model generation
-- `streaming_transcription` - Real-time audio transcription
-- `prerecorded_transcription` - Batch audio transcription
-- `prerecorded_translation` - Batch audio translation
-- `undetermined` - Type not yet determined
+`service_type` is optional and has no default. It describes how the platform
+handles a service; capabilities describe what it does and tags describe its
+industry or audience. Omitting the type does not classify the offering as an LLM.
+
+- Models: `llm`, `embedding`, `image_generation`
+- Delivery: `notification`, `email`, `content`, `streaming`
+- Infrastructure: `compute`, `proxy`, `gateway`, `mcp`, `database`, `monitoring`, `analytics`
+- Applications: `communication`, `buy_and_sell`
 
 ### Capabilities
 
@@ -384,7 +379,7 @@ These keys describe the channel as a whole. The connection itself lives in [serv
 | `request_formats` | array of string | none | The request formats the channel serves. |
 | `applicable_interfaces` | array of string | none | The user access interfaces that reach this channel (display only). |
 | `rate_limit_refs` | array of string | none | Names of the provider's rate limits this channel consumes; see [Provider-account rate-limit refs](#provider-account-rate-limit-refs). |
-| `customer_access_requests` | array of object | none | What the enrolling customer is asked to approve: using other services through their account. See [Exports & Dependencies](exports-and-dependencies.md#customer-access-requests). Formerly `grants`. |
+| `customer_access_requests` | array of object | none | What the enrolling customer is asked to approve: named services or platform resources such as `resource:room`. See [Exports & Dependencies](exports-and-dependencies.md#customer-access-requests). Formerly `grants`. |
 | `params` | object | none | The enrollment parameters the channel reads. See [Enrollment Parameters](#enrollment-parameters). |
 | `servers` | array of server | `[]` | The connection, typed by `access_method`. See [Servers](#servers). |
 

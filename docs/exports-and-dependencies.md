@@ -7,12 +7,10 @@ service asks the enrolling customer for access to other services
 service that depends on others is a *composite* service, and the customer
 approves each dependency when they enroll.
 
-> **Status.** The formats below are defined and validated by `unitysvc-core`
-> (0.3.0 and later; earlier releases called the field `depends_on`, and
-> before that `grants`), so `usvc_seller specs validate` checks them today. The
-> platform side is rolling out (unitysvc/unitysvc#2720): publishing exports in
-> the catalog, the enrollment consent form, and enforcement at the gateway.
-> Until then, declaring them is safe but has no effect on routing.
+The seller CLI uses `unitysvc-core>=0.3.4` to validate explicit access
+contracts and resource-only apps. Service capabilities come from published
+exports; room resources use the platform registry. Room provisioning during
+enrollment is tracked in [unitysvc#2830](https://github.com/unitysvc/unitysvc/issues/2830).
 
 ## The model
 
@@ -23,12 +21,12 @@ approves each dependency when they enroll.
   `permissions` exports exactly those, and `invoke` only if it declares it
   too; a data service such as `me` exports `read` / `write` and no `invoke`.
 - **Customer access requests** live on a channel in `upstream_access_config`,
-  as `customer_access_requests`. Each entry names another service and what
+  as `customer_access_requests`. Each entry names a service or platform resource and what
   your service needs from it — for example an uptime monitor that writes to the customer's
   `log` and alerts through `notify`.
 - **The customer decides.** When a customer enrolls in your service, they see
-  each dependency with your justification, confirm or change its options,
-  and set limits. What they approve becomes a *policy* on the API key your
+  each dependency with your justification, approve required items, select optional ones, add options the request does not
+  fix, and set limits. What they approve becomes a *policy* on the API key your
   service uses on their behalf.
 
 There is no central list of services or permissions: a dependency is checked
@@ -143,20 +141,27 @@ On any channel of `upstream_access_config`:
 
 | Field | Required | Description |
 | --- | --- | --- |
-| `object` | yes | The service depended on: `service:<name>`. No wildcards. (Or `apikey`, below.) |
-| `permissions` | yes | Permissions from the target's exports: `invoke`, or a named one it declares. |
+| `object` | yes | A named service (`service:<name>`), a registered resource (`resource:room`), or `apikey`. No wildcards. |
+| `permissions` | yes | Explicit permissions from the target's exports or resource registry. An approved item keeps this exact set. |
 | `justification` | yes | Why your service needs it, in words the customer reads before approving. |
-| `required` | no | `true` if your service can't work without it; the customer may decline the others. Default `false`. |
-| `options` | no | A query string of the target's options, e.g. `"log_level=warn&max_size=2000"`. |
+| `required` | yes | `true` if your service cannot work without it; `false` lets the customer decline the item. |
+| `options` | no | Fixed option values, e.g. `"log_level=warn&max_size=2000"`. The customer cannot override them. |
 | `limits` | no | Suggested usage limits, e.g. `{"count_per_day": 1000}` (see [Limits](#limits)). |
 
-`options` and `limits` here are **suggestions that pre-fill the enrollment
-form**. The customer confirms or changes the options within what the target
-exports, sets the limits, and may add limits of their own. What they approve
-becomes the policy on the key your service uses for them.
+A selected item keeps its declared object, full permission set and every
+specified option. The policy builder copies the fixed options into the policy;
+omission does not unset them, and a conflicting value is refused. Customers may
+add options the request does not declare, within the target's schema, and set
+valid limits. Required items must be selected; optional items may be omitted.
+Only `limits` are suggestions that pre-fill the form.
+
+For `service:ai`, omit the `service` option to let the customer choose their AI
+service. Declare `options="service=labs/llm-balanced"` to require that service.
+Customers cannot add undeclared policy items, except their own limits-only
+`enrollment` entry.
 
 A longer-lived key for your service's work is requested with one `apikey`
-entry: `{"object": "apikey", "limits": {"api_key_lifespan": 14400}, "justification": "Batch runs take up to four hours"}`.
+entry: `{"object": "apikey", "required": false, "limits": {"api_key_lifespan": 14400}, "justification": "Batch runs take up to four hours"}`.
 It takes only `limits` (exactly `api_key_lifespan`, whole seconds from 1 to
 86400) and a `justification`, and grants nothing. Without it, a key leased for
 the enrollment lives one hour.
@@ -165,6 +170,39 @@ Each channel declares its own `customer_access_requests`, so different plans of 
 can depend on different things — for example a channel that uses the
 customer's own `ai` (and is priced lower) beside a managed channel that uses
 yours.
+
+## Resource-only apps (Commons)
+
+With `unitysvc-core>=0.3.4`, a channel can request a platform room without an
+upstream server, access method or user access interface:
+
+```json
+{
+  "upstream_access_config": {
+    "free": {
+      "customer_access_requests": [{
+        "object": "resource:room",
+        "permissions": ["create"],
+        "required": true,
+        "justification": "Creates your group room during enrollment",
+        "options": "kind=chat&max_members=100"
+      }]
+    }
+  }
+}
+```
+
+The kind and member cap are fixed. Owners edit the room's name and Markdown
+description after creation. Other supported kinds are private enrollment
+`support` rooms and service-wide `announcement` / `discussion` rooms. Their
+admissions are automatic; only `chat` rooms allow invitation-code joining.
+Resource requests are validated by the platform registry, without a catalog
+service named `rooms`. The provisioning step is tracked in
+[unitysvc#2830](https://github.com/unitysvc/unitysvc/issues/2830).
+
+Use `service_type: "communication"` for Commons, or omit `service_type` when no
+category applies. Run `usvc seller specs validate` before uploading. The CLI
+keeps the resource-only channel and its fixed options in the upload payload.
 
 ## Limits
 
