@@ -1,7 +1,7 @@
 """Account-scoped rooms, messages, owner settings and invitation codes.
 
-Room descriptions are Markdown. Read the returned retention/permanence fields
-for current policy instead of deriving rules from description text.
+Room descriptions are Markdown. Read the returned retention fields for current
+policy instead of deriving rules from description text.
 """
 
 from __future__ import annotations
@@ -24,17 +24,48 @@ if TYPE_CHECKING:
     from ._generated.models.room_view import RoomView
 
 
+def _id(value: Any) -> Any:
+    """An id from an id or an SDK object carrying ``.id``; UNSET for None."""
+    if value is None:
+        return UNSET
+    raw = getattr(value, "id", value)
+    return raw if isinstance(raw, UUID) else UUID(str(raw))
+
+
 class Rooms:
     """Room operations for the key's seller account (``client.rooms``)."""
 
     def __init__(self, client: AuthenticatedClient) -> None:
         self._client = client
 
-    def list(self, *, kind: str | None = None) -> RoomList:
-        """List the account's rooms, optionally filtered by kind."""
+    def list(
+        self,
+        *,
+        kind: str | None = None,
+        enrollment: Any = None,
+        service: Any = None,
+    ) -> RoomList:
+        """List the rooms the account can reach, narrowed by kind, enrollment or
+        service. ``enrollment`` / ``service`` take an id or the SDK object;
+        each matches that exact scope (a service's rooms, not its enrollments')."""
         from ._generated.api.seller_rooms import seller_rooms_list_rooms
 
-        return unwrap(seller_rooms_list_rooms.sync_detailed(client=self._client, kind=UNSET if kind is None else kind))
+        return unwrap(
+            seller_rooms_list_rooms.sync_detailed(
+                client=self._client,
+                kind=UNSET if kind is None else kind,
+                enrollment=_id(enrollment),
+                service=_id(service),
+            )
+        )
+
+    def leave(self, target: str) -> None:
+        """Leave a room the account joined, if its kind allows it (a chat room).
+        The owner can't leave, and a membership that comes from an enrollment
+        follows the enrollment instead."""
+        from ._generated.api.seller_rooms import seller_rooms_leave_room
+
+        unwrap(seller_rooms_leave_room.sync_detailed(target, client=self._client))
 
     def get(self, target: str, *, after: int | None = None, limit: int = 50) -> RoomView:
         """Read a room by UUID or handle; resume history with the previous messages.next."""

@@ -2092,7 +2092,7 @@
           "seller-rooms"
         ],
         "summary": "List Rooms",
-        "description": "The rooms the account is in, with its role in each, most recently\nactive first. A key limited by ``room=`` sees only its rooms.",
+        "description": "The rooms the account can reach, with its role in each, most\nrecently active first, optionally narrowed by kind, enrollment or\nservice. A key limited by ``room=`` sees only its rooms.",
         "operationId": "seller-rooms-list_rooms",
         "parameters": [
           {
@@ -2112,6 +2112,44 @@
               "title": "Kind"
             },
             "description": "Only rooms of this kind"
+          },
+          {
+            "name": "enrollment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rooms of this enrollment",
+              "title": "Enrollment"
+            },
+            "description": "Only rooms of this enrollment"
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rooms of this service (not its enrollments' rooms)",
+              "title": "Service"
+            },
+            "description": "Only rooms of this service (not its enrollments' rooms)"
           },
           {
             "name": "authorization",
@@ -2661,6 +2699,74 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/leave": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Leave Room",
+        "description": "Leave a room the account joined (#2846 C6). Only rooms that take\ninvitations (``chat``), and never the owner; an enrollment-based\nmembership follows its enrollment instead.",
+        "operationId": "seller-rooms-leave_room",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
