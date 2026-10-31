@@ -40,7 +40,7 @@ class _Rooms:
     async def get(self, target: str, **kwargs: Any) -> dict[str, Any]:
         self.calls.append(("get", target, kwargs))
         message = {"offset": 3, "sent_at": "2026-10-31T10:00:00Z", "sender_name": "Ann", "body": "hello"}
-        return {**ROOM, "description": "Read together", "messages": {"data": [message], "next": 3}}
+        return {"description": "Read together", **ROOM, "messages": {"data": [message], "next": 3}}
 
     async def post(self, target: str, **kwargs: Any) -> dict[str, Any]:
         self.calls.append(("post", target, kwargs))
@@ -138,3 +138,39 @@ def test_invitations_join_and_leave(rooms: _Rooms) -> None:
     assert "@book-club" in runner.invoke(app, ["join", "ABCD1234"]).output
     assert runner.invoke(app, ["leave", "book-club", "--yes"]).exit_code == 0
     assert rooms.calls[-1] == ("leave", "book-club")
+
+
+TRICKY = "a long room description with [bold]tags[/bold] and [/INST] " * 6
+
+
+def test_json_output_is_plain_and_exact(rooms: _Rooms, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--format json writes the JSON as is: no wrapping inside long strings,
+    no markup interpretation of brackets."""
+    monkeypatch.setitem(ROOM, "description", TRICKY)
+    result = runner.invoke(app, ["list", "--format", "json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)[0]["description"] == TRICKY
+    shown = runner.invoke(app, ["show", "book-club", "--format", "json"])
+    assert shown.exit_code == 0, shown.output
+    assert json.loads(shown.output)["description"] == TRICKY
+
+
+def test_user_content_is_printed_literally(rooms: _Rooms, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Room names, descriptions, senders and bodies are user content: Rich
+    tags in them neither crash the CLI nor change what is shown."""
+    literal = "Literal [/INST] text"
+
+    async def get(target: str, **kwargs: Any) -> dict[str, Any]:
+        message = {"offset": 3, "sent_at": "t", "sender_name": "[red]Eve[/red]", "body": literal}
+        return {**ROOM, "name": "[bold]Club[/bold]", "description": literal, "messages": {"data": [message], "next": 3}}
+
+    monkeypatch.setattr(rooms, "get", get)
+    result = runner.invoke(app, ["show", "book-club"])
+    assert result.exit_code == 0, result.output
+    assert result.output.count(literal) == 2
+    assert "[bold]Club[/bold]" in result.output and "[red]Eve[/red]" in result.output
+
+    monkeypatch.setitem(ROOM, "name", "[bold]Club[/bold]")
+    table = runner.invoke(app, ["list"])
+    assert table.exit_code == 0, table.output
+    assert "[bold]Club[/bold]" in table.output

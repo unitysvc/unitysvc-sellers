@@ -14,6 +14,10 @@ the account's handles (``me``, ``helpdesk``, or a room's own handle):
 - ``usvc seller rooms join CODE`` / ``leave ROOM``
 
 What the account may do is decided by the server from its role in the room.
+
+Room names, descriptions and messages are user content: they are printed as
+literal text, never as Rich markup, and ``--format json`` writes plain JSON to
+stdout.
 """
 
 from __future__ import annotations
@@ -23,7 +27,9 @@ from typing import Any
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
+from rich.text import Text
 
 from ._helpers import (
     api_key_option,
@@ -39,7 +45,13 @@ app = typer.Typer(help="Rooms: list, read, post, settings, delivery and invitati
 
 
 def _print_json(value: Any) -> None:
-    console.print(json.dumps(value, indent=2, default=str))
+    """Plain JSON on stdout: no wrapping, no markup, safe to pipe and parse."""
+    typer.echo(json.dumps(value, indent=2, default=str))
+
+
+def _literal(value: Any) -> Text:
+    """User content as a table cell, never interpreted as markup."""
+    return Text("" if value is None else str(value))
 
 
 def _rooms_table(rooms: list[dict[str, Any]]) -> None:
@@ -47,14 +59,7 @@ def _rooms_table(rooms: list[dict[str, Any]]) -> None:
     for column, style in (("ID", "dim"), ("Kind", ""), ("Name", "bold"), ("Handle", ""), ("Role", ""), ("Status", "")):
         table.add_column(column, style=style or None)
     for room in rooms:
-        table.add_row(
-            str(room.get("id", "")),
-            str(room.get("kind", "")),
-            str(room.get("name", "")),
-            str(room.get("handle", "")),
-            str(room.get("role", "")),
-            str(room.get("status", "")),
-        )
+        table.add_row(*(_literal(room.get(key)) for key in ("id", "kind", "name", "handle", "role", "status")))
     console.print(table)
 
 
@@ -102,15 +107,19 @@ def show_room(
     if output_format == "json":
         _print_json(view)
         return
-    console.print(f"[bold]{view.get('name', '')}[/bold]  ({view.get('kind', '')}, you are {view.get('role', '')})")
+    console.print(
+        f"[bold]{escape(str(view.get('name', '')))}[/bold]  "
+        f"({escape(str(view.get('kind', '')))}, you are {escape(str(view.get('role', '')))})"
+    )
     if view.get("description"):
-        console.print(view["description"])
+        console.print(Text(str(view["description"])))
     messages = (view.get("messages") or {}).get("data") or []
     for message in messages:
-        console.print(
-            f"[dim]{message.get('offset', '')} {message.get('sent_at', '')}[/dim] "
-            f"[bold]{message.get('sender_name', '')}[/bold]: {message.get('body', '')}"
-        )
+        line = Text()
+        line.append(f"{message.get('offset', '')} {message.get('sent_at', '')} ", style="dim")
+        line.append(str(message.get("sender_name", "")), style="bold")
+        line.append(f": {message.get('body', '')}")
+        console.print(line)
     if not messages:
         console.print("[dim]No messages[/dim]")
     next_offset = (view.get("messages") or {}).get("next")
@@ -141,7 +150,9 @@ def post_message(
             return model_to_dict(await client.rooms.post(room, body=text, **message))
 
     posted = run_async(_impl(), error_prefix="Failed to post")
-    console.print(f"[green]✓[/green] Posted to {posted.get('room_id', room)} at offset {posted.get('offset', '')}")
+    console.print(
+        f"[green]✓[/green] Posted to {escape(str(posted.get('room_id', room)))} at offset {posted.get('offset', '')}"
+    )
 
 
 @app.command("members")
@@ -165,12 +176,7 @@ def list_members(
     for column in ("Name", "Account", "Role", "Joined"):
         table.add_column(column)
     for m in members:
-        table.add_row(
-            str(m.get("name", "")),
-            str(m.get("account_type", "")),
-            str(m.get("role", "")),
-            str(m.get("joined_at", "")),
-        )
+        table.add_row(*(_literal(m.get(key)) for key in ("name", "account_type", "role", "joined_at")))
     console.print(table)
 
 
@@ -204,7 +210,7 @@ def set_room(
             return model_to_dict(await client.rooms.update(room, **settings))
 
     updated = run_async(_impl(), error_prefix="Failed to change the room")
-    console.print(f"[green]✓[/green] Updated {updated.get('name', room)}")
+    console.print(f"[green]✓[/green] Updated {escape(str(updated.get('name', room)))}")
 
 
 @app.command("delivery")
@@ -248,7 +254,10 @@ def invite(
             return model_to_dict(await client.rooms.create_invitation(room, role=role, **options))
 
     code = run_async(_impl(), error_prefix="Failed to create the invitation")
-    console.print(f"[green]✓[/green] Invitation code [bold]{code.get('token', '')}[/bold] ({code.get('role', '')})")
+    console.print(
+        f"[green]✓[/green] Invitation code [bold]{escape(str(code.get('token', '')))}[/bold] "
+        f"({escape(str(code.get('role', '')))})"
+    )
 
 
 @app.command("invitations")
@@ -282,7 +291,7 @@ def revoke(
             return model_to_dict(await client.rooms.revoke_invitation(room, code_id))
 
     run_async(_impl(), error_prefix="Failed to revoke the invitation")
-    console.print(f"[green]✓[/green] Revoked {code_id}")
+    console.print(f"[green]✓[/green] Revoked {escape(code_id)}")
 
 
 @app.command("join")
@@ -298,7 +307,9 @@ def join(
             return model_to_dict(await client.rooms.join(code))
 
     joined = run_async(_impl(), error_prefix="Failed to join")
-    console.print(f"[green]✓[/green] Joined {joined.get('name', '')} as @{joined.get('handle', '')}")
+    console.print(
+        f"[green]✓[/green] Joined {escape(str(joined.get('name', '')))} as @{escape(str(joined.get('handle', '')))}"
+    )
 
 
 @app.command("leave")
@@ -318,4 +329,4 @@ def leave(
             await client.rooms.leave(room)
 
     run_async(_impl(), error_prefix="Failed to leave")
-    console.print(f"[green]✓[/green] Left {room}")
+    console.print(f"[green]✓[/green] Left {escape(room)}")
