@@ -23,13 +23,12 @@ def summary(**overrides):
         "kind": "helpdesk",
         "name": "Help desk",
         "handle": "helpdesk",
-        "status": "open",
+        "status": "active",
         "role": "owner",
         "created_at": AT,
         "description": "Talk with **support**",
         "owner_name": "Acme",
         "keep_forever": True,
-        "permanent": True,
         "fixed_membership": True,
         "can_manage": True,
         **overrides,
@@ -240,5 +239,22 @@ async def test_room_errors_are_sdk_errors(asynchronous):
     try:
         with pytest.raises(NotFoundError):
             await call(client.rooms, "get", "missing")
+    finally:
+        await close(client, asynchronous)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_owner_status_and_pause_message_reach_the_wire(asynchronous):
+    """rooms.update sends the operational status and auto-reply (#2843 S5b)."""
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        changed = await call(client.rooms, "update", ROOM, status="paused", pause_message="Back Monday")
+        assert json.loads(captured[-1].content) == {"status": "paused", "pause_message": "Back Monday"}
+        assert changed.status == "paused"
+        assert changed.pause_message == "Back Monday"
+        await call(client.rooms, "update", ROOM, status="active", pause_message=None)
+        assert json.loads(captured[-1].content) == {"status": "active", "pause_message": None}
     finally:
         await close(client, asynchronous)

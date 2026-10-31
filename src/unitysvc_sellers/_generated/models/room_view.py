@@ -36,12 +36,11 @@ class RoomView:
     """ The kind's longest retention; null when it has none """
     keep_forever: bool | Unset = False
     owner_sets_retention: bool | Unset = True
-    permanent: bool | Unset = False
     fixed_membership: bool | Unset = False
     invitable: bool | Unset = False
     can_manage: bool | Unset = False
-    expires_at: datetime.datetime | None | Unset = UNSET
-    idle_expiry_seconds: int | None | Unset = UNSET
+    status_changed_at: datetime.datetime | None | Unset = UNSET
+    pause_message: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -85,27 +84,25 @@ class RoomView:
 
         owner_sets_retention = self.owner_sets_retention
 
-        permanent = self.permanent
-
         fixed_membership = self.fixed_membership
 
         invitable = self.invitable
 
         can_manage = self.can_manage
 
-        expires_at: None | str | Unset
-        if isinstance(self.expires_at, Unset):
-            expires_at = UNSET
-        elif isinstance(self.expires_at, datetime.datetime):
-            expires_at = self.expires_at.isoformat()
+        status_changed_at: None | str | Unset
+        if isinstance(self.status_changed_at, Unset):
+            status_changed_at = UNSET
+        elif isinstance(self.status_changed_at, datetime.datetime):
+            status_changed_at = self.status_changed_at.isoformat()
         else:
-            expires_at = self.expires_at
+            status_changed_at = self.status_changed_at
 
-        idle_expiry_seconds: int | None | Unset
-        if isinstance(self.idle_expiry_seconds, Unset):
-            idle_expiry_seconds = UNSET
+        pause_message: None | str | Unset
+        if isinstance(self.pause_message, Unset):
+            pause_message = UNSET
         else:
-            idle_expiry_seconds = self.idle_expiry_seconds
+            pause_message = self.pause_message
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -133,18 +130,16 @@ class RoomView:
             field_dict["keep_forever"] = keep_forever
         if owner_sets_retention is not UNSET:
             field_dict["owner_sets_retention"] = owner_sets_retention
-        if permanent is not UNSET:
-            field_dict["permanent"] = permanent
         if fixed_membership is not UNSET:
             field_dict["fixed_membership"] = fixed_membership
         if invitable is not UNSET:
             field_dict["invitable"] = invitable
         if can_manage is not UNSET:
             field_dict["can_manage"] = can_manage
-        if expires_at is not UNSET:
-            field_dict["expires_at"] = expires_at
-        if idle_expiry_seconds is not UNSET:
-            field_dict["idle_expiry_seconds"] = idle_expiry_seconds
+        if status_changed_at is not UNSET:
+            field_dict["status_changed_at"] = status_changed_at
+        if pause_message is not UNSET:
+            field_dict["pause_message"] = pause_message
 
         return field_dict
 
@@ -202,15 +197,13 @@ class RoomView:
 
         owner_sets_retention = d.pop("owner_sets_retention", UNSET)
 
-        permanent = d.pop("permanent", UNSET)
-
         fixed_membership = d.pop("fixed_membership", UNSET)
 
         invitable = d.pop("invitable", UNSET)
 
         can_manage = d.pop("can_manage", UNSET)
 
-        def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_status_changed_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -218,23 +211,23 @@ class RoomView:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                expires_at_type_0 = isoparse(data)
+                status_changed_at_type_0 = isoparse(data)
 
-                return expires_at_type_0
+                return status_changed_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(datetime.datetime | None | Unset, data)
 
-        expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
+        status_changed_at = _parse_status_changed_at(d.pop("status_changed_at", UNSET))
 
-        def _parse_idle_expiry_seconds(data: object) -> int | None | Unset:
+        def _parse_pause_message(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(int | None | Unset, data)
+            return cast(None | str | Unset, data)
 
-        idle_expiry_seconds = _parse_idle_expiry_seconds(d.pop("idle_expiry_seconds", UNSET))
+        pause_message = _parse_pause_message(d.pop("pause_message", UNSET))
 
         room_view = cls(
             id=id,
@@ -251,12 +244,11 @@ class RoomView:
             max_retention_seconds=max_retention_seconds,
             keep_forever=keep_forever,
             owner_sets_retention=owner_sets_retention,
-            permanent=permanent,
             fixed_membership=fixed_membership,
             invitable=invitable,
             can_manage=can_manage,
-            expires_at=expires_at,
-            idle_expiry_seconds=idle_expiry_seconds,
+            status_changed_at=status_changed_at,
+            pause_message=pause_message,
         )
 
         room_view.additional_properties = d
