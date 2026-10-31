@@ -73,8 +73,8 @@ class AsyncRooms:
         )
 
     async def update(self, target: str, **settings: Any) -> RoomSummary:
-        """Update owner settings: name, Markdown description, retention_seconds, expires_at or
-        idle_expiry_seconds. Omitted fields are unchanged; null clears optional values.
+        """Update owner settings: name, Markdown description, retention_seconds or status
+        (active or readonly). Omitted fields are unchanged; null clears optional values.
         """
         from ._generated.api.seller_rooms import seller_rooms_update_room_settings
         from ._generated.models.room_settings_update import RoomSettingsUpdate

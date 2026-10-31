@@ -7994,29 +7994,21 @@
             ],
             "title": "Retention Seconds"
           },
-          "expires_at": {
+          "status": {
             "anyOf": [
               {
                 "type": "string",
-                "format": "date-time"
+                "enum": [
+                  "active",
+                  "readonly"
+                ]
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Expires At"
-          },
-          "idle_expiry_seconds": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Idle Expiry Seconds"
+            "title": "Status",
+            "description": "The owner's operational status; readonly lets only the owner and moderators post"
           }
         },
         "additionalProperties": false,
@@ -8075,11 +8067,6 @@
             "title": "Owner Sets Retention",
             "default": true
           },
-          "permanent": {
-            "type": "boolean",
-            "title": "Permanent",
-            "default": false
-          },
           "fixed_membership": {
             "type": "boolean",
             "title": "Fixed Membership",
@@ -8095,7 +8082,7 @@
             "title": "Can Manage",
             "default": false
           },
-          "expires_at": {
+          "status_changed_at": {
             "anyOf": [
               {
                 "type": "string",
@@ -8105,18 +8092,7 @@
                 "type": "null"
               }
             ],
-            "title": "Expires At"
-          },
-          "idle_expiry_seconds": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Idle Expiry Seconds"
+            "title": "Status Changed At"
           },
           "id": {
             "type": "string",
@@ -8232,11 +8208,6 @@
             "title": "Owner Sets Retention",
             "default": true
           },
-          "permanent": {
-            "type": "boolean",
-            "title": "Permanent",
-            "default": false
-          },
           "fixed_membership": {
             "type": "boolean",
             "title": "Fixed Membership",
@@ -8252,7 +8223,7 @@
             "title": "Can Manage",
             "default": false
           },
-          "expires_at": {
+          "status_changed_at": {
             "anyOf": [
               {
                 "type": "string",
@@ -8262,18 +8233,7 @@
                 "type": "null"
               }
             ],
-            "title": "Expires At"
-          },
-          "idle_expiry_seconds": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Idle Expiry Seconds"
+            "title": "Status Changed At"
           },
           "id": {
             "type": "string",

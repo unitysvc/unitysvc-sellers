@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-import datetime
 from collections.abc import Mapping
 from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
-from dateutil.parser import isoparse
 
+from ..models.room_settings_update_status_type_0 import (
+    RoomSettingsUpdateStatusType0,
+    check_room_settings_update_status_type_0,
+)
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="RoomSettingsUpdate")
@@ -18,8 +20,8 @@ class RoomSettingsUpdate:
     description: None | str | Unset = UNSET
     """ Markdown; null clears the description """
     retention_seconds: int | None | Unset = UNSET
-    expires_at: datetime.datetime | None | Unset = UNSET
-    idle_expiry_seconds: int | None | Unset = UNSET
+    status: None | RoomSettingsUpdateStatusType0 | Unset = UNSET
+    """ The owner's operational status; readonly lets only the owner and moderators post """
 
     def to_dict(self) -> dict[str, Any]:
         name: None | str | Unset
@@ -40,19 +42,13 @@ class RoomSettingsUpdate:
         else:
             retention_seconds = self.retention_seconds
 
-        expires_at: None | str | Unset
-        if isinstance(self.expires_at, Unset):
-            expires_at = UNSET
-        elif isinstance(self.expires_at, datetime.datetime):
-            expires_at = self.expires_at.isoformat()
+        status: None | str | Unset
+        if isinstance(self.status, Unset):
+            status = UNSET
+        elif isinstance(self.status, str):
+            status = self.status
         else:
-            expires_at = self.expires_at
-
-        idle_expiry_seconds: int | None | Unset
-        if isinstance(self.idle_expiry_seconds, Unset):
-            idle_expiry_seconds = UNSET
-        else:
-            idle_expiry_seconds = self.idle_expiry_seconds
+            status = self.status
 
         field_dict: dict[str, Any] = {}
 
@@ -63,10 +59,8 @@ class RoomSettingsUpdate:
             field_dict["description"] = description
         if retention_seconds is not UNSET:
             field_dict["retention_seconds"] = retention_seconds
-        if expires_at is not UNSET:
-            field_dict["expires_at"] = expires_at
-        if idle_expiry_seconds is not UNSET:
-            field_dict["idle_expiry_seconds"] = idle_expiry_seconds
+        if status is not UNSET:
+            field_dict["status"] = status
 
         return field_dict
 
@@ -101,7 +95,7 @@ class RoomSettingsUpdate:
 
         retention_seconds = _parse_retention_seconds(d.pop("retention_seconds", UNSET))
 
-        def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_status(data: object) -> None | RoomSettingsUpdateStatusType0 | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -109,30 +103,20 @@ class RoomSettingsUpdate:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                expires_at_type_0 = isoparse(data)
+                status_type_0 = check_room_settings_update_status_type_0(data)
 
-                return expires_at_type_0
+                return status_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(None | RoomSettingsUpdateStatusType0 | Unset, data)
 
-        expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
-
-        def _parse_idle_expiry_seconds(data: object) -> int | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(int | None | Unset, data)
-
-        idle_expiry_seconds = _parse_idle_expiry_seconds(d.pop("idle_expiry_seconds", UNSET))
+        status = _parse_status(d.pop("status", UNSET))
 
         room_settings_update = cls(
             name=name,
             description=description,
             retention_seconds=retention_seconds,
-            expires_at=expires_at,
-            idle_expiry_seconds=idle_expiry_seconds,
+            status=status,
         )
 
         return room_settings_update
