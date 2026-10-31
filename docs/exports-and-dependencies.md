@@ -192,13 +192,18 @@ upstream server, access method or user access interface:
 }
 ```
 
-The kind and member cap are fixed. Owners edit the room's name and Markdown
-description after creation. Other supported kinds are private enrollment
-`support` rooms and service-wide `announcement` / `discussion` rooms. Their
-admissions are automatic; only `chat` rooms allow invitation-code joining.
-Resource requests are validated by the platform registry, without a catalog
-service named `rooms`. The provisioning step is tracked in
-[unitysvc#2830](https://github.com/unitysvc/unitysvc/issues/2830).
+The kind and member cap are fixed. The room is owned by the enrolling
+customer and scoped to the enrollment: it is reachable while the enrollment is
+active, and again if the enrollment is reactivated. Owners edit the room's name
+and Markdown description, and its status (`active`, `paused` with an automatic
+reply, or `readonly`), after creation. Members join a `chat` room with an
+invitation code.
+
+`chat` is the only kind provisioned today. Seller-owned `support` rooms (one
+per enrollment) and service-wide `announcement` / `discussion` rooms are
+planned in [unitysvc#2830](https://github.com/unitysvc/unitysvc/issues/2830).
+Until then, upload refuses them. Resource requests are validated by the
+platform registry, without a catalog service named `rooms`.
 
 Use `service_type: "communication"` for Commons, or omit `service_type` when no
 category applies. Run `usvc seller specs validate` before uploading. The CLI
