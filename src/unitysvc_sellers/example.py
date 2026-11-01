@@ -22,6 +22,7 @@ from rich.table import Table
 from unitysvc_core.models.base import DocumentCategoryEnum
 from unitysvc_core.validator import DISPOSITION_VALUES
 
+from .links import check_links, offering_links
 from .output import format_output
 from .params_render import invocation_cwd
 from .utils import (
@@ -1093,6 +1094,11 @@ def run_local(
         "-x",
         help="Stop testing on first failure",
     ),
+    skip_links: bool = typer.Option(
+        False,
+        "--skip-links",
+        help="Skip the final check that every offering's details.links URL answers",
+    ),
 ):
     """Run code examples locally with upstream API credentials.
 
@@ -1103,7 +1109,9 @@ def run_local(
     4. Skips tests that previously passed (unless --force is used)
     5. Executes each code example with UNITYSVC_API_KEY and SERVICE_BASE_URL set to upstream values
     6. Saves output to .out and .err files for tracking
-    7. Displays test results
+    7. Checks that every product link (offering ``details.links``) answers;
+       these results are reported, never saved
+    8. Displays test results
 
     Examples:
         # Run all code examples in the current directory
@@ -1247,7 +1255,11 @@ def run_local(
                 }
             )
 
-    if not all_code_examples and not results:
+    # The product links to check last: every service in scope, whether or not
+    # it has documents or channels (an external app has neither).
+    link_targets = [] if skip_links else _link_targets(data_dir, name)
+
+    if not all_code_examples and not results and not link_targets:
         console.print("[yellow]No code examples found in listings.[/yellow]")
         raise typer.Exit(code=0)
 
@@ -1454,6 +1466,13 @@ def run_local(
                 "key and entitlements.[/dim]"
             )
 
+    links_failed = _run_link_checks(link_targets)
+
+    if not results:
+        if links_failed:
+            raise typer.Exit(code=1)
+        return
+
     # Print summary table
     console.print("\n" + "=" * 70)
     console.print("[bold]Test Results Summary:[/bold]\n")
@@ -1499,4 +1518,51 @@ def run_local(
         console.print(f"[yellow]⊘ Skipped: {skipped}/{total_tests}[/yellow]")
     if failed > 0:
         console.print(f"[red]✗ Failed: {failed}/{total_tests}[/red]")
+    if failed > 0 or links_failed:
         raise typer.Exit(code=1)
+
+
+def _link_targets(data_dir: Path, name: str | None) -> list[tuple[str, dict[str, str]]]:
+    """``[(service_name, links)]`` for every in-scope service declaring ``details.links``.
+
+    Listings sharing one offering (``@variant`` listings) are checked once.
+    """
+    targets: list[tuple[str, dict[str, str]]] = []
+    seen: set[Path] = set()
+    for listing_file, _format, listing_data in find_files_by_pattern(data_dir, "listing_v1"):
+        if name is not None and not service_name_matches(listing_data.get("name"), name):
+            continue
+        if listing_file.parent in seen:
+            continue
+        seen.add(listing_file.parent)
+        if links := offering_links(listing_file):
+            targets.append((str(listing_data.get("name") or listing_file.parent.name), links))
+    return targets
+
+
+def _run_link_checks(targets: list[tuple[str, dict[str, str]]]) -> int:
+    """Check and print every product link; return how many are unreachable.
+
+    Nothing is saved: a link is checked afresh on every run.
+    """
+    if not targets:
+        return 0
+    table = Table(title="Product Links")
+    table.add_column("Service", style="cyan")
+    table.add_column("Link", style="white")
+    table.add_column("URL", style="blue")
+    table.add_column("Status", style="green")
+    failed = 0
+    for service_name, links in targets:
+        for row in check_links(links):
+            if row["ok"]:
+                status = "[green]✓ Reachable[/green]"
+            else:
+                failed += 1
+                status = f"[red]✗ {row['error']}[/red]"
+            table.add_row(service_name, row["name"], row["url"], status)
+    console.print()
+    console.print(table)
+    if failed:
+        console.print(f"[red]✗ Unreachable links: {failed}[/red] (fix or remove them from details.links)")
+    return failed

@@ -83,6 +83,20 @@ class RunTestsIfaceResult:
 
 
 @dataclass(frozen=True)
+class RunTestsLinkResult:
+    """One product link (offering ``details.links``) checked by a run (unitysvc#2873).
+
+    The platform checks every declared link on every run and never saves the
+    outcome; ``error`` says why an unreachable link failed.
+    """
+
+    name: str
+    url: str
+    ok: bool
+    error: str | None = None
+
+
+@dataclass(frozen=True)
 class RunTestsResult:
     """Result of a server-side ``services.run_tests`` call.
 
@@ -91,8 +105,9 @@ class RunTestsResult:
     the underlying task surface.
 
     ``passed`` is the convenience boolean — ``True`` iff every executed
-    (doc × iface) row reported ``status="success"``.  Skipped rows
-    (``outcome="already_passed"``) don't count against ``passed``.
+    (doc × iface) row reported ``status="success"`` and every product link
+    in ``links`` answered.  Skipped rows (``outcome="already_passed"``)
+    don't count against ``passed``.
     """
 
     task_id: str
@@ -106,14 +121,15 @@ class RunTestsResult:
     fail_count: int = 0
     skipped_count: int = 0
     results: list[RunTestsIfaceResult] = field(default_factory=list)
+    links: list[RunTestsLinkResult] = field(default_factory=list)
     # The raw task payload, kept around so callers can dig into fields
     # we haven't promoted to typed attributes yet.
     raw: dict[str, Any] = field(default_factory=dict)
 
     @property
     def passed(self) -> bool:
-        """``True`` iff the diagnostic ran cleanly with zero failing rows."""
-        return self.status == "success" and self.fail_count == 0
+        """``True`` iff the diagnostic ran cleanly with zero failing rows and links."""
+        return self.status == "success" and self.fail_count == 0 and all(link.ok for link in self.links)
 
 
 def _resolve_channel_type(channel_type: str | None, listing_type: str | None) -> str | None:
@@ -190,6 +206,15 @@ def _parse_run_tests_payload(task_id: str, payload: dict[str, Any]) -> RunTestsR
         fail_count=int(body.get("fail_count") or 0),
         skipped_count=int(body.get("skipped_count") or 0),
         results=iface_results,
+        links=[
+            RunTestsLinkResult(
+                name=str(row.get("name", "")),
+                url=str(row.get("url", "")),
+                ok=bool(row.get("ok")),
+                error=row.get("error"),
+            )
+            for row in (body.get("links") or [])
+        ],
         raw=payload,
     )
 

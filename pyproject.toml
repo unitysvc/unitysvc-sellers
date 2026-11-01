@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "unitysvc-sellers"
-version = "0.3.18"
+version = "0.3.19"
 description = "Seller-facing tools for UnitySVC: HTTP SDK + `usvc seller` CLI"
 readme = "README.md"
 authors = [{ name = "Bo Peng", email = "bo.peng@unitysvc.com" }]
@@ -17,9 +17,9 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  # Resource-only apps (Commons), fixed enrollment contracts and application
-  # service types are validated by the shared core models.
-  "unitysvc-core>=0.3.4",
+  # External apps (no channel) and details.links (unitysvc#2873) are validated
+  # by the shared core models.
+  "unitysvc-core>=0.3.5",
   # Ships the `usvc` umbrella that mounts the usvc.commands entry point below,
   # so `usvc seller ...` works for anyone who installs this package. Adds no new
   # transitive dependencies — typer, rich, httpx, attrs and python-dateutil are
