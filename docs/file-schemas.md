@@ -122,7 +122,6 @@ Service files define the service offering from the upstream provider's perspecti
 | `name`                       | string                      | Service identifier (must match directory name, allows slashes for hierarchy)                                                                                                      |
 | `summary`                    | string (max 200)            | One-line marketplace summary, shown on collapsed catalog rows and cards (unitysvc#1838)                                                                                          |
 | `description`                | string                      | Long-form service description (the summary carries the teaser; no paragraph conventions)                                                                                          |
-| `upstream_access_config` | dict of channel objects | How the gateway reaches the upstream, keyed by **channel name**; each entry is a typed **upstream access channel** (see [Upstream access channels](#upstream-access-config)). String values may be templates (`{{ params.X }}`, `{{ enrollment.code }}`, `${ secrets.X }`, …), rendered at gateway routing time. |
 | `time_created`               | datetime (ISO 8601)         | Timestamp when offering was created                                                                                                                                               |
 
 ### Optional Fields
@@ -135,7 +134,8 @@ Service files define the service offering from the upstream provider's perspecti
 | `logo`         | string/URL            | Path to logo or URL (converted to document)                   |
 | `tags`         | array of enum         | Service tags (e.g., `["byok"]` for bring-your-own-provider)   |
 | `status`       | enum                  | Offering status: `draft` (default), `ready`, or `deprecated`  |
-| `details`      | object                | Service-specific features and information                     |
+| `upstream_access_config` | dict of channel objects | How the gateway reaches the upstream, keyed by **channel name**; each entry is a typed **upstream access channel** (see [Upstream access channels](#upstream-access-config)). String values may be templates (`{{ params.X }}`, `{{ enrollment.code }}`, `${ secrets.X }`, …), rendered at gateway routing time. Omit it (or give `{}`) for an [external app](#external-apps). |
+| `details`      | object                | Service-specific features and information; `details.links` holds the [product links](#product-links) |
 | `payout_price` | [Pricing](pricing.md) | Seller pricing information (what seller charges UnitySVC)     |
 | `documents`    | dict of DocumentData  | Technical specs, documentation, keyed by title                |
 | `exports`      | object                | What other services may request from this one: named permissions and a JSON Schema of customization options (see [Exports & Dependencies](exports-and-dependencies.md#exports)) |
@@ -341,6 +341,32 @@ input = "30.00"
 output = "60.00"
 ```
 
+### Product links (`details.links`) {#product-links}
+
+`details.links` lists the product's own pages, for any service (unitysvc/unitysvc#2873). It maps up to 10 free display labels (at most 40 characters each) to `https://` URLs without embedded credentials, and when present must include `homepage`, the primary product link. The service page shows `homepage` at the top and the other links next to the audience.
+
+```json
+"details": {
+  "links": {
+    "homepage": "https://app.example",
+    "documentation": "https://app.example/docs",
+    "status": "https://status.app.example"
+  }
+}
+```
+
+Every test run checks that each link answers: `usvc seller specs run-tests` does it as its last step (`--skip-links` to skip), and the platform does it on every service test. A link that does not answer fails the run; fix the page or remove the link. Results are never saved, so a page that went down is reported the next time.
+
+### External apps {#external-apps}
+
+An offering that declares no channel (`upstream_access_config` omitted or `{}`) is an **external app**: customers reach it at its own site, not through the gateway. Since core 0.3.5 an external app:
+
+- gives `details.links.homepage` (required; the provider's homepage is not used instead);
+- has no `user_access_interfaces` and no `list_price` on its listing (signup and payment happen at its site);
+- needs no connectivity-test document: its links are its test.
+
+Its service page keeps How to Use and tutorials, without code examples or a playground. A grants-only app such as Commons is different: it declares a `me_bound` channel without an endpoint, so it is not an external app.
+
 ### Upstream access channels (`upstream_access_config`) {#upstream-access-config}
 
 `upstream_access_config` says how the gateway reaches the upstream. It maps a **channel name** to a **channel**; each channel is one complete way to reach the upstream (its protocol, credential, rank, what it asks the enrolling customer for, and its servers), and the gateway picks one channel per request.
@@ -372,7 +398,7 @@ These keys describe the channel as a whole. The connection itself lives in [serv
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `access_method` | `"http"` \| `"smtp"` \| `"s3"` \| `"mcp"` | `"http"` | The upstream protocol. It selects the server type: [HTTP](#http-servers), [SMTP](#smtp-servers), [S3](#s3-servers) or [MCP](#mcp-servers). Any other value is refused: `access_method must be one of 'http', 'smtp', 's3', 'mcp'`. |
-| `type` | `"unbound"` \| `"secret_bound"` \| `"enrollable"` \| `"me_bound"` \| `"external"` | derived | Normally derived by the platform from the channel's configuration; declare `external` (or `enrollable`) to state it. |
+| `type` | `"unbound"` \| `"secret_bound"` \| `"enrollable"` \| `"me_bound"` | derived | Normally derived by the platform from the channel's configuration; declare `enrollable` to state it. `external` is no longer a channel type (core 0.3.5): an app reached at its own site declares no channel, see [External apps](#external-apps). |
 | `description` | string | none | Display text. |
 | `is_active` | boolean | `true` | Inactive channels are skipped. |
 | `sort_order` | integer | none | Channel rank, lowest first. Replaces `is_primary`. |

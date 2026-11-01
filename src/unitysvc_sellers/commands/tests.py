@@ -782,13 +782,16 @@ def _render_run_tests_result(result: Any) -> int:
         console.print(f"[red]✗[/red] Diagnostic task failed: {result.outcome or '(no detail)'}")
         return 1
 
+    links_rc = _render_links(getattr(result, "links", None) or [])
+
     if result.outcome == "no_executable_documents":
-        console.print("[dim]No testable documents found on this service.[/dim]")
-        return 0
+        if not links_rc and not getattr(result, "links", None):
+            console.print("[dim]No testable documents found on this service.[/dim]")
+        return links_rc
 
     if not result.results:
         console.print(f"[dim]Diagnostic completed with no rows (outcome={result.outcome or 'unknown'}).[/dim]")
-        return 0
+        return links_rc
 
     # Per-row rendering.  Skipped → dim ⊘, success → green ✓, failure →
     # red ✗ with the outcome attribution (platform_fault / upstream_fault).
@@ -821,6 +824,27 @@ def _render_run_tests_result(result: Any) -> int:
             f"(see [bold]usvc seller services show-test-results <service>[/bold] "
             f"for full stdout/stderr)"
         )
+        return 1
+    return links_rc
+
+
+def _render_links(links: list[Any]) -> int:
+    """Render the product-link checks (offering ``details.links``); 1 if any failed.
+
+    The platform checks every link on every run and saves nothing, so these
+    rows exist only in this run's result.
+    """
+    if not links:
+        return 0
+    console.print("  Product links")
+    for link in links:
+        if link.ok:
+            console.print(f"    [green]✓[/green] {link.name}: {link.url}")
+        else:
+            console.print(f"    [red]✗[/red] {link.name}: {link.url} [red]({link.error or 'unreachable'})[/red]")
+    failed = sum(1 for link in links if not link.ok)
+    if failed:
+        console.print(f"  [red]✗ Unreachable links:[/red] {failed} (fix the page or remove it from details.links)")
         return 1
     return 0
 
