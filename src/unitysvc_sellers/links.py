@@ -9,7 +9,8 @@ must be seen as down the next time the check runs.
 The fetch follows the platform's rules for probing a public URL: ``https``
 only, every hop's host must resolve to public addresses only (redirects are
 followed by hand so each one is re-checked), a bounded number of redirects and
-a short timeout.
+a short timeout. A final status below 400 is reachable, and so are 401, 403 and
+429, which mean the site answered but refuses an anonymous client.
 """
 
 from __future__ import annotations
@@ -24,8 +25,12 @@ import httpx
 
 from .utils import load_data_file
 
-LINK_TIMEOUT_SECONDS = 10.0
+LINK_TIMEOUT_SECONDS = 15.0
 MAX_REDIRECTS = 5
+# Statuses at or above 400 that still prove the site answered: a login wall, a
+# bot wall or a rate limit. The platform's check counts them the same way
+# (unitysvc ``service_health_tasks.probe``), so both runs agree.
+LINK_UP_STATUSES = frozenset({401, 403, 429})
 _USER_AGENT = "unitysvc-link-check/1.0"
 
 
@@ -72,7 +77,7 @@ def check_link(url: str, *, client: httpx.Client) -> str | None:
                         return f"HTTP {response.status_code} redirect without a Location"
                     current = urljoin(current, location)
                     continue
-                if response.status_code >= 400:
+                if response.status_code >= 400 and response.status_code not in LINK_UP_STATUSES:
                     return f"HTTP {response.status_code}"
                 return None
         except httpx.TimeoutException:

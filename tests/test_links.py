@@ -37,8 +37,15 @@ class TestCheckLink:
     def test_a_page_that_answers_is_reachable(self, public_dns: dict[str, str]) -> None:
         assert check_link("https://app.example", client=_client(lambda r: httpx.Response(200))) is None
 
-    def test_an_error_status_is_unreachable(self, public_dns: dict[str, str]) -> None:
-        assert check_link("https://app.example", client=_client(lambda r: httpx.Response(404))) == "HTTP 404"
+    @pytest.mark.parametrize("status", [404, 410, 500, 503])
+    def test_an_error_status_is_unreachable(self, public_dns: dict[str, str], status: int) -> None:
+        assert check_link("https://app.example", client=_client(lambda r: httpx.Response(status))) == f"HTTP {status}"
+
+    @pytest.mark.parametrize("status", [401, 403, 429])
+    def test_a_site_refusing_the_probe_is_reachable(self, public_dns: dict[str, str], status: int) -> None:
+        # A login wall, bot wall or rate limit proves the site answered; the
+        # platform's check counts these as reachable too.
+        assert check_link("https://app.example", client=_client(lambda r: httpx.Response(status))) is None
 
     def test_redirects_are_followed_and_rechecked(self, public_dns: dict[str, str]) -> None:
         public_dns["internal.example"] = "10.0.0.5"
