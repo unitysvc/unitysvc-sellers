@@ -146,6 +146,30 @@ def test_service_id_sidecar_roundtrip(tmp_path: Path) -> None:
     assert not (root / "specs" / "unitysvc" / "resp200").exists()
 
 
+def test_a_concrete_folder_sidecar_roundtrips_from_the_copy(tmp_path: Path) -> None:
+    # A repo mixing param files with hand-authored folders (unitysvc-system-
+    # services) is uploaded from the copy: a new concrete service's
+    # backend-assigned id must reach the real folder, or the next upload and
+    # `services ... --local-ids` lose track of it.
+    root = _make_repo(tmp_path)
+    real = root / "specs" / "unitysvc" / "me"
+    real.mkdir()
+    (real / "offering.json").write_text(json.dumps({"name": "me"}) + "\n")
+    kept = root / "specs" / "unitysvc" / "notify"
+    kept.mkdir()
+    (kept / "offering.json").write_text(json.dumps({"name": "notify"}) + "\n")
+    committed = '{"service_id":"notify-id"}\n'  # not the canonical layout
+    (kept / "service.json").write_text(committed)
+
+    with materialized_param_specs(root):
+        copy = Path.cwd() / "specs" / "unitysvc"
+        (copy / "me" / "service.json").write_text(json.dumps({"service_id": "me-id"}) + "\n")
+
+    assert json.loads((real / "service.json").read_text()) == {"service_id": "me-id"}
+    # An unchanged sidecar is left exactly as committed.
+    assert (kept / "service.json").read_text() == committed
+
+
 def test_bad_template_raises(tmp_path: Path) -> None:
     root = _make_repo(tmp_path)
     (root / "specs" / "unitysvc" / "bad.json").write_text(json.dumps({"template": "nope", "parameters": {}}))
