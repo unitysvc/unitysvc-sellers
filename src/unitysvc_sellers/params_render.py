@@ -265,6 +265,20 @@ def _merge_into_sidecar(sidecar: Path, fields: dict[str, Any]) -> None:
     sidecar.write_text(dump_canonical_json(data))
 
 
+def _read_sidecar_fields(sidecar: Path, fields: dict[str, Any]) -> dict[str, Any]:
+    """The values *sidecar* holds for the keys of *fields* (missing ones absent),
+    so an unchanged sidecar is not rewritten."""
+    if not sidecar.is_file():
+        return {}
+    try:
+        loaded = json.loads(sidecar.read_text())
+    except Exception:
+        return {}
+    if not isinstance(loaded, dict):
+        return {}
+    return {k: loaded[k] for k in fields if k in loaded}
+
+
 def _write_service_id(sidecar: Path, service_id: str) -> None:
     _merge_into_sidecar(sidecar, {"service_id": str(service_id)})
 
@@ -327,7 +341,9 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
     On exit the backend-assigned ``service_id`` (and the local
     ``upstream_test_status`` recorded by ``specs run-tests``) written into a
     rendered folder's ``service.json`` is merged back into the committed
-    ``<name>.service.json`` sidecar in the **real** repo. Yields the rendered
+    ``<name>.service.json`` sidecar in the **real** repo, and a hand-authored
+    service folder's ``service.json`` in the copy back into that folder's
+    ``service.json`` in the real repo. Yields the rendered
     folder paths (inside the copy). Use ``specs expand`` for a persistent,
     inspectable render.
 
@@ -446,6 +462,18 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
             real_sidecar = repo_root / sidecar_in_copy.relative_to(tmp)
             sidecar_pairs.append((sidecar_in_copy, real_sidecar))
 
+        # Hand-authored service folders are uploaded from the copy too: the
+        # service_id the backend assigns a new one lands in the copy's
+        # service.json and must reach the real folder, or every later upload
+        # (and `services ... --local-ids`) loses track of the service.
+        rendered_folders = {folder for folder, _ in rendered}
+        for offering in sorted(tmp.rglob("offering.*")):
+            folder = offering.parent
+            if offering.suffix not in (".json", ".toml") or folder in rendered_folders:
+                continue
+            sidecar_in_copy = folder / "service.json"
+            sidecar_pairs.append((sidecar_in_copy, repo_root / sidecar_in_copy.relative_to(tmp)))
+
         # Point the whole cwd-rooted pipeline at the isolated copy, keeping
         # the real invocation dir reachable for user-facing artifact writes.
         global _invocation_cwd
@@ -467,7 +495,7 @@ def materialized_param_specs(root: Path) -> Iterator[list[Path]]:
                 if not isinstance(rendered_data, dict):
                     rendered_data = {}
                 carry = {k: rendered_data[k] for k in ("service_id", "upstream_test_status") if rendered_data.get(k)}
-                if carry:
+                if carry and _read_sidecar_fields(real_sidecar, carry) != carry:
                     _merge_into_sidecar(real_sidecar, carry)
         shutil.rmtree(tmp, ignore_errors=True)
 
