@@ -319,3 +319,20 @@ async def test_unread_active_and_follow_up_reach_the_wire(asynchronous):
     ]
     assert json.loads(captured[1].content) == {"offset": 42}
     assert json.loads(captured[2].content) == {"follow_up": False}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_tail_and_strict_post_reach_the_wire(asynchronous):
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        await call(client.rooms, "get", "helpdesk", tail=20)
+        await call(client.rooms, "post", "helpdesk", body="hi", fallback=False)
+        await call(client.rooms, "post", "helpdesk", body="hi")
+    finally:
+        await close(client, asynchronous)
+
+    assert captured[0].url.params.get("tail") == "20" and "after" not in captured[0].url.params
+    assert captured[1].url.params.get("fallback") == "false"
+    assert captured[2].url.params.get("fallback") == "true"

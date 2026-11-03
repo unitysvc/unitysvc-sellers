@@ -70,13 +70,19 @@ class Rooms:
 
         unwrap(seller_rooms_leave_room.sync_detailed(target, client=self._client))
 
-    def get(self, target: str, *, after: int | None = None, limit: int = 50) -> RoomView:
-        """Read a room by UUID or handle; resume history with the previous messages.next."""
+    def get(self, target: str, *, after: int | None = None, limit: int = 50, tail: int | None = None) -> RoomView:
+        """Read a room by UUID or handle; resume history with the previous messages.next.
+        ``tail`` (instead of ``after``) reads the latest N messages, still oldest first;
+        their ``next`` resumes with newer messages only."""
         from ._generated.api.seller_rooms import seller_rooms_get_room_messages
 
         return unwrap(
             seller_rooms_get_room_messages.sync_detailed(
-                target, client=self._client, after=UNSET if after is None else after, limit=limit
+                target,
+                client=self._client,
+                after=UNSET if after is None else after,
+                limit=limit,
+                tail=UNSET if tail is None else tail,
             )
         )
 
@@ -147,9 +153,11 @@ class Rooms:
             )
         )
 
-    def post(self, target: str | None = None, *, body: str, **message: Any) -> RoomPostResponse:
+    def post(self, target: str | None = None, *, body: str, fallback: bool = True, **message: Any) -> RoomPostResponse:
         """Post a message in msg format. Target is a UUID or handle; None uses a leading @handle or the me
-        fallback. Pass client_message_id for idempotent retries.
+        fallback. With a target and ``fallback=False``, a room that can't take the post raises
+        (NotFoundError / PermissionError) instead of posting to ``me``. Pass client_message_id for
+        idempotent retries.
         """
         from ._generated.api.seller_rooms import seller_rooms_post_room_message
         from ._generated.models.room_post_request import RoomPostRequest
@@ -159,7 +167,10 @@ class Rooms:
 
             return unwrap(
                 seller_rooms_post_room_message_to.sync_detailed(
-                    target, client=self._client, body=RoomPostRequest.from_dict({"body": body, **message})
+                    target,
+                    client=self._client,
+                    body=RoomPostRequest.from_dict({"body": body, **message}),
+                    fallback=fallback,
                 )
             )
 

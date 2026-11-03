@@ -112,7 +112,7 @@ usvc seller rooms chat @helpdesk          # by handle, id or name prefix
 usvc seller rooms chat --enrollment <id>  # an enrollment's room
 ```
 
-Inside the chat: `/rooms` lists rooms (`●` new activity, `⚑` follow-up), `/open ROOM` switches, `/next` or Ctrl-N jumps to the next room with new activity, `/follow [off]` flags a room to revisit, `/members`, `/help` and `/quit`. The chat records what you have seen, so the web inbox agrees, and it never lets a message fall back to your `me` room. The SDK has the same pieces: `client.rooms.unread()`, `client.rooms.mark_active(room, offset)` and `client.rooms.set_follow_up(room)`.
+Inside the chat: `/rooms` lists rooms (`●` new activity, `⚑` follow-up), `/open ROOM` switches, `/next` or Ctrl-N jumps to the next room with new activity, `/follow [off]` flags a room to revisit, `/members`, `/help` and `/quit`. A room opens at its latest messages (`client.rooms.get(room, tail=50)`). The chat records what you have seen the way the web inbox does, when a room opens and when you switch away or quit, never just because a message arrived while it was open. It posts with `fallback=False`, so a room that can't take the post is an error and nothing lands in your `me` room. The SDK has the same pieces: `client.rooms.unread()`, `client.rooms.mark_active(room, offset)` and `client.rooms.set_follow_up(room)`.
 
 ## Posting from other systems
 

@@ -2373,7 +2373,7 @@
           "seller-rooms"
         ],
         "summary": "Post Room Message To",
-        "description": "Post a message to the room named by ``target`` (a room id, or a\nhandle such as ``me``); falls back to ``me`` if the account can't post\nthere.",
+        "description": "Post a message to the room named by ``target`` (a room id, or a\nhandle such as ``me``); falls back to ``me`` if the account can't post\nthere, unless ``fallback=false``.",
         "operationId": "seller-rooms-post_room_message_to",
         "parameters": [
           {
@@ -2384,6 +2384,18 @@
               "type": "string",
               "title": "Target"
             }
+          },
+          {
+            "name": "fallback",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Post to your me room when this room can't take the post; false returns 404/403 instead (interactive clients)",
+              "default": true,
+              "title": "Fallback"
+            },
+            "description": "Post to your me room when this room can't take the post; false returns 404/403 instead (interactive clients)"
           },
           {
             "name": "authorization",
@@ -2456,7 +2468,7 @@
           "seller-rooms"
         ],
         "summary": "Get Room Messages",
-        "description": "The room named by ``target`` (id or handle) and its stored messages\nafter ``after``, oldest first.",
+        "description": "The room named by ``target`` (id or handle) and its stored messages\nafter ``after`` (or its latest ``tail``), oldest first.",
         "operationId": "seller-rooms-get_room_messages",
         "parameters": [
           {
@@ -2497,6 +2509,26 @@
               "default": 50,
               "title": "Limit"
             }
+          },
+          {
+            "name": "tail",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 200,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Instead of after: the latest N messages, oldest first; resume with the returned next",
+              "title": "Tail"
+            },
+            "description": "Instead of after: the latest N messages, oldest first; resume with the returned next"
           },
           {
             "name": "authorization",
