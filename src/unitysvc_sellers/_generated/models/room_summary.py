@@ -26,6 +26,7 @@ class RoomSummary:
     status: str
     role: str
     created_at: datetime.datetime
+    delivery_state: str
     description: str | Unset = ""
     owner_name: None | str | Unset = UNSET
     retention_seconds: int | None | Unset = UNSET
@@ -38,6 +39,13 @@ class RoomSummary:
     invitable: bool | Unset = False
     can_manage: bool | Unset = False
     status_changed_at: datetime.datetime | None | Unset = UNSET
+    expectation: str | Unset = ""
+    has_new_activity: bool | Unset = False
+    sent_latest_message: bool | Unset = False
+    last_conversation_at: datetime.datetime | None | Unset = UNSET
+    last_active_offset: int | None | Unset = UNSET
+    last_active_at: datetime.datetime | None | Unset = UNSET
+    follow_up: bool | Unset = False
     last_message_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -57,6 +65,8 @@ class RoomSummary:
         role = self.role
 
         created_at = self.created_at.isoformat()
+
+        delivery_state = self.delivery_state
 
         description = self.description
 
@@ -96,6 +106,36 @@ class RoomSummary:
         else:
             status_changed_at = self.status_changed_at
 
+        expectation = self.expectation
+
+        has_new_activity = self.has_new_activity
+
+        sent_latest_message = self.sent_latest_message
+
+        last_conversation_at: None | str | Unset
+        if isinstance(self.last_conversation_at, Unset):
+            last_conversation_at = UNSET
+        elif isinstance(self.last_conversation_at, datetime.datetime):
+            last_conversation_at = self.last_conversation_at.isoformat()
+        else:
+            last_conversation_at = self.last_conversation_at
+
+        last_active_offset: int | None | Unset
+        if isinstance(self.last_active_offset, Unset):
+            last_active_offset = UNSET
+        else:
+            last_active_offset = self.last_active_offset
+
+        last_active_at: None | str | Unset
+        if isinstance(self.last_active_at, Unset):
+            last_active_at = UNSET
+        elif isinstance(self.last_active_at, datetime.datetime):
+            last_active_at = self.last_active_at.isoformat()
+        else:
+            last_active_at = self.last_active_at
+
+        follow_up = self.follow_up
+
         last_message_at: None | str | Unset
         if isinstance(self.last_message_at, Unset):
             last_message_at = UNSET
@@ -116,6 +156,7 @@ class RoomSummary:
                 "status": status,
                 "role": role,
                 "created_at": created_at,
+                "delivery_state": delivery_state,
             }
         )
         if description is not UNSET:
@@ -138,6 +179,20 @@ class RoomSummary:
             field_dict["can_manage"] = can_manage
         if status_changed_at is not UNSET:
             field_dict["status_changed_at"] = status_changed_at
+        if expectation is not UNSET:
+            field_dict["expectation"] = expectation
+        if has_new_activity is not UNSET:
+            field_dict["has_new_activity"] = has_new_activity
+        if sent_latest_message is not UNSET:
+            field_dict["sent_latest_message"] = sent_latest_message
+        if last_conversation_at is not UNSET:
+            field_dict["last_conversation_at"] = last_conversation_at
+        if last_active_offset is not UNSET:
+            field_dict["last_active_offset"] = last_active_offset
+        if last_active_at is not UNSET:
+            field_dict["last_active_at"] = last_active_at
+        if follow_up is not UNSET:
+            field_dict["follow_up"] = follow_up
         if last_message_at is not UNSET:
             field_dict["last_message_at"] = last_message_at
 
@@ -161,6 +216,8 @@ class RoomSummary:
         role = d.pop("role")
 
         created_at = isoparse(d.pop("created_at"))
+
+        delivery_state = d.pop("delivery_state")
 
         description = d.pop("description", UNSET)
 
@@ -218,6 +275,57 @@ class RoomSummary:
 
         status_changed_at = _parse_status_changed_at(d.pop("status_changed_at", UNSET))
 
+        expectation = d.pop("expectation", UNSET)
+
+        has_new_activity = d.pop("has_new_activity", UNSET)
+
+        sent_latest_message = d.pop("sent_latest_message", UNSET)
+
+        def _parse_last_conversation_at(data: object) -> datetime.datetime | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                last_conversation_at_type_0 = isoparse(data)
+
+                return last_conversation_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None | Unset, data)
+
+        last_conversation_at = _parse_last_conversation_at(d.pop("last_conversation_at", UNSET))
+
+        def _parse_last_active_offset(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        last_active_offset = _parse_last_active_offset(d.pop("last_active_offset", UNSET))
+
+        def _parse_last_active_at(data: object) -> datetime.datetime | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                last_active_at_type_0 = isoparse(data)
+
+                return last_active_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None | Unset, data)
+
+        last_active_at = _parse_last_active_at(d.pop("last_active_at", UNSET))
+
+        follow_up = d.pop("follow_up", UNSET)
+
         def _parse_last_message_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -244,6 +352,7 @@ class RoomSummary:
             status=status,
             role=role,
             created_at=created_at,
+            delivery_state=delivery_state,
             description=description,
             owner_name=owner_name,
             retention_seconds=retention_seconds,
@@ -254,6 +363,13 @@ class RoomSummary:
             invitable=invitable,
             can_manage=can_manage,
             status_changed_at=status_changed_at,
+            expectation=expectation,
+            has_new_activity=has_new_activity,
+            sent_latest_message=sent_latest_message,
+            last_conversation_at=last_conversation_at,
+            last_active_offset=last_active_offset,
+            last_active_at=last_active_at,
+            follow_up=follow_up,
             last_message_at=last_message_at,
         )
 
