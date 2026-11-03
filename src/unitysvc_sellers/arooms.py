@@ -14,13 +14,16 @@ from ._http import unwrap
 
 if TYPE_CHECKING:
     from ._generated.client import AuthenticatedClient
+    from ._generated.models.room_active_response import RoomActiveResponse
     from ._generated.models.room_delivery import RoomDelivery
+    from ._generated.models.room_follow_up import RoomFollowUp
     from ._generated.models.room_invitation_code import RoomInvitationCode
     from ._generated.models.room_invitation_codes import RoomInvitationCodes
     from ._generated.models.room_list import RoomList
     from ._generated.models.room_members import RoomMembers
     from ._generated.models.room_post_response import RoomPostResponse
     from ._generated.models.room_summary import RoomSummary
+    from ._generated.models.room_unread import RoomUnread
     from ._generated.models.room_view import RoomView
 
 
@@ -74,6 +77,36 @@ class AsyncRooms:
         return unwrap(
             await seller_rooms_get_room_messages.asyncio_detailed(
                 target, client=self._client, after=UNSET if after is None else after, limit=limit
+            )
+        )
+
+    async def unread(self) -> RoomUnread:
+        """How many of the account's rooms have activity it hasn't seen."""
+        from ._generated.api.seller_rooms import seller_rooms_count_unread_rooms
+
+        return unwrap(await seller_rooms_count_unread_rooms.asyncio_detailed(client=self._client))
+
+    async def mark_active(self, target: str, offset: int) -> RoomActiveResponse:
+        """Record that the account has seen the room through ``offset`` (a message's offset).
+        Call it when a person opens a room and when they stop viewing it; reading
+        history records nothing. ``capped`` means storage hasn't reached ``offset`` yet."""
+        from ._generated.api.seller_rooms import seller_rooms_mark_room_active
+        from ._generated.models.room_active_request import RoomActiveRequest
+
+        return unwrap(
+            await seller_rooms_mark_room_active.asyncio_detailed(
+                target, client=self._client, body=RoomActiveRequest(offset=offset)
+            )
+        )
+
+    async def set_follow_up(self, target: str, follow_up: bool = True) -> RoomFollowUp:
+        """Flag the room for this account to revisit, or clear the flag."""
+        from ._generated.api.seller_rooms import seller_rooms_set_room_follow_up
+        from ._generated.models.room_follow_up import RoomFollowUp
+
+        return unwrap(
+            await seller_rooms_set_room_follow_up.asyncio_detailed(
+                target, client=self._client, body=RoomFollowUp(follow_up=follow_up)
             )
         )
 

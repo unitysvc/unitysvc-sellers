@@ -102,6 +102,18 @@ usvc seller rooms delivery helpdesk --notify labs/msg-to-discord
 - **History:** pages are ordered by message offset. Pass the previous page's `next` as `after`. A message can take a moment to appear, because history is read only up to what has been fully stored.
 - **Delivery:** new messages show up in the web app's notifications. Delivery through your notify and email services is planned ([unitysvc#2807](https://github.com/unitysvc/unitysvc/issues/2807) Phase 3). The settings are stored now and apply once it ships.
 
+## Chat from the terminal
+
+Support staff can work rooms without a browser. `usvc seller rooms chat` opens a room, shows new messages as they arrive and posts what you type to that room. It needs prompt_toolkit (`pip install "unitysvc-sellers[chat]"`) and a seller key with `api:rooms` read and write; use your own key on the seller account so replies carry your name.
+
+```bash
+usvc seller rooms chat                    # the most recently active room
+usvc seller rooms chat @helpdesk          # by handle, id or name prefix
+usvc seller rooms chat --enrollment <id>  # an enrollment's room
+```
+
+Inside the chat: `/rooms` lists rooms (`●` new activity, `⚑` follow-up), `/open ROOM` switches, `/next` or Ctrl-N jumps to the next room with new activity, `/follow [off]` flags a room to revisit, `/members`, `/help` and `/quit`. The chat records what you have seen, so the web inbox agrees, and it never lets a message fall back to your `me` room. The SDK has the same pieces: `client.rooms.unread()`, `client.rooms.mark_active(room, offset)` and `client.rooms.set_follow_up(room)`.
+
 ## Posting from other systems
 
 A seller key with the `api:rooms` grant can post through the room webhook:

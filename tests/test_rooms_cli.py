@@ -174,3 +174,15 @@ def test_user_content_is_printed_literally(rooms: _Rooms, monkeypatch: pytest.Mo
     table = runner.invoke(app, ["list"])
     assert table.exit_code == 0, table.output
     assert "[bold]Club[/bold]" in table.output
+
+
+def test_chat_opens_the_room_with_the_accounts_rooms_client(rooms: _Rooms, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[Any] = []
+
+    async def fake_run_chat(client_rooms: Any, room: Any, **options: Any) -> None:
+        seen.append((client_rooms, room, options["filters"], options["join_code"], options["interval"]))
+
+    monkeypatch.setattr("unitysvc.chat.run_chat", fake_run_chat)
+    result = runner.invoke(app, ["chat", "@helpdesk", "--enrollment", "e1", "--interval", "5"])
+    assert result.exit_code == 0, result.output
+    assert seen == [(rooms, "@helpdesk", {"enrollment": "e1"}, None, 5.0)]

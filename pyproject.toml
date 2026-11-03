@@ -24,7 +24,8 @@ dependencies = [
   # so `usvc seller ...` works for anyone who installs this package. Adds no new
   # transitive dependencies — typer, rich, httpx, attrs and python-dateutil are
   # all already required here.
-  "unitysvc-py>=0.1.22",
+  # 0.2.6: unitysvc.chat and rooms.mark_active (usvc_seller rooms chat).
+  "unitysvc-py>=0.2.6",
   "unitysvc-data>=0.1.28",
   "typer",
   "rich",
@@ -40,6 +41,10 @@ dependencies = [
 requires-python = ">= 3.11"
 
 [project.optional-dependencies]
+# Interactive `usvc_seller rooms chat`.
+chat = [
+  "unitysvc-py[chat]>=0.2.6",
+]
 test = [
   "coverage",
   "pytest",

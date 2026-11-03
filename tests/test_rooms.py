@@ -32,6 +32,7 @@ def summary(**overrides):
         "keep_forever": True,
         "fixed_membership": True,
         "can_manage": True,
+        "delivery_state": "inbox",
         **overrides,
     }
 
@@ -87,6 +88,13 @@ def transport(captured):
             return httpx.Response(200, json=summary())
         if path.endswith("/leave"):
             return httpx.Response(204)
+        if path.endswith("/unread"):
+            return httpx.Response(200, json={"rooms_with_new_activity": 2})
+        if path.endswith("/active"):
+            offset = json.loads(request.content)["offset"]
+            return httpx.Response(200, json={"last_active_offset": offset, "capped": False})
+        if path.endswith("/follow-up"):
+            return httpx.Response(200, json=json.loads(request.content))
         if request.method == "POST":
             return httpx.Response(202, json={"room_id": ROOM, "message_id": MESSAGE, "offset": 42, "routed": "handle"})
         if request.method == "PATCH":
@@ -289,3 +297,25 @@ async def test_rooms_narrow_by_enrollment_and_service_and_leave(asynchronous):
         assert captured[-1].url.path.endswith(f"/rooms/{ROOM}/leave")
     finally:
         await close(client, asynchronous)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_unread_active_and_follow_up_reach_the_wire(asynchronous):
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        assert (await call(client.rooms, "unread")).rooms_with_new_activity == 2
+        marked = await call(client.rooms, "mark_active", "helpdesk", 42)
+        assert (marked.last_active_offset, marked.capped) == (42, False)
+        assert (await call(client.rooms, "set_follow_up", "helpdesk", False)).follow_up is False
+    finally:
+        await close(client, asynchronous)
+
+    assert [(r.method, r.url.path.rsplit("/rooms", 1)[1]) for r in captured] == [
+        ("GET", "/unread"),
+        ("POST", "/helpdesk/active"),
+        ("PATCH", "/helpdesk/follow-up"),
+    ]
+    assert json.loads(captured[1].content) == {"offset": 42}
+    assert json.loads(captured[2].content) == {"follow_up": False}
