@@ -9069,6 +9069,49 @@
         ],
         "title": "RoomMessageView"
       },
+      "RoomPostAttachment": {
+        "properties": {
+          "base64": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 14046549
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base64"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          }
+        },
+        "type": "object",
+        "title": "RoomPostAttachment",
+        "description": "One msg-format attachment: inline bytes or a URL."
+      },
       "RoomPostOrigin": {
         "properties": {
           "service": {
@@ -12953,49 +12996,6 @@
         },
         "type": "object",
         "title": "WebhookRollSecret"
-      },
-      "RoomPostAttachment": {
-        "properties": {
-          "base64": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 14046549
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Base64"
-          },
-          "url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2048
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Url"
-          },
-          "filename": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Filename"
-          }
-        },
-        "type": "object",
-        "title": "RoomPostAttachment",
-        "description": "One msg-format attachment: inline bytes or a URL."
       }
     }
   },

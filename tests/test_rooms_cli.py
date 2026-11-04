@@ -197,6 +197,8 @@ def test_post_attaches_files_and_needs_text_or_a_file(rooms: _Rooms, tmp_path: A
     assert sent["attachments"] == [{"base64": "Ym9vbQ==", "filename": "log.txt"}]
 
     assert runner.invoke(app, ["post", "helpdesk"]).exit_code == 1
+    url_only = runner.invoke(app, ["post", "helpdesk", "--attach", "https://example.com/a.pdf"])
+    assert url_only.exit_code == 1 and "URL alone needs text" in " ".join(url_only.output.split())
     missing = runner.invoke(app, ["post", "helpdesk", "--attach", str(tmp_path / "nope.png")])
     # Rich wraps at the terminal width, so compare without line breaks.
     assert missing.exit_code == 1 and "not a file" in " ".join(missing.output.split())

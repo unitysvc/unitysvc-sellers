@@ -116,7 +116,7 @@ Inside the chat: `/rooms` lists rooms (`●` new activity, `⚑` follow-up), `/o
 
 ### Files and pictures
 
-Seller posts carry files the same way: `client.rooms.post(room, body="...", attachments=["error.png"])`, or `usvc seller rooms post ROOM "text" --attach error.png` (repeatable). Files are stored for 7 days; a message can be files alone (at most 10 files, 10 MiB each, 25 MiB in all; images, PDF, text, CSV and office documents). In the chat, `/attach PATH` or Ctrl-V attaches a file to your next message in the open room; files stay with the room they were attached in. Received attachments are numbered, and `/save N [DIR]` downloads one without opening it.
+Seller posts carry files the same way: `client.rooms.post(room, body="...", attachments=["error.png"])`, or `usvc seller rooms post ROOM "text" --attach error.png` (repeatable). Files are stored for 7 days; a message can be files alone (a URL alone needs some text) (at most 10 files, 10 MiB each, 25 MiB in all; images, PDF, text, CSV and office documents). In the chat, `/attach PATH` or Ctrl-V attaches a file to your next message in the open room; files stay with the room they were attached in. Received attachments are numbered, and `/save N [DIR]` downloads one without opening it.
 
 ## Posting from other systems
 

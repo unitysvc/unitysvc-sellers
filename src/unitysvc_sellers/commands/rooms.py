@@ -148,10 +148,11 @@ def post_message(
         raise typer.Exit(code=1)
     message: dict[str, Any] = {}
     if attach:
-        from unitysvc.attachments import prepare
+        from unitysvc.attachments import check_content, prepare
 
         try:
             message["attachments"] = prepare(attach)
+            check_content(text, message["attachments"])
         except ValueError as exc:
             console.print(f"[red]✗[/red] {escape(str(exc))}")
             raise typer.Exit(code=1) from exc

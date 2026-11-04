@@ -221,13 +221,14 @@ class Rooms:
         idempotent retries.
 
         ``attachments`` takes file paths, ``http(s)`` URLs (kept as links) or entries from
-        :mod:`unitysvc.attachments`; files are stored for 7 days. A message needs a ``body``, or
-        ``attachments``, or both.
+        :mod:`unitysvc.attachments`; files are stored for 7 days. A message needs a ``body`` or a
+        file (a URL alone needs a ``body``): otherwise ValueError, before anything is sent.
         """
         if attachments:
-            from unitysvc.attachments import prepare
+            from unitysvc.attachments import check_content, prepare
 
             message["attachments"] = prepare(attachments)
+            check_content(body, message["attachments"])
         from ._generated.api.seller_rooms import seller_rooms_post_room_message
         from ._generated.models.room_post_request import RoomPostRequest
 
