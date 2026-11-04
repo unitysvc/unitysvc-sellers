@@ -207,13 +207,27 @@ class AsyncRooms:
         )
 
     async def post(
-        self, target: str | None = None, *, body: str, fallback: bool = True, **message: Any
+        self,
+        target: str | None = None,
+        *,
+        body: str = "",
+        attachments: Any = None,
+        fallback: bool = True,
+        **message: Any,
     ) -> RoomPostResponse:
         """Post a message in msg format. Target is a UUID or handle; None uses a leading @handle or the me
         fallback. With a target and ``fallback=False``, a room that can't take the post raises
         (NotFoundError / PermissionError) instead of posting to ``me``. Pass client_message_id for
         idempotent retries.
+
+        ``attachments`` takes file paths, ``http(s)`` URLs (kept as links) or entries from
+        :mod:`unitysvc.attachments`; files are stored for 7 days. A message needs a ``body``, or
+        ``attachments``, or both.
         """
+        if attachments:
+            from unitysvc.attachments import prepare
+
+            message["attachments"] = prepare(attachments)
         from ._generated.api.seller_rooms import seller_rooms_post_room_message
         from ._generated.models.room_post_request import RoomPostRequest
 

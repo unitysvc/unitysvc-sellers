@@ -5,7 +5,7 @@ the account's handles (``me``, ``helpdesk``, or a room's own handle):
 
 - ``usvc seller rooms list [--kind K] [--enrollment ID] [--service ID]``
 - ``usvc seller rooms show ROOM [--after N] [--limit N]``   — the room and its messages
-- ``usvc seller rooms post ROOM TEXT [--title T] [--id KEY]``
+- ``usvc seller rooms post ROOM [TEXT] [--attach PATH ...] [--title T] [--id KEY]``
 - ``usvc seller rooms members ROOM``
 - ``usvc seller rooms set ROOM [--name] [--description] [--retention S] [--status S]``
 - ``usvc seller rooms delivery ROOM [--notify PATH] [--email PATH]``
@@ -131,7 +131,10 @@ def show_room(
 @app.command("post")
 def post_message(
     room: str = typer.Argument(..., help="Room id or handle."),
-    text: str = typer.Argument(..., help="Message body."),
+    text: str = typer.Argument("", help="Message body (optional with --attach)."),
+    attach: list[str] | None = typer.Option(
+        None, "--attach", "-a", help="A file to attach (stored 7 days) or an http(s) URL. Repeatable."
+    ),
     title: str | None = typer.Option(None, "--title", help="Optional title."),
     client_message_id: str | None = typer.Option(
         None, "--id", help="Idempotency key: retrying with the same key posts once."
@@ -139,8 +142,19 @@ def post_message(
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Post a message to a room."""
+    """Post a message to a room, with files if you like."""
+    if not text.strip() and not attach:
+        console.print("[red]✗[/red] Give a message, --attach a file, or both")
+        raise typer.Exit(code=1)
     message: dict[str, Any] = {}
+    if attach:
+        from unitysvc.attachments import prepare
+
+        try:
+            message["attachments"] = prepare(attach)
+        except ValueError as exc:
+            console.print(f"[red]✗[/red] {escape(str(exc))}")
+            raise typer.Exit(code=1) from exc
     if title is not None:
         message["title"] = title
     if client_message_id is not None:

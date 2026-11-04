@@ -186,3 +186,17 @@ def test_chat_opens_the_room_with_the_accounts_rooms_client(rooms: _Rooms, monke
     result = runner.invoke(app, ["chat", "@helpdesk", "--enrollment", "e1"])
     assert result.exit_code == 0, result.output
     assert seen == [(rooms, "@helpdesk", {"enrollment": "e1"}, None)]
+
+
+def test_post_attaches_files_and_needs_text_or_a_file(rooms: _Rooms, tmp_path: Any) -> None:
+    (tmp_path / "log.txt").write_text("boom")
+    result = runner.invoke(app, ["post", "helpdesk", "--attach", str(tmp_path / "log.txt")])
+    assert result.exit_code == 0, result.output
+    _, target, sent = rooms.calls[-1]
+    assert target == "helpdesk" and sent["body"] == ""
+    assert sent["attachments"] == [{"base64": "Ym9vbQ==", "filename": "log.txt"}]
+
+    assert runner.invoke(app, ["post", "helpdesk"]).exit_code == 1
+    missing = runner.invoke(app, ["post", "helpdesk", "--attach", str(tmp_path / "nope.png")])
+    # Rich wraps at the terminal width, so compare without line breaks.
+    assert missing.exit_code == 1 and "not a file" in " ".join(missing.output.split())

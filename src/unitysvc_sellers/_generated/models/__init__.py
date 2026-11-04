@@ -76,6 +76,7 @@ from .room_message_view import RoomMessageView
 from .room_message_view_attachments_item import RoomMessageViewAttachmentsItem
 from .room_message_view_event_data_type_0 import RoomMessageViewEventDataType0
 from .room_message_view_links_item import RoomMessageViewLinksItem
+from .room_post_attachment import RoomPostAttachment
 from .room_post_origin import RoomPostOrigin
 from .room_post_request import RoomPostRequest
 from .room_post_request_links_item import RoomPostRequestLinksItem
@@ -286,6 +287,7 @@ __all__ = (
     "RoomMessageViewAttachmentsItem",
     "RoomMessageViewEventDataType0",
     "RoomMessageViewLinksItem",
+    "RoomPostAttachment",
     "RoomPostOrigin",
     "RoomPostRequest",
     "RoomPostRequestLinksItem",

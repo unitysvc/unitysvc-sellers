@@ -1250,7 +1250,7 @@ $ usvc seller rooms [OPTIONS] COMMAND [ARGS]...
 
 * `list`: List the rooms the account can reach, most...
 * `show`: Show a room and its messages, oldest first.
-* `post`: Post a message to a room.
+* `post`: Post a message to a room, with files if...
 * `members`: List the room&#x27;s members and their roles.
 * `set`: Change the room&#x27;s settings (owner only).
 * `delivery`: Show, or with --notify / --email change,...
@@ -1306,21 +1306,22 @@ $ usvc seller rooms show [OPTIONS] {room}
 
 ### `usvc seller rooms post`
 
-Post a message to a room.
+Post a message to a room, with files if you like.
 
 **Usage**:
 
 ```console
-$ usvc seller rooms post [OPTIONS] {room} {text}
+$ usvc seller rooms post [OPTIONS] {room} [text]
 ```
 
 **Arguments**:
 
 * `room`: Room id or handle.  [required]
-* `text`: Message body.  [required]
+* `text`: Message body (optional with --attach).
 
 **Options**:
 
+* `-a, --attach <str>`: A file to attach (stored 7 days) or an http(s) URL. Repeatable.
 * `--title <str>`: Optional title.
 * `--id <str>`: Idempotency key: retrying with the same key posts once.
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]

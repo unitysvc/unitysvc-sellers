@@ -389,3 +389,28 @@ async def test_list_filters_paging_and_the_feed_reach_the_wire(asynchronous):
     assert dict(captured[2].url.params) == {"since": "c1", "wait": "20", "limit": "100", "room": ROOM}
     assert feed.cursor == "c2" and feed.rooms_with_new_activity == 1
     assert str(feed.messages[0].room_id) == ROOM and feed.messages[0].body == "hi"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_files_are_posted_as_msg_format_attachments(asynchronous, tmp_path):
+    (tmp_path / "shot.png").write_bytes(b"\x89PNG")
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        await call(
+            client.rooms,
+            "post",
+            "helpdesk",
+            attachments=[tmp_path / "shot.png", "https://example.com/spec.pdf"],
+            fallback=False,
+        )
+    finally:
+        await close(client, asynchronous)
+
+    sent = json.loads(captured[0].content)
+    assert sent["body"] == ""  # files alone are a message
+    assert sent["attachments"] == [
+        {"base64": "iVBORw==", "filename": "shot.png"},
+        {"url": "https://example.com/spec.pdf"},
+    ]
