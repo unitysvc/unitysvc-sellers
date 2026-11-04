@@ -88,6 +88,39 @@ def transport(captured):
             return httpx.Response(200, json=summary())
         if path.endswith("/leave"):
             return httpx.Response(204)
+        if path.endswith("/feed"):
+            return httpx.Response(
+                200,
+                json={
+                    "messages": [
+                        {
+                            "id": MESSAGE,
+                            "offset": 7,
+                            "sent_at": AT,
+                            "sender_type": "customer",
+                            "sender_member_id": MEMBER,
+                            "sender_name": "Ann",
+                            "via": None,
+                            "origin_service": None,
+                            "origin_author": None,
+                            "reply_to_id": None,
+                            "event": None,
+                            "event_data": None,
+                            "title": None,
+                            "body": "hi",
+                            "type": "info",
+                            "format": "text",
+                            "links": [],
+                            "attachments": [],
+                            "is_internal": False,
+                            "is_system": False,
+                            "room_id": ROOM,
+                        }
+                    ],
+                    "cursor": "c2",
+                    "rooms_with_new_activity": 1,
+                },
+            )
         if path.endswith("/unread"):
             return httpx.Response(200, json={"rooms_with_new_activity": 2})
         if path.endswith("/active"):
@@ -336,3 +369,23 @@ async def test_tail_and_strict_post_reach_the_wire(asynchronous):
     assert captured[0].url.params.get("tail") == "20" and "after" not in captured[0].url.params
     assert captured[1].url.params.get("fallback") == "false"
     assert captured[2].url.params.get("fallback") == "true"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_list_filters_paging_and_the_feed_reach_the_wire(asynchronous):
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        await call(client.rooms, "list")
+        await call(client.rooms, "list", q="Acme", new_activity=True, limit=20, cursor="c1")
+        feed = await call(client.rooms, "feed", since="c1", wait=20, rooms=[ROOM])
+    finally:
+        await close(client, asynchronous)
+
+    assert dict(captured[0].url.params) == {}  # an unpaged list: every room
+    assert dict(captured[1].url.params) == {"q": "Acme", "new_activity": "true", "limit": "20", "cursor": "c1"}
+    assert captured[2].url.path.endswith("/rooms/feed")
+    assert dict(captured[2].url.params) == {"since": "c1", "wait": "20", "limit": "100", "room": ROOM}
+    assert feed.cursor == "c2" and feed.rooms_with_new_activity == 1
+    assert str(feed.messages[0].room_id) == ROOM and feed.messages[0].body == "hi"

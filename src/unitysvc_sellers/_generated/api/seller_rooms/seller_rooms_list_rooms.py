@@ -16,6 +16,10 @@ def _get_kwargs(
     kind: None | str | Unset = UNSET,
     enrollment: None | Unset | UUID = UNSET,
     service: None | Unset | UUID = UNSET,
+    q: None | str | Unset = UNSET,
+    new_activity: bool | Unset = False,
+    limit: int | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -52,6 +56,29 @@ def _get_kwargs(
     else:
         json_service = service
     params["service"] = json_service
+
+    json_q: None | str | Unset
+    if isinstance(q, Unset):
+        json_q = UNSET
+    else:
+        json_q = q
+    params["q"] = json_q
+
+    params["new_activity"] = new_activity
+
+    json_limit: int | None | Unset
+    if isinstance(limit, Unset):
+        json_limit = UNSET
+    else:
+        json_limit = limit
+    params["limit"] = json_limit
+
+    json_cursor: None | str | Unset
+    if isinstance(cursor, Unset):
+        json_cursor = UNSET
+    else:
+        json_cursor = cursor
+    params["cursor"] = json_cursor
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -101,19 +128,32 @@ def sync_detailed(
     kind: None | str | Unset = UNSET,
     enrollment: None | Unset | UUID = UNSET,
     service: None | Unset | UUID = UNSET,
+    q: None | str | Unset = UNSET,
+    new_activity: bool | Unset = False,
+    limit: int | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | RoomList]:
     """List Rooms
 
      The rooms the account can reach, with its role in each, most
-    recently active first, optionally narrowed by kind, enrollment or
-    service. A key limited by ``room=`` sees only its rooms.
+    recently active first, optionally narrowed by kind, enrollment,
+    service, name prefix (``q``) or unseen activity (``new_activity``).
+    Paging is opt-in: with ``limit``, a page at a time via the opaque
+    ``cursor``; without it, every room. A key limited by ``room=`` sees
+    only its rooms.
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
         enrollment (None | Unset | UUID): Only rooms of this enrollment
         service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
+        q (None | str | Unset): Only rooms whose name starts with this (case-insensitive)
+        new_activity (bool | Unset): Only rooms with conversation activity the account hasn't seen
+            Default: False.
+        limit (int | None | Unset): Rooms per page; omit for every room (after ``cursor``)
+        cursor (None | str | Unset): Opaque cursor from a previous response's next_cursor; omit to
+            start from the first page
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -129,6 +169,10 @@ def sync_detailed(
         kind=kind,
         enrollment=enrollment,
         service=service,
+        q=q,
+        new_activity=new_activity,
+        limit=limit,
+        cursor=cursor,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -146,19 +190,32 @@ def sync(
     kind: None | str | Unset = UNSET,
     enrollment: None | Unset | UUID = UNSET,
     service: None | Unset | UUID = UNSET,
+    q: None | str | Unset = UNSET,
+    new_activity: bool | Unset = False,
+    limit: int | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> HTTPValidationError | RoomList | None:
     """List Rooms
 
      The rooms the account can reach, with its role in each, most
-    recently active first, optionally narrowed by kind, enrollment or
-    service. A key limited by ``room=`` sees only its rooms.
+    recently active first, optionally narrowed by kind, enrollment,
+    service, name prefix (``q``) or unseen activity (``new_activity``).
+    Paging is opt-in: with ``limit``, a page at a time via the opaque
+    ``cursor``; without it, every room. A key limited by ``room=`` sees
+    only its rooms.
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
         enrollment (None | Unset | UUID): Only rooms of this enrollment
         service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
+        q (None | str | Unset): Only rooms whose name starts with this (case-insensitive)
+        new_activity (bool | Unset): Only rooms with conversation activity the account hasn't seen
+            Default: False.
+        limit (int | None | Unset): Rooms per page; omit for every room (after ``cursor``)
+        cursor (None | str | Unset): Opaque cursor from a previous response's next_cursor; omit to
+            start from the first page
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -175,6 +232,10 @@ def sync(
         kind=kind,
         enrollment=enrollment,
         service=service,
+        q=q,
+        new_activity=new_activity,
+        limit=limit,
+        cursor=cursor,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
@@ -186,19 +247,32 @@ async def asyncio_detailed(
     kind: None | str | Unset = UNSET,
     enrollment: None | Unset | UUID = UNSET,
     service: None | Unset | UUID = UNSET,
+    q: None | str | Unset = UNSET,
+    new_activity: bool | Unset = False,
+    limit: int | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | RoomList]:
     """List Rooms
 
      The rooms the account can reach, with its role in each, most
-    recently active first, optionally narrowed by kind, enrollment or
-    service. A key limited by ``room=`` sees only its rooms.
+    recently active first, optionally narrowed by kind, enrollment,
+    service, name prefix (``q``) or unseen activity (``new_activity``).
+    Paging is opt-in: with ``limit``, a page at a time via the opaque
+    ``cursor``; without it, every room. A key limited by ``room=`` sees
+    only its rooms.
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
         enrollment (None | Unset | UUID): Only rooms of this enrollment
         service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
+        q (None | str | Unset): Only rooms whose name starts with this (case-insensitive)
+        new_activity (bool | Unset): Only rooms with conversation activity the account hasn't seen
+            Default: False.
+        limit (int | None | Unset): Rooms per page; omit for every room (after ``cursor``)
+        cursor (None | str | Unset): Opaque cursor from a previous response's next_cursor; omit to
+            start from the first page
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -214,6 +288,10 @@ async def asyncio_detailed(
         kind=kind,
         enrollment=enrollment,
         service=service,
+        q=q,
+        new_activity=new_activity,
+        limit=limit,
+        cursor=cursor,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -229,19 +307,32 @@ async def asyncio(
     kind: None | str | Unset = UNSET,
     enrollment: None | Unset | UUID = UNSET,
     service: None | Unset | UUID = UNSET,
+    q: None | str | Unset = UNSET,
+    new_activity: bool | Unset = False,
+    limit: int | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> HTTPValidationError | RoomList | None:
     """List Rooms
 
      The rooms the account can reach, with its role in each, most
-    recently active first, optionally narrowed by kind, enrollment or
-    service. A key limited by ``room=`` sees only its rooms.
+    recently active first, optionally narrowed by kind, enrollment,
+    service, name prefix (``q``) or unseen activity (``new_activity``).
+    Paging is opt-in: with ``limit``, a page at a time via the opaque
+    ``cursor``; without it, every room. A key limited by ``room=`` sees
+    only its rooms.
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
         enrollment (None | Unset | UUID): Only rooms of this enrollment
         service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
+        q (None | str | Unset): Only rooms whose name starts with this (case-insensitive)
+        new_activity (bool | Unset): Only rooms with conversation activity the account hasn't seen
+            Default: False.
+        limit (int | None | Unset): Rooms per page; omit for every room (after ``cursor``)
+        cursor (None | str | Unset): Opaque cursor from a previous response's next_cursor; omit to
+            start from the first page
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
 
@@ -259,6 +350,10 @@ async def asyncio(
             kind=kind,
             enrollment=enrollment,
             service=service,
+            q=q,
+            new_activity=new_activity,
+            limit=limit,
+            cursor=cursor,
             authorization=authorization,
             x_role_id=x_role_id,
         )

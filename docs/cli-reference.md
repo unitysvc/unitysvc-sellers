@@ -1523,7 +1523,6 @@ $ usvc seller rooms chat [OPTIONS] [room]
 * `--enrollment <str>`: Open this enrollment&#x27;s room.
 * `--service <str>`: Open this service&#x27;s room.
 * `--join <str>`: Redeem an invitation code, then open its room.
-* `--interval <float>`: Seconds between checks for new messages.  [default: 3.0]
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.

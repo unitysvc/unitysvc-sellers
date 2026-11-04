@@ -55,6 +55,11 @@ from .room_delivery import RoomDelivery
 from .room_delivery_update import RoomDeliveryUpdate
 from .room_email_invitation import RoomEmailInvitation
 from .room_email_invite import RoomEmailInvite
+from .room_feed import RoomFeed
+from .room_feed_message import RoomFeedMessage
+from .room_feed_message_attachments_item import RoomFeedMessageAttachmentsItem
+from .room_feed_message_event_data_type_0 import RoomFeedMessageEventDataType0
+from .room_feed_message_links_item import RoomFeedMessageLinksItem
 from .room_follow_up import RoomFollowUp
 from .room_invitation_code import RoomInvitationCode
 from .room_invitation_codes import RoomInvitationCodes
@@ -260,6 +265,11 @@ __all__ = (
     "RoomDeliveryUpdate",
     "RoomEmailInvitation",
     "RoomEmailInvite",
+    "RoomFeed",
+    "RoomFeedMessage",
+    "RoomFeedMessageAttachmentsItem",
+    "RoomFeedMessageEventDataType0",
+    "RoomFeedMessageLinksItem",
     "RoomFollowUp",
     "RoomInvitationCode",
     "RoomInvitationCodes",

@@ -180,9 +180,9 @@ def test_chat_opens_the_room_with_the_accounts_rooms_client(rooms: _Rooms, monke
     seen: list[Any] = []
 
     async def fake_run_chat(client_rooms: Any, room: Any, **options: Any) -> None:
-        seen.append((client_rooms, room, options["filters"], options["join_code"], options["interval"]))
+        seen.append((client_rooms, room, options["filters"], options["join_code"]))
 
     monkeypatch.setattr("unitysvc.chat.run_chat", fake_run_chat)
-    result = runner.invoke(app, ["chat", "@helpdesk", "--enrollment", "e1", "--interval", "5"])
+    result = runner.invoke(app, ["chat", "@helpdesk", "--enrollment", "e1"])
     assert result.exit_code == 0, result.output
-    assert seen == [(rooms, "@helpdesk", {"enrollment": "e1"}, None, 5.0)]
+    assert seen == [(rooms, "@helpdesk", {"enrollment": "e1"}, None)]

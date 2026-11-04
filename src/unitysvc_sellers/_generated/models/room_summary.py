@@ -46,6 +46,8 @@ class RoomSummary:
     last_active_offset: int | None | Unset = UNSET
     last_active_at: datetime.datetime | None | Unset = UNSET
     follow_up: bool | Unset = False
+    can_post: bool | Unset = False
+    last_sender_name: None | str | Unset = UNSET
     last_message_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -136,6 +138,14 @@ class RoomSummary:
 
         follow_up = self.follow_up
 
+        can_post = self.can_post
+
+        last_sender_name: None | str | Unset
+        if isinstance(self.last_sender_name, Unset):
+            last_sender_name = UNSET
+        else:
+            last_sender_name = self.last_sender_name
+
         last_message_at: None | str | Unset
         if isinstance(self.last_message_at, Unset):
             last_message_at = UNSET
@@ -193,6 +203,10 @@ class RoomSummary:
             field_dict["last_active_at"] = last_active_at
         if follow_up is not UNSET:
             field_dict["follow_up"] = follow_up
+        if can_post is not UNSET:
+            field_dict["can_post"] = can_post
+        if last_sender_name is not UNSET:
+            field_dict["last_sender_name"] = last_sender_name
         if last_message_at is not UNSET:
             field_dict["last_message_at"] = last_message_at
 
@@ -326,6 +340,17 @@ class RoomSummary:
 
         follow_up = d.pop("follow_up", UNSET)
 
+        can_post = d.pop("can_post", UNSET)
+
+        def _parse_last_sender_name(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        last_sender_name = _parse_last_sender_name(d.pop("last_sender_name", UNSET))
+
         def _parse_last_message_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -370,6 +395,8 @@ class RoomSummary:
             last_active_offset=last_active_offset,
             last_active_at=last_active_at,
             follow_up=follow_up,
+            can_post=can_post,
+            last_sender_name=last_sender_name,
             last_message_at=last_message_at,
         )
 
