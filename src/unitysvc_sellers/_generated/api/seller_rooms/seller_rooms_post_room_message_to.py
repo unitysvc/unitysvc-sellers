@@ -16,6 +16,7 @@ def _get_kwargs(
     target: str,
     *,
     body: RoomPostRequest,
+    fallback: bool | Unset = True,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -26,11 +27,18 @@ def _get_kwargs(
     if not isinstance(x_role_id, Unset):
         headers["x-role-id"] = x_role_id
 
+    params: dict[str, Any] = {}
+
+    params["fallback"] = fallback
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/rooms/{target}".format(
             target=quote(str(target), safe=""),
         ),
+        "params": params,
     }
 
     _kwargs["json"] = body.to_dict()
@@ -76,6 +84,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: RoomPostRequest,
+    fallback: bool | Unset = True,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | RoomPostResponse]:
@@ -83,10 +92,12 @@ def sync_detailed(
 
      Post a message to the room named by ``target`` (a room id, or a
     handle such as ``me``); falls back to ``me`` if the account can't post
-    there.
+    there, unless ``fallback=false``.
 
     Args:
         target (str):
+        fallback (bool | Unset): Post to your me room when this room can't take the post; false
+            returns 404/403 instead (interactive clients) Default: True.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
         body (RoomPostRequest): A message in the msg format.
@@ -102,6 +113,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         target=target,
         body=body,
+        fallback=fallback,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -118,6 +130,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: RoomPostRequest,
+    fallback: bool | Unset = True,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> HTTPValidationError | RoomPostResponse | None:
@@ -125,10 +138,12 @@ def sync(
 
      Post a message to the room named by ``target`` (a room id, or a
     handle such as ``me``); falls back to ``me`` if the account can't post
-    there.
+    there, unless ``fallback=false``.
 
     Args:
         target (str):
+        fallback (bool | Unset): Post to your me room when this room can't take the post; false
+            returns 404/403 instead (interactive clients) Default: True.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
         body (RoomPostRequest): A message in the msg format.
@@ -145,6 +160,7 @@ def sync(
         target=target,
         client=client,
         body=body,
+        fallback=fallback,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
@@ -155,6 +171,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: RoomPostRequest,
+    fallback: bool | Unset = True,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | RoomPostResponse]:
@@ -162,10 +179,12 @@ async def asyncio_detailed(
 
      Post a message to the room named by ``target`` (a room id, or a
     handle such as ``me``); falls back to ``me`` if the account can't post
-    there.
+    there, unless ``fallback=false``.
 
     Args:
         target (str):
+        fallback (bool | Unset): Post to your me room when this room can't take the post; false
+            returns 404/403 instead (interactive clients) Default: True.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
         body (RoomPostRequest): A message in the msg format.
@@ -181,6 +200,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         target=target,
         body=body,
+        fallback=fallback,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -195,6 +215,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: RoomPostRequest,
+    fallback: bool | Unset = True,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> HTTPValidationError | RoomPostResponse | None:
@@ -202,10 +223,12 @@ async def asyncio(
 
      Post a message to the room named by ``target`` (a room id, or a
     handle such as ``me``); falls back to ``me`` if the account can't post
-    there.
+    there, unless ``fallback=false``.
 
     Args:
         target (str):
+        fallback (bool | Unset): Post to your me room when this room can't take the post; false
+            returns 404/403 instead (interactive clients) Default: True.
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
         body (RoomPostRequest): A message in the msg format.
@@ -223,6 +246,7 @@ async def asyncio(
             target=target,
             client=client,
             body=body,
+            fallback=fallback,
             authorization=authorization,
             x_role_id=x_role_id,
         )

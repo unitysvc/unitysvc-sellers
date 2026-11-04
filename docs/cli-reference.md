@@ -1250,7 +1250,7 @@ $ usvc seller rooms [OPTIONS] COMMAND [ARGS]...
 
 * `list`: List the rooms the account can reach, most...
 * `show`: Show a room and its messages, oldest first.
-* `post`: Post a message to a room.
+* `post`: Post a message to a room, with files if...
 * `members`: List the room&#x27;s members and their roles.
 * `set`: Change the room&#x27;s settings (owner only).
 * `delivery`: Show, or with --notify / --email change,...
@@ -1259,6 +1259,7 @@ $ usvc seller rooms [OPTIONS] COMMAND [ARGS]...
 * `revoke`: Revoke an invitation code.
 * `join`: Join a room with an invitation code.
 * `leave`: Leave a room you joined (chat rooms; the...
+* `chat`: Chat in a room interactively: live...
 
 ### `usvc seller rooms list`
 
@@ -1305,21 +1306,22 @@ $ usvc seller rooms show [OPTIONS] {room}
 
 ### `usvc seller rooms post`
 
-Post a message to a room.
+Post a message to a room, with files if you like.
 
 **Usage**:
 
 ```console
-$ usvc seller rooms post [OPTIONS] {room} {text}
+$ usvc seller rooms post [OPTIONS] {room} [text]
 ```
 
 **Arguments**:
 
 * `room`: Room id or handle.  [required]
-* `text`: Message body.  [required]
+* `text`: Message body (optional with --attach).
 
 **Options**:
 
+* `-a, --attach <str>`: A file to attach (stored 7 days) or an http(s) URL. Repeatable.
 * `--title <str>`: Optional title.
 * `--id <str>`: Idempotency key: retrying with the same key posts once.
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -1496,6 +1498,32 @@ $ usvc seller rooms leave [OPTIONS] {room}
 **Options**:
 
 * `-y, --yes`: Skip confirmation prompt.
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms chat`
+
+Chat in a room interactively: live messages, posting and switching rooms.
+
+Needs prompt_toolkit (unitysvc-py&#x27;s chat extra) and a key with api:rooms
+read and write. Type /help inside the chat for commands.
+
+**Usage**:
+
+```console
+$ usvc seller rooms chat [OPTIONS] [room]
+```
+
+**Arguments**:
+
+* `room`: Room id, @handle or name prefix; default: most recently active.
+
+**Options**:
+
+* `--enrollment <str>`: Open this enrollment&#x27;s room.
+* `--service <str>`: Open this service&#x27;s room.
+* `--join <str>`: Redeem an invitation code, then open its room.
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.

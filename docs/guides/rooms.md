@@ -102,6 +102,22 @@ usvc seller rooms delivery helpdesk --notify labs/msg-to-discord
 - **History:** pages are ordered by message offset. Pass the previous page's `next` as `after`. A message can take a moment to appear, because history is read only up to what has been fully stored.
 - **Delivery:** new messages show up in the web app's notifications. Delivery through your notify and email services is planned ([unitysvc#2807](https://github.com/unitysvc/unitysvc/issues/2807) Phase 3). The settings are stored now and apply once it ships.
 
+## Chat from the terminal
+
+Support staff can work rooms without a browser. `usvc seller rooms chat` opens a room, shows new messages as they arrive and posts what you type to that room. It needs prompt_toolkit (`pip install "unitysvc-sellers[chat]"`) and a seller key with `api:rooms` read and write; use your own key on the seller account so replies carry your name.
+
+```bash
+usvc seller rooms chat                    # the most recently active room
+usvc seller rooms chat @helpdesk          # by handle, id or name prefix
+usvc seller rooms chat --enrollment <id>  # an enrollment's room
+```
+
+Inside the chat: `/rooms` lists rooms (`●` new activity, `⚑` follow-up), `/open ROOM` switches, `/next` or Ctrl-N jumps to the next room with new activity, `/follow [off]` flags a room to revisit, `/members`, `/help` and `/quit`. A room opens at its latest messages (`client.rooms.get(room, tail=50)`). The chat records what you have seen the way the web inbox does, when a room opens and when you switch away or quit, never just because a message arrived while it was open. It posts with `fallback=False`, so a room that can't take the post is an error and nothing lands in your `me` room. New messages arrive through one long-polled feed for all your rooms, so the bottom bar counts the other rooms waiting for you, and `/rooms` shows each room's latest sender and where you can't post. The SDK has the same pieces: `client.rooms.feed(since=cursor, wait=20)` (new messages across rooms; the first call without `since` takes the current position), `client.rooms.list(q=..., new_activity=True)`, `client.rooms.unread()`, `client.rooms.mark_active(room, offset)` and `client.rooms.set_follow_up(room)`.
+
+### Files and pictures
+
+Seller posts carry files the same way: `client.rooms.post(room, body="...", attachments=["error.png"])`, or `usvc seller rooms post ROOM "text" --attach error.png` (repeatable). Files are stored for 7 days; a message can be files alone (a URL alone needs some text) (at most 10 files, 10 MiB each, 25 MiB in all; images, PDF, text, CSV and office documents). In the chat, `/attach PATH` or Ctrl-V attaches a file to your next message in the open room; files stay with the room they were attached in. Received attachments are numbered, and `/save N [DIR]` downloads one without opening it.
+
 ## Posting from other systems
 
 A seller key with the `api:rooms` grant can post through the room webhook:

@@ -11,6 +11,7 @@ from ..models.msg_type_enum import MsgTypeEnum, check_msg_type_enum
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.room_post_attachment import RoomPostAttachment
     from ..models.room_post_origin import RoomPostOrigin
     from ..models.room_post_request_links_item import RoomPostRequestLinksItem
 
@@ -22,13 +23,17 @@ T = TypeVar("T", bound="RoomPostRequest")
 class RoomPostRequest:
     """A message in the msg format."""
 
-    body: str
     title: None | str | Unset = UNSET
+    body: str | Unset = ""
+    """ The text; may be empty when the message carries attachments. """
     format_: MsgFormatEnum | Unset = UNSET
     """ The msg envelope's ``format`` (``html`` is deprecated). """
     type_: MsgTypeEnum | Unset = UNSET
     """ The msg envelope's ``type`` (notification-services.md §4). """
     links: list[RoomPostRequestLinksItem] | Unset = UNSET
+    attachments: list[RoomPostAttachment] | Unset = UNSET
+    """ Files as msg-format entries: {base64, filename} is stored for 7 days (at most 10 files, 10 MiB each, 25 MiB
+    in all; images, PDF, text, CSV and office documents); {url, filename} is kept as a link. """
     origin: None | RoomPostOrigin | Unset = UNSET
     client_message_id: None | str | Unset = UNSET
     """ Idempotency key: retries with the same id post once. Defaults to origin.external_id. """
@@ -37,13 +42,13 @@ class RoomPostRequest:
     def to_dict(self) -> dict[str, Any]:
         from ..models.room_post_origin import RoomPostOrigin
 
-        body = self.body
-
         title: None | str | Unset
         if isinstance(self.title, Unset):
             title = UNSET
         else:
             title = self.title
+
+        body = self.body
 
         format_: str | Unset = UNSET
         if not isinstance(self.format_, Unset):
@@ -59,6 +64,13 @@ class RoomPostRequest:
             for links_item_data in self.links:
                 links_item = links_item_data.to_dict()
                 links.append(links_item)
+
+        attachments: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.attachments, Unset):
+            attachments = []
+            for attachments_item_data in self.attachments:
+                attachments_item = attachments_item_data.to_dict()
+                attachments.append(attachments_item)
 
         origin: dict[str, Any] | None | Unset
         if isinstance(self.origin, Unset):
@@ -76,19 +88,19 @@ class RoomPostRequest:
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "body": body,
-            }
-        )
+        field_dict.update({})
         if title is not UNSET:
             field_dict["title"] = title
+        if body is not UNSET:
+            field_dict["body"] = body
         if format_ is not UNSET:
             field_dict["format"] = format_
         if type_ is not UNSET:
             field_dict["type"] = type_
         if links is not UNSET:
             field_dict["links"] = links
+        if attachments is not UNSET:
+            field_dict["attachments"] = attachments
         if origin is not UNSET:
             field_dict["origin"] = origin
         if client_message_id is not UNSET:
@@ -98,11 +110,11 @@ class RoomPostRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.room_post_attachment import RoomPostAttachment
         from ..models.room_post_origin import RoomPostOrigin
         from ..models.room_post_request_links_item import RoomPostRequestLinksItem
 
         d = dict(src_dict)
-        body = d.pop("body")
 
         def _parse_title(data: object) -> None | str | Unset:
             if data is None:
@@ -112,6 +124,8 @@ class RoomPostRequest:
             return cast(None | str | Unset, data)
 
         title = _parse_title(d.pop("title", UNSET))
+
+        body = d.pop("body", UNSET)
 
         _format_ = d.pop("format", UNSET)
         format_: MsgFormatEnum | Unset
@@ -135,6 +149,15 @@ class RoomPostRequest:
                 links_item = RoomPostRequestLinksItem.from_dict(links_item_data)
 
                 links.append(links_item)
+
+        _attachments = d.pop("attachments", UNSET)
+        attachments: list[RoomPostAttachment] | Unset = UNSET
+        if _attachments is not UNSET:
+            attachments = []
+            for attachments_item_data in _attachments:
+                attachments_item = RoomPostAttachment.from_dict(attachments_item_data)
+
+                attachments.append(attachments_item)
 
         def _parse_origin(data: object) -> None | RoomPostOrigin | Unset:
             if data is None:
@@ -163,11 +186,12 @@ class RoomPostRequest:
         client_message_id = _parse_client_message_id(d.pop("client_message_id", UNSET))
 
         room_post_request = cls(
-            body=body,
             title=title,
+            body=body,
             format_=format_,
             type_=type_,
             links=links,
+            attachments=attachments,
             origin=origin,
             client_message_id=client_message_id,
         )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -10,6 +10,10 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.room_email_invitation import RoomEmailInvitation
+
 
 T = TypeVar("T", bound="RoomInvitationCode")
 
@@ -25,6 +29,8 @@ class RoomInvitationCode:
     created_at: datetime.datetime
     max_uses: int | None | Unset = UNSET
     note: None | str | Unset = UNSET
+    expires_in_days: int | None | Unset = UNSET
+    invitations: list[RoomEmailInvitation] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -54,6 +60,19 @@ class RoomInvitationCode:
         else:
             note = self.note
 
+        expires_in_days: int | None | Unset
+        if isinstance(self.expires_in_days, Unset):
+            expires_in_days = UNSET
+        else:
+            expires_in_days = self.expires_in_days
+
+        invitations: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.invitations, Unset):
+            invitations = []
+            for invitations_item_data in self.invitations:
+                invitations_item = invitations_item_data.to_dict()
+                invitations.append(invitations_item)
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -71,11 +90,17 @@ class RoomInvitationCode:
             field_dict["max_uses"] = max_uses
         if note is not UNSET:
             field_dict["note"] = note
+        if expires_in_days is not UNSET:
+            field_dict["expires_in_days"] = expires_in_days
+        if invitations is not UNSET:
+            field_dict["invitations"] = invitations
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.room_email_invitation import RoomEmailInvitation
+
         d = dict(src_dict)
         id = UUID(d.pop("id"))
 
@@ -109,6 +134,24 @@ class RoomInvitationCode:
 
         note = _parse_note(d.pop("note", UNSET))
 
+        def _parse_expires_in_days(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        expires_in_days = _parse_expires_in_days(d.pop("expires_in_days", UNSET))
+
+        _invitations = d.pop("invitations", UNSET)
+        invitations: list[RoomEmailInvitation] | Unset = UNSET
+        if _invitations is not UNSET:
+            invitations = []
+            for invitations_item_data in _invitations:
+                invitations_item = RoomEmailInvitation.from_dict(invitations_item_data)
+
+                invitations.append(invitations_item)
+
         room_invitation_code = cls(
             id=id,
             token=token,
@@ -119,6 +162,8 @@ class RoomInvitationCode:
             created_at=created_at,
             max_uses=max_uses,
             note=note,
+            expires_in_days=expires_in_days,
+            invitations=invitations,
         )
 
         room_invitation_code.additional_properties = d

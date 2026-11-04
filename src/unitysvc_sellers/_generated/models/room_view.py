@@ -40,6 +40,13 @@ class RoomView:
     invitable: bool | Unset = False
     can_manage: bool | Unset = False
     status_changed_at: datetime.datetime | None | Unset = UNSET
+    expectation: str | Unset = ""
+    has_new_activity: bool | Unset = False
+    sent_latest_message: bool | Unset = False
+    last_conversation_at: datetime.datetime | None | Unset = UNSET
+    last_active_offset: int | None | Unset = UNSET
+    last_active_at: datetime.datetime | None | Unset = UNSET
+    follow_up: bool | Unset = False
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -97,6 +104,36 @@ class RoomView:
         else:
             status_changed_at = self.status_changed_at
 
+        expectation = self.expectation
+
+        has_new_activity = self.has_new_activity
+
+        sent_latest_message = self.sent_latest_message
+
+        last_conversation_at: None | str | Unset
+        if isinstance(self.last_conversation_at, Unset):
+            last_conversation_at = UNSET
+        elif isinstance(self.last_conversation_at, datetime.datetime):
+            last_conversation_at = self.last_conversation_at.isoformat()
+        else:
+            last_conversation_at = self.last_conversation_at
+
+        last_active_offset: int | None | Unset
+        if isinstance(self.last_active_offset, Unset):
+            last_active_offset = UNSET
+        else:
+            last_active_offset = self.last_active_offset
+
+        last_active_at: None | str | Unset
+        if isinstance(self.last_active_at, Unset):
+            last_active_at = UNSET
+        elif isinstance(self.last_active_at, datetime.datetime):
+            last_active_at = self.last_active_at.isoformat()
+        else:
+            last_active_at = self.last_active_at
+
+        follow_up = self.follow_up
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -131,6 +168,20 @@ class RoomView:
             field_dict["can_manage"] = can_manage
         if status_changed_at is not UNSET:
             field_dict["status_changed_at"] = status_changed_at
+        if expectation is not UNSET:
+            field_dict["expectation"] = expectation
+        if has_new_activity is not UNSET:
+            field_dict["has_new_activity"] = has_new_activity
+        if sent_latest_message is not UNSET:
+            field_dict["sent_latest_message"] = sent_latest_message
+        if last_conversation_at is not UNSET:
+            field_dict["last_conversation_at"] = last_conversation_at
+        if last_active_offset is not UNSET:
+            field_dict["last_active_offset"] = last_active_offset
+        if last_active_at is not UNSET:
+            field_dict["last_active_at"] = last_active_at
+        if follow_up is not UNSET:
+            field_dict["follow_up"] = follow_up
 
         return field_dict
 
@@ -211,6 +262,57 @@ class RoomView:
 
         status_changed_at = _parse_status_changed_at(d.pop("status_changed_at", UNSET))
 
+        expectation = d.pop("expectation", UNSET)
+
+        has_new_activity = d.pop("has_new_activity", UNSET)
+
+        sent_latest_message = d.pop("sent_latest_message", UNSET)
+
+        def _parse_last_conversation_at(data: object) -> datetime.datetime | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                last_conversation_at_type_0 = isoparse(data)
+
+                return last_conversation_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None | Unset, data)
+
+        last_conversation_at = _parse_last_conversation_at(d.pop("last_conversation_at", UNSET))
+
+        def _parse_last_active_offset(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        last_active_offset = _parse_last_active_offset(d.pop("last_active_offset", UNSET))
+
+        def _parse_last_active_at(data: object) -> datetime.datetime | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                last_active_at_type_0 = isoparse(data)
+
+                return last_active_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None | Unset, data)
+
+        last_active_at = _parse_last_active_at(d.pop("last_active_at", UNSET))
+
+        follow_up = d.pop("follow_up", UNSET)
+
         room_view = cls(
             id=id,
             member_id=member_id,
@@ -230,6 +332,13 @@ class RoomView:
             invitable=invitable,
             can_manage=can_manage,
             status_changed_at=status_changed_at,
+            expectation=expectation,
+            has_new_activity=has_new_activity,
+            sent_latest_message=sent_latest_message,
+            last_conversation_at=last_conversation_at,
+            last_active_offset=last_active_offset,
+            last_active_at=last_active_at,
+            follow_up=follow_up,
         )
 
         room_view.additional_properties = d

@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
+
 if TYPE_CHECKING:
     from ..models.room_message_view import RoomMessageView
 
@@ -17,6 +19,7 @@ T = TypeVar("T", bound="RoomMessagePage")
 class RoomMessagePage:
     data: list[RoomMessageView]
     next_: int | None
+    previous: int | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -28,6 +31,12 @@ class RoomMessagePage:
         next_: int | None
         next_ = self.next_
 
+        previous: int | None | Unset
+        if isinstance(self.previous, Unset):
+            previous = UNSET
+        else:
+            previous = self.previous
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -36,6 +45,8 @@ class RoomMessagePage:
                 "next": next_,
             }
         )
+        if previous is not UNSET:
+            field_dict["previous"] = previous
 
         return field_dict
 
@@ -58,9 +69,19 @@ class RoomMessagePage:
 
         next_ = _parse_next_(d.pop("next"))
 
+        def _parse_previous(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        previous = _parse_previous(d.pop("previous", UNSET))
+
         room_message_page = cls(
             data=data,
             next_=next_,
+            previous=previous,
         )
 
         room_message_page.additional_properties = d

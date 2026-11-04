@@ -49,12 +49,24 @@ from .provider_data import ProviderData
 from .provider_data_documents_type_0 import ProviderDataDocumentsType0
 from .provider_data_documents_type_0_additional_property import ProviderDataDocumentsType0AdditionalProperty
 from .provider_status_enum import ProviderStatusEnum
+from .room_active_request import RoomActiveRequest
+from .room_active_response import RoomActiveResponse
 from .room_delivery import RoomDelivery
 from .room_delivery_update import RoomDeliveryUpdate
+from .room_email_invitation import RoomEmailInvitation
+from .room_email_invite import RoomEmailInvite
+from .room_feed import RoomFeed
+from .room_feed_message import RoomFeedMessage
+from .room_feed_message_attachments_item import RoomFeedMessageAttachmentsItem
+from .room_feed_message_event_data_type_0 import RoomFeedMessageEventDataType0
+from .room_feed_message_links_item import RoomFeedMessageLinksItem
+from .room_follow_up import RoomFollowUp
 from .room_invitation_code import RoomInvitationCode
 from .room_invitation_codes import RoomInvitationCodes
 from .room_invitation_create import RoomInvitationCreate
 from .room_invitation_create_role import RoomInvitationCreateRole
+from .room_invitation_update import RoomInvitationUpdate
+from .room_invitation_update_role_type_0 import RoomInvitationUpdateRoleType0
 from .room_join_request import RoomJoinRequest
 from .room_list import RoomList
 from .room_member_view import RoomMemberView
@@ -64,6 +76,7 @@ from .room_message_view import RoomMessageView
 from .room_message_view_attachments_item import RoomMessageViewAttachmentsItem
 from .room_message_view_event_data_type_0 import RoomMessageViewEventDataType0
 from .room_message_view_links_item import RoomMessageViewLinksItem
+from .room_post_attachment import RoomPostAttachment
 from .room_post_origin import RoomPostOrigin
 from .room_post_request import RoomPostRequest
 from .room_post_request_links_item import RoomPostRequestLinksItem
@@ -72,6 +85,7 @@ from .room_post_response_routed import RoomPostResponseRouted
 from .room_settings_update import RoomSettingsUpdate
 from .room_settings_update_status_type_0 import RoomSettingsUpdateStatusType0
 from .room_summary import RoomSummary
+from .room_unread import RoomUnread
 from .room_view import RoomView
 from .run_tests_response import RunTestsResponse
 from .secret_owner_type_enum import SecretOwnerTypeEnum
@@ -246,12 +260,24 @@ __all__ = (
     "ProviderDataDocumentsType0",
     "ProviderDataDocumentsType0AdditionalProperty",
     "ProviderStatusEnum",
+    "RoomActiveRequest",
+    "RoomActiveResponse",
     "RoomDelivery",
     "RoomDeliveryUpdate",
+    "RoomEmailInvitation",
+    "RoomEmailInvite",
+    "RoomFeed",
+    "RoomFeedMessage",
+    "RoomFeedMessageAttachmentsItem",
+    "RoomFeedMessageEventDataType0",
+    "RoomFeedMessageLinksItem",
+    "RoomFollowUp",
     "RoomInvitationCode",
     "RoomInvitationCodes",
     "RoomInvitationCreate",
     "RoomInvitationCreateRole",
+    "RoomInvitationUpdate",
+    "RoomInvitationUpdateRoleType0",
     "RoomJoinRequest",
     "RoomList",
     "RoomMembers",
@@ -261,6 +287,7 @@ __all__ = (
     "RoomMessageViewAttachmentsItem",
     "RoomMessageViewEventDataType0",
     "RoomMessageViewLinksItem",
+    "RoomPostAttachment",
     "RoomPostOrigin",
     "RoomPostRequest",
     "RoomPostRequestLinksItem",
@@ -269,6 +296,7 @@ __all__ = (
     "RoomSettingsUpdate",
     "RoomSettingsUpdateStatusType0",
     "RoomSummary",
+    "RoomUnread",
     "RoomView",
     "RunTestsResponse",
     "SecretOwnerTypeEnum",

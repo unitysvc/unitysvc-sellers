@@ -5,13 +5,14 @@ the account's handles (``me``, ``helpdesk``, or a room's own handle):
 
 - ``usvc seller rooms list [--kind K] [--enrollment ID] [--service ID]``
 - ``usvc seller rooms show ROOM [--after N] [--limit N]``   — the room and its messages
-- ``usvc seller rooms post ROOM TEXT [--title T] [--id KEY]``
+- ``usvc seller rooms post ROOM [TEXT] [--attach PATH ...] [--title T] [--id KEY]``
 - ``usvc seller rooms members ROOM``
 - ``usvc seller rooms set ROOM [--name] [--description] [--retention S] [--status S]``
 - ``usvc seller rooms delivery ROOM [--notify PATH] [--email PATH]``
 - ``usvc seller rooms invite ROOM [--role R] [--max-uses N] [--expires-in-days N] [--note T]``
 - ``usvc seller rooms invitations ROOM [--all]`` / ``revoke ROOM CODE_ID``
 - ``usvc seller rooms join CODE`` / ``leave ROOM``
+- ``usvc seller rooms chat [ROOM] [--enrollment ID] [--service ID] [--join CODE]`` — interactive
 
 What the account may do is decided by the server from its role in the room.
 
@@ -130,7 +131,10 @@ def show_room(
 @app.command("post")
 def post_message(
     room: str = typer.Argument(..., help="Room id or handle."),
-    text: str = typer.Argument(..., help="Message body."),
+    text: str = typer.Argument("", help="Message body (optional with --attach)."),
+    attach: list[str] | None = typer.Option(
+        None, "--attach", "-a", help="A file to attach (stored 7 days) or an http(s) URL. Repeatable."
+    ),
     title: str | None = typer.Option(None, "--title", help="Optional title."),
     client_message_id: str | None = typer.Option(
         None, "--id", help="Idempotency key: retrying with the same key posts once."
@@ -138,8 +142,20 @@ def post_message(
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Post a message to a room."""
+    """Post a message to a room, with files if you like."""
+    if not text.strip() and not attach:
+        console.print("[red]✗[/red] Give a message, --attach a file, or both")
+        raise typer.Exit(code=1)
     message: dict[str, Any] = {}
+    if attach:
+        from unitysvc.attachments import check_content, prepare
+
+        try:
+            message["attachments"] = prepare(attach)
+            check_content(text, message["attachments"])
+        except ValueError as exc:
+            console.print(f"[red]✗[/red] {escape(str(exc))}")
+            raise typer.Exit(code=1) from exc
     if title is not None:
         message["title"] = title
     if client_message_id is not None:
@@ -330,3 +346,23 @@ def leave(
 
     run_async(_impl(), error_prefix="Failed to leave")
     console.print(f"[green]✓[/green] Left {escape(room)}")
+
+
+@app.command("chat")
+def chat(
+    room: str | None = typer.Argument(None, help="Room id, @handle or name prefix; default: most recently active."),
+    enrollment: str | None = typer.Option(None, "--enrollment", help="Open this enrollment's room."),
+    service: str | None = typer.Option(None, "--service", help="Open this service's room."),
+    join_code: str | None = typer.Option(None, "--join", help="Redeem an invitation code, then open its room."),
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Chat in a room interactively: live messages, posting and switching rooms.
+
+    Needs prompt_toolkit (unitysvc-py's chat extra) and a key with api:rooms
+    read and write. Type /help inside the chat for commands.
+    """
+    from unitysvc.commands.rooms import run_chat_command
+
+    filters = {key: value for key, value in (("enrollment", enrollment), ("service", service)) if value}
+    run_chat_command(lambda: async_client(api_key, base_url), room, filters=filters, join_code=join_code)

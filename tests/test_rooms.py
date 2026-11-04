@@ -32,6 +32,7 @@ def summary(**overrides):
         "keep_forever": True,
         "fixed_membership": True,
         "can_manage": True,
+        "delivery_state": "inbox",
         **overrides,
     }
 
@@ -87,6 +88,46 @@ def transport(captured):
             return httpx.Response(200, json=summary())
         if path.endswith("/leave"):
             return httpx.Response(204)
+        if path.endswith("/feed"):
+            return httpx.Response(
+                200,
+                json={
+                    "messages": [
+                        {
+                            "id": MESSAGE,
+                            "offset": 7,
+                            "sent_at": AT,
+                            "sender_type": "customer",
+                            "sender_member_id": MEMBER,
+                            "sender_name": "Ann",
+                            "via": None,
+                            "origin_service": None,
+                            "origin_author": None,
+                            "reply_to_id": None,
+                            "event": None,
+                            "event_data": None,
+                            "title": None,
+                            "body": "hi",
+                            "type": "info",
+                            "format": "text",
+                            "links": [],
+                            "attachments": [],
+                            "is_internal": False,
+                            "is_system": False,
+                            "room_id": ROOM,
+                        }
+                    ],
+                    "cursor": "c2",
+                    "rooms_with_new_activity": 1,
+                },
+            )
+        if path.endswith("/unread"):
+            return httpx.Response(200, json={"rooms_with_new_activity": 2})
+        if path.endswith("/active"):
+            offset = json.loads(request.content)["offset"]
+            return httpx.Response(200, json={"last_active_offset": offset, "capped": False})
+        if path.endswith("/follow-up"):
+            return httpx.Response(200, json=json.loads(request.content))
         if request.method == "POST":
             return httpx.Response(202, json={"room_id": ROOM, "message_id": MESSAGE, "offset": 42, "routed": "handle"})
         if request.method == "PATCH":
@@ -289,3 +330,87 @@ async def test_rooms_narrow_by_enrollment_and_service_and_leave(asynchronous):
         assert captured[-1].url.path.endswith(f"/rooms/{ROOM}/leave")
     finally:
         await close(client, asynchronous)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_unread_active_and_follow_up_reach_the_wire(asynchronous):
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        assert (await call(client.rooms, "unread")).rooms_with_new_activity == 2
+        marked = await call(client.rooms, "mark_active", "helpdesk", 42)
+        assert (marked.last_active_offset, marked.capped) == (42, False)
+        assert (await call(client.rooms, "set_follow_up", "helpdesk", False)).follow_up is False
+    finally:
+        await close(client, asynchronous)
+
+    assert [(r.method, r.url.path.rsplit("/rooms", 1)[1]) for r in captured] == [
+        ("GET", "/unread"),
+        ("POST", "/helpdesk/active"),
+        ("PATCH", "/helpdesk/follow-up"),
+    ]
+    assert json.loads(captured[1].content) == {"offset": 42}
+    assert json.loads(captured[2].content) == {"follow_up": False}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_tail_and_strict_post_reach_the_wire(asynchronous):
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        await call(client.rooms, "get", "helpdesk", tail=20)
+        await call(client.rooms, "post", "helpdesk", body="hi", fallback=False)
+        await call(client.rooms, "post", "helpdesk", body="hi")
+    finally:
+        await close(client, asynchronous)
+
+    assert captured[0].url.params.get("tail") == "20" and "after" not in captured[0].url.params
+    assert captured[1].url.params.get("fallback") == "false"
+    assert captured[2].url.params.get("fallback") == "true"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_list_filters_paging_and_the_feed_reach_the_wire(asynchronous):
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        await call(client.rooms, "list")
+        await call(client.rooms, "list", q="Acme", new_activity=True, limit=20, cursor="c1")
+        feed = await call(client.rooms, "feed", since="c1", wait=20, rooms=[ROOM])
+    finally:
+        await close(client, asynchronous)
+
+    assert dict(captured[0].url.params) == {}  # an unpaged list: every room
+    assert dict(captured[1].url.params) == {"q": "Acme", "new_activity": "true", "limit": "20", "cursor": "c1"}
+    assert captured[2].url.path.endswith("/rooms/feed")
+    assert dict(captured[2].url.params) == {"since": "c1", "wait": "20", "limit": "100", "room": ROOM}
+    assert feed.cursor == "c2" and feed.rooms_with_new_activity == 1
+    assert str(feed.messages[0].room_id) == ROOM and feed.messages[0].body == "hi"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_files_are_posted_as_msg_format_attachments(asynchronous, tmp_path):
+    (tmp_path / "shot.png").write_bytes(b"\x89PNG")
+    captured = []
+    client = client_for(asynchronous, captured)
+    try:
+        await call(
+            client.rooms,
+            "post",
+            "helpdesk",
+            attachments=[tmp_path / "shot.png", "https://example.com/spec.pdf"],
+            fallback=False,
+        )
+    finally:
+        await close(client, asynchronous)
+
+    sent = json.loads(captured[0].content)
+    assert sent["body"] == ""  # files alone are a message
+    assert sent["attachments"] == [
+        {"base64": "iVBORw==", "filename": "shot.png"},
+        {"url": "https://example.com/spec.pdf"},
+    ]
