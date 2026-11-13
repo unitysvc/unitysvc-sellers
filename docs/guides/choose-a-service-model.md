@@ -26,11 +26,11 @@ Answer each question once. Each answer narrows the next, and the four answers to
 
 ### Step 1: Do you have a server?
 
-| Answer | Meaning | What the spec gets |
+| Answer | Meaning | What it decides |
 | --- | --- | --- |
-| **A. Yes, I have a server that can serve customers** | Your own machine, cloud, or a provider API behind your key. The platform never runs your code. | A channel with `base_url` and `api_key` (`${ secrets.* }`), or an S3 / SMTP upstream |
-| **B. No, I need compute** | You have software (a container) but nowhere to run it. unitysvc.app runs it in one of two roles: **as the product**, one instance per customer enrollment at the customer's expense; or **as your server**, one instance you enroll in and pay for yourself, behind which you publish ordinary services (then continue as 1A). See §5.4.1. | A container channel: `spec` + tiers (CPU, RAM, ephemeral disk) + `entries` |
-| **C. I don't need a server** | The work is done by a person, by a cron or GitHub Action from your own machine, or by the customer's own server (BYOE). | No upstream, or `{{ params.base_url }}` for BYOE |
+| **A. Yes, I have a server that can serve customers** | Your own machine, cloud, or a provider API behind your key. The platform never runs your code. | Nothing in the spec yet: you bring the upstream, and Step 2 decides whether the spec names it (through a gateway), only links to it (your own channel) or leaves it out (your server calls the customer's Me). The platform operates nothing for you |
+| **B. No, I need compute** | You have software (a container) but nowhere to run it. unitysvc.app runs it in one of two roles: **as the product**, one instance per customer enrollment at the customer's expense; or **as your server**, one instance you enroll in and pay for yourself, behind which you publish ordinary services (then continue as 1A). See §5.4.1. | The platform operates your container. The spec carries a container channel (`spec`, tiers with CPU / RAM / ephemeral disk, `entries`) whichever role it plays; the role decides who enrolls in it and who pays for it |
+| **C. I don't need a server** | The work is done by a person, by a cron or GitHub Action from your own machine, or by the customer's own server (BYOE). | Nothing of yours runs, so the spec has no upstream of yours. What it has instead comes from Step 2: a link to where the work happens, Me access requests, or for BYOE the customer's own `{{ params.base_url }}` |
 
 ### Step 2: How do customers reach the service?
 
