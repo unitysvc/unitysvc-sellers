@@ -30,14 +30,14 @@ Answer each question once. Each answer narrows the next, and the four answers to
 | --- | --- | --- |
 | **A. Yes, I have a server that can serve customers** | Your own machine, cloud, or a provider API behind your key. The platform never runs your code. | Nothing in the spec yet: you bring the upstream, and Step 2 decides whether the spec names it (through a gateway), only links to it (your own channel) or leaves it out (your server calls the customer's Me). The platform operates nothing for you |
 | **B. No, I need compute** | You have software (a container) but nowhere to run it. unitysvc.app runs it in one of two roles: **as the product**, one instance per customer enrollment at the customer's expense; or **as your server**, one instance you enroll in and pay for yourself, behind which you publish ordinary services (then continue as 1A). See §5.4.1. | The platform operates your container. The spec carries a container channel (`spec`, tiers with CPU / RAM / ephemeral disk, `entries`) whichever role it plays; the role decides who enrolls in it and who pays for it |
-| **C. I don't need a server** | The work is done by a person, by a cron or GitHub Action from your own machine, or by the customer's own server (BYOE). | Nothing of yours runs, so the spec has no upstream of yours. What it has instead comes from Step 2: a link to where the work happens, Me access requests, or for BYOE the customer's own `{{ params.base_url }}` |
+| **C. I don't need a server** | The work is done by a person, by a cron or GitHub Action from your own machine. | Nothing of yours runs, so the spec has no upstream of yours. What it has instead comes from Step 2: a link to where the work happens, or Me access requests |
 
 ### Step 2: How do customers reach the service?
 
 | Answer | Available after | Meaning | Channel type |
 | --- | --- | --- | --- |
 | **A. My own channel** | 1A, 1C | Customers use it at your site, by email, on a call, in person. UnitySVC lists it, probes it daily, and never routes to it. | `external` |
-| **B. Through the platform: gateway** | 1A, 1C (BYOE) | Every call goes through the API, S3, SMTP or MCP gateway with the customer's UnitySVC key. The gateway authenticates, meters and forwards. | `unbound` / `secret_bound` / `enrollable` |
+| **B. Through the platform: gateway** | 1A | Every call goes through the API, S3, SMTP or MCP gateway with the customer's UnitySVC key. The gateway authenticates, meters and forwards. | `unbound` / `secret_bound` / `enrollable` |
 | **C. Through the platform: instance URL** | 1B | The customer opens the URL of their own running instance. | container |
 | **D. Through the platform: the customer's Me** | 1A, 1C | Your code acts *for* the customer: sends to their `/notify` or `/email`, uses their `/ai`, reads and writes their `/storage`. There may be no customer-facing endpoint at all. | `me_bound` |
 
@@ -64,7 +64,7 @@ Rules behind the three answers:
 
 | Answer | Possible after | Meaning | What the spec gets |
 | --- | --- | --- | --- |
-| **A. I don't want payment** | any | Free: open source, demos, a BYOE recipe, a listing for discovery. On unitysvc.app "free" means *priced at base cost*: the customer still pays the platform's compute, you take nothing. | `list_price: 0` (or `= base cost`), `payout_price: 0` |
+| **A. I don't want payment** | any | Free: open source, demos, a listing for discovery. On unitysvc.app "free" means *priced at base cost*: the customer still pays the platform's compute, you take nothing. | `list_price: 0` (or `= base cost`), `payout_price: 0` |
 | **B. I manage my own billing** | 2A only | The customer pays you at your site. UnitySVC is catalog and discovery only. | `external` channel, `list_price: 0` with a description of your pricing |
 | **C. I charge per transaction (`/bill`)** | 3C only (any delivery) | Your code charges the customer's enrollment one or more *units* of the listing price, with an idempotency key, within per-charge, daily and monthly limits the customer approved. For an hour, a report, an alert, a seat-month, a job. | A `service:bill` access request on the `me_bound` channel; `list_price` is the unit price |
 | **D. Pay as you go (platform metering)** | 2B or 2C, with 3A, 3B or 3C | The gateway prices every call (tokens, requests, bytes, seconds…), or the platform accrues instance time per tier. Nothing to code. | `list_price` with a metered `type`; `payout_price` |
@@ -85,7 +85,8 @@ Every path through the wizard ends in one of these. The type decides which secti
 | --- | --- | --- | --- |
 | **T1. Ads only** | 1A / 2A / 3A / 4B (or 4A) | Your service is listed in the catalog and found by people and AI agents; customers use and pay for it at your site. | An existing SaaS, a paid API with its own sign-up, a tool or dataset hosted elsewhere |
 | **T2. Metered gateway service** | 1A / 2B / 3A / 4D | Customers call your upstream through a gateway with their UnitySVC key; the platform prices every call. | LLM and other HTTP APIs (your key or the customer's), S3 datasets and media, SMTP relay, a member of a `/p/` pool |
-| **T3. Per-customer gateway service** | 1A or 1C / 2B / 3B / 4D or 4A | Each customer enrolls with parameters and gets their own endpoint; you never contact them. | Multi-tenant SaaS API, uptime and scheduled checks, a BYOE recipe for the customer's own server |
+| **T2b. BYOK relay** | 1A / 2B / 3A / 4D (routing fee) or 4A | Customers call a provider through the gateway with **their own provider key**; the provider bills them, you earn at most a routing fee. | A provider's API listed next to your managed channel so customers with their own key can use it; Labs listings of providers nobody resells |
+| **T3. Per-customer gateway service** | 1A / 2B / 3B / 4D | Each customer enrolls with parameters and gets their own endpoint; you never contact them. | Multi-tenant SaaS API, uptime and scheduled checks |
 | **T4. Hosted app on unitysvc.app** | 1B / 2C / 3B / 4D (4A at cost) | The platform runs your container per enrollment at a tier you define; the customer opens its URL. | Open-source tools under UnitySVC Labs, your own web app or agent sold by the hour |
 | **T5. Service on the customer's Me** | 1A or 1C / 2D / 3C / 4C | Your code works for the customer through their Me and charges per unit of work. | Alert and digest services, monitors, on-demand reports and jobs, agents |
 | **T6. Your own app, billed here** | 1A / 2A + 2D / 3C / 4C | The product stays on your site; the customer signs in with UnitySVC and is charged through `/bill`. | A web app adding "Use your UnitySVC account", seats or jobs priced per month or per run |
@@ -94,7 +95,7 @@ Every path through the wizard ends in one of these. The type decides which secti
 Two paths are not types:
 
 - **Build, not sell.** An open-source app that runs on each user's own account through a key they create. No seller role, no spec. It becomes T5 or T6 the day you want revenue.
-- **Customer-hosted (BYOE).** Not a hosting choice of yours: it is T3 with `{{ params.base_url }}` and a free price.
+- **BYOE recipes.** The customer runs the server and brings the key, so there is nothing for a seller to meter or bill. Rare, and in practice published by UnitySVC Labs so customers can put their own Ollama or vLLM behind the gateway. A seller whose software customers self-host can publish one free (§5.3.1) or ask Labs to.
 - **Seller-run instance on unitysvc.app.** Not a type either: you enroll in a container service yourself, pay its instance time, and the instance becomes the upstream of a T2, T3 or T5 service you publish. The customer never sees the container. §5.4.1 contrasts it with T4.
 
 ## 3. The matrix the wizard lands on
@@ -103,9 +104,9 @@ Rows are Step 1, columns are Step 2; each cell names the types that live there, 
 
 | Hosting \ Delivery | **2A. Your own channel** | **2B. Platform gateway** | **2C. Instance URL** | **2D. Customer's Me** |
 | --- | --- | --- | --- | --- |
-| **1A. Your own server** | **T1 Ads only** (3A, 4B). **T6 Your own app, billed here** (3C, 4C; with a Me channel) | **T2 Metered** (3A, 4D). **T3 Per-customer** (3B, 4D) | — | **T5 On the customer's Me** (3C, 4C), run from your server |
+| **1A. Your own server** | **T1 Ads only** (3A, 4B). **T6 Your own app, billed here** (3C, 4C; with a Me channel) | **T2 Metered** (3A, 4D). **T2b BYOK relay** (3A, 4D routing fee or 4A). **T3 Per-customer** (3B, 4D) | — | **T5 On the customer's Me** (3C, 4C), run from your server |
 | **1B. unitysvc.app** | — | T4 variant: a container that also exposes an API entry, metered per call (3B, 4D) | **T4 Hosted app** (3B, 4D; 4A at cost). `/bill` on top for in-app purchases (3C, 4C) | T5 variant: an agent container working through the customer's Me (3C, 4C) |
-| **1C. No server** | **T1 Ads only** for a thing you host nowhere. **T7 Human services** (3C, 4C) | **T3 BYOE recipe** (3B, 4A) | — | **T5 On the customer's Me** (3C, 4C), run from a GitHub Action or your laptop's cron |
+| **1C. No server** | **T1 Ads only** for a thing you host nowhere. **T7 Human services** (3C, 4C) | BYOE recipe, Labs (3B, 4A) | — | **T5 On the customer's Me** (3C, 4C), run from a GitHub Action or your laptop's cron |
 
 Empty cells are combinations the platform cannot serve: an instance URL needs unitysvc.app, and a container cannot be reached on "your own channel".
 
@@ -117,7 +118,7 @@ Empty cells are combinations the platform cannot serve: an instance URL needs un
 | **Instance time** (proposed, [unitysvc#3001](https://github.com/unitysvc/unitysvc/issues/3001)) | Platform, from first readiness to stop/suspend/cancel | `one_hour` / `one_day` of a tier | `list_price` per tier channel | T4 |
 | **`/bill` charge** | Your code, with an `Idempotency-Key` | `units` × the listing's price | `listing.list_price` (`constant` with a `/ unit` description) | T5, T6, T7; T4 in-app purchases |
 | **Subscription fee** | `/bill` on your schedule, or a heartbeat `/s/` call | one period | `constant` per period | T5, T6 flat plans |
-| **None** | — | — | `price: "0"` | T1, T3 BYOE, demos, T4 at cost |
+| **None** | — | — | `price: "0"` | T1, T2b, BYOE recipes, demos, T4 at cost |
 | **Outside UnitySVC** | Your own billing | — | `external` channel; `list_price` describes it | T1 |
 
 Limits the customer approves at enrollment cap `/bill`: per charge (`max_units_per_charge`), per hour/day/month by count and amount. Read the room left before doing the work.
@@ -223,8 +224,10 @@ What you earn per unit the customer is charged. The platform computes it per cal
 | Type | A | B | C | D | E | F | G, H |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | **T1 Ads only** | A.0 | B.5 | C.4 | D.3 | E.3 | — | yes |
-| **T2 Metered gateway** | A.1 / A.3 / A.4 | B.1 (+ B.2 for BYOK) | C.1 (C.3 if several channels) | D.1 or D.2 | E.1 (+ E.2) | — | yes, + H `rate_limits` |
-| **T3 Per-customer gateway** | A.2 | B.3 | C.1 (C.4 for BYOE) | D.1 or D.2 (D.3 for BYOE) | E.1 | F.1, F.3 (+ F.2 for checks) | yes |
+| **T2 Metered gateway** | A.1 / A.3 / A.4 | B.1 | C.1 (C.3 if several channels) | D.1 or D.2 | E.1 (+ E.2) | — | yes, + H `rate_limits` |
+| **T2b BYOK relay** | A.1 | B.2 (usually next to a B.1 channel) | C.1 routing fee or C.4; C.3 when both channels exist | D.1 on the fee, or D.3 | E.1 | — | yes |
+| **T3 Per-customer gateway** | A.2 | B.3 | C.1 | D.1 or D.2 | E.1 | F.1, F.3 (+ F.2 for checks) | yes |
+| BYOE recipe (Labs) | A.2 | B.3 with `{{ params.base_url }}` | C.4 | D.3 | E.1 | F.1, F.3 | yes |
 | **T4 Hosted app** | A.0 | B.6 (+ B.4 if the app uses Me) | C.3 of `one_hour` tiers (at cost for Labs) | D.1 (D.3 for Labs) | E.4, E.3 | F.1 | yes |
 | **T5 On the customer's Me** | A.0 | B.4 with `service:bill` (+ `params`, `invoke`) | C.2 | D.1 | E.3 (+ E.1 once a Me test exists) | F.1, F.3 | yes |
 | **T6 Your own app, billed here** | A.0 | B.5 + B.4 with `service:bill` | C.2 | D.1 | E.3 | F.1 | yes |
@@ -285,7 +288,7 @@ Catalog presence and discovery by people and MCP agents. Nothing is routed; noth
 
 Your upstream, reached through a gateway with the customer's key. No enrollment. The platform prices every call from the metering record.
 
-**Recipe:** G, H (with `rate_limits`) · B.1, plus B.2 for a BYOK channel · A.1, A.3 or A.4 · C.1, or C.3 when channels are priced apart · D.1 or D.2 · E.1 and E.2.
+**Recipe:** G, H (with `rate_limits`) · B.1 · A.1, A.3 or A.4 · C.1, or C.3 when channels are priced apart · D.1 or D.2 · E.1 and E.2.
 
 | Section | Required | What to put | Why |
 | --- | --- | --- | --- |
@@ -293,7 +296,6 @@ Your upstream, reached through a gateway with the customer's key. No enrollment.
 | channel upstream | yes | HTTP: `base_url`, `api_key: "${ secrets.NAME }"`, `routing_key` (the `model` the customer names). S3: `s3_endpoint`, `bucket`, `base_path`, `region`, `access_key`, `secret_key`. SMTP: `host`, `port`, `tls`, `username`, `password` | How the gateway reaches you. Secrets are write-only and injected per request |
 | seller secrets | yes | Create with `usvc seller secrets create NAME` before upload | `${ secrets.NAME }` must resolve |
 | `rate_limit_refs` | recommended | Names from `provider.json` `rate_limits` | Your provider quota is shared by all customers |
-| BYOK channel | optional | A second channel with `api_key: "${ customer_secrets.NAME }"`; price it separately with `list_price.type: "channel"` | The customer's provider bills them; you charge at most a routing fee |
 | `list_price` | yes, metered | `one_million_tokens` (`input` / `output`), `one_thousand` requests, `one_gigabyte`, `one_minute`… | The unit must match what the upstream meters |
 | `payout_price` | yes | `revenue_share` percentage, or your own unit price | Your earning per call |
 | `user_access_interfaces` | yes | `${API_GATEWAY_BASE_URL}/<name>` with the same `routing_key`; `${S3_GATEWAY_BASE_URL}/<bucket-name>`; `${SMTP_GATEWAY_BASE_URL}` with `routing_key.username` | The customer-facing address |
@@ -301,7 +303,7 @@ Your upstream, reached through a gateway with the customer's key. No enrollment.
 | `/p/` membership | optional | Not hand-written: instantiate the system template with a params file and upload | Pool members must be interchangeable; hand-written specs never join |
 
 ```json
-// offering.json: an LLM on your own server, with a BYOK variant
+// offering.json: an LLM on your own server, with a BYOK channel (see 5.2.1)
 {
   "schema": "offering_v1",
   "name": "acme/llama-3.3-70b",
@@ -370,11 +372,26 @@ Same type, other gateways:
 "documents": { "Connectivity test": { "$doc_preset": "smtp_connectivity_v2" } }
 ```
 
+#### 5.2.1 BYOK: the customer's own provider key
+
+A BYOK channel is a row of its own because the money is different. The customer stores their provider key as a secret; the gateway injects it; the **provider bills the customer** for what they consume. UnitySVC meters the calls, so you can charge a routing fee per request, or nothing. You never see the key.
+
+| Section | Required | What to put | Why |
+| --- | --- | --- | --- |
+| channel `api_key` | yes | `${ customer_secrets.NAME }`; the reference is the declaration, no schema needed | The namespace says who owns the secret |
+| channel `rate_limit_refs` | no | Leave out; use `ops_rate_limit_refs` only for the platform's own tests | BYOK traffic spends the customer's provider quota, not yours |
+| `list_price` | yes | `C.4` zero, or `C.1` a small `one_thousand` requests fee with `~ routing fee` in the description. `C.3` when the same service also has a managed channel | The card must not suggest the provider's tokens are included |
+| `payout_price` | yes | `D.1` share of the fee, or `D.3` | There is nothing else to share |
+| `user_access_interfaces` | yes | A.1, the same as the managed channel; customers pin with `@byok` | One address, two channels |
+| `documents` | yes | E.1 `api_connectivity`; the platform's test account holds the needed secret | Daily test |
+
+Who offers it: a seller who resells a provider adds a BYOK channel so customers who already have a key keep using it through the same address, often as the free fallback in a service group. UnitySVC Labs lists pure-BYOK services for providers nobody resells.
+
 ### 5.3 T3. Per-customer gateway service
 
-The customer enrolls with parameters and calls their own `/e/<code>` endpoint. You get the enrollment code and parameters on every request, never the person. Covers multi-tenant APIs, scheduled checks, and BYOE recipes.
+The customer enrolls with parameters and calls their own `/e/<code>` endpoint. You get the enrollment code and parameters on every request, never the person. Covers multi-tenant APIs and scheduled checks.
 
-**Recipe:** G, H · B.3 with `params.schema` · A.2 · C.1 (C.4 for a BYOE recipe) · D.1 or D.2 (D.3 for BYOE) · E.1 · F.1, F.3, and F.2 for scheduled checks.
+**Recipe:** G, H · B.3 with `params.schema` · A.2 · C.1 · D.1 or D.2 · E.1 · F.1, F.3, and F.2 for scheduled checks.
 
 | Section | Required | What to put | Why |
 | --- | --- | --- | --- |
@@ -384,8 +401,8 @@ The customer enrolls with parameters and calls their own `/e/<code>` endpoint. Y
 | `service_options.enrollment` | recommended | `limit_per_customer`: how many configurations one account may hold | Several targets per customer, or exactly one |
 | `service_options.ops_testing_parameters` | yes when params are required | Values the platform uses to enroll its test account | Otherwise the daily test cannot run |
 | `service_options.prompt_recurrence` + `recurrence_*` | for checks | Let the customer set a schedule at enrollment | The platform fires the call on that schedule |
-| `list_price` | yes | Metered per call or check; `0` for a BYOE recipe | Same mechanism as T2 |
-| `description` | yes | Say what each parameter is for and what the customer's own server must expose (BYOE) | The enrollment dialog links here |
+| `list_price` | yes | Metered per call or check | Same mechanism as T2 |
+| `description` | yes | Say what each parameter is for | The enrollment dialog links here |
 
 ```json
 // offering.json: a multi-tenant API
@@ -434,6 +451,12 @@ Variants on the same skeleton:
 "list_price": { "type": "one_thousand", "price": "0.20", "description": "$0.20 / 1,000 checks" }
 ```
 
+> Older specs put parameters in `user_parameters_schema` on the listing. Core 0.3.0 moves them to the channel's `params.schema`; use that for new specs.
+
+#### 5.3.1 BYOE recipes: the customer's own server (Labs)
+
+The customer runs the upstream and brings the key, so the channel is B.3 with `{{ params.base_url }}`, the price is C.4 and the payout D.3. There is nothing for a seller to monetize, which is why these are rare and mostly published by UnitySVC Labs: they let a customer put their own Ollama, vLLM or other OpenAI-compatible server behind the gateway and use it with the same key, aliases and primitives as everything else. A seller whose software customers self-host may publish one free, as documentation of the integration.
+
 ```json
 // BYOE recipe: the customer's own Ollama, free
 "own_instance": { "access_method": "http", "base_url": "{{ params.base_url }}",
@@ -445,7 +468,7 @@ Variants on the same skeleton:
 "payout_price": { "type": "constant", "price": "0" }
 ```
 
-> Older specs put parameters in `user_parameters_schema` on the listing. Core 0.3.0 moves them to the channel's `params.schema`; use that for new specs.
+The `description` must say what the customer's server has to expose. `ops_testing_parameters` should point at a server the platform can reach, or the daily test cannot run.
 
 ### 5.4 T4. Hosted app on unitysvc.app
 
