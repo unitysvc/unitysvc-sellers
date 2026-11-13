@@ -124,31 +124,119 @@ Limits the customer approves at enrollment cap `/bill`: per charge (`max_units_p
 
 ## 5. What each type's spec needs
 
-### 5.0 Common to every spec
+### 5.0 The anatomy of a spec
 
-A service is a folder with three files and at least one test. `usvc seller specs validate`, `format`, `upload --submit`.
+A service is a folder with three files and at least one test: `provider.json` (who), `offering.json` (what you deliver and what you earn), `listing.json` (how it is sold). `usvc seller specs validate`, `format`, `upload --submit`. The sections below are lettered so that each service type can be stated as a recipe: "T3 needs A.2, B.3, C.1, D.1, E.1, F.1, F.3".
 
-| File / section | Required | What to put | Why |
-| --- | --- | --- | --- |
-| `provider.json` | yes, once per catalog | `name` (your catalog prefix), `homepage`, `contact_email`, `terms_of_service`, `status` | Shown on every listing; the contact is where disputes and support go |
-| `offering.json` → `name` | yes | `provider/service`, lowercase, stable | The identifier in URLs and in `listing.name` |
-| `offering.json` → `service_type` | yes | `llm`, `proxy`, `content`, `email`, `notification`, `saas`, `consulting`, `container` (proposed)… | Catalog grouping and which tests and presets apply |
-| `offering.json` → `summary`, `description` | yes | One line; then how it works, what it needs, what it costs, in Markdown | The listing page. `description` is where you explain enrollment requirements and limits |
-| `offering.json` → `logo` | recommended | `logo.svg` or `logo.png` in the folder | Catalog card |
-| `offering.json` → `capabilities`, `tags` | recommended | Registered capability names (`chat`, `embed`, `s3_read_redirect`, `smtp_relay`, `notification_relay`…) | Discovery filters and agent search |
-| `offering.json` → `payout_price` | yes | What you earn per unit: `revenue_share` (a percentage of the customer charge) or a fixed unit price. `0` if you decline payment | Drives your ledger and payout |
-| `offering.json` → `upstream_access_config` | yes | One or more named **channels**. The channel's contents decide its type (§1 Step 3) | The whole delivery model lives here |
-| `listing.json` → `name`, `display_name`, `currency` | yes | Same `name` as the offering; the human title; `USD` | Catalog |
-| `listing.json` → `list_price` | yes | What the customer pays per unit, as strings. `description` carries the unit and badges (`"$0.05 / reminder ~deal SALE"`) | Shown on the card; the unit `/bill` bills in |
-| `listing.json` → `user_access_interfaces` | gateway types | The URL customers call: `${API_GATEWAY_BASE_URL}/<name>`, `/e/{{ enrollment.code }}`, `${S3_GATEWAY_BASE_URL}/…`, `${SMTP_GATEWAY_BASE_URL}` | Customers and code examples use it; never an instance URL |
-| `listing.json` → `documents` | yes: a connectivity test | `$doc_preset` for common cases, or your own `connectivity_test`, `code_example`, `getting_started` files | Tests gate activation and run daily; examples render on the listing |
-| `listing.json` → `service_options` | when enrolling | `enrollment.required`, `enrollment.limit_per_customer`, `prompt_recurrence`, `ops_testing_parameters` | Enrollment behaviour and how the platform fills parameters when it runs your tests |
+#### A. `user_access_interfaces` (listing): how customers reach you through a gateway
 
-What follows is only what each type adds or changes.
+The address a customer calls, with their UnitySVC key. Only for delivery through a gateway (Step 2B). It is what code examples are generated from.
+
+| Variant | What to put | When |
+| --- | --- | --- |
+| **A.0 none** | Omit the section | Your own channel (T1, T6, T7), Me-only services (T5), hosted apps (T4: instance URLs are generated per enrollment and never written here) |
+| **A.1 shared gateway URL** | `${API_GATEWAY_BASE_URL}/<name>`, with the same `routing_key` as the channel (the `model` the customer names) | One address for every customer: T2 HTTP APIs |
+| **A.2 per-enrollment URL** | `${API_GATEWAY_BASE_URL}/e/{{ enrollment.code }}` | Each customer has their own configuration: T3 |
+| **A.3 S3 gateway** | `${S3_GATEWAY_BASE_URL}/<bucket-name>`, `access_method: "http"` | Buckets browsed with S3 tools |
+| **A.4 SMTP gateway** | `${SMTP_GATEWAY_BASE_URL}`, `access_method: "smtp"`, `routing_key.username` | Relays used from a mail client or library |
+
+#### B. `upstream_access_config` (offering): how the platform reaches you, and what the channel needs from the customer
+
+One or more named **channels**. A channel's *contents* decide its type, which is Step 3's answer in spec form: what the customer must set up, and whether you can reach them. A service may hold several channels (a managed and a BYOK channel, an external and a Me channel), and each can carry its own price (C.3).
+
+| Variant | Channel type | What to put | What the customer gives | Can you reach them |
+| --- | --- | --- | --- | --- |
+| **B.1 your credential** | `unbound` | `access_method` (`http`, `http` + `storage_type: "s3"`, `smtp`), the upstream address, `api_key` / `secret_key` / `password` as `${ secrets.NAME }`, `routing_key`, `rate_limit_refs` | Nothing; they call with their key | No |
+| **B.2 the customer's secret** | `secret_bound` | The same, with `${ customer_secrets.NAME }` for the key, the endpoint, or both | A stored secret: their own provider key or webhook | No |
+| **B.3 per-enrollment parameters** | `enrollable` | `params.schema` (JSON Schema), templates reading `{{ params.* }}` or `{{ enrollment.code }}`, `${ customer_secrets.{{ params.X }} ?? }` for a customer-named secret | Parameters at enrollment: a region, a target, their own endpoint (BYOE) | No |
+| **B.4 access to the customer's Me** | `me_bound` | `customer_access_requests`: one entry per surface with `object` (`service:notify`, `service:email`, `service:ai`, `service:storage`, `service:bill`, `profile.<field>`, `resource:room`), `permissions`, `options`, `limits`, `required`, `justification`. Optionally `params.schema` and `invoke` (`input_schema`, `min_interval_seconds`, `expected_latency`) | Itemized approval before enrolling; a leased key with exactly those grants | Yes, within what they approved. `service:bill` is how you charge |
+| **B.5 your own channel** | `external` | `type: "external"`, `url`, `description` | Nothing at UnitySVC | No; nothing is routed, the site is probed daily |
+| **B.6 a container** (proposed) | container | `access_method: "container"`, `spec` (the Compose document), `resources` (`cpu`, `memory`, `ephemeral_disk`), `entries` (`name`, `service`, `port`, `auth`, `path`); one channel per tier; optional B.4 requests for what the instance may use | A tier choice at enrollment | Only through B.4 requests |
+
+Rules: B.4 outranks everything and B.3 outranks B.2 when a channel mixes them. A secret you ship a default for (`?? value`) does not change the type. `service:bill` may appear only in a B.4 channel.
+
+#### C. `list_price` (listing): what the customer pays per unit
+
+One price object, as strings. Its `type` is the unit; the `description` carries the unit when the type cannot (`"$0.05 / reminder"`), plus badges and a hover note.
+
+| Variant | What to put | When |
+| --- | --- | --- |
+| **C.1 metered** | `one_million_tokens` (`input` / `output`), `one_thousand` requests, `one_gigabyte`, `one_minute`, `image`, `tiered`, `graduated`, `add` | The gateway or runner meters every call: T2, T3 |
+| **C.2 per unit of work** | `constant` with the unit in the description: an hour, a report, a seat-month, an alert | You charge through `/bill`: each charge is `units` of this price. T5, T6, T7 |
+| **C.3 per channel or tier** | `type: "channel"`, `default`, `channels: { name: price }` | A managed and a BYOK price on one service; container tiers priced `one_hour` (T4) |
+| **C.4 zero** | `price: "0"` with a description that says why (`"Free | you run the server"`, `"From $19 / month at acme.example | not billed through UnitySVC"`) | Free services, BYOE recipes, ads-only listings |
+
+#### D. `payout_price` (offering): your contract with the platform
+
+What you earn per unit the customer is charged. The platform computes it per call from the customer charge, after promotions.
+
+| Variant | What to put | Meaning |
+| --- | --- | --- |
+| **D.1 revenue share** | `type: "revenue_share"`, `percentage: "80"` | You receive that percentage of what the customer paid, **after the platform's base cost for the unit is deducted**. For gateway services the base cost is zero, so it is a share of the list price. For hosted apps (T4) it is a share of `P − C`, the tier price less the instance's compute cost |
+| **D.2 fixed unit price** | A price object in the same units as C | A unit rate you agreed with the platform, independent of the list price. Your margin is `list − payout` |
+| **D.3 zero** | `price: "0"` | You decline payment: Labs listings, free recipes, ads-only |
+
+#### E. `documents` (listing): tests and pages
+
+| Variant | What to put | Why |
+| --- | --- | --- |
+| **E.1 connectivity test** | `$doc_preset` (`api_connectivity`, `s3_connectivity`, `smtp_connectivity_v2`, `notify_relay_connectivity_discord`…) or your own `category: "connectivity_test"` script | Runs on submit and daily; gates activation. Required for every gateway service |
+| **E.2 code examples** | `$doc_preset` (`s3_code_example`, `smtp_code_example`…) or `category: "code_example"` files | Rendered on the listing, executed as tests |
+| **E.3 getting started** | `category: "getting_started"`, a Markdown file | What the customer sees first. Required where there is no gateway call to show (T1, T4 to T7) |
+| **E.4 container spec** (proposed) | `category: "container_spec"`, the Compose file | Reviewed as a revision; a change needs re-review (T4) |
+
+#### F. `service_options` (listing): enrollment and test behaviour
+
+| Variant | What to put | When |
+| --- | --- | --- |
+| **F.1 enrollment** | `enrollment.required: true`, `enrollment.limit_per_customer: N` | Any B.3, B.4 or B.6 channel; the limit says how many configurations, instances or engagements one account may hold |
+| **F.2 recurrence** | `prompt_recurrence: true`, `recurrence_min_interval_seconds`, `recurrence_max_interval_seconds`, `recurrence_allow_cron` | The customer sets a schedule at enrollment and the platform fires the call: monitoring, checks |
+| **F.3 test parameters** | `ops_testing_parameters: { param: value }` | Required whenever B.3 has required parameters, so the platform can enroll its test account |
+
+#### G. Identity and description (offering and listing)
+
+| Field | What to put |
+| --- | --- |
+| `name` | `provider/service`, lowercase, stable; the same in both files. It is the gateway path segment |
+| `service_type` | `llm`, `proxy`, `content`, `email`, `notification`, `saas`, `consulting`, `container` (proposed)… Catalog grouping and which presets apply |
+| `capabilities`, `tags` | Registered capability names (`chat`, `embed`, `s3_read_redirect`, `smtp_relay`, `notification_relay`…) for discovery filters and agent search |
+| `summary` | One line for the catalog card |
+| `description` | Markdown: how it works, what the customer sets up, what each parameter and access request is for, what is charged and when, limits, what is ephemeral. The enrollment dialog links here |
+| `logo` | `logo.svg` or `logo.png` in the folder |
+| `display_name`, `currency` | The human title and `USD`, on the listing |
+
+#### H. `provider.json`: who you are
+
+`name` (your catalog prefix), `homepage`, `contact_email` (where support and disputes go), `terms_of_service`, `status`, and `rate_limits` that B.1 channels reference with `rate_limit_refs`.
+
+#### I. Outside the spec
+
+| Item | What to do |
+| --- | --- |
+| Seller secrets | `usvc seller secrets create NAME --value-stdin` before upload; `${ secrets.NAME }` must resolve |
+| Your runner (B.4 services) | A cron, a GitHub Action, a worker or a seller-run instance that lists enrollments, leases a key per enrollment, does the work, calls `/bill` with an `Idempotency-Key`, returns the key |
+| Your sign-in (T6) | "Use your UnitySVC account" that links a user to an enrollment |
+| A private container service (seller-run instance) | See §5.4.1 |
+
+#### Recipes: what each type specifies
+
+| Type | A | B | C | D | E | F | G, H |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **T1 Ads only** | A.0 | B.5 | C.4 | D.3 | E.3 | — | yes |
+| **T2 Metered gateway** | A.1 / A.3 / A.4 | B.1 (+ B.2 for BYOK) | C.1 (C.3 if several channels) | D.1 or D.2 | E.1 (+ E.2) | — | yes, + H `rate_limits` |
+| **T3 Per-customer gateway** | A.2 | B.3 | C.1 (C.4 for BYOE) | D.1 or D.2 (D.3 for BYOE) | E.1 | F.1, F.3 (+ F.2 for checks) | yes |
+| **T4 Hosted app** | A.0 | B.6 (+ B.4 if the app uses Me) | C.3 of `one_hour` tiers (at cost for Labs) | D.1 (D.3 for Labs) | E.4, E.3 | F.1 | yes |
+| **T5 On the customer's Me** | A.0 | B.4 with `service:bill` (+ `params`, `invoke`) | C.2 | D.1 | E.3 (+ E.1 once a Me test exists) | F.1, F.3 | yes |
+| **T6 Your own app, billed here** | A.0 | B.5 + B.4 with `service:bill` | C.2 | D.1 | E.3 | F.1 | yes |
+| **T7 Human services** | A.0 | B.5 + B.4 with `service:bill`, `resource:room` | C.2 | D.1 | E.3 | F.1 | yes |
+
+What follows is each type's recipe in detail: the sections it uses, why, and one annotated example.
 
 ### 5.1 T1. Ads only
 
 Catalog presence and discovery by people and MCP agents. Nothing is routed; nothing is billed through UnitySVC. The site is probed when you submit and daily after; a site that stays unreachable is unlisted.
+
+**Recipe:** G, H · B.5 external channel · A.0 · C.4 with your real pricing in the description · D.3 · E.3.
 
 | Section | Required | What to put | Why |
 | --- | --- | --- | --- |
@@ -196,6 +284,8 @@ Catalog presence and discovery by people and MCP agents. Nothing is routed; noth
 ### 5.2 T2. Metered gateway service
 
 Your upstream, reached through a gateway with the customer's key. No enrollment. The platform prices every call from the metering record.
+
+**Recipe:** G, H (with `rate_limits`) · B.1, plus B.2 for a BYOK channel · A.1, A.3 or A.4 · C.1, or C.3 when channels are priced apart · D.1 or D.2 · E.1 and E.2.
 
 | Section | Required | What to put | Why |
 | --- | --- | --- | --- |
@@ -284,6 +374,8 @@ Same type, other gateways:
 
 The customer enrolls with parameters and calls their own `/e/<code>` endpoint. You get the enrollment code and parameters on every request, never the person. Covers multi-tenant APIs, scheduled checks, and BYOE recipes.
 
+**Recipe:** G, H · B.3 with `params.schema` · A.2 · C.1 (C.4 for a BYOE recipe) · D.1 or D.2 (D.3 for BYOE) · E.1 · F.1, F.3, and F.2 for scheduled checks.
+
 | Section | Required | What to put | Why |
 | --- | --- | --- | --- |
 | channel `params.schema` | yes | JSON Schema of what the customer fills in: a region, a target URL, a project id. Secret *names* go in parameters, values never | What the enrollment dialog asks. A channel that reads `{{ params.* }}` is `enrollable` |
@@ -358,6 +450,8 @@ Variants on the same skeleton:
 ### 5.4 T4. Hosted app on unitysvc.app
 
 **Proposed shape** ([unitysvc#2999](https://github.com/unitysvc/unitysvc/issues/2999), [#3000](https://github.com/unitysvc/unitysvc/issues/3000), [#3001](https://github.com/unitysvc/unitysvc/issues/3001)): you submit a restricted Compose file as a document; the platform builds or pulls an immutable image, runs one instance per enrollment at the tier the customer picked, and meters instance time. The customer pays your tier price; the platform keeps base cost and shares the rest.
+
+**Recipe:** G, H · B.6, one channel per tier, plus B.4 requests for what the instance may use · A.0 · C.3 of `one_hour` tiers above base cost (at cost for Labs) · D.1 (D.3 for Labs) · E.4 and E.3 · F.1.
 
 | Section | Required | What to put | Why |
 | --- | --- | --- | --- |
@@ -518,6 +612,8 @@ Two things follow from the table:
 
 Your code acts for the customer and charges per unit of work. There may be no customer-facing endpoint: the channel is a list of access requests, optionally with parameters and an `invoke` declaration. You serve it by leasing a key from each enrollment and calling `/notify`, `/email`, `/ai`, `/storage`, `/bill` with it.
 
+**Recipe:** G, H · B.4 with `service:bill` and the surfaces you act on, `params.schema` and `invoke` as needed · A.0 · C.2 with the unit in the description · D.1 · E.3 · F.1, F.3. Plus I: your runner.
+
 | Section | Required | What to put | Why |
 | --- | --- | --- | --- |
 | `customer_access_requests` | yes | One entry per surface: `object` (`service:notify`, `service:email`, `service:ai`, `service:storage`, `service:bill`, `profile.<field>`, `resource:room`), `permissions`, `options`, `limits`, `required`, `justification` | The customer approves each before enrolling. The leased key gets exactly these |
@@ -589,6 +685,8 @@ An on-demand job is the same type with storage requests and a per-result price:
 
 The product is your website. UnitySVC supplies the customer, the enrollment and the money. Two channels: an `external` one the catalog shows and never routes, and a `me_bound` one that holds the leased key your backend uses.
 
+**Recipe:** G, H · B.5 for the site and B.4 with `service:bill` · A.0 · C.2 per seat-month or job · D.1 · E.3 · F.1. Plus I: your sign-in and monthly charge.
+
 | Section | Required | What to put | Why |
 | --- | --- | --- | --- |
 | `external` channel | yes | `type: "external"`, `url` to your sign-in with a UnitySVC option, `description` | Where the customer goes; probed daily |
@@ -650,6 +748,8 @@ curl -X POST "$API_GATEWAY_BASE_URL/bill" -H "Authorization: Bearer $LEASED_KEY"
 ### 5.7 T7. Human services
 
 No code. The enrollment is the engagement, `/bill` is the timesheet, a chat line is the office. The customer's approved monthly amount is the budget cap, visible to both sides.
+
+**Recipe:** G, H · B.5 for booking and B.4 with `service:bill`, `resource:room`, `service:email`, `profile.name` · A.0 · C.2 per hour or deliverable · D.1 · E.3 · F.1.
 
 | Section | Required | What to put | Why |
 | --- | --- | --- | --- |
