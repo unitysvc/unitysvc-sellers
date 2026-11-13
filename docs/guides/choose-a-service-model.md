@@ -198,7 +198,7 @@ What you earn per unit the customer is charged. The platform computes it per cal
 
 | Field | What to put |
 | --- | --- |
-| `name` | `provider/service`, lowercase, stable; the same in both files. It is the gateway path segment |
+| `name` | `provider/service`, lowercase, stable; the same in both files. It is the gateway path segment. The prefix is the provider's name (H), which for hosted or recipe listings is the author's, not yours |
 | `service_type` | `llm`, `proxy`, `content`, `email`, `notification`, `saas`, `consulting`, `container` (proposed)… Catalog grouping and which presets apply |
 | `capabilities`, `tags` | Registered capability names (`chat`, `embed`, `s3_read_redirect`, `smtp_relay`, `notification_relay`…) for discovery filters and agent search |
 | `summary` | One line for the catalog card |
@@ -206,9 +206,11 @@ What you earn per unit the customer is charged. The platform computes it per cal
 | `logo` | `logo.svg` or `logo.png` in the folder |
 | `display_name`, `currency` | The human title and `USD`, on the listing |
 
-#### H. `provider.json`: who you are
+#### H. `provider.json`: who made it
 
-`name` (your catalog prefix), `homepage`, `contact_email` (where support and disputes go), `terms_of_service`, `status`, and `rate_limits` that B.1 channels reference with `rate_limit_refs`.
+The **provider** is the entity that stands behind the service, and the **seller** is the account that publishes it and is paid. They are often the same, and the spec keeps them apart so that credit and money can go to different places. For a service you built, the provider is you. For an API you resell, it is the vendor (`openai`, `cohere`). For open-source software you host (T4) or publish a recipe for, it is **the project or its author**, so the listing reads "Open WebUI, by Open WebUI, hosted by Acme" and the author is credited whether or not they are paid. A seller never lists someone else's work under their own provider name.
+
+Fields: `name` (the catalog prefix and the first segment of every service `name`), `homepage` (the project's site or repository when the provider is an author), `contact_email` (the provider's public contact; support and disputes about the *listing* still reach the seller), `terms_of_service`, `status`, and `rate_limits` that B.1 channels reference with `rate_limit_refs`.
 
 #### I. Outside the spec
 
@@ -229,7 +231,7 @@ What you earn per unit the customer is charged. The platform computes it per cal
 | **T2b BYOK relay** | A.1 | B.2 (usually next to a B.1 channel) | C.1 routing fee or C.4; C.3 when both channels exist | D.1 on the fee, or D.3 | E.1 | — | yes |
 | **T3 Per-customer gateway** | A.2 | B.3 | C.1 | D.1 or D.2 | E.1 | F.1, F.3 (+ F.2 for checks) | yes |
 | BYOE recipe (Labs) | A.2 | B.3 with `{{ params.base_url }}` | C.4 | D.3 | E.1 | F.1, F.3 | yes |
-| **T4 Hosted app** | A.0 | B.6 (+ B.4 if the app uses Me) | C.3 of `one_hour` tiers (at cost for Labs) | D.1 (D.3 for Labs) | E.4, E.3 | F.1 | yes |
+| **T4 Hosted app** | A.0 | B.6 (+ B.4 if the app uses Me) | C.3 of `one_hour` tiers (at cost for Labs) | D.1 (D.3 for Labs) | E.4, E.3 | F.1 | yes; H is the author when the software is not yours |
 | **T5 On the customer's Me** | A.0 | B.4 with `service:bill` (+ `params`, `invoke`) | C.2 | D.1 | E.3 (+ E.1 once a Me test exists) | F.1, F.3 | yes |
 | **T6 Your own app, billed here** | A.0 | B.5 + B.4 with `service:bill` | C.2 | D.1 | E.3 | F.1 | yes |
 | **T7 Human services** | A.0 | B.5 + B.4 with `service:bill`, `resource:room` | C.2 | D.1 | E.3 | F.1 | yes |
@@ -503,10 +505,10 @@ The `description` must say what the customer's server has to expose. `ops_testin
 | `license`, `source` (proposed) | yes when the software is not yours | SPDX identifier and the repository at the deployed revision | Review checks that the license permits hosting as a service; see §5.4.2 |
 
 ```json
-// offering.json: open-source tool at cost (UnitySVC Labs) and a paid tier side by side
+// offering.json: open-source tool at cost, provider = the project, seller = UnitySVC Labs
 {
   "schema": "offering_v1",
-  "name": "labs/open-webui",
+  "name": "open-webui/open-webui",
   "service_type": "container",
   "summary": "Open WebUI, your own instance, over your /ai",
   "description": "One click gives you a private Open WebUI at its own URL, talking to the model you chose in /ai. Runtime files are ephemeral: export chats you want to keep.",
@@ -529,10 +531,22 @@ The `description` must say what the customer's server has to expose. `ops_testin
 ```
 
 ```json
+// provider.json: the author, credited on the listing; Labs is the seller, not the provider
+{
+  "schema": "provider_v1",
+  "name": "open-webui",
+  "homepage": "https://github.com/open-webui/open-webui",
+  "contact_email": "hello@openwebui.com",
+  "terms_of_service": "https://github.com/open-webui/open-webui/blob/main/LICENSE",
+  "status": "ready"
+}
+```
+
+```json
 // listing.json
 {
   "schema": "listing_v1",
-  "name": "labs/open-webui",
+  "name": "open-webui/open-webui",
   "display_name": "Open WebUI on unitysvc.app",
   "currency": "USD",
   "list_price": { "type": "channel", "default": "base",
@@ -659,7 +673,7 @@ Nothing in the platform stops anyone, the author or a third party, from packagin
 | Rule | Why |
 | --- | --- |
 | **Declare `license` and `source`** (proposed fields on the offering): the SPDX identifier and the repository at the revision you build from | Review checks the table above; customers see what they are running |
-| **The publisher is you, not the project.** The listing says "hosted by Acme"; the project's name may be used descriptively, its logo and branding only with permission; never imply endorsement | Trademarks are separate from the code license and are the usual reason a project objects |
+| **The provider is the author, the seller is you.** `provider.json` names the project (its name, repository and public contact), so the listing credits the author and reads "hosted by Acme". The project's name and the logo it publishes identify the provider; your own branding stays on the seller profile, and nothing may imply the author endorses your hosting | Credit is structural, not a courtesy line in a description. Trademarks are separate from the code license and are the usual reason a project objects, and a listing that names the author as provider is nominative use, not branding |
 | **Authors are told and can claim.** When a paid third-party listing of a project goes active, the platform notifies the project (its public contact or repository) and shows the listing as "community-hosted". The author can publish their own listing, which is marked "by the author" and ranked first; ask for a revenue share from the publisher through the platform; or file a dispute where the license or a trademark is breached | Politeness made concrete: authors should not discover a paid listing of their work by accident |
 | **UnitySVC Labs hosts at cost only**, with attribution, and hands a listing to the author on request | The platform does not profit from other people's code |
 | **A seller-run instance of someone else's software is their business** as long as the license allows it; the same declaration applies to the private container service | Hosting a Postgres or a Redis behind your API is ordinary use |
@@ -944,7 +958,7 @@ You want two things from UnitySVC: to be **found**, and to know **how to talk to
 }
 ```
 
-**Someone else may host it.** If your app can run on unitysvc.app, any seller may package it as a hosted app (T4) and charge for it, within your license. §5.4.2 says what the platform requires of them: a declared license and source, their own name as publisher, and notification to you, after which you can publish the listing yourself, marked "by the author", or ask for a share. If you want to be the one who hosts it, publish the T4 listing first.
+**Someone else may host it.** If your app can run on unitysvc.app, any seller may package it as a hosted app (T4) and charge for it, within your license. §5.4.2 says what the platform requires of them: a declared license and source, your project named as the provider so you are credited, and notification to you, after which you can publish the listing yourself, marked "by the author", or ask for a share. If you want to be the one who hosts it, publish the T4 listing first.
 
 #### How your app talks to the customer's Me
 
@@ -987,3 +1001,4 @@ When you want revenue, add a `service:bill` request and a price and the listing 
 6. **A test for Me-bound services.** T5 to T7 have no gateway call to probe. Decide what the daily test is: a `me_connectivity` preset that leases a key and lists its grants, or no test and a manual review.
 7. **Labs as seller.** Which provider open-source listings live under (`labs/…` as OpenLine does), and whether authors can be credited on the listing without being paid.
 8. **Consent for paid third-party hosting.** §5.4.2 proposes license plus notification, labelling, author precedence and disputes, with no consent requirement beyond the license. Decide whether that is enough, and whether `license` and `source` become required fields for every container offering.
+9. **Provider = author and service names.** Service names are `provider/service`, so two sellers hosting the same project would both want `open-webui/open-webui`. Decide whether names are unique per seller (and the catalog shows the seller), or whether hosted listings take a seller-qualified name such as `open-webui/open-webui@acme`. The catalog also needs to show provider and seller separately, with "by the author" when they coincide.
