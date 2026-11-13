@@ -29,7 +29,7 @@ Answer each question once. Each answer narrows the next, and the four answers to
 | Answer | Meaning | What it decides |
 | --- | --- | --- |
 | **A. Yes, I have a server that can serve customers** | Your own machine, cloud, or a provider API behind your key. The platform never runs your code. | Nothing in the spec yet: you bring the upstream, and Step 2 decides whether the spec names it (through a gateway), only links to it (your own channel) or leaves it out (your server calls the customer's Me). The platform operates nothing for you |
-| **B. No, I need compute** | You have software (a container) but nowhere to run it. unitysvc.app runs it in one of two roles: **as the product**, one instance per customer enrollment at the customer's expense; or **as your server**, one instance you enroll in and pay for yourself, behind which you publish ordinary services (then continue as 1A). See §5.4.1. | The platform operates your container. The spec carries a container channel (`spec`, tiers with CPU / RAM / ephemeral disk, `entries`) whichever role it plays; the role decides who enrolls in it and who pays for it |
+| **B. No, I need compute** | You have software (a container) but nowhere to run it. unitysvc.app runs it in one of two roles: **as the product**, one instance per customer enrollment at the customer's expense; or **as your server**, one instance you enroll in and pay for yourself, behind which you publish ordinary services (then continue as 1A). See §5.4.1. **Meant for small, mostly per-customer services**: bounded CPU, RAM and ephemeral disk per instance, no GPU, no persistent volumes. A compute-heavy or high-volume upstream stays on your own infrastructure (1A). | The platform operates your container. The spec carries a container channel (`spec`, tiers with CPU / RAM / ephemeral disk, `entries`) whichever role it plays; the role decides who enrolls in it and who pays for it |
 | **C. I don't need a server** | The work is done by a person, by a cron or GitHub Action from your own machine. | Nothing of yours runs, so the spec has no upstream of yours. What it has instead comes from Step 2: a link to where the work happens, or Me access requests |
 
 ### Step 2: How do customers reach the service?
@@ -87,7 +87,7 @@ Every path through the wizard ends in one of these. The type decides which secti
 | **T2. Metered gateway service** | 1A / 2B / 3A / 4D | Customers call your upstream through a gateway with their UnitySVC key; the platform prices every call. | LLM and other HTTP APIs (your key or the customer's), S3 datasets and media, SMTP relay, a member of a `/p/` pool |
 | **T2b. BYOK relay** | 1A / 2B / 3A / 4D (routing fee) or 4A | Customers call a provider through the gateway with **their own provider key**; the provider bills them, you earn at most a routing fee. | A provider's API listed next to your managed channel so customers with their own key can use it; Labs listings of providers nobody resells |
 | **T3. Per-customer gateway service** | 1A / 2B / 3B / 4D | Each customer enrolls with parameters and gets their own endpoint; you never contact them. | Multi-tenant SaaS API, uptime and scheduled checks |
-| **T4. Hosted app on unitysvc.app** | 1B / 2C / 3B / 4D (4A at cost) | The platform runs your container per enrollment at a tier you define; the customer opens its URL. | Open-source tools under UnitySVC Labs, your own web app or agent sold by the hour |
+| **T4. Hosted app on unitysvc.app** | 1B / 2C / 3B / 4D (4A at cost) | The platform runs your container per enrollment at a tier you define; the customer opens its URL. For small, mostly personal services, not for heavy or large-scale compute. | Open-source tools under UnitySVC Labs, your own web app or agent sold by the hour |
 | **T5. Service on the customer's Me** | 1A or 1C / 2D / 3C / 4C | Your code works for the customer through their Me and charges per unit of work. | Alert and digest services, monitors, on-demand reports and jobs, agents |
 | **T6. Your own app, billed here** | 1A / 2A + 2D / 3C / 4C | The product stays on your site; the customer signs in with UnitySVC and is charged through `/bill`. | A web app adding "Use your UnitySVC account", seats or jobs priced per month or per run |
 | **T7. Human services** | 1C / 2A + 2D / 3C / 4C | A person delivers the work; the enrollment is the engagement, `/bill` is the timesheet, a chat line is the office. | Consulting, analysis, code review, tutoring, design |
@@ -476,6 +476,17 @@ The `description` must say what the customer's server has to expose. `ops_testin
 
 **Recipe:** G, H · B.6, one channel per tier, plus B.4 requests for what the instance may use · A.0 · C.3 of `one_hour` tiers above base cost (at cost for Labs) · D.1 (D.3 for Labs) · E.4 and E.3 · F.1.
 
+!!! note "What unitysvc.app is for"
+    Small, mostly personalized services: one instance per customer, or one small
+    instance of your own, inside a bounded tier of CPU, RAM and ephemeral disk.
+    It is **not** a place for compute-heavy work (model inference, batch
+    processing, anything that wants a GPU) or for one deployment serving a large
+    number of customers at scale. Such upstreams belong on your own
+    infrastructure (Step 1A) and are published as T2 or T3; a hosted app may
+    still call them, or the customer's `/ai`, for its heavy parts. v1 has no
+    GPU, no persistent volumes, no SSH, and bounded per-instance allocations;
+    the tier catalog will state the ceilings.
+
 | Section | Required | What to put | Why |
 | --- | --- | --- | --- |
 | one channel per tier | yes | `access_method: "container"`, a `description` in customer terms ("small workflow", "for a team of 100"), `resources` with `cpu`, `memory`, `ephemeral_disk` | Customers pick a tier, never hardware. Allocations fix the base cost |
@@ -570,7 +581,7 @@ unitysvc.app can run a container in two roles. They look alike on the compute si
 | Scaling | The platform adds instances as customers enroll | You pick a bigger tier or run more instances |
 | Lifecycle control | The customer | You |
 | Can several services share it | No: one instance serves one enrollment | Yes: an API, an alert service and an on-demand job can all run on the one instance |
-| Right when | Single-user or single-team software, per-user state, strict isolation, or you don't want to operate anything | Shared models or GPUs, an always-on worker, a multi-tenant app you already run, or a runner for Me-bound services that should not live on a laptop cron |
+| Right when | Single-user or single-team software, per-user state, strict isolation, or you don't want to operate anything | A small always-on worker: a runner for Me-bound services that should not live on a laptop cron, a lightweight multi-tenant API, a webhook receiver. Not a model server or a batch farm |
 | Listing | The container service, with tiers | The services in front of it; the container service is private |
 
 The seller-run case needs two specs:
@@ -584,14 +595,14 @@ The seller-run case needs two specs:
   "schema": "offering_v1",
   "name": "acme/worker-host",
   "service_type": "container",
-  "summary": "Acme's inference and worker host (private)",
+  "summary": "Acme's worker host (private): the trash-day runner and a small API",
   "payout_price": { "type": "constant", "price": "0" },
   "upstream_access_config": {
-    "gpu-small": {
+    "worker": {
       "access_method": "container",
       "spec": "compose.yaml",
-      "resources": { "cpu": "4", "memory": "16Gi", "ephemeral_disk": "40Gi" },
-      "entries": [ { "name": "api", "service": "vllm", "port": 8000, "auth": "none" } ]
+      "resources": { "cpu": "1", "memory": "2Gi", "ephemeral_disk": "5Gi" },
+      "entries": [ { "name": "api", "service": "app", "port": 8000, "auth": "none" } ]
     }
   }
 }
@@ -605,21 +616,21 @@ The seller-run case needs two specs:
   "display_name": "Acme worker host",
   "currency": "USD",
   "visibility": "private",
-  "list_price": { "type": "channel", "default": "gpu-small",
-    "channels": { "gpu-small": { "type": "one_hour", "price": "0.90", "description": "$0.90 / hour | base cost" } } },
+  "list_price": { "type": "channel", "default": "worker",
+    "channels": { "worker": { "type": "one_hour", "price": "0.03", "description": "$0.03 / hour | base cost" } } },
   "service_options": { "enrollment": { "required": true, "limit_per_customer": 1 } },
   "documents": { "Container spec": { "category": "container_spec", "file_path": "compose.yaml" } }
 }
 ```
 
 ```json
-// 2. offering.json, public: a metered API whose upstream is the instance (T2)
+// 2. offering.json, public: a small metered API whose upstream is the instance (T2).
+//    The same instance runs the cron that serves the T5 trash-day enrollments.
 "upstream_access_config": {
   "managed": {
     "access_method": "http",
-    "base_url": "{{ instances.worker-host.entries.api }}",
-    "api_key": "${ secrets.ACME_WORKER_KEY }",
-    "routing_key": { "model": "llama-3.3-70b" }
+    "base_url": "{{ instances.worker-host.entries.api }}/schedule",
+    "api_key": "${ secrets.ACME_WORKER_KEY }"
   }
 }
 ```
