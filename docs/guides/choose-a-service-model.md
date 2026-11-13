@@ -1,0 +1,727 @@
+# Choose a Service Model
+
+This guide is for a seller deciding *what kind of thing* to publish before
+writing a spec. Four questions lead to one of seven service types; each type
+then lists the spec sections it needs, with an annotated example. For the
+mechanics of writing and uploading a spec, see
+[Author & Upload Specs](author-specs.md); for the delivery patterns a channel can
+take, [Service Types](../service-types.md); for price objects,
+[Pricing](../pricing.md); for every field, [File Schemas](../file-schemas.md).
+
+!!! note "Status"
+    Checked against the platform topics (`seller`, `access-methods`, `channel`,
+    `enrollment`, `pricing`, `invoices-payouts`, `platform-service`), the `bill`
+    system service, the `labs/OpenLine` spec, and the compute plan in
+    [unitysvc#2998](https://github.com/unitysvc/unitysvc/issues/2998),
+    [#2999](https://github.com/unitysvc/unitysvc/issues/2999),
+    [#3000](https://github.com/unitysvc/unitysvc/issues/3000) and
+    [#3001](https://github.com/unitysvc/unitysvc/issues/3001). Spec shapes for
+    container hosting (`unitysvc.app`) and seller-run instances are marked
+    **proposed** where the contract is still being settled; §7 lists what is
+    open.
+
+## 1. The wizard: four questions, asked in order
+
+Answer each question once. Each answer narrows the next, and the four answers together name your service type (§2) and the spec you write (§5).
+
+### Step 1: Do you have a server?
+
+| Answer | Meaning | What the spec gets |
+| --- | --- | --- |
+| **A. Yes, I have a server that can serve customers** | Your own machine, cloud, or a provider API behind your key. The platform never runs your code. | A channel with `base_url` and `api_key` (`${ secrets.* }`), or an S3 / SMTP upstream |
+| **B. No, I need compute** | You have software (a container) but nowhere to run it. unitysvc.app runs it in one of two roles: **as the product**, one instance per customer enrollment at the customer's expense; or **as your server**, one instance you enroll in and pay for yourself, behind which you publish ordinary services (then continue as 1A). See §5.4.1. | A container channel: `spec` + tiers (CPU, RAM, ephemeral disk) + `entries` |
+| **C. I don't need a server** | The work is done by a person, by a cron or GitHub Action from your own machine, or by the customer's own server (BYOE). | No upstream, or `{{ params.base_url }}` for BYOE |
+
+### Step 2: How do customers reach the service?
+
+| Answer | Available after | Meaning | Channel type |
+| --- | --- | --- | --- |
+| **A. My own channel** | 1A, 1C | Customers use it at your site, by email, on a call, in person. UnitySVC lists it, probes it daily, and never routes to it. | `external` |
+| **B. Through the platform: gateway** | 1A, 1C (BYOE) | Every call goes through the API, S3, SMTP or MCP gateway with the customer's UnitySVC key. The gateway authenticates, meters and forwards. | `unbound` / `secret_bound` / `enrollable` |
+| **C. Through the platform: instance URL** | 1B | The customer opens the URL of their own running instance. | container |
+| **D. Through the platform: the customer's Me** | 1A, 1C | Your code acts *for* the customer: sends to their `/notify` or `/email`, uses their `/ai`, reads and writes their `/storage`. There may be no customer-facing endpoint at all. | `me_bound` |
+
+A service can have more than one channel, so 2A and 2D often go together (the product is your website, the money and notifications go through Me).
+
+### Step 3: How much do you need to know about the customer?
+
+This is the step that decides the channel type and, through it, what you can charge for.
+
+| Answer | Meaning | What you get | What you can do | Channel type |
+| --- | --- | --- | --- | --- |
+| **A. Nothing** | The service is the same for everyone. A call arrives with a valid key; you do not know, and do not need to know, who sent it. | Nothing. The gateway strips identity; you see traffic and a metering record. | Serve the call. | `unbound` (your key) or `secret_bound` (the customer's own key or endpoint) |
+| **B. An account, no interaction** | Each customer has their own configuration, tenant or instance, but you never contact them. The customer sets it up once and uses it. | An **enrollment**: a stable code, the parameters the customer filled in, and the per-enrollment URL. You still don't know who they are. | Keep per-customer state keyed by the enrollment code. Route each tenant to its own upstream path or instance. | `enrollable`, or a container tier |
+| **C. A personalized relationship** | You act for a specific person and may need to reach them: send alerts, email results, ask a question, hold a conversation. | What you **ask for at enrollment and the customer approves**, each item with a justification: profile fields (name, timezone, address…), `/notify`, `/email`, `/ai`, `/storage`, `/bill`, and a chat line (a `resource:room`, as OpenLine does). | Everything in B, plus: notify and email them, read the profile fields they shared, use their AI budget, read and write their files, charge them, and chat with them from their own apps (Discord, Slack, email, the Rooms page). | `me_bound` |
+
+Rules behind the three answers:
+
+- **A is the only answer with no enrollment.** The customer calls with a key; nothing is set up per customer. It is also the only answer that can be a platform-service member (`/p/`), because pool members must be interchangeable.
+- **B gives you an account without an identity.** You know "enrollment `K7M2`, region `eu`", not the person. If you later need to reach them, you add access requests and the channel becomes C.
+- **C is consent-based and itemized.** Every profile field, surface and limit is a separate request the customer sees before enrolling and can refuse unless you mark it required. Ask for the least you need: a service that only needs to send alerts asks for `/notify`, not the profile.
+- **Chat is part of C.** A `resource:room` request creates a line the customer owns and you are a member of; the customer reads and posts from Discord, Slack, email, the CLI or the web, you from your code or the same tools. This is how a human-delivered service (consulting, support) talks to its customer without leaving UnitySVC.
+
+### Step 4: How are you paid? (Steps 2 and 3 decide what is possible)
+
+| Answer | Possible after | Meaning | What the spec gets |
+| --- | --- | --- | --- |
+| **A. I don't want payment** | any | Free: open source, demos, a BYOE recipe, a listing for discovery. On unitysvc.app "free" means *priced at base cost*: the customer still pays the platform's compute, you take nothing. | `list_price: 0` (or `= base cost`), `payout_price: 0` |
+| **B. I manage my own billing** | 2A only | The customer pays you at your site. UnitySVC is catalog and discovery only. | `external` channel, `list_price: 0` with a description of your pricing |
+| **C. I charge per transaction (`/bill`)** | 3C only (any delivery) | Your code charges the customer's enrollment one or more *units* of the listing price, with an idempotency key, within per-charge, daily and monthly limits the customer approved. For an hour, a report, an alert, a seat-month, a job. | A `service:bill` access request on the `me_bound` channel; `list_price` is the unit price |
+| **D. Pay as you go (platform metering)** | 2B or 2C, with 3A, 3B or 3C | The gateway prices every call (tokens, requests, bytes, seconds…), or the platform accrues instance time per tier. Nothing to code. | `list_price` with a metered `type`; `payout_price` |
+
+Why delivery and customer knowledge decide billing:
+
+- **Metering needs the gateway (or the platform's runner) in the path.** It cannot see traffic on your own channel, so 2A can only be free, self-billed, or `/bill`.
+- **`/bill` is a Step 3C permission.** Only a key leased from an enrollment may hold `service:bill`, and `service:bill` is an access request like `/notify`, so charging per transaction means asking the customer for it. Each charge is `units` × the listing's own `list_price`, so the listing price *is* the unit you bill in.
+- **unitysvc.app always meters instance time.** The customer pays your tier price `P`; the platform deducts base cost `C` and shares the rest: `payout = (P − C) × r`. Your price must exceed base cost; "free" on unitysvc.app is `P = C`. You pay for compute only when you are your own customer. In-app purchases on top of that use `/bill`.
+- **The customer always pays one wallet.** In every model but 4B, charges land on the customer's single UnitySVC statement, and you are paid out per cycle after the platform fee.
+- **BYOK is not a sale.** When the customer brings their own provider key, the provider bills them; your metered price is at most a routing fee.
+
+## 2. Where the wizard lands: seven service types
+
+Every path through the wizard ends in one of these. The type decides which sections your spec must contain (§5).
+
+| Type | Wizard path | In one sentence | Typical services |
+| --- | --- | --- | --- |
+| **T1. Ads only** | 1A / 2A / 3A / 4B (or 4A) | Your service is listed in the catalog and found by people and AI agents; customers use and pay for it at your site. | An existing SaaS, a paid API with its own sign-up, a tool or dataset hosted elsewhere |
+| **T2. Metered gateway service** | 1A / 2B / 3A / 4D | Customers call your upstream through a gateway with their UnitySVC key; the platform prices every call. | LLM and other HTTP APIs (your key or the customer's), S3 datasets and media, SMTP relay, a member of a `/p/` pool |
+| **T3. Per-customer gateway service** | 1A or 1C / 2B / 3B / 4D or 4A | Each customer enrolls with parameters and gets their own endpoint; you never contact them. | Multi-tenant SaaS API, uptime and scheduled checks, a BYOE recipe for the customer's own server |
+| **T4. Hosted app on unitysvc.app** | 1B / 2C / 3B / 4D (4A at cost) | The platform runs your container per enrollment at a tier you define; the customer opens its URL. | Open-source tools under UnitySVC Labs, your own web app or agent sold by the hour |
+| **T5. Service on the customer's Me** | 1A or 1C / 2D / 3C / 4C | Your code works for the customer through their Me and charges per unit of work. | Alert and digest services, monitors, on-demand reports and jobs, agents |
+| **T6. Your own app, billed here** | 1A / 2A + 2D / 3C / 4C | The product stays on your site; the customer signs in with UnitySVC and is charged through `/bill`. | A web app adding "Use your UnitySVC account", seats or jobs priced per month or per run |
+| **T7. Human services** | 1C / 2A + 2D / 3C / 4C | A person delivers the work; the enrollment is the engagement, `/bill` is the timesheet, a chat line is the office. | Consulting, analysis, code review, tutoring, design |
+
+Two paths are not types:
+
+- **Build, not sell.** An open-source app that runs on each user's own account through a key they create. No seller role, no spec. It becomes T5 or T6 the day you want revenue.
+- **Customer-hosted (BYOE).** Not a hosting choice of yours: it is T3 with `{{ params.base_url }}` and a free price.
+- **Seller-run instance on unitysvc.app.** Not a type either: you enroll in a container service yourself, pay its instance time, and the instance becomes the upstream of a T2, T3 or T5 service you publish. The customer never sees the container. §5.4.1 contrasts it with T4.
+
+## 3. The matrix the wizard lands on
+
+Rows are Step 1, columns are Step 2; each cell names the types that live there, with the Step 3 and Step 4 answers they take.
+
+| Hosting \ Delivery | **2A. Your own channel** | **2B. Platform gateway** | **2C. Instance URL** | **2D. Customer's Me** |
+| --- | --- | --- | --- | --- |
+| **1A. Your own server** | **T1 Ads only** (3A, 4B). **T6 Your own app, billed here** (3C, 4C; with a Me channel) | **T2 Metered** (3A, 4D). **T3 Per-customer** (3B, 4D) | — | **T5 On the customer's Me** (3C, 4C), run from your server |
+| **1B. unitysvc.app** | — | T4 variant: a container that also exposes an API entry, metered per call (3B, 4D) | **T4 Hosted app** (3B, 4D; 4A at cost). `/bill` on top for in-app purchases (3C, 4C) | T5 variant: an agent container working through the customer's Me (3C, 4C) |
+| **1C. No server** | **T1 Ads only** for a thing you host nowhere. **T7 Human services** (3C, 4C) | **T3 BYOE recipe** (3B, 4A) | — | **T5 On the customer's Me** (3C, 4C), run from a GitHub Action or your laptop's cron |
+
+Empty cells are combinations the platform cannot serve: an instance URL needs unitysvc.app, and a container cannot be reached on "your own channel".
+
+## 4. The billing mechanisms, side by side
+
+| Mechanism | Who triggers it | Unit | Where the price lives | Types |
+| --- | --- | --- | --- | --- |
+| **Gateway metering** | The customer's call | tokens, requests, seconds, bytes, images… (`pricing` types) | `listing.list_price`; `offering.payout_price` | T2, T3; `invoke` calls in T5 |
+| **Instance time** (proposed, [unitysvc#3001](https://github.com/unitysvc/unitysvc/issues/3001)) | Platform, from first readiness to stop/suspend/cancel | `one_hour` / `one_day` of a tier | `list_price` per tier channel | T4 |
+| **`/bill` charge** | Your code, with an `Idempotency-Key` | `units` × the listing's price | `listing.list_price` (`constant` with a `/ unit` description) | T5, T6, T7; T4 in-app purchases |
+| **Subscription fee** | `/bill` on your schedule, or a heartbeat `/s/` call | one period | `constant` per period | T5, T6 flat plans |
+| **None** | — | — | `price: "0"` | T1, T3 BYOE, demos, T4 at cost |
+| **Outside UnitySVC** | Your own billing | — | `external` channel; `list_price` describes it | T1 |
+
+Limits the customer approves at enrollment cap `/bill`: per charge (`max_units_per_charge`), per hour/day/month by count and amount. Read the room left before doing the work.
+
+## 5. What each type's spec needs
+
+### 5.0 Common to every spec
+
+A service is a folder with three files and at least one test. `usvc seller specs validate`, `format`, `upload --submit`.
+
+| File / section | Required | What to put | Why |
+| --- | --- | --- | --- |
+| `provider.json` | yes, once per catalog | `name` (your catalog prefix), `homepage`, `contact_email`, `terms_of_service`, `status` | Shown on every listing; the contact is where disputes and support go |
+| `offering.json` → `name` | yes | `provider/service`, lowercase, stable | The identifier in URLs and in `listing.name` |
+| `offering.json` → `service_type` | yes | `llm`, `proxy`, `content`, `email`, `notification`, `saas`, `consulting`, `container` (proposed)… | Catalog grouping and which tests and presets apply |
+| `offering.json` → `summary`, `description` | yes | One line; then how it works, what it needs, what it costs, in Markdown | The listing page. `description` is where you explain enrollment requirements and limits |
+| `offering.json` → `logo` | recommended | `logo.svg` or `logo.png` in the folder | Catalog card |
+| `offering.json` → `capabilities`, `tags` | recommended | Registered capability names (`chat`, `embed`, `s3_read_redirect`, `smtp_relay`, `notification_relay`…) | Discovery filters and agent search |
+| `offering.json` → `payout_price` | yes | What you earn per unit: `revenue_share` (a percentage of the customer charge) or a fixed unit price. `0` if you decline payment | Drives your ledger and payout |
+| `offering.json` → `upstream_access_config` | yes | One or more named **channels**. The channel's contents decide its type (§1 Step 3) | The whole delivery model lives here |
+| `listing.json` → `name`, `display_name`, `currency` | yes | Same `name` as the offering; the human title; `USD` | Catalog |
+| `listing.json` → `list_price` | yes | What the customer pays per unit, as strings. `description` carries the unit and badges (`"$0.05 / reminder ~deal SALE"`) | Shown on the card; the unit `/bill` bills in |
+| `listing.json` → `user_access_interfaces` | gateway types | The URL customers call: `${API_GATEWAY_BASE_URL}/<name>`, `/e/{{ enrollment.code }}`, `${S3_GATEWAY_BASE_URL}/…`, `${SMTP_GATEWAY_BASE_URL}` | Customers and code examples use it; never an instance URL |
+| `listing.json` → `documents` | yes: a connectivity test | `$doc_preset` for common cases, or your own `connectivity_test`, `code_example`, `getting_started` files | Tests gate activation and run daily; examples render on the listing |
+| `listing.json` → `service_options` | when enrolling | `enrollment.required`, `enrollment.limit_per_customer`, `prompt_recurrence`, `ops_testing_parameters` | Enrollment behaviour and how the platform fills parameters when it runs your tests |
+
+What follows is only what each type adds or changes.
+
+### 5.1 T1. Ads only
+
+Catalog presence and discovery by people and MCP agents. Nothing is routed; nothing is billed through UnitySVC. The site is probed when you submit and daily after; a site that stays unreachable is unlisted.
+
+| Section | Required | What to put | Why |
+| --- | --- | --- | --- |
+| channel `type: "external"` | yes | Declared explicitly: nothing in a configuration can imply it | The gateway must know not to route it |
+| channel `url` | yes | The page a customer lands on; a sign-up or pricing page is best | Probed daily; the listing's call to action |
+| channel `description` | yes | How to use it there: "Sign up at…", "Download from…" | Shown in place of a gateway interface |
+| `list_price` | yes, `0` | `description` states your real pricing: `"From $19 / month at acme.example | not billed through UnitySVC"` | The card must not read "free" |
+| `payout_price` | yes, `0` | — | Nothing is paid out |
+| `user_access_interfaces` | no | Omit | There is no gateway URL |
+| `documents` | a `getting_started` page | What the service does and how to start | The connectivity test is the daily probe of `url` |
+
+```json
+// offering.json
+{
+  "schema": "offering_v1",
+  "name": "acme/studio-direct",
+  "service_type": "saas",
+  "summary": "Collaborative design studio for small teams",
+  "description": "Use at studio.acme.example; sign up there with any email. Plans from $19 / month, billed by Acme.",
+  "logo": "logo.svg",
+  "tags": ["design", "collaboration"],
+  "payout_price": { "type": "constant", "price": "0" },
+  "upstream_access_config": {
+    "web": {
+      "type": "external",
+      "url": "https://studio.acme.example/signup",
+      "description": "Sign up and use the studio at acme.example; billed by Acme"
+    }
+  }
+}
+```
+
+```json
+// listing.json
+{
+  "schema": "listing_v1",
+  "name": "acme/studio-direct",
+  "display_name": "Acme Studio",
+  "currency": "USD",
+  "list_price": { "type": "constant", "price": "0", "description": "From $19 / month at acme.example | not billed through UnitySVC" },
+  "documents": { "Getting started": { "category": "getting_started", "file_path": "README.md", "mime_type": "markdown" } }
+}
+```
+
+### 5.2 T2. Metered gateway service
+
+Your upstream, reached through a gateway with the customer's key. No enrollment. The platform prices every call from the metering record.
+
+| Section | Required | What to put | Why |
+| --- | --- | --- | --- |
+| channel `access_method` | yes | `http` for APIs; `http` + `storage_type: "s3"` for buckets; `smtp` for relays | Picks the gateway |
+| channel upstream | yes | HTTP: `base_url`, `api_key: "${ secrets.NAME }"`, `routing_key` (the `model` the customer names). S3: `s3_endpoint`, `bucket`, `base_path`, `region`, `access_key`, `secret_key`. SMTP: `host`, `port`, `tls`, `username`, `password` | How the gateway reaches you. Secrets are write-only and injected per request |
+| seller secrets | yes | Create with `usvc seller secrets create NAME` before upload | `${ secrets.NAME }` must resolve |
+| `rate_limit_refs` | recommended | Names from `provider.json` `rate_limits` | Your provider quota is shared by all customers |
+| BYOK channel | optional | A second channel with `api_key: "${ customer_secrets.NAME }"`; price it separately with `list_price.type: "channel"` | The customer's provider bills them; you charge at most a routing fee |
+| `list_price` | yes, metered | `one_million_tokens` (`input` / `output`), `one_thousand` requests, `one_gigabyte`, `one_minute`… | The unit must match what the upstream meters |
+| `payout_price` | yes | `revenue_share` percentage, or your own unit price | Your earning per call |
+| `user_access_interfaces` | yes | `${API_GATEWAY_BASE_URL}/<name>` with the same `routing_key`; `${S3_GATEWAY_BASE_URL}/<bucket-name>`; `${SMTP_GATEWAY_BASE_URL}` with `routing_key.username` | The customer-facing address |
+| `documents` | yes | `$doc_preset`: `api_connectivity`, `s3_connectivity` + `s3_code_example`, `smtp_connectivity_v2` + `smtp_code_example`; LLMs get chat examples from the capability | Daily tests and rendered examples with no writing |
+| `/p/` membership | optional | Not hand-written: instantiate the system template with a params file and upload | Pool members must be interchangeable; hand-written specs never join |
+
+```json
+// offering.json: an LLM on your own server, with a BYOK variant
+{
+  "schema": "offering_v1",
+  "name": "acme/llama-3.3-70b",
+  "service_type": "llm",
+  "capabilities": ["chat"],
+  "summary": "Llama 3.3 70B served from Acme's own GPUs",
+  "description": "OpenAI-compatible chat completions. The `managed` channel uses Acme's capacity; the `byok` channel forwards to Groq with your own key.",
+  "logo": "logo.svg",
+  "payout_price": { "type": "revenue_share", "percentage": "80" },
+  "upstream_access_config": {
+    "managed": {
+      "access_method": "http",
+      "base_url": "https://inference.acme.example/v1",
+      "api_key": "${ secrets.ACME_INFERENCE_KEY }",
+      "routing_key": { "model": "llama-3.3-70b" },
+      "rate_limit_refs": ["acme_perminute"]
+    },
+    "byok": {
+      "access_method": "http",
+      "base_url": "https://api.groq.com/openai/v1",
+      "api_key": "${ customer_secrets.GROQ_API_KEY }",
+      "routing_key": { "model": "llama-3.3-70b-versatile" }
+    }
+  }
+}
+```
+
+```json
+// listing.json
+{
+  "schema": "listing_v1",
+  "name": "acme/llama-3.3-70b",
+  "display_name": "Llama 3.3 70B (Acme)",
+  "currency": "USD",
+  "list_price": {
+    "type": "channel", "default": "managed",
+    "channels": {
+      "managed": { "type": "one_million_tokens", "input": "0.40", "output": "0.80" },
+      "byok":    { "type": "one_thousand", "price": "0.01", "description": "$0.01 / 1,000 requests ~ routing fee | Groq bills your key for tokens" }
+    }
+  },
+  "user_access_interfaces": {
+    "openai": { "access_method": "http", "base_url": "${API_GATEWAY_BASE_URL}/acme/llama-3.3-70b", "routing_key": { "model": "llama-3.3-70b" } }
+  },
+  "documents": { "Connectivity test": { "$doc_preset": "api_connectivity" } }
+}
+```
+
+Same type, other gateways:
+
+```json
+// S3 dataset: offering channel + listing interface and price
+"bucket": { "access_method": "http", "storage_type": "s3", "s3_endpoint": "https://nyc3.digitaloceanspaces.com",
+            "bucket": "acme-genomes-1k", "base_path": "hg38/", "region": "nyc3",
+            "access_key": "${ secrets.ACME_SPACES_KEY_ID }", "secret_key": "${ secrets.ACME_SPACES_SECRET }" }
+"list_price": { "type": "one_gigabyte", "price": "0.02", "description": "$0.02 / GB downloaded" }
+"user_access_interfaces": { "s3_gateway": { "access_method": "http", "base_url": "${S3_GATEWAY_BASE_URL}/acme-genomes-1k" } }
+"documents": { "Connectivity test": { "$doc_preset": "s3_connectivity" }, "Python code example": { "$doc_preset": "s3_code_example" } }
+```
+
+```json
+// SMTP relay
+"relay": { "access_method": "smtp", "host": "smtp.sendgrid.net", "port": 587, "tls": true, "username": "apikey", "password": "${ secrets.SENDGRID_KEY }" }
+"list_price": { "type": "one_thousand", "price": "1.00", "description": "$1 / 1,000 messages" }
+"user_access_interfaces": { "smtp_gateway": { "access_method": "smtp", "base_url": "${SMTP_GATEWAY_BASE_URL}", "routing_key": { "username": "acme-relay" } } }
+"documents": { "Connectivity test": { "$doc_preset": "smtp_connectivity_v2" } }
+```
+
+### 5.3 T3. Per-customer gateway service
+
+The customer enrolls with parameters and calls their own `/e/<code>` endpoint. You get the enrollment code and parameters on every request, never the person. Covers multi-tenant APIs, scheduled checks, and BYOE recipes.
+
+| Section | Required | What to put | Why |
+| --- | --- | --- | --- |
+| channel `params.schema` | yes | JSON Schema of what the customer fills in: a region, a target URL, a project id. Secret *names* go in parameters, values never | What the enrollment dialog asks. A channel that reads `{{ params.* }}` is `enrollable` |
+| channel `base_url` / `api_key` | yes | Templated: `https://app.acme.example/t/{{ enrollment.code }}` or `{{ params.base_url }}`; `${ customer_secrets.{{ params.key_secret }} ?? }` for a customer-supplied key | Per-tenant routing; `?? ` makes the secret optional |
+| `user_access_interfaces` | yes | `${API_GATEWAY_BASE_URL}/e/{{ enrollment.code }}` | Each customer's own address |
+| `service_options.enrollment` | recommended | `limit_per_customer`: how many configurations one account may hold | Several targets per customer, or exactly one |
+| `service_options.ops_testing_parameters` | yes when params are required | Values the platform uses to enroll its test account | Otherwise the daily test cannot run |
+| `service_options.prompt_recurrence` + `recurrence_*` | for checks | Let the customer set a schedule at enrollment | The platform fires the call on that schedule |
+| `list_price` | yes | Metered per call or check; `0` for a BYOE recipe | Same mechanism as T2 |
+| `description` | yes | Say what each parameter is for and what the customer's own server must expose (BYOE) | The enrollment dialog links here |
+
+```json
+// offering.json: a multi-tenant API
+{
+  "schema": "offering_v1",
+  "name": "acme/pipeline",
+  "service_type": "proxy",
+  "summary": "Run Acme data pipelines on your own tenant",
+  "description": "Enroll once per project. Pick a region; your tenant is created on first call and reached at your enrollment's /e/ URL.",
+  "payout_price": { "type": "revenue_share", "percentage": "85" },
+  "upstream_access_config": {
+    "tenant": {
+      "access_method": "http",
+      "base_url": "https://app.acme.example/t/{{ enrollment.code }}",
+      "api_key": "${ secrets.ACME_GATEWAY_KEY }",
+      "params": {
+        "schema": { "type": "object", "properties": {
+          "region": { "type": "string", "enum": ["us", "eu"], "default": "us", "description": "Where your tenant's data lives" } } }
+      }
+    }
+  }
+}
+```
+
+```json
+// listing.json
+{
+  "schema": "listing_v1",
+  "name": "acme/pipeline",
+  "display_name": "Acme Pipeline",
+  "currency": "USD",
+  "list_price": { "type": "one_thousand", "price": "0.50", "description": "$0.50 / 1,000 API calls" },
+  "user_access_interfaces": { "enrollment": { "access_method": "http", "base_url": "${API_GATEWAY_BASE_URL}/e/{{ enrollment.code }}" } },
+  "service_options": { "enrollment": { "limit_per_customer": 10 }, "ops_testing_parameters": { "region": "us" } },
+  "documents": { "Connectivity test": { "$doc_preset": "api_connectivity" } }
+}
+```
+
+Variants on the same skeleton:
+
+```json
+// Scheduled checks: the customer sets target and schedule at enrollment
+"params": { "schema": { "type": "object", "required": ["target"], "properties": { "target": { "type": "string", "format": "uri" } } } }
+"service_options": { "prompt_recurrence": true, "recurrence_min_interval_seconds": 60, "recurrence_max_interval_seconds": 86400, "recurrence_allow_cron": true,
+                     "ops_testing_parameters": { "target": "https://example.com" } }
+"list_price": { "type": "one_thousand", "price": "0.20", "description": "$0.20 / 1,000 checks" }
+```
+
+```json
+// BYOE recipe: the customer's own Ollama, free
+"own_instance": { "access_method": "http", "base_url": "{{ params.base_url }}",
+                  "api_key": "${ customer_secrets.{{ params.api_key_secret }} ?? }",
+                  "params": { "schema": { "type": "object", "required": ["base_url"], "properties": {
+                    "base_url": { "type": "string", "description": "Your Ollama endpoint" },
+                    "api_key_secret": { "type": "string", "default": "OLLAMA_API_KEY", "description": "Name of the secret holding your instance's key, if any" } } } } }
+"list_price": { "type": "constant", "price": "0", "description": "Free | you run the server" }
+"payout_price": { "type": "constant", "price": "0" }
+```
+
+> Older specs put parameters in `user_parameters_schema` on the listing. Core 0.3.0 moves them to the channel's `params.schema`; use that for new specs.
+
+### 5.4 T4. Hosted app on unitysvc.app
+
+**Proposed shape** ([unitysvc#2999](https://github.com/unitysvc/unitysvc/issues/2999), [#3000](https://github.com/unitysvc/unitysvc/issues/3000), [#3001](https://github.com/unitysvc/unitysvc/issues/3001)): you submit a restricted Compose file as a document; the platform builds or pulls an immutable image, runs one instance per enrollment at the tier the customer picked, and meters instance time. The customer pays your tier price; the platform keeps base cost and shares the rest.
+
+| Section | Required | What to put | Why |
+| --- | --- | --- | --- |
+| one channel per tier | yes | `access_method: "container"`, a `description` in customer terms ("small workflow", "for a team of 100"), `resources` with `cpu`, `memory`, `ephemeral_disk` | Customers pick a tier, never hardware. Allocations fix the base cost |
+| channel `spec` | yes | The Compose document's name | Which image and services the tier runs |
+| channel `entries` | yes | `name`, `service`, `port`, `auth` (`enrollment_key` gates the URL behind the customer's key), optional `path` | The HTTPS entry points the instance exposes. Instance URLs are generated; never put them in `user_access_interfaces` |
+| `customer_access_requests` | when the app uses Me | `service:ai`, `service:storage`, `service:notify`… with justifications | The instance gets a leased key with exactly these grants |
+| `documents` → Compose file | yes, `container_spec` | Pinned image digests, declared ports, environment from the platform-injected variables. No `build`, no volumes, no host access | Reviewed as a revision; a change needs re-review |
+| `documents` → `getting_started` | yes | What the customer sees after the instance is ready | There is no gateway code example |
+| `list_price` | yes, per tier | `type: "channel"`, each tier `one_hour` above base cost. Labs: equal to base cost | Instance time accrues from first readiness to stop |
+| `service_options.enrollment.limit_per_customer` | recommended | How many instances one account may run | Cost control for both sides |
+| `user_access_interfaces` | no | Omit | Addresses are per instance |
+| state | note in `description` | Runtime files are ephemeral in v1; keep state in the customer's `/storage` or your own backend | Restart, suspend and cancel wipe local files |
+
+```json
+// offering.json: open-source tool at cost (UnitySVC Labs) and a paid tier side by side
+{
+  "schema": "offering_v1",
+  "name": "labs/open-webui",
+  "service_type": "container",
+  "summary": "Open WebUI, your own instance, over your /ai",
+  "description": "One click gives you a private Open WebUI at its own URL, talking to the model you chose in /ai. Runtime files are ephemeral: export chats you want to keep.",
+  "logo": "logo.svg",
+  "payout_price": { "type": "constant", "price": "0", "description": "Not paid out: the author declined payment" },
+  "upstream_access_config": {
+    "base": {
+      "access_method": "container",
+      "spec": "compose.yaml",
+      "description": "One user, chat UI over your /ai",
+      "resources": { "cpu": "0.5", "memory": "1Gi", "ephemeral_disk": "2Gi" },
+      "entries": [ { "name": "web", "service": "open-webui", "port": 8080, "auth": "enrollment_key" } ],
+      "customer_access_requests": [
+        { "object": "service:ai", "permissions": ["invoke"], "required": true,
+          "justification": "The chat UI sends your prompts to the model you chose in /ai; billed to your wallet" }
+      ]
+    }
+  }
+}
+```
+
+```json
+// listing.json
+{
+  "schema": "listing_v1",
+  "name": "labs/open-webui",
+  "display_name": "Open WebUI on unitysvc.app",
+  "currency": "USD",
+  "list_price": { "type": "channel", "default": "base",
+    "channels": { "base": { "type": "one_hour", "price": "0.012", "description": "$0.012 / hour while running ~ at cost | suspend to stop charges" } } },
+  "service_options": { "enrollment": { "required": true, "limit_per_customer": 1 } },
+  "documents": {
+    "Container spec": { "category": "container_spec", "file_path": "compose.yaml" },
+    "Getting started": { "category": "getting_started", "file_path": "README.md", "mime_type": "markdown" }
+  }
+}
+```
+
+```yaml
+# compose.yaml  (restricted subset: pinned digest, no build, no volumes, no host access)
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui@sha256:…
+    ports: ["8080"]
+    environment:
+      OPENAI_API_BASE_URL: ${UNITYSVC_AI_BASE_URL}
+      OPENAI_API_KEY: ${UNITYSVC_ENROLLMENT_KEY}
+```
+
+A seller's own SaaS is the same spec with a `payout_price` and tiers priced above cost:
+
+```json
+"team": { "access_method": "container", "spec": "compose.yaml", "description": "For a team of up to 100 people",
+          "resources": { "cpu": "4", "memory": "8Gi", "ephemeral_disk": "20Gi" },
+          "entries": [ { "name": "web", "service": "app", "port": 3000, "auth": "enrollment_key" } ] }
+"list_price": { "type": "channel", "default": "base", "channels": {
+  "base": { "type": "one_hour", "price": "0.05", "description": "$0.05 / hour ~ about $36 / month" },
+  "team": { "type": "one_hour", "price": "0.30", "description": "$0.30 / hour ~ about $216 / month" } } }
+"payout_price": { "type": "revenue_share", "percentage": "80", "description": "80% of the price after the platform's compute cost" }
+```
+
+#### 5.4.1 Customer-run instance or seller-run instance?
+
+unitysvc.app can run a container in two roles. They look alike on the compute side and are different products.
+
+| | **Customer-run: the container is the product** (T4) | **Seller-run: the container is your server** (then T2 / T3 / T5) |
+| --- | --- | --- |
+| Who enrolls in the container service | Each customer | You, as your own customer |
+| Instances | One per customer enrollment | One (or a few) that you operate |
+| Who pays instance time | The customer, at your tier price `P`; you earn `(P − C) × r` | You, at base cost `C`, from your wallet |
+| What the customer sees | Their instance's URL, start / suspend / cancel on the enrollment | An ordinary service: a gateway URL, a Me-bound subscription. No container, no instance |
+| What the customer pays for | Minutes the instance runs, whether or not they use it | Calls, units of work, or per-customer enrollments, metered or `/bill` |
+| Isolation | Each customer's data stays in their instance | Your software is multi-tenant; you keep tenants apart |
+| Scaling | The platform adds instances as customers enroll | You pick a bigger tier or run more instances |
+| Lifecycle control | The customer | You |
+| Can several services share it | No: one instance serves one enrollment | Yes: an API, an alert service and an on-demand job can all run on the one instance |
+| Right when | Single-user or single-team software, per-user state, strict isolation, or you don't want to operate anything | Shared models or GPUs, an always-on worker, a multi-tenant app you already run, or a runner for Me-bound services that should not live on a laptop cron |
+| Listing | The container service, with tiers | The services in front of it; the container service is private |
+
+The seller-run case needs two specs:
+
+1. **A private container service** you never list. Same shape as T4, priced at base cost, with an `entries` item for the API your public services will call, authenticated by a secret of yours rather than a customer key. You enroll in it, start it, and read its instance URL.
+2. **The public services**, which are ordinary T2 / T3 / T5 specs whose upstream is that URL.
+
+```json
+// 1. offering.json, private: your worker on unitysvc.app
+{
+  "schema": "offering_v1",
+  "name": "acme/worker-host",
+  "service_type": "container",
+  "summary": "Acme's inference and worker host (private)",
+  "payout_price": { "type": "constant", "price": "0" },
+  "upstream_access_config": {
+    "gpu-small": {
+      "access_method": "container",
+      "spec": "compose.yaml",
+      "resources": { "cpu": "4", "memory": "16Gi", "ephemeral_disk": "40Gi" },
+      "entries": [ { "name": "api", "service": "vllm", "port": 8000, "auth": "none" } ]
+    }
+  }
+}
+```
+
+```json
+// 1. listing.json, private: priced at cost, one instance, not submitted for listing
+{
+  "schema": "listing_v1",
+  "name": "acme/worker-host",
+  "display_name": "Acme worker host",
+  "currency": "USD",
+  "visibility": "private",
+  "list_price": { "type": "channel", "default": "gpu-small",
+    "channels": { "gpu-small": { "type": "one_hour", "price": "0.90", "description": "$0.90 / hour | base cost" } } },
+  "service_options": { "enrollment": { "required": true, "limit_per_customer": 1 } },
+  "documents": { "Container spec": { "category": "container_spec", "file_path": "compose.yaml" } }
+}
+```
+
+```json
+// 2. offering.json, public: a metered API whose upstream is the instance (T2)
+"upstream_access_config": {
+  "managed": {
+    "access_method": "http",
+    "base_url": "{{ instances.worker-host.entries.api }}",
+    "api_key": "${ secrets.ACME_WORKER_KEY }",
+    "routing_key": { "model": "llama-3.3-70b" }
+  }
+}
+```
+
+The `{{ instances.<name>.entries.<entry> }}` reference is **proposed**: it binds the upstream to your enrollment's live instance so the URL survives re-placement and restarts. Until it exists, paste the instance URL into `base_url` and update it when the instance moves. The `auth: "none"` entry relies on your app checking `ACME_WORKER_KEY` itself; the platform's private network keeps other instances out.
+
+Two things follow from the table:
+
+- **Pricing is what tells them apart.** A T4 customer pays for time, so an idle instance still costs them; price tiers so that is fair, and expect customers to suspend. A seller-run instance costs you a flat amount, so price the services in front of it by usage and make sure expected usage covers `C`.
+- **A seller-run instance is also where T5 runners belong.** A cron that serves Me-bound enrollments can run there instead of on a GitHub Action, with the same leased-key loop.
+
+### 5.5 T5. Service on the customer's Me
+
+Your code acts for the customer and charges per unit of work. There may be no customer-facing endpoint: the channel is a list of access requests, optionally with parameters and an `invoke` declaration. You serve it by leasing a key from each enrollment and calling `/notify`, `/email`, `/ai`, `/storage`, `/bill` with it.
+
+| Section | Required | What to put | Why |
+| --- | --- | --- | --- |
+| `customer_access_requests` | yes | One entry per surface: `object` (`service:notify`, `service:email`, `service:ai`, `service:storage`, `service:bill`, `profile.<field>`, `resource:room`), `permissions`, `options`, `limits`, `required`, `justification` | The customer approves each before enrolling. The leased key gets exactly these |
+| → `service:bill` request | yes for 4C | `permissions: ["charge"]` (+ `refund`, `query`), `options: "max_units_per_charge=N"`, `limits` such as `count_per_day` or `amount_per_month` | Charging is a permission. Limits are the customer's budget and are shown on the enrollment |
+| → `justification` | yes, each | One sentence in the customer's words: what you do with it | It is the consent text |
+| channel `params.schema` | usually | What the service needs to know: an address, a search query, a lead time | Per-customer configuration without identity |
+| channel `invoke` | optional | `input_schema`, `min_interval_seconds`, `expected_latency` | "Try now" on the enrollment page and `/e/<code>/invoke` for the customer's automation; delivered to you as an event |
+| `list_price` | yes | `constant` with the unit in the description: `"$0.05 / reminder"`, `"$4 / report"`, `"$2 / month"` | `/bill` charges `units` of this price |
+| `payout_price` | yes | `revenue_share` or per unit | Your earning per charge |
+| `user_access_interfaces` | no, unless the service also answers calls | Omit for alert-only services | Nothing to call |
+| `documents` | yes | A connectivity test that proves your runner can reach the customer's surfaces (`me_connectivity` preset once available), a `getting_started` page | The platform tests the listing; customers learn what to expect |
+| `service_options.enrollment` | recommended | `limit_per_customer` | Several addresses, one subscription… |
+| your runner | outside the spec | A cron, a GitHub Action or a worker that lists enrollments, leases keys, does the work, calls `/bill` with an `Idempotency-Key`, returns the key | Where the service actually happens |
+
+```json
+// offering.json: trash-day reminders from a cron
+{
+  "schema": "offering_v1",
+  "name": "acme/trash-day",
+  "service_type": "notification",
+  "summary": "A reminder before every trash and recycling pickup at your address",
+  "description": "Tell us your address and how many hours' notice you want. We look up the municipal schedule and send a reminder to your notification destinations. One unit per reminder, at most two a day. Use Try now to get the next pickup immediately.",
+  "logo": "logo.svg",
+  "payout_price": { "type": "revenue_share", "percentage": "80" },
+  "upstream_access_config": {
+    "alerts": {
+      "params": { "schema": { "type": "object", "required": ["address"], "properties": {
+        "address": { "type": "string", "description": "Street address the schedule is looked up for" },
+        "lead_hours": { "type": "integer", "default": 8, "minimum": 1, "maximum": 48 } } } },
+      "customer_access_requests": [
+        { "object": "service:notify", "permissions": ["invoke"], "required": true,
+          "justification": "Delivers the reminder to your notification destinations" },
+        { "object": "service:bill", "permissions": ["charge", "query"], "options": "max_units_per_charge=1",
+          "limits": { "count_per_day": 2 }, "required": true,
+          "justification": "One unit per reminder sent; at most two a day" }
+      ],
+      "invoke": { "input_schema": { "type": "object", "properties": { "date": { "type": "string", "format": "date" } } },
+                  "min_interval_seconds": 300, "expected_latency": "within 15 minutes" }
+    }
+  }
+}
+```
+
+```json
+// listing.json
+{
+  "schema": "listing_v1",
+  "name": "acme/trash-day",
+  "display_name": "Trash-day reminders",
+  "currency": "USD",
+  "list_price": { "type": "constant", "price": "0.05", "description": "$0.05 / reminder | about $0.40 a month for weekly pickup" },
+  "service_options": { "enrollment": { "required": true, "limit_per_customer": 3 }, "ops_testing_parameters": { "address": "1 Main St, Houston TX" } },
+  "documents": { "Getting started": { "category": "getting_started", "file_path": "README.md", "mime_type": "markdown" } }
+}
+```
+
+An on-demand job is the same type with storage requests and a per-result price:
+
+```json
+"customer_access_requests": [
+  { "object": "service:storage", "permissions": ["read"], "options": "path=shared/datasets/", "required": true, "justification": "Reads the dataset you point the run at" },
+  { "object": "service:storage", "permissions": ["write"], "required": true, "justification": "Writes the finished report into this enrollment's output folder" },
+  { "object": "service:bill", "permissions": ["charge"], "options": "max_units_per_charge=1", "required": true, "justification": "One unit per report that completes; failed runs are not charged" } ],
+"invoke": { "input_schema": { "type": "object", "required": ["dataset"], "properties": { "dataset": { "type": "string" } } }, "min_interval_seconds": 60, "expected_latency": "5 to 30 minutes" }
+"list_price": { "type": "constant", "price": "4.00", "description": "$4 / report | charged when the report lands in your files" }
+```
+
+### 5.6 T6. Your own app, billed here
+
+The product is your website. UnitySVC supplies the customer, the enrollment and the money. Two channels: an `external` one the catalog shows and never routes, and a `me_bound` one that holds the leased key your backend uses.
+
+| Section | Required | What to put | Why |
+| --- | --- | --- | --- |
+| `external` channel | yes | `type: "external"`, `url` to your sign-in with a UnitySVC option, `description` | Where the customer goes; probed daily |
+| `me_bound` channel | yes | `customer_access_requests` with `service:bill` (`charge`, `refund`, `query`; `limits` matching your plan) and whatever else your app needs (`service:notify`, `service:email`, `profile.<field>`) | The leased key your backend holds per customer |
+| `list_price` | yes | `constant` per seat-month or per job, unit in the description | What one `/bill` unit is |
+| `payout_price` | yes | `revenue_share` | Your earning |
+| `user_access_interfaces` | no | Omit | Nothing to call on the gateway |
+| `service_options.enrollment` | yes | `required: true`, usually `limit_per_customer: 1` | One seat or account per enrollment |
+| your backend | outside the spec | "Use your UnitySVC account" sign-in that accepts an enrollment; a monthly job that charges one unit with `Idempotency-Key: seat-<month>-<enrollment>` | Links your user record to the enrollment and bills it |
+| double billing | note in `description` | Say that UnitySVC customers are billed here and not by card at your site | Avoid charging the same person twice |
+
+```json
+// offering.json
+{
+  "schema": "offering_v1",
+  "name": "acme/studio",
+  "service_type": "saas",
+  "summary": "Collaborative design studio, paid from your UnitySVC wallet",
+  "description": "Sign in at studio.acme.example with “Use your UnitySVC account”. One seat-month is charged on the 1st to this enrollment; cancel the enrollment to stop. UnitySVC customers are never asked for a card at Acme.",
+  "logo": "logo.svg",
+  "payout_price": { "type": "revenue_share", "percentage": "85" },
+  "upstream_access_config": {
+    "web": { "type": "external", "url": "https://studio.acme.example/login?via=unitysvc",
+             "description": "Sign in at studio.acme.example with “Use your UnitySVC account”" },
+    "billing": {
+      "customer_access_requests": [
+        { "object": "service:bill", "permissions": ["charge", "refund", "query"], "options": "max_units_per_charge=1",
+          "limits": { "count_per_month": 1 }, "required": true,
+          "justification": "One seat-month per calendar month while your seat is active; refunded pro rata if you cancel" },
+        { "object": "service:notify", "permissions": ["invoke"], "required": false,
+          "justification": "Tells you when an export finishes" }
+      ]
+    }
+  }
+}
+```
+
+```json
+// listing.json
+{
+  "schema": "listing_v1",
+  "name": "acme/studio",
+  "display_name": "Acme Studio",
+  "currency": "USD",
+  "list_price": { "type": "constant", "price": "19.00", "description": "$19 / seat-month | billed on the 1st by Acme Studio" },
+  "service_options": { "enrollment": { "required": true, "limit_per_customer": 1 } },
+  "documents": { "Getting started": { "category": "getting_started", "file_path": "README.md", "mime_type": "markdown" } }
+}
+```
+
+The monthly charge, from your backend with the enrollment's leased key:
+
+```bash
+curl -X POST "$API_GATEWAY_BASE_URL/bill" -H "Authorization: Bearer $LEASED_KEY" \
+  -H "Idempotency-Key: seat-2026-12-$ENROLLMENT" \
+  -d '{"units": 1, "description": "Seat, December 2026"}'
+```
+
+### 5.7 T7. Human services
+
+No code. The enrollment is the engagement, `/bill` is the timesheet, a chat line is the office. The customer's approved monthly amount is the budget cap, visible to both sides.
+
+| Section | Required | What to put | Why |
+| --- | --- | --- | --- |
+| `external` channel | yes | `type: "external"`, `url` to your booking page, `description` of how sessions happen | How the work is delivered |
+| `me_bound` channel | yes | `service:bill` with `max_units_per_charge` (hours per session) and `limits.amount_per_month`; `resource:room` (`create`, `kind=chat&max_members=…&max_retention=…`) for the chat line; `service:email` for deliverables; `profile.name` so notes are addressed | Billing, conversation and deliverables all through the one enrollment |
+| channel `params.schema` | recommended | A one-line project description, preferred times | Scopes the engagement without a call |
+| `list_price` | yes | `constant` per hour or per deliverable, unit in the description | What one `/bill` unit is |
+| `payout_price` | yes | `revenue_share`, typically high | Your earning |
+| `service_options.enrollment` | yes | `required: true`, `limit_per_customer: 1` | One engagement per customer |
+| `documents` | yes | `getting_started`: how booking, sessions, notes and charges work; your credentials | There is no test to run, so the page is the trust signal |
+| how you work | outside the spec | After each session: `POST /bill` with the hours and a description, from the CLI or a script with the leased key; reply to the room from Discord, Slack or email | The customer sees each charge on the enrollment |
+
+```json
+// offering.json
+{
+  "schema": "offering_v1",
+  "name": "acme/bioinformatics-consulting",
+  "service_type": "consulting",
+  "summary": "RNA-seq and variant-calling help from a working bioinformatician",
+  "description": "Book a session; we meet by video or work asynchronously in the chat line. Hours are charged after each session with a description, never above the monthly amount you approve. First 15-minute call free.",
+  "logo": "logo.svg",
+  "payout_price": { "type": "revenue_share", "percentage": "90" },
+  "upstream_access_config": {
+    "engagement": { "type": "external", "url": "https://cal.acme.example",
+                    "description": "Sessions by video call or email; book at cal.acme.example" },
+    "timesheet": {
+      "params": { "schema": { "type": "object", "properties": {
+        "project": { "type": "string", "description": "One line on what you need help with" } } } },
+      "customer_access_requests": [
+        { "object": "service:bill", "permissions": ["charge", "refund", "query"], "options": "max_units_per_charge=8",
+          "limits": { "amount_per_month": "2000.00" }, "required": true,
+          "justification": "Hours worked, charged after each session with a description; never more than $2,000 a month unless you raise the limit" },
+        { "object": "resource:room", "permissions": ["create"], "options": "kind=chat&max_members=5&max_retention=2592000", "required": false,
+          "justification": "A chat line between us for questions between sessions; read and reply from Discord, Slack, email or the Rooms page" },
+        { "object": "service:email", "permissions": ["invoke"], "required": false,
+          "justification": "Sends session notes and deliverables to your inbox" },
+        { "object": "profile.name", "permissions": ["read"], "required": false,
+          "justification": "So invoices and session notes are addressed to you" }
+      ]
+    }
+  }
+}
+```
+
+```json
+// listing.json
+{
+  "schema": "listing_v1",
+  "name": "acme/bioinformatics-consulting",
+  "display_name": "Bioinformatics consulting (RNA-seq, variant calling)",
+  "currency": "USD",
+  "list_price": { "type": "constant", "price": "150.00", "description": "$150 / hour | charged after each session; 15-minute intro call free" },
+  "service_options": { "enrollment": { "required": true, "limit_per_customer": 1 } },
+  "documents": { "How it works": { "category": "getting_started", "file_path": "README.md", "mime_type": "markdown" } }
+}
+```
+
+## 6. What each type needs from the platform today
+
+| Type | Ready now | Depends on |
+| --- | --- | --- |
+| T2 Metered gateway, T3 Per-customer gateway | Yes | — |
+| T1 Ads only | `external` channels per the live docs; daily probe | Confirm the declaration fields in the core release that carries `external` |
+| T5, T6, T7 (`/bill`, `me_bound`) | `bill` service and `customer_access_requests` exist; grant limits are being enforced | Limit enforcement ([unitysvc#2731](https://github.com/unitysvc/unitysvc/issues/2731)); `invoke` for "Try now" (the invoke design); `/storage` grants (the storage design, deferred); a Me connectivity preset |
+| T4 Hosted app | Prototype runner and staging cluster | Core contract [unitysvc#2999](https://github.com/unitysvc/unitysvc/issues/2999), spec [#3000](https://github.com/unitysvc/unitysvc/issues/3000), lifecycle and billing [#3001](https://github.com/unitysvc/unitysvc/issues/3001), customer release gates [#3007](https://github.com/unitysvc/unitysvc/issues/3007) |
+
+## 7. Open questions for the guide
+
+1. **Metered price plus `/bill` on one listing.** A multi-tenant API that also charges per run (T3 + T5) needs either two prices on one listing or two services. Decide the rule before the guide promises either.
+2. **External channel declaration.** This draft uses `"type": "external"` with `url` and `description`; confirm the field names once the core release that carries `external` and `me_bound` is published.
+3. **Container channel fields** (`access_method: "container"`, `resources`, `entries`, `spec`, the `container_spec` document category): placeholders until [unitysvc#2999](https://github.com/unitysvc/unitysvc/issues/2999) / [#3000](https://github.com/unitysvc/unitysvc/issues/3000) fix the names.
+4. **Seller-run instances.** A private container listing (`visibility: "private"` is a placeholder), an entry authenticated by the seller rather than a customer key, and a `{{ instances.<name>.entries.<entry> }}` upstream reference are all proposed in §5.4.1 and exist nowhere yet. The alternative is pasting the instance URL into `base_url`.
+5. **Profile-field grants.** `profile.name` follows the `profile.<section>[.<field>]` grammar of the access-policy design; confirm the exported field names.
+6. **A test for Me-bound services.** T5 to T7 have no gateway call to probe. Decide what the daily test is: a `me_connectivity` preset that leases a key and lists its grants, or no test and a manual review.
+7. **Labs as seller.** Which provider open-source listings live under (`labs/…` as OpenLine does), and whether authors can be credited on the listing without being paid.
