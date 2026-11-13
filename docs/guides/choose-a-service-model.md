@@ -500,6 +500,7 @@ The `description` must say what the customer's server has to expose. `ops_testin
 | `service_options.enrollment.limit_per_customer` | recommended | How many instances one account may run | Cost control for both sides |
 | `user_access_interfaces` | no | Omit | Addresses are per instance |
 | state | note in `description` | Runtime files are ephemeral in v1; keep state in the customer's `/storage` or your own backend | Restart, suspend and cancel wipe local files |
+| `license`, `source` (proposed) | yes when the software is not yours | SPDX identifier and the repository at the deployed revision | Review checks that the license permits hosting as a service; see §5.4.2 |
 
 ```json
 // offering.json: open-source tool at cost (UnitySVC Labs) and a paid tier side by side
@@ -642,6 +643,28 @@ Two things follow from the table:
 
 - **Pricing is what tells them apart.** A T4 customer pays for time, so an idle instance still costs them; price tiers so that is fair, and expect customers to suspend. A seller-run instance costs you a flat amount, so price the services in front of it by usage and make sure expected usage covers `C`.
 - **A seller-run instance is also where T5 runners belong.** A cron that serves Me-bound enrollments can run there instead of on a GitHub Action, with the same leased-key loop.
+
+#### 5.4.2 Hosting software you did not write
+
+Nothing in the platform stops anyone, the author or a third party, from packaging an open-source project as a hosted app and charging for it. Whether they *may* is decided by the project's license and trademarks, not by UnitySVC, so the platform's job is to make the terms visible, check the obvious cases at review, and give authors a say. The rules below are the proposed policy.
+
+| Situation | License allows hosting as a service? | What the listing must do |
+| --- | --- | --- |
+| Permissive (MIT, Apache 2.0, BSD, MPL) | Yes, including for profit | Attribution and the license text; no further permission needed |
+| Copyleft (GPL, LGPL) | Yes | Attribution; offer the source of what you run, including your changes |
+| Network copyleft (AGPL) | Yes, with an obligation | The running instance must offer its complete source, at the exact revision and digest you deploy, modifications included. Link it from the listing |
+| Source-available with a service restriction (SSPL, Elastic License 2.0, BUSL before its change date, Commons Clause, "non-commercial" licenses) | **No**, not even at cost | Rejected at review unless the publisher holds a commercial license from the author |
+| No license file | No | Rejected: no license means no permission |
+
+| Rule | Why |
+| --- | --- |
+| **Declare `license` and `source`** (proposed fields on the offering): the SPDX identifier and the repository at the revision you build from | Review checks the table above; customers see what they are running |
+| **The publisher is you, not the project.** The listing says "hosted by Acme"; the project's name may be used descriptively, its logo and branding only with permission; never imply endorsement | Trademarks are separate from the code license and are the usual reason a project objects |
+| **Authors are told and can claim.** When a paid third-party listing of a project goes active, the platform notifies the project (its public contact or repository) and shows the listing as "community-hosted". The author can publish their own listing, which is marked "by the author" and ranked first; ask for a revenue share from the publisher through the platform; or file a dispute where the license or a trademark is breached | Politeness made concrete: authors should not discover a paid listing of their work by accident |
+| **UnitySVC Labs hosts at cost only**, with attribution, and hands a listing to the author on request | The platform does not profit from other people's code |
+| **A seller-run instance of someone else's software is their business** as long as the license allows it; the same declaration applies to the private container service | Hosting a Postgres or a Redis behind your API is ordinary use |
+
+Whether a paid third-party listing should need the author's consent *beyond* the license is an open question (§7). The proposed answer is no, because open-source licenses already grant that permission and a consent rule would be unenforceable, but with notification, labelling, author precedence and a dispute path in return.
 
 ### 5.5 T5. Service on the customer's Me
 
@@ -921,6 +944,8 @@ You want two things from UnitySVC: to be **found**, and to know **how to talk to
 }
 ```
 
+**Someone else may host it.** If your app can run on unitysvc.app, any seller may package it as a hosted app (T4) and charge for it, within your license. §5.4.2 says what the platform requires of them: a declared license and source, their own name as publisher, and notification to you, after which you can publish the listing yourself, marked "by the author", or ask for a share. If you want to be the one who hosts it, publish the T4 listing first.
+
 #### How your app talks to the customer's Me
 
 One key, sent as `Authorization: Bearer <key>` to the API gateway, or as the SMTP password for email. Every surface is answered by the gateway itself at a fixed path; the app never chooses a provider, a destination or an address. A call the key's grants do not cover is refused with `403`: tell the user which grant to add rather than failing silently.
@@ -961,3 +986,4 @@ When you want revenue, add a `service:bill` request and a price and the listing 
 5. **Keys issued to the customer (T0).** `key_holder: "customer"` on a Me channel, the listing's Connect flow and the "Link to" upgrade are proposed; the hand-made key with a pasted policy template is the path that exists in design today.
 6. **A test for Me-bound services.** T5 to T7 have no gateway call to probe. Decide what the daily test is: a `me_connectivity` preset that leases a key and lists its grants, or no test and a manual review.
 7. **Labs as seller.** Which provider open-source listings live under (`labs/…` as OpenLine does), and whether authors can be credited on the listing without being paid.
+8. **Consent for paid third-party hosting.** §5.4.2 proposes license plus notification, labelling, author precedence and disputes, with no consent requirement beyond the license. Decide whether that is enough, and whether `license` and `source` become required fields for every container offering.
