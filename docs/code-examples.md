@@ -12,6 +12,38 @@ Code examples help users understand how to interact with your services. The Unit
 -   Validating output automatically
 -   Publishing examples with your service listings
 
+## Container connectivity tests
+
+For an offering with `access_method: container`, use the container contract from
+`unitysvc-core`: an offering-scoped `container_spec` document, per-tier resource
+allocations, and internal entry ports. Add the generic test to `listing.json`:
+
+```json
+{
+  "documents": {
+    "Connectivity test": {"$doc_preset": "container_connectivity_v1"}
+  }
+}
+```
+
+With Docker running locally, execute it before upload:
+
+```bash
+usvc seller specs run-tests acme/echo --category connectivity_test --skip-links
+```
+
+The command compiles each tier's manifest, pulls its digest-pinned images,
+starts the services and checks their health. It passes
+`USVC_CONTAINER_MANIFEST_JSON` and `USVC_CONTAINER_TIMEOUT_SECONDS` to the script;
+no backend credentials are needed. Every tier executes on each invocation.
+The test removes its temporary containers and network, keeping downloaded images.
+
+This is the service's required `connectivity_test` document. Local execution is
+optional; upload includes the same script through the normal document workflow.
+Platform execution still needs a Docker-capable executor that supplies the same
+normalized manifest. Passing locally verifies startup and health; Kubernetes,
+gVisor and deployment checks remain the compute runner's responsibility.
+
 ## Gateway Testing Methods
 
 There are two ways to test code examples that access services through the UnitySVC gateway:

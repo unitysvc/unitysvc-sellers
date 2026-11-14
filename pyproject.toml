@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "unitysvc-sellers"
-version = "0.3.21"
+version = "0.3.22"
 description = "Seller-facing tools for UnitySVC: HTTP SDK + `usvc seller` CLI"
 readme = "README.md"
 authors = [{ name = "Bo Peng", email = "bo.peng@unitysvc.com" }]
@@ -19,14 +19,14 @@ classifiers = [
 dependencies = [
   # External apps (no channel) and details.links (unitysvc#2873) are validated
   # by the shared core models.
-  "unitysvc-core>=0.3.5",
+  "unitysvc-core>=0.3.10",
   # Ships the `usvc` umbrella that mounts the usvc.commands entry point below,
   # so `usvc seller ...` works for anyone who installs this package. Adds no new
   # transitive dependencies — typer, rich, httpx, attrs and python-dateutil are
   # all already required here.
   # 0.2.6: unitysvc.chat and rooms.mark_active (usvc_seller rooms chat).
   "unitysvc-py>=0.2.6",
-  "unitysvc-data>=0.1.28",
+  "unitysvc-data>=0.2.15",
   "typer",
   "rich",
   "jinja2",

@@ -55,7 +55,7 @@ $ usvc seller specs [OPTIONS] COMMAND [ARGS]...
 * `populate`: Populate services by executing the repo&#x27;s...
 * `upload`: Upload service specs to UnitySVC.
 * `list-tests`: List available code examples without...
-* `run-tests`: Run code examples locally with upstream...
+* `run-tests`: Run connectivity tests and code examples...
 * `show-test`: Show test results for a service&#x27;s code...
 * `list`: List local data files
 
@@ -81,7 +81,7 @@ $ usvc seller specs show [OPTIONS] {service_name}
 
 **Arguments**:
 
-* `service_name`: Service name (first column of &#x27;usvc seller specs list services&#x27; output).  [required]
+* `service_name <str>`: Service name (first column of &#x27;usvc seller specs list services&#x27; output).  [required]
 
 **Options**:
 
@@ -118,7 +118,7 @@ $ usvc seller specs expand [OPTIONS] {name}
 
 **Arguments**:
 
-* `name`: Service name: a param file (specs/&lt;NAME&gt;.json) or a service folder (specs/&lt;NAME&gt;/).  [required]
+* `name <str>`: Service name: a param file (specs/&lt;NAME&gt;.json) or a service folder (specs/&lt;NAME&gt;/).  [required]
 
 **Options**:
 
@@ -151,7 +151,7 @@ $ usvc seller specs validate [OPTIONS] [specs_dir]
 
 **Arguments**:
 
-* `specs_dir`: Repo root or specs/ directory to validate (default: current directory)
+* `specs_dir <path>`: Repo root or specs/ directory to validate (default: current directory)
 
 **Options**:
 
@@ -176,7 +176,7 @@ $ usvc seller specs format [OPTIONS] [data_dir]
 
 **Arguments**:
 
-* `data_dir`: Directory containing data files to format (default: current directory)
+* `data_dir <path>`: Directory containing data files to format (default: current directory)
 
 **Options**:
 
@@ -204,7 +204,7 @@ $ usvc seller specs populate [OPTIONS] [data_dir]
 
 **Arguments**:
 
-* `data_dir`: Directory containing provider data files (default: current directory)
+* `data_dir <path>`: Directory containing provider data files (default: current directory)
 
 **Options**:
 
@@ -227,7 +227,7 @@ $ usvc seller specs upload [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Service to upload, by service_name (= listing.name) or services/specs path — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Omit to upload every service in the current directory.
+* `name <str>`: Service to upload, by service_name (= listing.name) or services/specs path — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Omit to upload every service in the current directory.
 
 **Options**:
 
@@ -266,7 +266,7 @@ $ usvc seller specs list-tests [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Service to list, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name. Omit to list every service in the current directory.
+* `name <str>`: Service to list, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name. Omit to list every service in the current directory.
 
 **Options**:
 
@@ -275,7 +275,12 @@ $ usvc seller specs list-tests [OPTIONS] [name]
 
 ### `usvc seller specs run-tests`
 
-Run code examples locally with upstream API credentials.
+Run connectivity tests and code examples locally before uploading them.
+
+The container_connectivity preset from unitysvc-data tests each container
+tier with Docker: pull the image, start normalized services, then check
+health. It is a regular connectivity_test document, uploaded unchanged for
+platform execution. Running it locally does not require backend credentials.
 
 This command:
 1. Scans for all listing files (schema: listing_v1)
@@ -319,14 +324,14 @@ $ usvc seller specs run-tests [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Service to test, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Omit to test every service in the current directory.
+* `name <str>`: Service to test, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Omit to test every service in the current directory.
 
 **Options**:
 
 * `-t, --test-file <str>`: Only run a specific test file by filename (e.g., &#x27;code-example.py.j2&#x27;)
 * `-v, --verbose`: Show detailed output including stdout/stderr from scripts
 * `-f, --force`: Force rerun all tests, ignoring existing .out and .err files
-* `-c, --category <str>`: Only run documents in this category; repeatable. Accepts the full name (connectivity_test) or an unambiguous prefix (connectivity). `--category connectivity` is the cheap pre-upload check for CI: those probes are curl/bash with no SDK requirements, and connectivity is the only category that gates `specs upload`.
+* `-c, --category <list[str]>`: Only run documents in this category; repeatable. Accepts the full name (connectivity_test) or an unambiguous prefix (connectivity). `--category connectivity` runs the required pre-upload probes. Container connectivity tests require local Docker. Connectivity is the only category that gates `specs upload`.
 * `-x, --fail-fast`: Stop testing on first failure
 * `--skip-links`: Skip the final check that every offering&#x27;s details.links URL answers
 * `--help`: Show this message and exit.
@@ -350,7 +355,7 @@ $ usvc seller specs show-test [OPTIONS] {service}
 
 **Arguments**:
 
-* `service`: Service name (service_name = listing.name) to show test results for  [required]
+* `service <str>`: Service name (service_name = listing.name) to show test results for  [required]
 
 **Options**:
 
@@ -393,7 +398,7 @@ $ usvc seller specs list services [OPTIONS] [data_dir]
 
 **Arguments**:
 
-* `data_dir`: Directory containing data files (default: current directory)
+* `data_dir <path>`: Directory containing data files (default: current directory)
 
 **Options**:
 
@@ -411,7 +416,7 @@ $ usvc seller specs list providers [OPTIONS] [data_dir]
 
 **Arguments**:
 
-* `data_dir`: Directory containing provider files (default: current directory)
+* `data_dir <path>`: Directory containing provider files (default: current directory)
 
 **Options**:
 
@@ -429,7 +434,7 @@ $ usvc seller specs list sellers [OPTIONS] [data_dir]
 
 **Arguments**:
 
-* `data_dir`: Directory containing seller files (default: current directory)
+* `data_dir <path>`: Directory containing seller files (default: current directory)
 
 **Options**:
 
@@ -447,7 +452,7 @@ $ usvc seller specs list offerings [OPTIONS] [data_dir]
 
 **Arguments**:
 
-* `data_dir`: Directory containing service files (default: current directory)
+* `data_dir <path>`: Directory containing service files (default: current directory)
 
 **Options**:
 
@@ -465,7 +470,7 @@ $ usvc seller specs list listings [OPTIONS] [data_dir]
 
 **Arguments**:
 
-* `data_dir`: Directory containing listing files (default: current directory)
+* `data_dir <path>`: Directory containing listing files (default: current directory)
 
 **Options**:
 
@@ -529,7 +534,7 @@ $ usvc seller services list [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Optional name filter — search by name, display_name, or provider name (case-insensitive partial match against ``service.name`` on the backend).  Omit to list every service the seller owns.
+* `name <str>`: Optional name filter — search by name, display_name, or provider name (case-insensitive partial match against ``service.name`` on the backend).  Omit to list every service the seller owns.
 
 **Options**:
 
@@ -543,7 +548,7 @@ $ usvc seller services list [OPTIONS] [name]
 * `--sort <str>`: Sort by a column: &#x27;-updated&#x27; (latest first), &#x27;+updated&#x27; (oldest first), also &#x27;name&#x27;, &#x27;status&#x27;, &#x27;created&#x27;. Sorts the seller&#x27;s WHOLE catalog — it follows cursors like --all, since sorting one page would order an arbitrary slice. Replaces the default original-then-revision grouping.
 * `-f, --format <str>`: Output format: table | json.  [default: table]
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
-* `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
+* `--data-dir <dir>`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
@@ -560,7 +565,7 @@ $ usvc seller services show [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Service to show, by service_name (= listing.name) — literal name or single-match fnmatch.  If multiple rows match (e.g. an active service plus its pending revision), the command errors and asks for --id.
+* `name <str>`: Service to show, by service_name (= listing.name) — literal name or single-match fnmatch.  If multiple rows match (e.g. an active service plus its pending revision), the command errors and asks for --id.
 
 **Options**:
 
@@ -587,14 +592,14 @@ $ usvc seller services submit [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
+* `name <str>`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
 
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `--all`: Submit all draft, rejected, and suspended services.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
-* `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
+* `--data-dir <dir>`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider <str>`: Filter by provider when --all or --local-ids is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -619,14 +624,14 @@ $ usvc seller services enable-testing [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
+* `name <str>`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
 
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `--all`: Enable testing for all draft, rejected, and suspended services.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
-* `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
+* `--data-dir <dir>`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider <str>`: Filter by provider when --all or --local-ids is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -645,14 +650,14 @@ $ usvc seller services withdraw [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
+* `name <str>`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
 
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `--all`: Withdraw all pending and rejected services.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
-* `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
+* `--data-dir <dir>`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider <str>`: Filter by provider when --all or --local-ids is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -671,14 +676,14 @@ $ usvc seller services deprecate [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
+* `name <str>`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
 
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `--all`: Deprecate all active services.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
-* `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
+* `--data-dir <dir>`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider <str>`: Filter by provider when --all or --local-ids is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -714,15 +719,15 @@ $ usvc seller services set-visibility [OPTIONS] {VISIBILITY} [name]
 
 **Arguments**:
 
-* `VISIBILITY`: Target visibility: one of public, unlisted.  [required]
-* `name`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
+* `VISIBILITY <str>`: Target visibility: one of public, unlisted.  [required]
+* `name <str>`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
 
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `--all`: Apply to every non-deprecated service (draft, pending, review, active, rejected, suspended) not already at the target visibility.  Status is irrelevant — visibility is a flag that persists through the lifecycle and only takes effect on ``active``.
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
-* `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
+* `--data-dir <dir>`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--provider <str>`: Filter by provider when --all or --local-ids is set.
 * `-y, --yes`: Skip confirmation prompt.
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -751,14 +756,14 @@ $ usvc seller services delete [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
+* `name <str>`: Target services by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; for a whole provider or a literal name.  Mutually exclusive with --id, --all, --local-ids.
 
 **Options**:
 
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `--all`: Delete all deletable services (draft, pending, review, rejected).
 * `-l, --local-ids`: Restrict to services whose IDs are recorded in listing_v1 files under --data-dir.
-* `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
+* `--data-dir <dir>`: Data directory for --local-ids (default: current directory).  [default: .]
 * `--status <str>`: Restrict --all to a single deletable status.
 * `--provider <str>`: Filter by provider when --all or --local-ids is set.
 * `--dryrun`: Show what would be deleted without doing it.
@@ -784,17 +789,17 @@ $ usvc seller services update [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Service to update, by service_name (= listing.name) — literal name or single-match fnmatch.  If multiple rows match (e.g. an active service plus its pending revision), the command errors and asks for --id.
+* `name <str>`: Service to update, by service_name (= listing.name) — literal name or single-match fnmatch.  If multiple rows match (e.g. an active service plus its pending revision), the command errors and asks for --id.
 
 **Options**:
 
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows and you need to pin one specific row.  Mutually exclusive with the positional NAME, --all, --local-ids.
 * `-v, --visibility <str>`: Set catalog visibility: public or unlisted.
-* `--set-routing-var <str>`: Set routing var(s): key=value or JSON object &#x27;{...}&#x27; (repeatable).
-* `--remove-routing-var <str>`: Remove a routing var by key or dotted path (repeatable).
+* `--set-routing-var <list[str]>`: Set routing var(s): key=value or JSON object &#x27;{...}&#x27; (repeatable).
+* `--remove-routing-var <list[str]>`: Remove a routing var by key or dotted path (repeatable).
 * `--load-routing-vars <str>`: Replace all routing vars from a JSON file.
-* `--set-price <str>`: Set list_price: key=value, JSON &#x27;{...}&#x27;, or plain number for constant pricing (repeatable).
-* `--remove-price-field <str>`: Remove a list_price field by key or dotted path (repeatable).
+* `--set-price <list[str]>`: Set list_price: key=value, JSON &#x27;{...}&#x27;, or plain number for constant pricing (repeatable).
+* `--remove-price-field <list[str]>`: Remove a list_price field by key or dotted path (repeatable).
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.
@@ -811,7 +816,7 @@ $ usvc seller services list-tests [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Service to list tests for, by service_name (= listing.name) — literal name or single-match fnmatch.  If multiple rows match, the command errors and asks for --id.  Omit to list tests across every service.
+* `name <str>`: Service to list tests for, by service_name (= listing.name) — literal name or single-match fnmatch.  If multiple rows match, the command errors and asks for --id.  Omit to list tests across every service.
 
 **Options**:
 
@@ -836,12 +841,12 @@ call regardless of how many services the seller owns.
 **Usage**:
 
 ```console
-$ usvc seller services show-test [OPTIONS] [DOCUMENT_ID]
+$ usvc seller services show-test [OPTIONS] [[DOCUMENT_ID]]
 ```
 
 **Arguments**:
 
-* `[DOCUMENT_ID]`: Document ID (full or partial, ≥8 chars). Optional if --document-id/--doc-id is passed.
+* `[DOCUMENT_ID] <str>`: Document ID (full or partial, ≥8 chars). Optional if --document-id/--doc-id is passed.
 
 **Options**:
 
@@ -870,7 +875,7 @@ $ usvc seller services show-test-results [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Service by service_name (= listing.name). Errors on multiple matches — use --id.
+* `name <str>`: Service by service_name (= listing.name). Errors on multiple matches — use --id.
 
 **Options**:
 
@@ -894,7 +899,7 @@ $ usvc seller services show-platform-tests [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Platform member by service_name.
+* `name <str>`: Platform member by service_name.
 
 **Options**:
 
@@ -939,13 +944,13 @@ $ usvc seller services run-tests [OPTIONS] [name]
 
 **Arguments**:
 
-* `name`: Service(s) to test, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Matching multiple services runs the diagnostic once per match in sequence. Mutually exclusive with ``--id``.
+* `name <str>`: Service(s) to test, by service_name (= listing.name) — fnmatch pattern, e.g. &#x27;cohere/*&#x27; or a literal name. Matching multiple services runs the diagnostic once per match in sequence. Mutually exclusive with ``--id``.
 
 **Options**:
 
 * `--id <str>`: Service ID (full or partial, ≥8 chars).  Use this when a name matches multiple rows (e.g. an active service plus its pending revision) and you need to pin one specific row.
 * `-l, --local-ids`: Run tests for every service whose backend id is recorded in a service.json under --data-dir (the local specs/ catalog). Mutually exclusive with NAME and --id.
-* `--data-dir <directory>`: Data directory for --local-ids (default: current directory).  [default: .]
+* `--data-dir <dir>`: Data directory for --local-ids (default: current directory).  [default: .]
 * `-d, --document-id <str>`: Run a single document instead of every executable doc on the service. Accepts a full UUID or an 8+ character prefix (resolved like show-test).
 * `-t, --test-file <str>`: Run only the document whose filename matches (e.g. &#x27;code-example.py.j2&#x27;), resolved per service. Mirrors `specs run-tests --test-file`. Mutually exclusive with --document-id.
 * `--category <str>`: Run only documents of this category (&#x27;connectivity_test&#x27; or &#x27;code_example&#x27;) across every matched service — no need to look up a document id first. Composable across services (unlike --document-id, which is a single global id); mutually exclusive with --document-id and --test-file.
@@ -969,7 +974,7 @@ $ usvc seller services skip-test [OPTIONS] {document_id}
 
 **Arguments**:
 
-* `document_id`: Document ID (full UUID).  [required]
+* `document_id <str>`: Document ID (full UUID).  [required]
 
 **Options**:
 
@@ -989,7 +994,7 @@ $ usvc seller services unskip-test [OPTIONS] {document_id}
 
 **Arguments**:
 
-* `document_id`: Document ID (full UUID).  [required]
+* `document_id <str>`: Document ID (full UUID).  [required]
 
 **Options**:
 
@@ -1049,7 +1054,7 @@ $ usvc seller promotions show [OPTIONS] {name_or_id}
 
 **Arguments**:
 
-* `name_or_id`: Promotion name or partial UUID.  [required]
+* `name_or_id <str>`: Promotion name or partial UUID.  [required]
 
 **Options**:
 
@@ -1070,7 +1075,7 @@ $ usvc seller promotions activate [OPTIONS] {name_or_id}
 
 **Arguments**:
 
-* `name_or_id`: Promotion name or partial UUID.  [required]
+* `name_or_id <str>`: Promotion name or partial UUID.  [required]
 
 **Options**:
 
@@ -1090,7 +1095,7 @@ $ usvc seller promotions pause [OPTIONS] {name_or_id}
 
 **Arguments**:
 
-* `name_or_id`: Promotion name or partial UUID.  [required]
+* `name_or_id <str>`: Promotion name or partial UUID.  [required]
 
 **Options**:
 
@@ -1110,7 +1115,7 @@ $ usvc seller promotions delete [OPTIONS] {name_or_id}
 
 **Arguments**:
 
-* `name_or_id`: Promotion name or partial UUID.  [required]
+* `name_or_id <str>`: Promotion name or partial UUID.  [required]
 
 **Options**:
 
@@ -1186,7 +1191,7 @@ $ usvc seller groups show [OPTIONS] {name_or_id}
 
 **Arguments**:
 
-* `name_or_id`: Group name or partial UUID.  [required]
+* `name_or_id <str>`: Group name or partial UUID.  [required]
 
 **Options**:
 
@@ -1207,7 +1212,7 @@ $ usvc seller groups delete [OPTIONS] {name_or_id}
 
 **Arguments**:
 
-* `name_or_id`: Group name or partial UUID.  [required]
+* `name_or_id <str>`: Group name or partial UUID.  [required]
 
 **Options**:
 
@@ -1293,7 +1298,7 @@ $ usvc seller rooms show [OPTIONS] {room}
 
 **Arguments**:
 
-* `room`: Room id or handle.  [required]
+* `room <str>`: Room id or handle.  [required]
 
 **Options**:
 
@@ -1316,12 +1321,12 @@ $ usvc seller rooms post [OPTIONS] {room} [text]
 
 **Arguments**:
 
-* `room`: Room id or handle.  [required]
-* `text`: Message body (optional with --attach).
+* `room <str>`: Room id or handle.  [required]
+* `text <str>`: Message body (optional with --attach).
 
 **Options**:
 
-* `-a, --attach <str>`: A file to attach (stored 7 days) or an http(s) URL. Repeatable.
+* `-a, --attach <list[str]>`: A file to attach (stored 7 days) or an http(s) URL. Repeatable.
 * `--title <str>`: Optional title.
 * `--id <str>`: Idempotency key: retrying with the same key posts once.
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
@@ -1340,7 +1345,7 @@ $ usvc seller rooms members [OPTIONS] {room}
 
 **Arguments**:
 
-* `room`: Room id or handle.  [required]
+* `room <str>`: Room id or handle.  [required]
 
 **Options**:
 
@@ -1361,7 +1366,7 @@ $ usvc seller rooms set [OPTIONS] {room}
 
 **Arguments**:
 
-* `room`: Room id or handle.  [required]
+* `room <str>`: Room id or handle.  [required]
 
 **Options**:
 
@@ -1385,7 +1390,7 @@ $ usvc seller rooms delivery [OPTIONS] {room}
 
 **Arguments**:
 
-* `room`: Room id or handle.  [required]
+* `room <str>`: Room id or handle.  [required]
 
 **Options**:
 
@@ -1407,7 +1412,7 @@ $ usvc seller rooms invite [OPTIONS] {room}
 
 **Arguments**:
 
-* `room`: Room id or handle.  [required]
+* `room <str>`: Room id or handle.  [required]
 
 **Options**:
 
@@ -1431,7 +1436,7 @@ $ usvc seller rooms invitations [OPTIONS] {room}
 
 **Arguments**:
 
-* `room`: Room id or handle.  [required]
+* `room <str>`: Room id or handle.  [required]
 
 **Options**:
 
@@ -1452,8 +1457,8 @@ $ usvc seller rooms revoke [OPTIONS] {room} {code_id}
 
 **Arguments**:
 
-* `room`: Room id or handle.  [required]
-* `code_id`: Invitation code id (from invitations).  [required]
+* `room <str>`: Room id or handle.  [required]
+* `code_id <str>`: Invitation code id (from invitations).  [required]
 
 **Options**:
 
@@ -1473,7 +1478,7 @@ $ usvc seller rooms join [OPTIONS] {code}
 
 **Arguments**:
 
-* `code`: Invitation code.  [required]
+* `code <str>`: Invitation code.  [required]
 
 **Options**:
 
@@ -1493,7 +1498,7 @@ $ usvc seller rooms leave [OPTIONS] {room}
 
 **Arguments**:
 
-* `room`: Room id or handle.  [required]
+* `room <str>`: Room id or handle.  [required]
 
 **Options**:
 
@@ -1517,7 +1522,7 @@ $ usvc seller rooms chat [OPTIONS] [room]
 
 **Arguments**:
 
-* `room`: Room id, @handle or name prefix; default: most recently active.
+* `room <str>`: Room id, @handle or name prefix; default: most recently active.
 
 **Options**:
 
@@ -1579,7 +1584,7 @@ $ usvc seller secrets show [OPTIONS] {name}
 
 **Arguments**:
 
-* `name`: Secret name (e.g. OPENAI_API_KEY).  [required]
+* `name <str>`: Secret name (e.g. OPENAI_API_KEY).  [required]
 
 **Options**:
 
@@ -1616,7 +1621,7 @@ $ usvc seller secrets set [OPTIONS] {name}
 
 **Arguments**:
 
-* `name`: Secret name (uppercase + underscores, e.g. OPENAI_API_KEY).  [required]
+* `name <str>`: Secret name (uppercase + underscores, e.g. OPENAI_API_KEY).  [required]
 
 **Options**:
 
@@ -1678,7 +1683,7 @@ $ usvc seller secrets upload [OPTIONS] [file]
 
 **Arguments**:
 
-* `file`: Secrets file to read (&#x27;export NAME=value&#x27; lines), or &#x27;-&#x27; for stdin. Omit when piping input in.
+* `file <str>`: Secrets file to read (&#x27;export NAME=value&#x27; lines), or &#x27;-&#x27; for stdin. Omit when piping input in.
 
 **Options**:
 
@@ -1700,7 +1705,7 @@ $ usvc seller secrets delete [OPTIONS] {name}
 
 **Arguments**:
 
-* `name`: Secret name (e.g. OPENAI_API_KEY).  [required]
+* `name <str>`: Secret name (e.g. OPENAI_API_KEY).  [required]
 
 **Options**:
 
@@ -1757,7 +1762,7 @@ $ usvc seller templates show [OPTIONS] {name_or_id}
 
 **Arguments**:
 
-* `name_or_id`: Template name or partial UUID.  [required]
+* `name_or_id <str>`: Template name or partial UUID.  [required]
 
 **Options**:
 

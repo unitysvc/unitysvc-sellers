@@ -39,6 +39,14 @@ from .utils import (
 app = typer.Typer(help="List and run code examples locally with upstream credentials")
 console = Console()
 
+
+def _is_container_connectivity(example: dict[str, Any]) -> bool:
+    return (
+        example.get("category") == "connectivity_test"
+        and (example.get("upstream_channel") or {}).get("access_method") == "container"
+    )
+
+
 _jinja_env = jinja2.Environment()
 
 # Crockford base32 alphabet (no I/L/O/U) — matches the real enrollment code.
@@ -171,6 +179,8 @@ def extract_code_examples_from_listing(listing_data: dict[str, Any], listing_fil
                     "channels": meta.get("channels"),  # Upstream channels this doc applies to (None/[] = all)
                     "interfaces": allowed_ifaces,  # Access interfaces this doc applies to (None/[] = all)
                     "sleep_after_test": meta.get("sleep_after_test"),  # secs to pause after running (rate-limit guard)
+                    "container_timeout_seconds": meta.get("container_timeout_seconds", 120),
+                    "test_runtime": meta.get("runtime"),
                 }
                 code_examples.append(code_example)
 
@@ -309,6 +319,8 @@ def discover_code_examples(
             if upstream_channels:
                 allowed_channels = example.get("channels")
                 for iface_name, iface_data in upstream_channels.items():
+                    if example.get("test_runtime") == "docker" and iface_data.get("access_method") != "container":
+                        continue
                     # Per-channel docs: skip a channel the document does not
                     # apply to, so a multi-channel service only runs each test
                     # against its relevant channels (unitysvc#1321).
@@ -651,12 +663,28 @@ def execute_code_example(code_example: dict[str, Any], credentials: dict[str, An
         # can persist it for reproduction (see failure-dump code).
         result["env_vars"] = env_vars
 
+        execution_timeout = 30
+        if _is_container_connectivity(code_example):
+            from unitysvc_core.containers import container_manifest_for_channel
+
+            seconds = code_example.get("container_timeout_seconds", 120)
+            if isinstance(seconds, bool) or not isinstance(seconds, int) or not 1 <= seconds <= 600:
+                raise ValueError("container_timeout_seconds must be an integer from 1 to 600")
+            if not listing_file:
+                raise ValueError("container tests need a local listing/offering directory")
+            manifest = container_manifest_for_channel(
+                offering_data, code_example["upstream_channel_name"], Path(listing_file).parent
+            )
+            env_vars["USVC_CONTAINER_MANIFEST_JSON"] = json.dumps(manifest.runtime_dict())
+            env_vars["USVC_CONTAINER_TIMEOUT_SECONDS"] = str(seconds)
+            execution_timeout = seconds + 45  # bounded Docker cleanup, before the parent kills the script
+
         # Execute script using shared utility
         exec_result = execute_script_content(
             script=file_content,
             mime_type=mime_type,
             env_vars=env_vars,
-            timeout=30,
+            timeout=execution_timeout,
         )
 
         # Map shared result to SDK result format
@@ -1083,9 +1111,9 @@ def run_local(
         help=(
             "Only run documents in this category; repeatable. Accepts the full name "
             "(connectivity_test) or an unambiguous prefix (connectivity). "
-            "`--category connectivity` is the cheap pre-upload check for CI: those "
-            "probes are curl/bash with no SDK requirements, and connectivity is the "
-            "only category that gates `specs upload`."
+            "`--category connectivity` runs the required pre-upload probes. Container "
+            "connectivity tests require local Docker. Connectivity is the only category "
+            "that gates `specs upload`."
         ),
     ),
     fail_fast: bool = typer.Option(
@@ -1100,7 +1128,12 @@ def run_local(
         help="Skip the final check that every offering's details.links URL answers",
     ),
 ):
-    """Run code examples locally with upstream API credentials.
+    """Run connectivity tests and code examples locally before uploading them.
+
+    The container_connectivity preset from unitysvc-data tests each container
+    tier with Docker: pull the image, start normalized services, then check
+    health. It is a regular connectivity_test document, uploaded unchanged for
+    platform execution. Running it locally does not require backend credentials.
 
     This command:
     1. Scans for all listing files (schema: listing_v1)
@@ -1174,6 +1207,11 @@ def run_local(
     warned_listings: set[str] = set()
 
     for example, prov_name in discovered:
+        if _is_container_connectivity(example):
+            # The container connectivity test compiles its core manifest;
+            # there is no pre-existing upstream URL or backend credential.
+            all_code_examples.append((example, prov_name, {}))
+            continue
         # Render enrollment_vars first, resolve secret refs, then use as context
         listing_so = example.get("listing_data", {}).get("service_options", {}) or {}
         rendered_vars = expand_template_strings(listing_so.get("enrollment_vars", {}) or {})
@@ -1282,6 +1320,7 @@ def run_local(
         # Check if test previously passed (skip if not forcing)
         if (
             not force
+            and not _is_container_connectivity(example)
             and example_listing_file
             and has_passing_output_files(code_example_path, Path(example_listing_file))
         ):
