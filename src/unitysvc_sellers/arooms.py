@@ -67,6 +67,7 @@ class AsyncRooms:
             await seller_rooms_list_rooms.asyncio_detailed(
                 client=self._client,
                 kind=UNSET if kind is None else kind,
+                include_closed=UNSET,
                 enrollment=_id(enrollment),
                 service=_id(service),
                 q=UNSET if q is None else q,
@@ -176,20 +177,27 @@ class AsyncRooms:
         return unwrap(await seller_rooms_list_room_members.asyncio_detailed(target, client=self._client))
 
     async def delivery(self, target: str) -> RoomDelivery:
-        """Read this account's notify/email delivery paths and whether they can be edited."""
+        """Read this account's named delivery connectors and edit permission."""
         from ._generated.api.seller_rooms import seller_rooms_get_room_delivery
 
         return unwrap(await seller_rooms_get_room_delivery.asyncio_detailed(target, client=self._client))
 
     async def set_delivery(self, target: str, *, notify: str | None = None, email: str | None = None) -> RoomDelivery:
-        """Set notify/email to auto, off or a delivery path. Omitted channels stay unchanged."""
-        from ._generated.api.seller_rooms import seller_rooms_update_room_delivery
-        from ._generated.models.room_delivery_update import RoomDeliveryUpdate
+        """Update the main connector. Omitted channels stay unchanged.
 
-        settings = {name: value for name, value in {"notify": notify, "email": email}.items() if value is not None}
+        ``off`` clears a channel; ``auto`` selects its Me service.
+        """
+        from ._generated.api.seller_rooms import seller_rooms_update_room_connector
+        from ._generated.models.room_connector_update import RoomConnectorUpdate
+
+        settings = {
+            name: None if value == "off" else name if value == "auto" else value
+            for name, value in {"notify": notify, "email": email}.items()
+            if value is not None
+        }
         return unwrap(
-            await seller_rooms_update_room_delivery.asyncio_detailed(
-                target, client=self._client, body=RoomDeliveryUpdate.from_dict(settings)
+            await seller_rooms_update_room_connector.asyncio_detailed(
+                target, "main", client=self._client, body=RoomConnectorUpdate.from_dict(settings)
             )
         )
 

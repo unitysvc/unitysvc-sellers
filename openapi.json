@@ -2127,10 +2127,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Only rooms of this enrollment",
+              "description": "Only rooms of this enrollment: its own, and those it admits the account to",
               "title": "Enrollment"
             },
-            "description": "Only rooms of this enrollment"
+            "description": "Only rooms of this enrollment: its own, and those it admits the account to"
           },
           {
             "name": "service",
@@ -2175,11 +2175,23 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Only rooms with conversation activity the account hasn't seen",
+              "description": "Only rooms with conversation activity the calling user has not acknowledged",
               "default": false,
               "title": "New Activity"
             },
-            "description": "Only rooms with conversation activity the account hasn't seen"
+            "description": "Only rooms with conversation activity the calling user has not acknowledged"
+          },
+          {
+            "name": "include_closed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Also list rooms the account is still a member of but can't reach now (a paused or cancelled enrollment, an inactive service), with closed_reason set",
+              "default": false,
+              "title": "Include Closed"
+            },
+            "description": "Also list rooms the account is still a member of but can't reach now (a paused or cancelled enrollment, an inactive service), with closed_reason set"
           },
           {
             "name": "limit",
@@ -2276,6 +2288,147 @@
         }
       }
     },
+    "/rooms/commands": {
+      "get": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "List Room Commands",
+        "description": "Every room command the platform knows (#2904), with its grammar;\n``GET /rooms/{target}/commands`` says which this caller may send\nin one room now.",
+        "operationId": "seller-rooms-list_room_commands",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomCommandList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/commands": {
+      "get": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "List Room Commands Here",
+        "description": "The commands this caller may send in the room right now, and for\neach unavailable one, why (#2904 \u00a77). The same evaluation ``!help``\nprints and the post handler gates on.",
+        "operationId": "seller-rooms-list_room_commands_here",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomCommandAvailability"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rooms/join": {
       "post": {
         "tags": [
@@ -2335,6 +2488,293 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RoomSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/live/accepting": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Accept Live Requests",
+        "description": "Accept live requests for this account, from this client, until\nthe lease lapses or is stopped (#2926); ``mode=draining`` finishes the\nqueue instead, taking no new requests. Only an explicit call (or a\nCLI long-poll loop started with ``--mark-accepting-requests``)\naccepts; reading and posting never do.",
+        "operationId": "seller-rooms-accept_live_requests",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveAccepting"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveLease"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/live/accepting/stop": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Stop Accepting Live Requests",
+        "description": "Stop accepting from one client, or from every client.",
+        "operationId": "seller-rooms-stop_accepting_live_requests",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveStop"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/live/waiting": {
+      "get": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "List Live Waiting",
+        "description": "The rooms whose live request waits for this account, oldest\nfirst, among rooms it can act in (#2926).",
+        "operationId": "seller-rooms-list_live_waiting",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveWaiting"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/work/next": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Next Room",
+        "description": "Complete ``current`` (through the offset its client displayed, if\nthe caller still holds its claim) and claim the room that has waited\nlongest for this account (#2929). ``room_id`` is null when nothing\nis waiting. Rooms another worker holds, and rooms the caller left\nwith Return later in the last few minutes, are skipped.",
+        "operationId": "seller-rooms-next_room",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomNextRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomWorkClaim"
                 }
               }
             }
@@ -2680,7 +3120,7 @@
           "seller-rooms"
         ],
         "summary": "Get Room Delivery",
-        "description": "How this room reaches your account: its notify and email settings.",
+        "description": "How this room reaches your account: its connectors, each with its\ninbound URL for an editor's session (unitysvc#2918).",
         "operationId": "seller-rooms-get_room_delivery",
         "parameters": [
           {
@@ -2747,14 +3187,16 @@
             }
           }
         }
-      },
-      "patch": {
+      }
+    },
+    "/rooms/{target}/connectors": {
+      "post": {
         "tags": [
           "seller-rooms"
         ],
-        "summary": "Update Room Delivery",
-        "description": "Change how this room reaches your account: ``auto``, ``off`` or a\npath for notify and email. A path is checked like the account's room\ndefaults.",
-        "operationId": "seller-rooms-update_room_delivery",
+        "summary": "Add Room Connector",
+        "description": "Add a named connector (#2896) at the end, at most five per room.",
+        "operationId": "seller-rooms-add_room_connector",
         "parameters": [
           {
             "name": "target",
@@ -2803,11 +3245,187 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RoomDeliveryUpdate"
+                "$ref": "#/components/schemas/RoomConnectorCreate"
               }
             }
           }
         },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomDelivery"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/connectors/{name}": {
+      "patch": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Update Room Connector",
+        "description": "Change one connector's notify, email or inbound service (``post``,\nnull to clear); other connectors are kept.",
+        "operationId": "seller-rooms-update_room_connector",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomConnectorUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomDelivery"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Delete Room Connector",
+        "description": "Remove a connector: its reply address and any URL naming it stop\nrouting.",
+        "operationId": "seller-rooms-delete_room_connector",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3576,6 +4194,577 @@
         }
       }
     },
+    "/rooms/{target}/live": {
+      "get": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Get Room Live Status",
+        "description": "For each other member of the room: whether its party is accepting\nrequests, and the room's live request to it (#2926).",
+        "operationId": "seller-rooms-get_room_live_status",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomLiveStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/live/request": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Request Live Help",
+        "description": "Ask another member of the room for live help, or renew that ask\n(#2926). The request lives while any of its requesters keeps renewing;\nit may start while nobody is accepting (``available`` says so), but\nnot while the party is only finishing its queue (``draining``: 409),\nthough joining a request already waiting still works. 409 when\n``generation`` was resolved: ask again without it.",
+        "operationId": "seller-rooms-request_live_help",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveRequestStart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveRequestLease"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/live/request/cancel": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Cancel Live Help",
+        "description": "End the caller's own part of the request; other requesters keep\ntheirs, and the request ends with the last one.",
+        "operationId": "seller-rooms-cancel_live_help",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveRequestCancel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/live/resolve": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Resolve Live Help",
+        "description": "Resolve the room's live request to this account, for every\nrequester (#2926); with ``generation``, only that request.",
+        "operationId": "seller-rooms-resolve_live_help",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveResolve"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/work/claim": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Renew Room Claim",
+        "description": "Keep holding the room while it is open (#2929). 409 when the claim\nhas lapsed: someone else may have the room now.",
+        "operationId": "seller-rooms-renew_room_claim",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomClaimRenew"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomWorkClaim"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/work/return-later": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Return To Room Later",
+        "description": "Step away without completing the room (#2929): it keeps waiting\nfor this account with its place, the caller's claim is released, and\nthe caller's next Next skips it for a few minutes.",
+        "operationId": "seller-rooms-return_to_room_later",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomReturnLater"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomAttention"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{target}/attention/done": {
+      "post": {
+        "tags": [
+          "seller-rooms"
+        ],
+        "summary": "Complete Room Attention",
+        "description": "Complete the room for this account through ``offset`` (#2929). A\nmention newer than it keeps the room waiting.",
+        "operationId": "seller-rooms-complete_room_attention",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-role-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomAttentionDone"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomAttention"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rooms/{target}/follow-up": {
       "patch": {
         "tags": [
@@ -3667,7 +4856,7 @@
           "seller-rooms"
         ],
         "summary": "Mark Room Active",
-        "description": "Record that the account has seen the room through ``offset``, and\nmark the caller's bell notice for it read (#2877). Call it when a\nperson opens the room and when they stop viewing it; reading history\n(``GET /{target}``) records nothing.",
+        "description": "Record the calling person's read-through position at ``offset``, and\nmark the caller's bell notice for it read (#2877). Call it when a\nperson opens the room and when they stop viewing it; reading history\n(``GET /{target}``) records nothing.",
         "operationId": "seller-rooms-mark_room_active",
         "parameters": [
           {
@@ -7323,6 +8512,7 @@
           "code_example",
           "code_example_output",
           "connectivity_test",
+          "instance_spec",
           "request_template",
           "use_case",
           "troubleshooting",
@@ -7745,6 +8935,350 @@
         ],
         "title": "ListingStatusEnum",
         "description": "Status values that sellers can set for listings.\n\nSeller-accessible statuses:\n- draft: Work in progress, skipped during publish (won't be sent to backend)\n- ready: Complete and ready for admin review/testing\n- deprecated: Retired/end of life, no longer offered\n\nNote: Admin-managed workflow statuses (upstream_ready, downstream_ready, in_service)\nare set by the backend admin after testing and validation. These are not included in this\nenum since sellers cannot set them through the CLI tool."
+      },
+      "LiveAccepting": {
+        "properties": {
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id",
+            "description": "Renew this client's lease; omit to start one"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "accepting",
+              "draining"
+            ],
+            "title": "Mode",
+            "description": "``accepting`` takes new live requests; ``draining`` (finishing the queue) takes none but keeps serving the ones waiting. Renewing in the other mode switches this client's lease.",
+            "default": "accepting"
+          }
+        },
+        "type": "object",
+        "title": "LiveAccepting"
+      },
+      "LiveLease": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "default": 60
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id"
+        ],
+        "title": "LiveLease",
+        "description": "A live status lease (#2926): renew it with the same ``client_id``\nbefore ``expires_in`` seconds pass, or it ends on its own."
+      },
+      "LivePartyStatus": {
+        "properties": {
+          "member_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Member Id"
+          },
+          "account_type": {
+            "type": "string",
+            "title": "Account Type"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "description": "Whether ``state`` is ``accepting``"
+          },
+          "state": {
+            "$ref": "#/components/schemas/LiveStateEnum",
+            "description": "``accepting`` takes new live requests; ``draining`` takes none but still serves the request already waiting; ``off`` neither (a request may still be left for later)"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiveRequestView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "member_id",
+          "account_type",
+          "available",
+          "state"
+        ],
+        "title": "LivePartyStatus",
+        "description": "One other member of the room: whether its party is accepting requests,\nand the room's live request to it. Never who is accepting."
+      },
+      "LiveRequestCancel": {
+        "properties": {
+          "target_member_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Member Id"
+          },
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_member_id",
+          "client_id"
+        ],
+        "title": "LiveRequestCancel"
+      },
+      "LiveRequestLease": {
+        "properties": {
+          "target_member_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Member Id"
+          },
+          "generation": {
+            "type": "string",
+            "title": "Generation"
+          },
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "first_requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Requested At"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "default": 60
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "description": "Whether the target party has someone accepting requests now"
+          },
+          "state": {
+            "$ref": "#/components/schemas/LiveStateEnum",
+            "description": "The target party's live state: ``accepting``, ``draining`` (finishing its queue, which this request is in) or ``off``"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_member_id",
+          "generation",
+          "client_id",
+          "first_requested_at",
+          "available",
+          "state"
+        ],
+        "title": "LiveRequestLease"
+      },
+      "LiveRequestStart": {
+        "properties": {
+          "target_member_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Member Id",
+            "description": "The member of the room the request asks for help from"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id",
+            "description": "Renew this client's lease; omit to start one"
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generation",
+            "description": "The request being renewed; omit to join or start the current one. A resolved generation is refused with 409."
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_member_id"
+        ],
+        "title": "LiveRequestStart"
+      },
+      "LiveRequestView": {
+        "properties": {
+          "generation": {
+            "type": "string",
+            "title": "Generation"
+          },
+          "first_requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Requested At"
+          },
+          "requesters": {
+            "type": "integer",
+            "title": "Requesters",
+            "description": "How many people are waiting in it"
+          },
+          "mine": {
+            "type": "boolean",
+            "title": "Mine",
+            "description": "Whether the caller is one of them"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position",
+            "description": "Your request's place in the supporting party's waiting line, 1 for next; only on your own request (``mine``)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generation",
+          "first_requested_at",
+          "requesters",
+          "mine"
+        ],
+        "title": "LiveRequestView"
+      },
+      "LiveResolve": {
+        "properties": {
+          "generation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generation",
+            "description": "Resolve only this request, never a newer one"
+          }
+        },
+        "type": "object",
+        "title": "LiveResolve"
+      },
+      "LiveStateEnum": {
+        "type": "string",
+        "enum": [
+          "accepting",
+          "draining",
+          "off"
+        ],
+        "title": "LiveStateEnum",
+        "description": "A party's live help state (#2926), from its people's leases.\n\n- accepting: someone takes new live requests\n- draining: nobody takes new ones, but someone still serves the\n  requests already waiting (\"finishing queue\")\n- off: neither"
+      },
+      "LiveStop": {
+        "properties": {
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id",
+            "description": "End this client's lease; omit for every client"
+          }
+        },
+        "type": "object",
+        "title": "LiveStop"
+      },
+      "LiveWaiting": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/LiveWaitingRoom"
+            },
+            "type": "array",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "LiveWaiting",
+        "description": "Rooms whose live request waits for the caller's party, oldest first."
+      },
+      "LiveWaitingRoom": {
+        "properties": {
+          "room_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Room Id"
+          },
+          "handle": {
+            "type": "string",
+            "title": "Handle"
+          },
+          "generation": {
+            "type": "string",
+            "title": "Generation"
+          },
+          "first_requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Requested At"
+          },
+          "requesters": {
+            "type": "integer",
+            "title": "Requesters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "room_id",
+          "handle",
+          "generation",
+          "first_requested_at",
+          "requesters"
+        ],
+        "title": "LiveWaitingRoom"
       },
       "Message": {
         "properties": {
@@ -8214,15 +9748,452 @@
         "title": "RoomActiveResponse",
         "description": "What was recorded. ``capped``: ``offset`` was past the room's latest\nconversation message as recorded so far, so less was stored. Recording\nlags delivery briefly, so retry once a few seconds later. A room with no\nconversation message yet always reports ``capped`` (it may be lag), and a\nretry that is capped again means there is nothing more to record."
       },
-      "RoomDelivery": {
+      "RoomAttention": {
+        "properties": {
+          "attention_pending": {
+            "type": "boolean",
+            "title": "Attention Pending"
+          },
+          "attention_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attention_pending",
+          "attention_since"
+        ],
+        "title": "RoomAttention",
+        "description": "Whether the room waits for the account (#2929)."
+      },
+      "RoomAttentionDone": {
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Offset",
+            "description": "The highest message offset displayed; a newer mention stays pending"
+          }
+        },
+        "type": "object",
+        "required": [
+          "offset"
+        ],
+        "title": "RoomAttentionDone"
+      },
+      "RoomClaimRenew": {
+        "properties": {
+          "claim_token": {
+            "type": "string",
+            "title": "Claim Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "claim_token"
+        ],
+        "title": "RoomClaimRenew"
+      },
+      "RoomCommandAvailability": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/RoomCommandAvailable"
+            },
+            "type": "array",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "RoomCommandAvailability"
+      },
+      "RoomCommandAvailable": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "syntax": {
+            "type": "string",
+            "title": "Syntax"
+          },
+          "example": {
+            "type": "string",
+            "title": "Example"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "sender": {
+            "type": "string",
+            "title": "Sender"
+          },
+          "effect": {
+            "type": "string",
+            "title": "Effect"
+          },
+          "pattern": {
+            "type": "string",
+            "title": "Pattern"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "syntax",
+          "example",
+          "summary",
+          "sender",
+          "effect",
+          "pattern",
+          "available"
+        ],
+        "title": "RoomCommandAvailable",
+        "description": "Whether this caller may send the command in one room right now, and\nwhy not: what the composer offers, greys out, and ``!help`` prints."
+      },
+      "RoomCommandInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "syntax": {
+            "type": "string",
+            "title": "Syntax"
+          },
+          "example": {
+            "type": "string",
+            "title": "Example"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "sender": {
+            "type": "string",
+            "title": "Sender"
+          },
+          "effect": {
+            "type": "string",
+            "title": "Effect"
+          },
+          "pattern": {
+            "type": "string",
+            "title": "Pattern"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "syntax",
+          "example",
+          "summary",
+          "sender",
+          "effect",
+          "pattern"
+        ],
+        "title": "RoomCommandInfo",
+        "description": "One registry command (#2904 \u00a77), with its pattern as a string so a\nclient validates a line with the server's own regular expression."
+      },
+      "RoomCommandList": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/RoomCommandInfo"
+            },
+            "type": "array",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "RoomCommandList"
+      },
+      "RoomCommandOutcome": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "executed",
+              "refused",
+              "not_recognized"
+            ],
+            "title": "Status"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "answer_message_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Message Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "RoomCommandOutcome",
+        "description": "What a ``!`` first line did (#2904). The line and its answer are\nprivate to the sender for every outcome, including malformed or unknown\ncommands. A syntax error may include an AI suggestion to copy and run;\nsuggestions are never executed automatically."
+      },
+      "RoomConnectorCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Name",
+            "description": "Unique within this membership: lowercase letters, digits and hyphens; it names the connector and routes email replies"
+          },
+          "notify": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify",
+            "description": "A service, such as notify (your Me notify service), labs/msg-to-discord or e/<code>; null = off"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email",
+            "description": "A service, such as email (your Me email service), smtp-relay or e/<code>; null = off"
+          },
+          "post": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Post",
+            "description": "The service a keyless sender posts through, such as post (your Me post service) or labs/discord-to-msg; null = off. The paying customer's inbound key for it is made on first use (unitysvc#2918)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "RoomConnectorCreate"
+      },
+      "RoomConnectorUpdate": {
         "properties": {
           "notify": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Notify"
           },
           "email": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Email"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default",
+            "description": "Ignored. There is no default connector: a post naming no connector goes out through all of them. Kept so released SDKs still validate.",
+            "default": false,
+            "deprecated": true
+          },
+          "post": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Post",
+            "description": "The inbound converter service; null turns it off (the customer's key for the service stays, for its other connectors)"
+          }
+        },
+        "type": "object",
+        "title": "RoomConnectorUpdate",
+        "description": "Fields left out keep their value; null turns a channel off."
+      },
+      "RoomConnectorView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "notify": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "post": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Post",
+            "description": "The service a sender's posts through this connector are converted by (unitysvc#2918); null = the msg format as posted"
+          },
+          "inbound_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inbound Url",
+            "description": "Where a sender that sets no headers posts through ``post``: ``<gateway>/webhook/<KEY>/<service>/<connector id>``, built from the paying customer's inbound key for that service when the response is made (never stored). Only for callers who may edit the delivery, in a browser session. It contains the key: keep it secret."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "RoomConnectorView",
+        "description": "One named connector (#2896): its ``notify``, ``email`` and ``post``\nservices, null for off. A channel's own name (``notify``, ``email``,\n``post``) is the account's Me service."
+      },
+      "RoomDelivery": {
+        "properties": {
+          "connectors": {
+            "items": {
+              "$ref": "#/components/schemas/RoomConnectorView"
+            },
+            "type": "array",
+            "title": "Connectors"
           },
           "can_edit": {
             "type": "boolean",
@@ -8231,45 +10202,11 @@
         },
         "type": "object",
         "required": [
-          "notify",
-          "email",
+          "connectors",
           "can_edit"
         ],
         "title": "RoomDelivery",
-        "description": "How the room reaches the calling account: ``auto``, ``off`` or a path\nfor each channel. A new member starts with its account's room defaults\n(``room-{notify,email}-as-{host,guest}``)."
-      },
-      "RoomDeliveryUpdate": {
-        "properties": {
-          "notify": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255,
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notify"
-          },
-          "email": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255,
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          }
-        },
-        "type": "object",
-        "title": "RoomDeliveryUpdate",
-        "description": "Fields left out keep their value."
+        "description": "How the room reaches the calling account: its connectors, oldest\nfirst, each with a service or null (off) for each channel. A new member\nstarts with one connector, ``main``, holding its account's room defaults\n(``room-{notify,email}-as-{host,guest}``). A post that names no connector\ncame in through none: it goes out through every connector."
       },
       "RoomEmailInvitation": {
         "properties": {
@@ -8289,7 +10226,7 @@
           "invited_at"
         ],
         "title": "RoomEmailInvitation",
-        "description": "An address the room's link was emailed to, pending until someone joins\nwith the link as a user with that email."
+        "description": "An address the room's link was emailed to, pending until the person\njoins through it with that verified email, or declines (#2960)."
       },
       "RoomEmailInvite": {
         "properties": {
@@ -8386,6 +10323,28 @@
             ],
             "title": "Via"
           },
+          "connector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connector"
+          },
+          "sender_avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender Avatar Url"
+          },
           "origin_service": {
             "anyOf": [
               {
@@ -8419,6 +10378,18 @@
               }
             ],
             "title": "Reply To Id"
+          },
+          "recipient_member_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Member Id"
           },
           "event": {
             "anyOf": [
@@ -8789,6 +10760,22 @@
         ],
         "title": "RoomList"
       },
+      "RoomLiveStatus": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/LivePartyStatus"
+            },
+            "type": "array",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "RoomLiveStatus"
+      },
       "RoomMemberView": {
         "properties": {
           "id": {
@@ -8824,6 +10811,23 @@
             "type": "string",
             "format": "date-time",
             "title": "Joined At"
+          },
+          "attention_pending": {
+            "type": "boolean",
+            "title": "Attention Pending",
+            "default": false
+          },
+          "attention_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention Since"
           }
         },
         "type": "object",
@@ -8939,6 +10943,28 @@
             ],
             "title": "Via"
           },
+          "connector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connector"
+          },
+          "sender_avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender Avatar Url"
+          },
           "origin_service": {
             "anyOf": [
               {
@@ -8972,6 +10998,18 @@
               }
             ],
             "title": "Reply To Id"
+          },
+          "recipient_member_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Member Id"
           },
           "event": {
             "anyOf": [
@@ -9068,6 +11106,98 @@
           "is_system"
         ],
         "title": "RoomMessageView"
+      },
+      "RoomNextRequest": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoomWorkRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Complete this room first, if the caller still holds its claim"
+          }
+        },
+        "type": "object",
+        "title": "RoomNextRequest"
+      },
+      "RoomOrigin": {
+        "properties": {
+          "service": {
+            "$ref": "#/components/schemas/RoomOriginService"
+          },
+          "enrollments": {
+            "items": {
+              "$ref": "#/components/schemas/RoomOriginEnrollment"
+            },
+            "type": "array",
+            "title": "Enrollments",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "service"
+        ],
+        "title": "RoomOrigin",
+        "description": "What the room was provisioned for (#2969): its service, and the\ncaller's enrollments that brought it in. Only the enrollment's customer\n(or the service's seller) sees an enrollment here; a guest sees the\nservice alone."
+      },
+      "RoomOriginEnrollment": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "status"
+        ],
+        "title": "RoomOriginEnrollment"
+      },
+      "RoomOriginService": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "RoomOriginService"
       },
       "RoomPostAttachment": {
         "properties": {
@@ -9197,7 +11327,7 @@
             },
             "type": "array",
             "title": "Attachments",
-            "description": "Files as msg-format entries: {base64, filename} is stored for 7 days (at most 10 files, 10 MiB each, 25 MiB in all; images, PDF, text, CSV and office documents); {url, filename} is kept as a link."
+            "description": "Files as msg-format entries: {base64, filename} is stored for 7 days (at most 10 files, 10 MiB each, 25 MiB in all; images, PDF, text, CSV and office documents); {url, filename} is kept as given, never fetched: readers and delivered copies open the sender's URL."
           },
           "origin": {
             "anyOf": [
@@ -9221,6 +11351,16 @@
             ],
             "title": "Client Message Id",
             "description": "Idempotency key: retries with the same id post once. Defaults to origin.external_id."
+          },
+          "mentions": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Mentions",
+            "description": "Room member ids this message calls for (#2929); each must be an active member. @staff and @seller in the text count too when they name exactly one member, and any customer message in a help desk mentions the platform."
           }
         },
         "type": "object",
@@ -9248,7 +11388,8 @@
             "enum": [
               "room_id",
               "handle",
-              "me"
+              "me",
+              "connector"
             ],
             "title": "Routed"
           },
@@ -9267,6 +11408,16 @@
             "type": "boolean",
             "title": "Duplicate",
             "default": false
+          },
+          "command": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoomCommandOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -9277,6 +11428,24 @@
           "routed"
         ],
         "title": "RoomPostResponse"
+      },
+      "RoomReturnLater": {
+        "properties": {
+          "claim_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim Token",
+            "description": "The caller's claim on the room, released"
+          }
+        },
+        "type": "object",
+        "title": "RoomReturnLater"
       },
       "RoomSettingsUpdate": {
         "properties": {
@@ -9341,6 +11510,16 @@
       },
       "RoomSummary": {
         "properties": {
+          "origin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoomOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "description": {
             "type": "string",
             "title": "Description",
@@ -9379,7 +11558,7 @@
               }
             ],
             "title": "Max Retention Seconds",
-            "description": "The kind's longest retention; null when it has none"
+            "description": "The longest this room may keep messages: its enrollment's cap or its kind's maximum; null when neither caps"
           },
           "keep_forever": {
             "type": "boolean",
@@ -9454,7 +11633,8 @@
                 "type": "null"
               }
             ],
-            "title": "Last Active Offset"
+            "title": "Last Active Offset",
+            "description": "Calling user's personal read-through offset; null means no acknowledgement."
           },
           "last_active_at": {
             "anyOf": [
@@ -9466,12 +11646,30 @@
                 "type": "null"
               }
             ],
-            "title": "Last Active At"
+            "title": "Last Active At",
+            "description": "When the calling user acknowledged reading; not party or posting activity."
           },
           "follow_up": {
             "type": "boolean",
             "title": "Follow Up",
             "default": false
+          },
+          "attention_pending": {
+            "type": "boolean",
+            "title": "Attention Pending",
+            "default": false
+          },
+          "attention_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention Since"
           },
           "id": {
             "type": "string",
@@ -9539,6 +11737,17 @@
           "delivery_state": {
             "type": "string",
             "title": "Delivery State"
+          },
+          "closed_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed Reason"
           }
         },
         "type": "object",
@@ -9568,10 +11777,20 @@
           "rooms_with_new_activity"
         ],
         "title": "RoomUnread",
-        "description": "How many rooms have new activity for the account."
+        "description": "How many authorized rooms have unacknowledged activity for this person."
       },
       "RoomView": {
         "properties": {
+          "origin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoomOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "description": {
             "type": "string",
             "title": "Description",
@@ -9610,7 +11829,7 @@
               }
             ],
             "title": "Max Retention Seconds",
-            "description": "The kind's longest retention; null when it has none"
+            "description": "The longest this room may keep messages: its enrollment's cap or its kind's maximum; null when neither caps"
           },
           "keep_forever": {
             "type": "boolean",
@@ -9685,7 +11904,8 @@
                 "type": "null"
               }
             ],
-            "title": "Last Active Offset"
+            "title": "Last Active Offset",
+            "description": "Calling user's personal read-through offset; null means no acknowledgement."
           },
           "last_active_at": {
             "anyOf": [
@@ -9697,12 +11917,30 @@
                 "type": "null"
               }
             ],
-            "title": "Last Active At"
+            "title": "Last Active At",
+            "description": "When the calling user acknowledged reading; not party or posting activity."
           },
           "follow_up": {
             "type": "boolean",
             "title": "Follow Up",
             "default": false
+          },
+          "attention_pending": {
+            "type": "boolean",
+            "title": "Attention Pending",
+            "default": false
+          },
+          "attention_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention Since"
           },
           "id": {
             "type": "string",
@@ -9750,6 +11988,93 @@
           "messages"
         ],
         "title": "RoomView"
+      },
+      "RoomWorkClaim": {
+        "properties": {
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handle",
+            "description": "How the caller's account addresses the room"
+          },
+          "claim_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim Token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "default": 60
+          }
+        },
+        "type": "object",
+        "title": "RoomWorkClaim",
+        "description": "The room Next claimed for the caller, or none waiting (#2929). Renew\nthe claim while the room is open; it lapses after ``expires_in`` seconds\nwithout renewal and the room becomes selectable again."
+      },
+      "RoomWorkRef": {
+        "properties": {
+          "room_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Room Id"
+          },
+          "claim_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim Token",
+            "description": "The claim Next or a renewal returned"
+          },
+          "offset": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset",
+            "description": "The highest message offset the worker's client displayed; completion covers only messages through it"
+          }
+        },
+        "type": "object",
+        "required": [
+          "room_id"
+        ],
+        "title": "RoomWorkRef",
+        "description": "The room a worker is finishing (#2929)."
       },
       "RunTestsResponse": {
         "properties": {
@@ -11837,6 +14162,7 @@
           "content",
           "streaming",
           "compute",
+          "container",
           "proxy",
           "gateway",
           "mcp",

@@ -9,6 +9,8 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..types import UNSET, Unset
+
 if TYPE_CHECKING:
     from ..models.room_feed_message_attachments_item import RoomFeedMessageAttachmentsItem
     from ..models.room_feed_message_event_data_type_0 import RoomFeedMessageEventDataType0
@@ -43,6 +45,9 @@ class RoomFeedMessage:
     is_internal: bool
     is_system: bool
     room_id: UUID
+    connector: None | str | Unset = UNSET
+    sender_avatar_url: None | str | Unset = UNSET
+    recipient_member_id: None | Unset | UUID = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -113,6 +118,26 @@ class RoomFeedMessage:
 
         room_id = str(self.room_id)
 
+        connector: None | str | Unset
+        if isinstance(self.connector, Unset):
+            connector = UNSET
+        else:
+            connector = self.connector
+
+        sender_avatar_url: None | str | Unset
+        if isinstance(self.sender_avatar_url, Unset):
+            sender_avatar_url = UNSET
+        else:
+            sender_avatar_url = self.sender_avatar_url
+
+        recipient_member_id: None | str | Unset
+        if isinstance(self.recipient_member_id, Unset):
+            recipient_member_id = UNSET
+        elif isinstance(self.recipient_member_id, UUID):
+            recipient_member_id = str(self.recipient_member_id)
+        else:
+            recipient_member_id = self.recipient_member_id
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -140,6 +165,12 @@ class RoomFeedMessage:
                 "room_id": room_id,
             }
         )
+        if connector is not UNSET:
+            field_dict["connector"] = connector
+        if sender_avatar_url is not UNSET:
+            field_dict["sender_avatar_url"] = sender_avatar_url
+        if recipient_member_id is not UNSET:
+            field_dict["recipient_member_id"] = recipient_member_id
 
         return field_dict
 
@@ -266,6 +297,41 @@ class RoomFeedMessage:
 
         room_id = UUID(d.pop("room_id"))
 
+        def _parse_connector(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        connector = _parse_connector(d.pop("connector", UNSET))
+
+        def _parse_sender_avatar_url(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        sender_avatar_url = _parse_sender_avatar_url(d.pop("sender_avatar_url", UNSET))
+
+        def _parse_recipient_member_id(data: object) -> None | Unset | UUID:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                recipient_member_id_type_0 = UUID(data)
+
+                return recipient_member_id_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | Unset | UUID, data)
+
+        recipient_member_id = _parse_recipient_member_id(d.pop("recipient_member_id", UNSET))
+
         room_feed_message = cls(
             id=id,
             offset=offset,
@@ -288,6 +354,9 @@ class RoomFeedMessage:
             is_internal=is_internal,
             is_system=is_system,
             room_id=room_id,
+            connector=connector,
+            sender_avatar_url=sender_avatar_url,
+            recipient_member_id=recipient_member_id,
         )
 
         room_feed_message.additional_properties = d

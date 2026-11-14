@@ -1102,6 +1102,13 @@ def run_local(
 ):
     """Run code examples locally with upstream API credentials.
 
+    Container channels instead pull their pinned images and start temporary local
+    Docker containers from the shared core compiler. The derived check waits for
+    service health, fetches each entry, runs declarative JSON probes, and cleans
+    up. It generates a separate test-only app key for the reserved
+    ${UNITYSVC_INSTANCE_API_KEY} binding; no platform credentials enter containers.
+    Local Docker does not reproduce Kubernetes, gVisor, or ephemeral disk quotas.
+
     This command:
     1. Scans for all listing files (schema: listing_v1)
     2. Extracts code example documents
@@ -1155,6 +1162,9 @@ def run_local(
     console.print(f"[blue]Scanning for listing files in:[/blue] {data_dir}\n")
 
     discovered = discover_code_examples(data_dir, name=name)
+    # Container channels are tested from their instance_spec and declarative
+    # probes, not by treating JSON probe documents as executable scripts.
+    discovered = [(e, p) for e, p in discovered if e.get("upstream_channel", {}).get("access_method") != "container"]
 
     # Filter by test file name if provided
     if test_file:
@@ -1168,6 +1178,18 @@ def run_local(
     # (b) tests that actually run. Declaring `results` here lets the
     # credential-resolution pass append skipped entries directly.
     results: list[dict[str, Any]] = []
+    if not test_file and (not selected_categories or "connectivity_test" in selected_categories):
+        from .container_testing import run_container_tests
+
+        results.extend(run_container_tests(data_dir, name))
+        for row in results:
+            outcome = row["result"]
+            status = "[green]PASS[/green]" if outcome["success"] else "[red]FAIL[/red]"
+            console.print(f"Container test {row['service_name']} [{row['channel']}]: {status}")
+            if outcome.get("error"):
+                console.print(outcome["error"])
+            elif verbose:
+                console.print(outcome.get("stdout", ""))
 
     # Resolve credentials from upstream_channel in each discovered example
     all_code_examples: list[tuple[dict[str, Any], str, dict[str, str]]] = []

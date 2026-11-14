@@ -56,11 +56,11 @@ def transport(captured):
         path = request.url.path
         if path.endswith("/missing"):
             return httpx.Response(404, json={"detail": "Room not found"})
-        if path.endswith("/delivery"):
-            settings = {"notify": "auto", "email": "off", "can_edit": True}
+        if path.endswith(("/delivery", "/connectors/main")):
+            connector = {"id": MEMBER, "name": "main", "notify": "notify", "email": None}
             if request.method == "PATCH":
-                settings.update(json.loads(request.content))
-            return httpx.Response(200, json=settings)
+                connector.update(json.loads(request.content))
+            return httpx.Response(200, json={"connectors": [connector], "can_edit": True})
         if path.endswith("/codes"):
             return httpx.Response(
                 201 if request.method == "POST" else 200,
@@ -207,19 +207,19 @@ async def test_room_delivery_paths_and_partial_updates(asynchronous):
     client = client_for(asynchronous, captured)
     try:
         delivery = await call(client.rooms, "delivery", ROOM)
-        assert delivery.notify == "auto"
-        assert delivery.email == "off"
+        assert delivery.connectors[0].notify == "notify"
+        assert delivery.connectors[0].email is None
         assert delivery.can_edit is True
 
         updated = await call(client.rooms, "set_delivery", ROOM, email="email")
-        assert updated.email == "email"
-        assert updated.notify == "auto"
+        assert updated.connectors[0].email == "email"
+        assert updated.connectors[0].notify == "notify"
         assert captured[-1].method == "PATCH"
-        assert captured[-1].url.path.endswith(f"/rooms/{ROOM}/delivery")
+        assert captured[-1].url.path.endswith(f"/rooms/{ROOM}/connectors/main")
         assert json.loads(captured[-1].content) == {"email": "email"}
 
         await call(client.rooms, "set_delivery", ROOM, notify="off", email="auto")
-        assert json.loads(captured[-1].content) == {"notify": "off", "email": "auto"}
+        assert json.loads(captured[-1].content) == {"notify": None, "email": "email"}
     finally:
         await close(client, asynchronous)
 
