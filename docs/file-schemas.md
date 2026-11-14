@@ -149,7 +149,7 @@ industry or audience. Omitting the type does not classify the offering as an LLM
 - Models: `llm`, `embedding`, `image_generation`
 - Delivery: `notification`, `email`, `content`, `streaming`
 - Infrastructure: `compute`, `proxy`, `gateway`, `mcp`, `database`, `monitoring`, `analytics`
-- Applications: `communication`, `buy_and_sell`
+- Applications: `communication`, `buy_and_sell`, `container` (core 0.3.10)
 
 ### Capabilities
 
@@ -397,7 +397,7 @@ These keys describe the channel as a whole. The connection itself lives in [serv
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `access_method` | `"http"` \| `"smtp"` \| `"s3"` \| `"mcp"` | `"http"` | The upstream protocol. It selects the server type: [HTTP](#http-servers), [SMTP](#smtp-servers), [S3](#s3-servers) or [MCP](#mcp-servers). Any other value is refused: `access_method must be one of 'http', 'smtp', 's3', 'mcp'`. |
+| `access_method` | `"http"` \| `"smtp"` \| `"s3"` \| `"mcp"` \| `"container"` | `"http"` | Selects the server type. Container channels use the [container contract](#container-channels) added in core 0.3.10. |
 | `type` | `"unbound"` \| `"secret_bound"` \| `"enrollable"` \| `"me_bound"` | derived | Normally derived by the platform from the channel's configuration; declare `enrollable` to state it. `external` is no longer a channel type (core 0.3.5): an app reached at its own site declares no channel, see [External apps](#external-apps). |
 | `description` | string | none | Display text. |
 | `is_active` | boolean | `true` | Inactive channels are skipped. |
@@ -410,6 +410,41 @@ These keys describe the channel as a whole. The connection itself lives in [serv
 | `servers` | array of server | `[]` | The connection, typed by `access_method`. See [Servers](#servers). |
 
 The channel name is the dict key, never a field.
+
+#### Container channels
+
+Core 0.3.10 adds `access_method: "container"` and the optional catalog category
+`service_type: "container"`. These extend the existing provider/offering/listing
+specs. Backend provisioning, entry authentication and platform Docker execution
+remain follow-up work; local validation and connectivity testing use this shape.
+
+The offering's `documents` contains the prepared Compose file as a normal
+Document with `category: "container_spec"`, `mime_type: "text"` (YAML) and a
+`file_path`. The channel's `spec` is its **Document title**, not its filename.
+It is a one-server shorthand for `servers: [{"spec": "Application"}]`.
+There is exactly one application server; resource tiers are separate channels.
+
+| Field | Meaning |
+| --- | --- |
+| `spec` | Title of an offering-scoped `container_spec` Document |
+| `resources` | Total tier budget: positive `cpu`, `memory`, `ephemeral_disk` quantities |
+| `resources.services` | Explicit per-replica allocations, keyed by Compose service; required for multi-service or replicated applications |
+| `entries` | Targets with `name`, `service`, `port`, `auth` (`enrollment_key` default or `none`) and `path` (`/` default) |
+| `customer_access_requests` | A required `resource:container` / `create` request with justification, plus any service grants the app needs |
+
+Resource budgets and entries belong on the channel, including when `servers`
+is used. All service allocations multiplied by their replicas must fit the
+channel budget. A single service/replica uses the total budget without repeating
+it in `resources.services`. The compiler converts `ephemeral_disk` to the
+runner's internal `ephemeral-storage`; sellers author no per-tier manifests.
+The initial contract excludes GPU/other hardware, persistence and host access.
+
+The listing uses existing channel-keyed hourly `list_price`,
+`service_options.enrollment`, and Documents for getting started and the required
+`connectivity_test`. Per-instance URLs are generated and never go in
+`user_access_interfaces`. The normal uploader stores Compose bytes through the
+existing Document workflow. See [container connectivity tests](code-examples.md#container-connectivity-tests)
+for local execution and the generic unitysvc-data preset.
 
 #### Servers
 

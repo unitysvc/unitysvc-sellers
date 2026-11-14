@@ -26,6 +26,15 @@ allocations, and internal entry ports. Add the generic test to `listing.json`:
 }
 ```
 
+Keep the normal `provider.json`, `offering.json`, `listing.json` service folder.
+The offering's `documents` mapping contains the Compose file as a
+`container_spec` Document; a channel's `spec` names that Document's title.
+The channel's `resources` declares `cpu`, `memory` and `ephemeral_disk` for the
+whole tier. Multi-service/replicated apps additionally declare per-replica
+allocations in `resources.services`; core checks their sum against the budget.
+No per-tier manifest files are authored or uploaded. Listing prices and
+enrollment settings use the existing `list_price` and `service_options` fields.
+
 With Docker running locally, execute it before upload:
 
 ```bash
