@@ -215,9 +215,10 @@ def check_remote_instance_spec(offering: dict[str, Any] | None, **fetch_options:
     from unitysvc_core.models.channel import ContainerChannel
 
     source = find_instance_spec(offering)
+    configured = (offering or {}).get("upstream_access_config")
     channels = {
         name: raw
-        for name, raw in ((offering or {}).get("upstream_access_config") or {}).items()
+        for name, raw in (configured.items() if isinstance(configured, dict) else ())
         if isinstance(raw, dict) and raw.get("access_method") == "container"
     }
     if source is None or not source.is_remote or not channels:

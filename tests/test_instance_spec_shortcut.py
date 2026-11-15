@@ -363,7 +363,10 @@ def test_overlay_and_scratch_reach_docker(monkeypatch: pytest.MonkeyPatch) -> No
     runs: list[tuple[str, ...]] = []
     envs: list[str] = []
 
+    docker_calls: list[tuple[str, ...]] = []
+
     def docker(*args: str, **kwargs: Any) -> str:
+        docker_calls.append(args)
         if args[0] == "run":
             runs.append(args)
             envs.append(Path(args[args.index("--env-file") + 1]).read_text())
@@ -376,5 +379,21 @@ def test_overlay_and_scratch_reach_docker(monkeypatch: pytest.MonkeyPatch) -> No
         mock.get("http://127.0.0.1:54321/").mock(return_value=httpx.Response(200))
         runner_module.test_container(source, channel, environment=overlay)
     (run,) = runs
-    assert run[run.index("--tmpfs") + 1] == "/app/data"
+    assert "--tmpfs" not in run
+    mount = run[run.index("--mount") + 1]
+    assert mount.endswith(",target=/app/data") and mount.startswith("type=volume,source=")
+    volume = mount.split("source=")[1].split(",")[0]
+    assert ("volume", "create", volume) in docker_calls
+    assert docker_calls.index(("volume", "rm", "--force", volume)) > docker_calls.index(
+        ("rm", "--force", run[run.index("--name") + 1])
+    )
+    assert docker_calls[-1][:2] == ("network", "rm")
     assert "MODE=demo" in envs[0] and "${" not in envs[0]  # a tag-only image and env_file only warn
+
+
+def test_a_malformed_channel_map_does_not_crash_the_remote_check() -> None:
+    offering = {
+        "documents": {"Instance spec": {"category": "instance_spec", "external_url": URL}},
+        "upstream_access_config": [{"access_method": "container"}],
+    }
+    assert check_remote_instance_spec(offering) == ([], [])

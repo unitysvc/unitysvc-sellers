@@ -46,7 +46,7 @@ This is how you reuse a project's generic Compose file as it is (see `weixin-ili
 
 ### Scratch storage
 
-A named or anonymous volume mount (`data:/app/data`) becomes scratch space: the path exists and is writable, its data survives a container restart but not a replacement of the instance, and it counts against the service's `ephemeral-storage`. Host paths and bind mounts are still refused. The local Docker test mounts each scratch path as a `tmpfs`.
+A named or anonymous volume mount (`data:/app/data`) becomes scratch space: the path exists and is writable, its data survives a container restart but not a replacement of the instance, and it counts against the service's `ephemeral-storage`. Host paths and bind mounts are still refused. The local Docker test gives each scratch path a disposable disk-backed volume (removed afterwards), so it counts against disk, not memory.
 
 ### No per-channel `spec`
 

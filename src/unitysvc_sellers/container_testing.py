@@ -88,6 +88,7 @@ def test_container(
     network = "usvc-test-" + secrets.token_hex(6)
     app_key = secrets.token_urlsafe(32)
     containers: dict[str, str] = {}
+    volumes: list[str] = []
     messages: list[str] = []
     created_network = False
     try:
@@ -98,6 +99,8 @@ def test_container(
             if any("${" in value or "\n" in value or "\r" in value for value in env.values()):
                 raise ValueError("Local container tests require resolved, single-line environment values")
             environments[service.name] = env
+            if any("," in scratch.path for scratch in service.scratch or []):
+                raise ValueError(f"{service.name}: a scratch path with a comma cannot be mounted by the local test")
         for service in compiled.manifest.services:
             _docker("pull", service.image, timeout=300)
         _docker("network", "create", network)
@@ -129,8 +132,12 @@ def test_container(
                 if limits:
                     args += ["--cpus", str(float(parse_quantity(limits["cpu"])))]
                     args += ["--memory", str(int(parse_quantity(limits["memory"])))]
-                for scratch in service.scratch or []:
-                    args += ["--tmpfs", scratch.path]  # the cluster gives each scratch path an emptyDir
+                for index, scratch in enumerate(service.scratch or []):
+                    # Disk-backed, like the cluster's emptyDir (a tmpfs would spend the memory limit instead).
+                    volume = f"{container}-scratch{index}"
+                    _docker("volume", "create", volume)
+                    volumes.append(volume)
+                    args += ["--mount", f"type=volume,source={volume},target={scratch.path}"]
                 for port in service.ports or []:
                     args += ["--publish", f"127.0.0.1::{port}"]
                 if service.command:
@@ -184,6 +191,11 @@ def test_container(
         for container in containers.values():
             try:
                 _docker("rm", "--force", container)
+            except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+                cleanup_errors.append(str(exc))
+        for volume in volumes:
+            try:
+                _docker("volume", "rm", "--force", volume)
             except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
                 cleanup_errors.append(str(exc))
         if created_network:
