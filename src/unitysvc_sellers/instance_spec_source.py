@@ -7,23 +7,25 @@ offering-level ``instance_spec`` shortcut, or one Document of category
 Upload never downloads a URL: the backend snapshots it at ingest. This module
 is only for the seller's local checks (``specs validate`` and the Docker
 ``run-tests``), which need the bytes. The download goes to memory or a temp
-dir, never into the seller's tree, and is refused unless it is https (on every
-redirect hop too), small, quick and, when the Document pins ``meta.sha256``,
-byte-identical to what was tested. This runs on the seller's own machine; the
-backend does its own fetch and SSRF checks at upload, so none are repeated here.
+dir, never into the seller's tree, and is refused unless it is https, small,
+quick, publicly addressed (on every redirect hop too) and, when the Document
+pins ``meta.sha256``, byte-identical to what was tested.
 """
 
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import re
+import socket
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
 import httpx
-from unitysvc_core.instance_spec import INSTANCE_SPEC_TITLE
+from unitysvc_core.instance_spec import INSTANCE_SPEC_TITLE, snapshot_url_error
 
 MAX_BYTES = 1024 * 1024
 TIMEOUT_SECONDS = 15.0
@@ -31,6 +33,8 @@ MAX_REDIRECTS = 3
 
 _GITHUB_BLOB = re.compile(r"^/(?P<owner>[^/]+)/(?P<repo>[^/]+)/blob/(?P<ref>[^/]+)/(?P<path>.+)$")
 _COMMIT_SHA = re.compile(r"^[0-9a-f]{40}([0-9a-f]{24})?$")
+
+Resolver = Callable[[str], list[str]]
 
 
 class InstanceSpecFetchError(ValueError):
@@ -113,10 +117,29 @@ def branch_warning(url: str) -> str | None:
     )
 
 
-def _check_https(url: str) -> None:
-    parts = urlsplit(url)
-    if parts.scheme != "https" or not parts.hostname:
-        raise InstanceSpecFetchError(f"instance spec URL {url!r} must be an https URL")
+def _resolve_host(host: str) -> list[str]:
+    try:
+        return sorted({str(info[4][0]) for info in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)})
+    except OSError as exc:
+        raise InstanceSpecFetchError(f"cannot resolve {host!r}: {exc}") from exc
+
+
+def _check_hop(url: str, resolver: Resolver) -> None:
+    problem = snapshot_url_error(url)
+    if problem:
+        raise InstanceSpecFetchError(f"refusing instance spec URL: {problem}")
+    host = (urlsplit(url).hostname or "").rstrip(".")
+    for address in resolver(host):
+        try:
+            ip = ipaddress.ip_address(address.split("%")[0])
+        except ValueError:
+            raise InstanceSpecFetchError(f"{host!r} resolved to {address!r}, which is not an IP address") from None
+        if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+        if not ip.is_global or ip.is_multicast:
+            raise InstanceSpecFetchError(
+                f"refusing instance spec URL: {host!r} resolves to {address}, a private, loopback or link-local address"
+            )
 
 
 def fetch_instance_spec(
@@ -126,15 +149,18 @@ def fetch_instance_spec(
     max_bytes: int = MAX_BYTES,
     timeout: float = TIMEOUT_SECONDS,
     max_redirects: int = MAX_REDIRECTS,
+    resolver: Resolver | None = None,
     transport: httpx.BaseTransport | None = None,
 ) -> tuple[str, list[str]]:
     """Download an instance spec for a local check; return ``(text, warnings)``.
 
     https only, at most ``max_bytes``, ``timeout`` per request and
-    ``max_redirects`` redirects, each of which must stay https. A GitHub ``blob`` page is
+    ``max_redirects`` redirects, every hop checked the way the first is
+    (https, a public host, public addresses). A GitHub ``blob`` page is
     rewritten to its raw URL. ``sha256`` (the Document's ``meta.sha256``) is
-    verified when set. ``transport`` exists for tests.
+    verified when set. ``resolver`` and ``transport`` exist for tests.
     """
+    resolve = resolver or _resolve_host
     current = raw_github_url(url)
     warnings: list[str] = []
     if (note := branch_warning(current)) is not None:
@@ -142,7 +168,7 @@ def fetch_instance_spec(
     body = b""
     with httpx.Client(timeout=timeout, follow_redirects=False, transport=transport) as client:
         for _ in range(max_redirects + 1):
-            _check_https(current)
+            _check_hop(current, resolve)
             try:
                 with client.stream("GET", current, headers={"Accept": "text/plain, */*;q=0.5"}) as response:
                     if response.is_redirect:
