@@ -174,7 +174,7 @@ def test_container(source: str, channel: ContainerChannel, probes: ProbesV1 | No
         cleanup_errors: list[str] = []
         for container in containers.values():
             try:
-                _docker("rm", "--force", container)
+                _docker("rm", "--force", "--volumes", container)
             except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
                 cleanup_errors.append(str(exc))
         if created_network:
