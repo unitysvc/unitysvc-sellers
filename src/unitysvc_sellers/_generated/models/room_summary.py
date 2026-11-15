@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -10,6 +10,10 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.room_origin import RoomOrigin
+
 
 T = TypeVar("T", bound="RoomSummary")
 
@@ -27,12 +31,14 @@ class RoomSummary:
     role: str
     created_at: datetime.datetime
     delivery_state: str
+    origin: None | RoomOrigin | Unset = UNSET
     description: str | Unset = ""
     owner_name: None | str | Unset = UNSET
     retention_seconds: int | None | Unset = UNSET
     """ Effective message retention; null when kept indefinitely """
     max_retention_seconds: int | None | Unset = UNSET
-    """ The kind's longest retention; null when it has none """
+    """ The longest this room may keep messages: its enrollment's cap or its kind's maximum; null when neither caps
+    """
     keep_forever: bool | Unset = False
     owner_sets_retention: bool | Unset = True
     fixed_membership: bool | Unset = False
@@ -44,14 +50,21 @@ class RoomSummary:
     sent_latest_message: bool | Unset = False
     last_conversation_at: datetime.datetime | None | Unset = UNSET
     last_active_offset: int | None | Unset = UNSET
+    """ Calling user's personal read-through offset; null means no acknowledgement. """
     last_active_at: datetime.datetime | None | Unset = UNSET
+    """ When the calling user acknowledged reading; not party or posting activity. """
     follow_up: bool | Unset = False
+    attention_pending: bool | Unset = False
+    attention_since: datetime.datetime | None | Unset = UNSET
     can_post: bool | Unset = False
     last_sender_name: None | str | Unset = UNSET
     last_message_at: datetime.datetime | None | Unset = UNSET
+    closed_reason: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.room_origin import RoomOrigin
+
         id = str(self.id)
 
         member_id = str(self.member_id)
@@ -69,6 +82,14 @@ class RoomSummary:
         created_at = self.created_at.isoformat()
 
         delivery_state = self.delivery_state
+
+        origin: dict[str, Any] | None | Unset
+        if isinstance(self.origin, Unset):
+            origin = UNSET
+        elif isinstance(self.origin, RoomOrigin):
+            origin = self.origin.to_dict()
+        else:
+            origin = self.origin
 
         description = self.description
 
@@ -138,6 +159,16 @@ class RoomSummary:
 
         follow_up = self.follow_up
 
+        attention_pending = self.attention_pending
+
+        attention_since: None | str | Unset
+        if isinstance(self.attention_since, Unset):
+            attention_since = UNSET
+        elif isinstance(self.attention_since, datetime.datetime):
+            attention_since = self.attention_since.isoformat()
+        else:
+            attention_since = self.attention_since
+
         can_post = self.can_post
 
         last_sender_name: None | str | Unset
@@ -154,6 +185,12 @@ class RoomSummary:
         else:
             last_message_at = self.last_message_at
 
+        closed_reason: None | str | Unset
+        if isinstance(self.closed_reason, Unset):
+            closed_reason = UNSET
+        else:
+            closed_reason = self.closed_reason
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -169,6 +206,8 @@ class RoomSummary:
                 "delivery_state": delivery_state,
             }
         )
+        if origin is not UNSET:
+            field_dict["origin"] = origin
         if description is not UNSET:
             field_dict["description"] = description
         if owner_name is not UNSET:
@@ -203,17 +242,25 @@ class RoomSummary:
             field_dict["last_active_at"] = last_active_at
         if follow_up is not UNSET:
             field_dict["follow_up"] = follow_up
+        if attention_pending is not UNSET:
+            field_dict["attention_pending"] = attention_pending
+        if attention_since is not UNSET:
+            field_dict["attention_since"] = attention_since
         if can_post is not UNSET:
             field_dict["can_post"] = can_post
         if last_sender_name is not UNSET:
             field_dict["last_sender_name"] = last_sender_name
         if last_message_at is not UNSET:
             field_dict["last_message_at"] = last_message_at
+        if closed_reason is not UNSET:
+            field_dict["closed_reason"] = closed_reason
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.room_origin import RoomOrigin
+
         d = dict(src_dict)
         id = UUID(d.pop("id"))
 
@@ -232,6 +279,23 @@ class RoomSummary:
         created_at = isoparse(d.pop("created_at"))
 
         delivery_state = d.pop("delivery_state")
+
+        def _parse_origin(data: object) -> None | RoomOrigin | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                origin_type_0 = RoomOrigin.from_dict(data)
+
+                return origin_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | RoomOrigin | Unset, data)
+
+        origin = _parse_origin(d.pop("origin", UNSET))
 
         description = d.pop("description", UNSET)
 
@@ -340,6 +404,25 @@ class RoomSummary:
 
         follow_up = d.pop("follow_up", UNSET)
 
+        attention_pending = d.pop("attention_pending", UNSET)
+
+        def _parse_attention_since(data: object) -> datetime.datetime | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                attention_since_type_0 = isoparse(data)
+
+                return attention_since_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None | Unset, data)
+
+        attention_since = _parse_attention_since(d.pop("attention_since", UNSET))
+
         can_post = d.pop("can_post", UNSET)
 
         def _parse_last_sender_name(data: object) -> None | str | Unset:
@@ -368,6 +451,15 @@ class RoomSummary:
 
         last_message_at = _parse_last_message_at(d.pop("last_message_at", UNSET))
 
+        def _parse_closed_reason(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        closed_reason = _parse_closed_reason(d.pop("closed_reason", UNSET))
+
         room_summary = cls(
             id=id,
             member_id=member_id,
@@ -378,6 +470,7 @@ class RoomSummary:
             role=role,
             created_at=created_at,
             delivery_state=delivery_state,
+            origin=origin,
             description=description,
             owner_name=owner_name,
             retention_seconds=retention_seconds,
@@ -395,9 +488,12 @@ class RoomSummary:
             last_active_offset=last_active_offset,
             last_active_at=last_active_at,
             follow_up=follow_up,
+            attention_pending=attention_pending,
+            attention_since=attention_since,
             can_post=can_post,
             last_sender_name=last_sender_name,
             last_message_at=last_message_at,
+            closed_reason=closed_reason,
         )
 
         room_summary.additional_properties = d

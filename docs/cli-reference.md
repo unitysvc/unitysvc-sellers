@@ -1241,7 +1241,7 @@ $ usvc seller groups upload [OPTIONS]
 
 ## `usvc seller rooms`
 
-Rooms: list, read, post, settings, delivery and invitations.
+Rooms: list, read, post, settings, delivery connectors and invitations.
 
 **Usage**:
 
@@ -1260,7 +1260,10 @@ $ usvc seller rooms [OPTIONS] COMMAND [ARGS]...
 * `post`: Post a message to a room, with files if...
 * `members`: List the room&#x27;s members and their roles.
 * `set`: Change the room&#x27;s settings (owner only).
-* `delivery`: Show, or with --notify / --email change,...
+* `delivery`: Show how this room reaches you: your...
+* `connector-add`: Add a named delivery connector to this room.
+* `connector-set`: Change a connector&#x27;s services.
+* `connector-rm`: Remove a connector from this room.
 * `invite`: Create an invitation code for the room.
 * `invitations`: List the room&#x27;s invitation codes.
 * `revoke`: Revoke an invitation code.
@@ -1382,7 +1385,7 @@ $ usvc seller rooms set [OPTIONS] {room}
 
 ### `usvc seller rooms delivery`
 
-Show, or with --notify / --email change, how this room reaches you.
+Show how this room reaches you: your connectors and their services.
 
 **Usage**:
 
@@ -1396,8 +1399,76 @@ $ usvc seller rooms delivery [OPTIONS] {room}
 
 **Options**:
 
-* `--notify <str>`: auto | off | a notify service path.
-* `--email <str>`: auto | off | an email service path.
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms connector-add`
+
+Add a named delivery connector to this room.
+
+**Usage**:
+
+```console
+$ usvc seller rooms connector-add [OPTIONS] {room} {name}
+```
+
+**Arguments**:
+
+* `room <str>`: Room id or handle.  [required]
+* `name <str>`: Connector name.  [required]
+
+**Options**:
+
+* `--notify <str>`: A notify service path, or off.
+* `--email <str>`: An email service path, or off.
+* `--post <str>`: A post service path, or off.
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms connector-set`
+
+Change a connector&#x27;s services. Omitted options stay unchanged.
+
+**Usage**:
+
+```console
+$ usvc seller rooms connector-set [OPTIONS] {room} {name}
+```
+
+**Arguments**:
+
+* `room <str>`: Room id or handle.  [required]
+* `name <str>`: Connector name.  [required]
+
+**Options**:
+
+* `--notify <str>`: A notify service path, or off.
+* `--email <str>`: An email service path, or off.
+* `--post <str>`: A post service path, or off.
+* `--default / --no-default`: Make it the default connector.
+* `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
+* `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
+* `--help`: Show this message and exit.
+
+### `usvc seller rooms connector-rm`
+
+Remove a connector from this room.
+
+**Usage**:
+
+```console
+$ usvc seller rooms connector-rm [OPTIONS] {room} {name}
+```
+
+**Arguments**:
+
+* `room <str>`: Room id or handle.  [required]
+* `name <str>`: Connector name.  [required]
+
+**Options**:
+
 * `--api-key <str>`: Seller API key (svcpass_...). Defaults to $UNITYSVC_SELLER_API_KEY.  [env var: UNITYSVC_SELLER_API_KEY]
 * `--base-url <str>`: Backend base URL.  [env var: UNITYSVC_SELLER_API_URL; default: https://seller.unitysvc.com/v1]
 * `--help`: Show this message and exit.

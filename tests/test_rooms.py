@@ -56,11 +56,18 @@ def transport(captured):
         path = request.url.path
         if path.endswith("/missing"):
             return httpx.Response(404, json={"detail": "Room not found"})
-        if path.endswith("/delivery"):
-            settings = {"notify": "auto", "email": "off", "can_edit": True}
-            if request.method == "PATCH":
-                settings.update(json.loads(request.content))
-            return httpx.Response(200, json=settings)
+        if path.endswith("/delivery") or "/connectors" in path:
+            main = {"id": MEMBER, "name": "main", "notify": "auto", "email": None, "post": None, "inbound_url": None}
+            body = json.loads(request.content) if request.content else {}
+            if request.method == "POST":
+                connectors = [main, {**main, "name": body["name"], **body}]
+            elif request.method == "PATCH":
+                connectors = [{**main, **body}]
+            else:
+                connectors = [] if request.method == "DELETE" else [main]
+            return httpx.Response(
+                201 if request.method == "POST" else 200, json={"connectors": connectors, "can_edit": True}
+            )
         if path.endswith("/codes"):
             return httpx.Response(
                 201 if request.method == "POST" else 200,
@@ -202,24 +209,31 @@ async def test_indefinite_room_retention_policy_is_typed(asynchronous, owner_set
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("asynchronous", [False, True])
-async def test_room_delivery_paths_and_partial_updates(asynchronous):
+async def test_room_delivery_and_connectors(asynchronous):
     captured = []
     client = client_for(asynchronous, captured)
     try:
         delivery = await call(client.rooms, "delivery", ROOM)
-        assert delivery.notify == "auto"
-        assert delivery.email == "off"
+        assert delivery.connectors[0].name == "main"
+        assert delivery.connectors[0].notify == "auto"
         assert delivery.can_edit is True
 
-        updated = await call(client.rooms, "set_delivery", ROOM, email="email")
-        assert updated.email == "email"
-        assert updated.notify == "auto"
-        assert captured[-1].method == "PATCH"
-        assert captured[-1].url.path.endswith(f"/rooms/{ROOM}/delivery")
-        assert json.loads(captured[-1].content) == {"email": "email"}
+        added = await call(client.rooms, "add_connector", ROOM, "alerts", notify="labs/msg-to-discord")
+        assert added.connectors[-1].name == "alerts"
+        assert captured[-1].method == "POST"
+        assert captured[-1].url.path.endswith(f"/rooms/{ROOM}/connectors")
+        assert json.loads(captured[-1].content) == {"name": "alerts", "notify": "labs/msg-to-discord"}
 
-        await call(client.rooms, "set_delivery", ROOM, notify="off", email="auto")
-        assert json.loads(captured[-1].content) == {"notify": "off", "email": "auto"}
+        updated = await call(client.rooms, "update_connector", ROOM, "alerts", email="mail", notify=None)
+        assert updated.connectors[0].email == "mail"
+        assert captured[-1].method == "PATCH"
+        assert captured[-1].url.path.endswith(f"/rooms/{ROOM}/connectors/alerts")
+        assert json.loads(captured[-1].content) == {"email": "mail", "notify": None}
+
+        removed = await call(client.rooms, "delete_connector", ROOM, "alerts")
+        assert removed.connectors == []
+        assert captured[-1].method == "DELETE"
+        assert captured[-1].url.path.endswith(f"/rooms/{ROOM}/connectors/alerts")
     finally:
         await close(client, asynchronous)
 

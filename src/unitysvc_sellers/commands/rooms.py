@@ -8,7 +8,9 @@ the account's handles (``me``, ``helpdesk``, or a room's own handle):
 - ``usvc seller rooms post ROOM [TEXT] [--attach PATH ...] [--title T] [--id KEY]``
 - ``usvc seller rooms members ROOM``
 - ``usvc seller rooms set ROOM [--name] [--description] [--retention S] [--status S]``
-- ``usvc seller rooms delivery ROOM [--notify PATH] [--email PATH]``
+- ``usvc seller rooms delivery ROOM`` — your connectors for the room
+- ``usvc seller rooms connector-add|connector-set ROOM NAME [--notify P] [--email P] [--post P]``
+- ``usvc seller rooms connector-rm ROOM NAME``
 - ``usvc seller rooms invite ROOM [--role R] [--max-uses N] [--expires-in-days N] [--note T]``
 - ``usvc seller rooms invitations ROOM [--all]`` / ``revoke ROOM CODE_ID``
 - ``usvc seller rooms join CODE`` / ``leave ROOM``
@@ -42,7 +44,7 @@ from ._helpers import (
 
 console = Console()
 
-app = typer.Typer(help="Rooms: list, read, post, settings, delivery and invitations.")
+app = typer.Typer(help="Rooms: list, read, post, settings, delivery connectors and invitations.")
 
 
 def _print_json(value: Any) -> None:
@@ -232,20 +234,83 @@ def set_room(
 @app.command("delivery")
 def delivery(
     room: str = typer.Argument(..., help="Room id or handle."),
-    notify: str | None = typer.Option(None, "--notify", help="auto | off | a notify service path."),
-    email: str | None = typer.Option(None, "--email", help="auto | off | an email service path."),
     api_key: str | None = api_key_option(),
     base_url: str = base_url_option(),
 ) -> None:
-    """Show, or with --notify / --email change, how this room reaches you."""
+    """Show how this room reaches you: your connectors and their services."""
 
     async def _impl() -> dict[str, Any]:
         async with async_client(api_key, base_url) as client:
-            if notify is None and email is None:
-                return model_to_dict(await client.rooms.delivery(room))
-            return model_to_dict(await client.rooms.set_delivery(room, notify=notify, email=email))
+            return model_to_dict(await client.rooms.delivery(room))
 
-    _print_json(run_async(_impl(), error_prefix="Failed to read or change delivery"))
+    _print_json(run_async(_impl(), error_prefix="Failed to read delivery"))
+
+
+def _channels(notify: str | None, email: str | None, post: str | None) -> dict[str, str | None]:
+    """Channel options given on the command line; ``off`` turns a channel off."""
+    given = {"notify": notify, "email": email, "post": post}
+    return {name: (None if value == "off" else value) for name, value in given.items() if value is not None}
+
+
+@app.command("connector-add")
+def connector_add(
+    room: str = typer.Argument(..., help="Room id or handle."),
+    name: str = typer.Argument(..., help="Connector name."),
+    notify: str | None = typer.Option(None, "--notify", help="A notify service path, or off."),
+    email: str | None = typer.Option(None, "--email", help="An email service path, or off."),
+    post: str | None = typer.Option(None, "--post", help="A post service path, or off."),
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Add a named delivery connector to this room."""
+
+    async def _impl() -> dict[str, Any]:
+        async with async_client(api_key, base_url) as client:
+            return model_to_dict(await client.rooms.add_connector(room, name, **_channels(notify, email, post)))
+
+    _print_json(run_async(_impl(), error_prefix="Failed to add the connector"))
+
+
+@app.command("connector-set")
+def connector_set(
+    room: str = typer.Argument(..., help="Room id or handle."),
+    name: str = typer.Argument(..., help="Connector name."),
+    notify: str | None = typer.Option(None, "--notify", help="A notify service path, or off."),
+    email: str | None = typer.Option(None, "--email", help="An email service path, or off."),
+    post: str | None = typer.Option(None, "--post", help="A post service path, or off."),
+    default: bool | None = typer.Option(None, "--default/--no-default", help="Make it the default connector."),
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Change a connector's services. Omitted options stay unchanged."""
+    settings: dict[str, Any] = _channels(notify, email, post)
+    if default is not None:
+        settings["default"] = default
+    if not settings:
+        console.print("[yellow]Nothing to change[/yellow]")
+        raise typer.Exit(code=1)
+
+    async def _impl() -> dict[str, Any]:
+        async with async_client(api_key, base_url) as client:
+            return model_to_dict(await client.rooms.update_connector(room, name, **settings))
+
+    _print_json(run_async(_impl(), error_prefix="Failed to change the connector"))
+
+
+@app.command("connector-rm")
+def connector_rm(
+    room: str = typer.Argument(..., help="Room id or handle."),
+    name: str = typer.Argument(..., help="Connector name."),
+    api_key: str | None = api_key_option(),
+    base_url: str = base_url_option(),
+) -> None:
+    """Remove a connector from this room."""
+
+    async def _impl() -> dict[str, Any]:
+        async with async_client(api_key, base_url) as client:
+            return model_to_dict(await client.rooms.delete_connector(room, name))
+
+    _print_json(run_async(_impl(), error_prefix="Failed to remove the connector"))
 
 
 @app.command("invite")

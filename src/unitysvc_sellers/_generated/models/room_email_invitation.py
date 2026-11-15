@@ -13,8 +13,8 @@ T = TypeVar("T", bound="RoomEmailInvitation")
 
 @_attrs_define
 class RoomEmailInvitation:
-    """An address the room's link was emailed to, pending until someone joins
-    with the link as a user with that email.
+    """An address the room's link was emailed to, pending until the person
+    joins through it with that verified email, or declines (#2960).
 
     """
 

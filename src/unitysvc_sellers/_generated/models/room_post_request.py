@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -33,10 +34,15 @@ class RoomPostRequest:
     links: list[RoomPostRequestLinksItem] | Unset = UNSET
     attachments: list[RoomPostAttachment] | Unset = UNSET
     """ Files as msg-format entries: {base64, filename} is stored for 7 days (at most 10 files, 10 MiB each, 25 MiB
-    in all; images, PDF, text, CSV and office documents); {url, filename} is kept as a link. """
+    in all; images, PDF, text, CSV and office documents); {url, filename} is kept as given, never fetched: readers
+    and delivered copies open the sender's URL. """
     origin: None | RoomPostOrigin | Unset = UNSET
     client_message_id: None | str | Unset = UNSET
     """ Idempotency key: retries with the same id post once. Defaults to origin.external_id. """
+    mentions: list[UUID] | Unset = UNSET
+    """ Room member ids this message calls for (#2929); each must be an active member. @staff and @seller in the
+    text count too when they name exactly one member, and any customer message in a help desk mentions the platform.
+    """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -86,6 +92,13 @@ class RoomPostRequest:
         else:
             client_message_id = self.client_message_id
 
+        mentions: list[str] | Unset = UNSET
+        if not isinstance(self.mentions, Unset):
+            mentions = []
+            for mentions_item_data in self.mentions:
+                mentions_item = str(mentions_item_data)
+                mentions.append(mentions_item)
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -105,6 +118,8 @@ class RoomPostRequest:
             field_dict["origin"] = origin
         if client_message_id is not UNSET:
             field_dict["client_message_id"] = client_message_id
+        if mentions is not UNSET:
+            field_dict["mentions"] = mentions
 
         return field_dict
 
@@ -185,6 +200,15 @@ class RoomPostRequest:
 
         client_message_id = _parse_client_message_id(d.pop("client_message_id", UNSET))
 
+        _mentions = d.pop("mentions", UNSET)
+        mentions: list[UUID] | Unset = UNSET
+        if _mentions is not UNSET:
+            mentions = []
+            for mentions_item_data in _mentions:
+                mentions_item = UUID(mentions_item_data)
+
+                mentions.append(mentions_item)
+
         room_post_request = cls(
             title=title,
             body=body,
@@ -194,6 +218,7 @@ class RoomPostRequest:
             attachments=attachments,
             origin=origin,
             client_message_id=client_message_id,
+            mentions=mentions,
         )
 
         room_post_request.additional_properties = d

@@ -7,15 +7,13 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
-from ...models.room_delivery import RoomDelivery
-from ...models.room_delivery_update import RoomDeliveryUpdate
+from ...models.room_command_availability import RoomCommandAvailability
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     target: str,
     *,
-    body: RoomDeliveryUpdate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -27,15 +25,11 @@ def _get_kwargs(
         headers["x-role-id"] = x_role_id
 
     _kwargs: dict[str, Any] = {
-        "method": "patch",
-        "url": "/rooms/{target}/delivery".format(
+        "method": "get",
+        "url": "/rooms/{target}/commands".format(
             target=quote(str(target), safe=""),
         ),
     }
-
-    _kwargs["json"] = body.to_dict()
-
-    headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -43,9 +37,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | RoomDelivery | None:
+) -> HTTPValidationError | RoomCommandAvailability | None:
     if response.status_code == 200:
-        response_200 = RoomDelivery.from_dict(response.json())
+        response_200 = RoomCommandAvailability.from_dict(response.json())
 
         return response_200
 
@@ -62,7 +56,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | RoomDelivery]:
+) -> Response[HTTPValidationError | RoomCommandAvailability]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,33 +69,30 @@ def sync_detailed(
     target: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RoomDeliveryUpdate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | RoomDelivery]:
-    """Update Room Delivery
+) -> Response[HTTPValidationError | RoomCommandAvailability]:
+    """List Room Commands Here
 
-     Change how this room reaches your account: ``auto``, ``off`` or a
-    path for notify and email. A path is checked like the account's room
-    defaults.
+     The commands this caller may send in the room right now, and for
+    each unavailable one, why (#2904 §7). The same evaluation ``!help``
+    prints and the post handler gates on.
 
     Args:
         target (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (RoomDeliveryUpdate): Fields left out keep their value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | RoomDelivery]
+        Response[HTTPValidationError | RoomCommandAvailability]
     """
 
     kwargs = _get_kwargs(
         target=target,
-        body=body,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -117,34 +108,31 @@ def sync(
     target: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RoomDeliveryUpdate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | RoomDelivery | None:
-    """Update Room Delivery
+) -> HTTPValidationError | RoomCommandAvailability | None:
+    """List Room Commands Here
 
-     Change how this room reaches your account: ``auto``, ``off`` or a
-    path for notify and email. A path is checked like the account's room
-    defaults.
+     The commands this caller may send in the room right now, and for
+    each unavailable one, why (#2904 §7). The same evaluation ``!help``
+    prints and the post handler gates on.
 
     Args:
         target (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (RoomDeliveryUpdate): Fields left out keep their value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | RoomDelivery
+        HTTPValidationError | RoomCommandAvailability
     """
 
     return sync_detailed(
         target=target,
         client=client,
-        body=body,
         authorization=authorization,
         x_role_id=x_role_id,
     ).parsed
@@ -154,33 +142,30 @@ async def asyncio_detailed(
     target: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RoomDeliveryUpdate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | RoomDelivery]:
-    """Update Room Delivery
+) -> Response[HTTPValidationError | RoomCommandAvailability]:
+    """List Room Commands Here
 
-     Change how this room reaches your account: ``auto``, ``off`` or a
-    path for notify and email. A path is checked like the account's room
-    defaults.
+     The commands this caller may send in the room right now, and for
+    each unavailable one, why (#2904 §7). The same evaluation ``!help``
+    prints and the post handler gates on.
 
     Args:
         target (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (RoomDeliveryUpdate): Fields left out keep their value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | RoomDelivery]
+        Response[HTTPValidationError | RoomCommandAvailability]
     """
 
     kwargs = _get_kwargs(
         target=target,
-        body=body,
         authorization=authorization,
         x_role_id=x_role_id,
     )
@@ -194,35 +179,32 @@ async def asyncio(
     target: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RoomDeliveryUpdate,
     authorization: None | str | Unset = UNSET,
     x_role_id: None | str | Unset = UNSET,
-) -> HTTPValidationError | RoomDelivery | None:
-    """Update Room Delivery
+) -> HTTPValidationError | RoomCommandAvailability | None:
+    """List Room Commands Here
 
-     Change how this room reaches your account: ``auto``, ``off`` or a
-    path for notify and email. A path is checked like the account's room
-    defaults.
+     The commands this caller may send in the room right now, and for
+    each unavailable one, why (#2904 §7). The same evaluation ``!help``
+    prints and the post handler gates on.
 
     Args:
         target (str):
         authorization (None | str | Unset):
         x_role_id (None | str | Unset):
-        body (RoomDeliveryUpdate): Fields left out keep their value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | RoomDelivery
+        HTTPValidationError | RoomCommandAvailability
     """
 
     return (
         await asyncio_detailed(
             target=target,
             client=client,
-            body=body,
             authorization=authorization,
             x_role_id=x_role_id,
         )
