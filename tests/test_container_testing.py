@@ -23,7 +23,6 @@ def channel() -> ContainerChannel:
     return ContainerChannel.model_validate(
         {
             "access_method": "container",
-            "spec": "Application",
             "resources": {"limits": {"cpu": "250m", "memory": "256Mi", "ephemeral-storage": "1Gi"}},
             "entries": [{"name": "web", "service": "web", "port": 8080, "auth": "app"}],
             "customer_access_requests": [{"object": "resource:container", "permissions": ["create"], "required": True}],

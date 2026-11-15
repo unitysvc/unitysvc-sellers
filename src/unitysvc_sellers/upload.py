@@ -17,7 +17,7 @@ service, named by the (namespaced) service name::
 
 For each listing file the uploader pairs it with the offering and provider
 in the *same folder*, optionally expands convenience fields (``logo``,
-``terms_of_service``) into ``DocumentData``, and POSTs the bundle to
+``terms_of_service``, an offering's ``instance_spec``) into ``DocumentData``, and POSTs the bundle to
 ``/v1/seller/services``. The backend's returned ``service_id`` is written
 to that folder's ``service.json`` so subsequent uploads update the same
 service in place.
@@ -490,6 +490,9 @@ def _build_service_payload(
         offering_path.parent,
         logo_field="logo",
         terms_field="terms_of_service",
+        # A path flows through file_path resolution below; a URL stays an
+        # external_url for the backend to snapshot (it is never downloaded here).
+        instance_spec_field="instance_spec",
     )
     listing_data = convert_convenience_fields_to_documents(
         listing_data,

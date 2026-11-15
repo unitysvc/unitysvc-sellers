@@ -23,6 +23,7 @@ from unitysvc_core.models.container import ContainerEntry, parse_quantity
 from unitysvc_core.models.manifest import ManifestService
 from unitysvc_core.models.probes import Probe, ProbesV1
 
+from .instance_spec_source import find_instance_spec, instance_spec_environment, read_instance_spec
 from .utils import find_files_by_pattern, service_name_matches
 
 INSTANCE_KEY_REFERENCE = "${UNITYSVC_INSTANCE_API_KEY}"
@@ -65,22 +66,29 @@ def _ready(service: ManifestService, container: str) -> bool:
         return True
 
 
-def test_container(source: str, channel: ContainerChannel, probes: ProbesV1 | None = None) -> list[str]:
+def test_container(
+    source: str,
+    channel: ContainerChannel,
+    probes: ProbesV1 | None = None,
+    environment: dict[str, dict[str, str]] | None = None,
+) -> list[str]:
     """Pull, start, wait for health, probe entries, then remove every resource.
 
     Local Docker checks the same normalized services and health commands as
-    compute. It does not claim to reproduce Kubernetes/gVisor or disk quotas.
+    compute. ``environment`` is the Document's ``meta.environment`` overlay, merged by
+    core at compile time. It does not claim to reproduce Kubernetes/gVisor or disk quotas.
     """
-    report = validate_instance_spec(source, channel=channel)
+    report = validate_instance_spec(source, channel=channel, environment=environment)
     if not report.ok:
         raise ValueError("; ".join(str(issue) for issue in report.errors))
-    compiled = compile_instance_spec(source, channel.resources)
+    compiled = compile_instance_spec(source, channel.resources, environment=environment)
     entries = {entry.name: entry for entry in channel.entries or []}
     if any(probe.entry not in entries for probe in (probes.probes if probes else [])):
         raise ValueError("A connectivity probe names an entry missing from this channel")
     network = "usvc-test-" + secrets.token_hex(6)
     app_key = secrets.token_urlsafe(32)
     containers: dict[str, str] = {}
+    volumes: list[str] = []
     messages: list[str] = []
     created_network = False
     try:
@@ -91,6 +99,8 @@ def test_container(source: str, channel: ContainerChannel, probes: ProbesV1 | No
             if any("${" in value or "\n" in value or "\r" in value for value in env.values()):
                 raise ValueError("Local container tests require resolved, single-line environment values")
             environments[service.name] = env
+            if any("," in scratch.path for scratch in service.scratch or []):
+                raise ValueError(f"{service.name}: a scratch path with a comma cannot be mounted by the local test")
         for service in compiled.manifest.services:
             _docker("pull", service.image, timeout=300)
         _docker("network", "create", network)
@@ -122,6 +132,12 @@ def test_container(source: str, channel: ContainerChannel, probes: ProbesV1 | No
                 if limits:
                     args += ["--cpus", str(float(parse_quantity(limits["cpu"])))]
                     args += ["--memory", str(int(parse_quantity(limits["memory"])))]
+                for index, scratch in enumerate(service.scratch or []):
+                    # Disk-backed, like the cluster's emptyDir (a tmpfs would spend the memory limit instead).
+                    volume = f"{container}-scratch{index}"
+                    _docker("volume", "create", volume)
+                    volumes.append(volume)
+                    args += ["--mount", f"type=volume,source={volume},target={scratch.path}"]
                 for port in service.ports or []:
                     args += ["--publish", f"127.0.0.1::{port}"]
                 if service.command:
@@ -177,6 +193,11 @@ def test_container(source: str, channel: ContainerChannel, probes: ProbesV1 | No
                 _docker("rm", "--force", container)
             except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
                 cleanup_errors.append(str(exc))
+        for volume in volumes:
+            try:
+                _docker("volume", "rm", "--force", volume)
+            except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+                cleanup_errors.append(str(exc))
         if created_network:
             try:
                 _docker("network", "rm", network)
@@ -203,11 +224,18 @@ def run_container_tests(data_dir: Path, name: str | None) -> list[dict[str, Any]
         for channel_name, raw in (offering.get("upstream_access_config") or {}).items():
             if not isinstance(raw, dict) or raw.get("access_method") != "container":
                 continue
-            outcome: dict[str, Any] = {"success": False, "exit_code": 1, "stdout": "", "stderr": ""}
+            notes: list[str] = []
+            outcome: dict[str, Any] = {"success": False, "exit_code": 1, "stdout": "", "stderr": "", "warnings": notes}
             try:
                 channel = ContainerChannel.model_validate(raw)
-                document = offering["documents"][channel.spec]
-                source = (listing_file.parent / document["file_path"]).read_text()
+                spec = find_instance_spec(offering)
+                if spec is None:
+                    raise ValueError(
+                        "the offering needs exactly one instance spec (the 'instance_spec' field or one document)"
+                    )
+                spec.warnings = notes
+                # A URL is downloaded to memory (never into the seller's tree) under the fetch rules.
+                source = read_instance_spec(spec, listing_file.parent).text or ""
                 probes = []
                 for document in (listing.get("documents") or {}).values():
                     path = document.get("file_path", "")
@@ -217,7 +245,12 @@ def run_container_tests(data_dir: Path, name: str | None) -> list[dict[str, Any]
                     if channels and channel_name not in channels:
                         continue
                     probes.extend(ProbesV1.model_validate_json((listing_file.parent / path).read_text()).probes)
-                messages = test_container(source, channel, ProbesV1(probes=probes) if probes else None)
+                messages = test_container(
+                    source,
+                    channel,
+                    ProbesV1(probes=probes) if probes else None,
+                    environment=instance_spec_environment(spec),
+                )
                 outcome.update(success=True, exit_code=0, stdout="\n".join(messages))
             except Exception as exc:
                 outcome.update(error=str(exc), stderr=str(exc))

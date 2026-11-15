@@ -496,7 +496,7 @@ The `description` must say what the customer's server has to expose. `ops_testin
 | channel `spec` | yes | The Compose document's name | Which image and services the tier runs |
 | channel `entries` | yes | `name`, `service`, `port`, `auth` (`enrollment_key` gates the URL behind the customer's key), optional `path` | The HTTPS entry points the instance exposes. Instance URLs are generated; never put them in `user_access_interfaces` |
 | `customer_access_requests` | when the app uses Me | `service:ai`, `service:storage`, `service:notify`… with justifications | The instance gets a leased key with exactly these grants |
-| `documents` → Compose file | yes, `container_spec` | Pinned image digests, declared ports, environment from the platform-injected variables. No `build`, no volumes, no host access | Reviewed as a revision; a change needs re-review |
+| `instance_spec` → Compose file | yes, one per offering | Image tag or digest, declared ports, environment from `meta.environment` and the platform-injected variables, named volumes as scratch space. No `build`, no host paths, no host access | Reviewed as a revision; a change needs re-review |
 | `documents` → `getting_started` | yes | What the customer sees after the instance is ready | There is no gateway code example |
 | `list_price` | yes, per tier | `type: "channel"`, each tier `one_hour` above base cost. Labs: equal to base cost | Instance time accrues from first readiness to stop |
 | `service_options.enrollment.limit_per_customer` | recommended | How many instances one account may run | Cost control for both sides |

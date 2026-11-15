@@ -38,6 +38,7 @@ import unitysvc_core
 from rich.console import Console
 from unitysvc_core.validator import DataValidator
 
+from .instance_spec_source import check_remote_instance_spec
 from .params_render import discover_system_param_files, validate_system_param_file
 from .platform_services import (
     find_platform_service_folders,
@@ -152,6 +153,11 @@ def validate_service_folder(validator: DataValidator, root: Path, folder: Path) 
     for warning in validator.service_warnings(loaded.get("offering"), folder):
         label = "WARNING" if warning.loud else "Warning"
         console.print(f"{rel_folder}: {label}: {warning}", style="yellow", markup=False)
+    # Core fetches nothing: a URL instance spec is downloaded here and checked the same way.
+    remote_errors, remote_warnings = check_remote_instance_spec(loaded.get("offering"))
+    for warning_text in remote_warnings:
+        console.print(f"{rel_folder}: Warning: {warning_text}", style="yellow", markup=False)
+    errors.extend(f"offering: {e}" for e in remote_errors)
 
     # The folder path under specs/ must equal the listing (service) name.
     listing = loaded.get("listing")
