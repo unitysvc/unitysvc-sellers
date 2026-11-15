@@ -23,7 +23,7 @@ from unitysvc_core.models.container import ContainerEntry, parse_quantity
 from unitysvc_core.models.manifest import ManifestService
 from unitysvc_core.models.probes import Probe, ProbesV1
 
-from .instance_spec_source import find_instance_spec, read_instance_spec
+from .instance_spec_source import find_instance_spec, instance_spec_environment, read_instance_spec
 from .utils import find_files_by_pattern, service_name_matches
 
 INSTANCE_KEY_REFERENCE = "${UNITYSVC_INSTANCE_API_KEY}"
@@ -66,16 +66,22 @@ def _ready(service: ManifestService, container: str) -> bool:
         return True
 
 
-def test_container(source: str, channel: ContainerChannel, probes: ProbesV1 | None = None) -> list[str]:
+def test_container(
+    source: str,
+    channel: ContainerChannel,
+    probes: ProbesV1 | None = None,
+    environment: dict[str, dict[str, str]] | None = None,
+) -> list[str]:
     """Pull, start, wait for health, probe entries, then remove every resource.
 
     Local Docker checks the same normalized services and health commands as
-    compute. It does not claim to reproduce Kubernetes/gVisor or disk quotas.
+    compute. ``environment`` is the Document's ``meta.environment`` overlay, merged by
+    core at compile time. It does not claim to reproduce Kubernetes/gVisor or disk quotas.
     """
-    report = validate_instance_spec(source, channel=channel)
+    report = validate_instance_spec(source, channel=channel, environment=environment)
     if not report.ok:
         raise ValueError("; ".join(str(issue) for issue in report.errors))
-    compiled = compile_instance_spec(source, channel.resources)
+    compiled = compile_instance_spec(source, channel.resources, environment=environment)
     entries = {entry.name: entry for entry in channel.entries or []}
     if any(probe.entry not in entries for probe in (probes.probes if probes else [])):
         raise ValueError("A connectivity probe names an entry missing from this channel")
@@ -123,6 +129,8 @@ def test_container(source: str, channel: ContainerChannel, probes: ProbesV1 | No
                 if limits:
                     args += ["--cpus", str(float(parse_quantity(limits["cpu"])))]
                     args += ["--memory", str(int(parse_quantity(limits["memory"])))]
+                for scratch in service.scratch or []:
+                    args += ["--tmpfs", scratch.path]  # the cluster gives each scratch path an emptyDir
                 for port in service.ports or []:
                     args += ["--publish", f"127.0.0.1::{port}"]
                 if service.command:
@@ -225,7 +233,12 @@ def run_container_tests(data_dir: Path, name: str | None) -> list[dict[str, Any]
                     if channels and channel_name not in channels:
                         continue
                     probes.extend(ProbesV1.model_validate_json((listing_file.parent / path).read_text()).probes)
-                messages = test_container(source, channel, ProbesV1(probes=probes) if probes else None)
+                messages = test_container(
+                    source,
+                    channel,
+                    ProbesV1(probes=probes) if probes else None,
+                    environment=instance_spec_environment(spec),
+                )
                 outcome.update(success=True, exit_code=0, stdout="\n".join(messages))
             except Exception as exc:
                 outcome.update(error=str(exc), stderr=str(exc))

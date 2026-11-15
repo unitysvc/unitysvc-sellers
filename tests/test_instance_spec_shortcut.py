@@ -302,7 +302,9 @@ def test_run_tests_uses_the_offerings_single_spec(
         make_service(tmp_path, {"instance_spec": "compose.yaml"})
     seen: list[str] = []
     monkeypatch.setattr(
-        runner_module, "test_container", lambda source, channel, probes=None: seen.append(source) or ["ok"]
+        runner_module,
+        "test_container",
+        lambda source, channel, probes=None, environment=None: seen.append(source) or ["ok"],
     )
     (row,) = runner_module.run_container_tests(tmp_path, None)
     assert row["result"]["success"], row["result"]
@@ -316,7 +318,9 @@ def test_run_tests_downloads_a_url_spec(tmp_path: Path, monkeypatch: pytest.Monk
     respx.get(URL).mock(return_value=httpx.Response(200, text=COMPOSE))
     seen: list[str] = []
     monkeypatch.setattr(
-        runner_module, "test_container", lambda source, channel, probes=None: seen.append(source) or ["ok"]
+        runner_module,
+        "test_container",
+        lambda source, channel, probes=None, environment=None: seen.append(source) or ["ok"],
     )
     (row,) = runner_module.run_container_tests(tmp_path, None)
     assert row["result"]["success"], row["result"]
@@ -327,3 +331,50 @@ def test_find_instance_spec_needs_exactly_one() -> None:
     assert find_instance_spec({}) is None
     two = {"instance_spec": "a.yaml", "documents": {"X": {"category": "instance_spec", "file_path": "b.yaml"}}}
     assert find_instance_spec(two) is None
+
+
+# --- the 0.3.12 spec: overlay, tags, env_file, scratch ----------------------
+
+BARE_KEY = COMPOSE + "    environment:\n      - API_KEY\n"
+
+
+@respx.mock
+def test_overlay_resolves_a_bare_variable_in_a_downloaded_spec() -> None:
+    respx.get(URL).mock(return_value=httpx.Response(200, text=BARE_KEY))
+    document = {"category": "instance_spec", "external_url": URL}
+    offering = {
+        "upstream_access_config": {"base": CHANNEL},
+        "documents": {"Instance spec": document},
+    }
+    errors, _ = check_remote_instance_spec(offering)
+    assert any("API_KEY" in e for e in errors)
+    document["meta"] = {"environment": {"web": {"API_KEY": "${UNITYSVC_INSTANCE_API_KEY}"}}}
+    errors, warnings = check_remote_instance_spec(offering)
+    assert errors == []
+
+
+def test_overlay_and_scratch_reach_docker(monkeypatch: pytest.MonkeyPatch) -> None:
+    source = (
+        "services:\n  web:\n    image: example/web:1.2\n    ports: ['8080']\n"
+        "    env_file: .env\n    environment:\n      - API_KEY\n    volumes:\n      - data:/app/data\n"
+        "volumes:\n  data:\n"
+    )
+    channel = runner_module.ContainerChannel.model_validate(CHANNEL)
+    runs: list[tuple[str, ...]] = []
+    envs: list[str] = []
+
+    def docker(*args: str, **kwargs: Any) -> str:
+        if args[0] == "run":
+            runs.append(args)
+            envs.append(Path(args[args.index("--env-file") + 1]).read_text())
+        return "127.0.0.1:54321" if args[0] == "port" else ""
+
+    monkeypatch.setattr(runner_module, "_docker", docker)
+    monkeypatch.setattr(runner_module, "_ready", lambda *args: True)
+    overlay = {"web": {"API_KEY": "${UNITYSVC_INSTANCE_API_KEY}", "MODE": "demo"}}
+    with respx.mock() as mock:
+        mock.get("http://127.0.0.1:54321/").mock(return_value=httpx.Response(200))
+        runner_module.test_container(source, channel, environment=overlay)
+    (run,) = runs
+    assert run[run.index("--tmpfs") + 1] == "/app/data"
+    assert "MODE=demo" in envs[0] and "${" not in envs[0]  # a tag-only image and env_file only warn

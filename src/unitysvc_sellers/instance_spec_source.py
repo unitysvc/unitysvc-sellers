@@ -78,6 +78,13 @@ def find_instance_spec(offering: dict[str, Any] | None) -> InstanceSpecSource | 
     return InstanceSpecSource(title=found[0][0], document=found[0][1])
 
 
+def instance_spec_environment(source: InstanceSpecSource) -> dict[str, dict[str, str]] | None:
+    """The Document's ``meta.environment`` overlay (``{service: {NAME: value}}``), for core to merge at compile time."""
+    meta = source.document.get("meta")
+    overlay = meta.get("environment") if isinstance(meta, dict) else None
+    return overlay if isinstance(overlay, dict) else None
+
+
 def raw_github_url(url: str) -> str:
     """Rewrite a ``github.com/<o>/<r>/blob/<ref>/<path>`` page to ``raw.githubusercontent.com``."""
     parts = urlsplit(url)
@@ -229,7 +236,9 @@ def check_remote_instance_spec(offering: dict[str, Any] | None, **fetch_options:
             channel = ContainerChannel.model_validate(raw)
         except ValueError:
             continue  # the channel's own errors are reported by the schema checks
-        report = validate_instance_spec(source.text, format=fmt, channel=channel)
+        report = validate_instance_spec(
+            source.text, format=fmt, channel=channel, environment=instance_spec_environment(source)
+        )
         at = f"upstream_access_config.{name}"
         errors.extend(f"{at}.instance_spec ({source.title!r}): {issue}" for issue in report.errors)
         warnings.extend(f"{at}: {issue}" for issue in report.warnings)

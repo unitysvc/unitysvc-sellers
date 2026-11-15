@@ -1,6 +1,6 @@
 # Container services
 
-Use `unitysvc-core>=0.3.11` and the `container` access method. Keep a concrete service under `services/specs/<provider>/<name>/` with `provider.json`, `offering.json`, `listing.json` and the Compose file. Each channel declares its Kubernetes-style `resources`; multiple Compose services require a complete per-service allocation within that tier.
+Use `unitysvc-core>=0.3.12` and the `container` access method. Keep a concrete service under `services/specs/<provider>/<name>/` with `provider.json`, `offering.json`, `listing.json` and the Compose file. Each channel declares its Kubernetes-style `resources`; multiple Compose services require a complete per-service allocation within that tier.
 
 ## The instance spec
 
@@ -23,6 +23,31 @@ The value is a path relative to `offering.json` or an https URL. On upload the S
 
 For `specs validate` and the local Docker `run-tests` the SDK downloads the file itself, into memory (never into your tree), as a convenience for your own machine (the platform repeats the fetch and validation at upload, and does its own safety checks): https only, at most 1 MiB, a 15 second timeout, at most 3 redirects that must stay https, and `github.com/<owner>/<repo>/blob/<ref>/<path>` pages rewritten to `raw.githubusercontent.com`, a warning for a branch ref, and `meta.sha256` verified when set. `specs format` never touches a remote file.
 
+### Images, `env_file` and variables
+
+An image may be a tag (`ghcr.io/acme/app:1.4`) or untagged: it is accepted with a warning, the platform runs it as written and records the digest it resolved. A digest you write (`app@sha256:...`) is honored as written; a malformed digest is an error. Pin by digest when you need exactly the bytes you tested.
+
+`env_file` is ignored, with a loud warning, because the file is not part of the upload. Supply the variables it would have held with `meta.environment` on the Document form: a map from Compose service name to `NAME: "value"`, merged over the file's own `environment` when the spec is compiled. The Compose file itself is not edited, `${UNITYSVC_INSTANCE_API_KEY}` works as a value, and a bare `KEY` in the file takes the overlay's value. Only `environment` can be overlaid, and every service named must exist in the file.
+
+```json
+"documents": {
+  "Instance spec": {
+    "category": "instance_spec",
+    "external_url": "https://github.com/acme/stacks/blob/3f2a9c1d.../compose.yaml",
+    "meta": {
+      "sha256": "<64 hex characters>",
+      "environment": {"gateway": {"API_KEY": "${UNITYSVC_INSTANCE_API_KEY}"}}
+    }
+  }
+}
+```
+
+This is how you reuse a project's generic Compose file as it is (see `weixin-ilink-gateway-upstream` in unitysvc-core's examples). `specs validate` and the local test apply the overlay the same way the platform does.
+
+### Scratch storage
+
+A named or anonymous volume mount (`data:/app/data`) becomes scratch space: the path exists and is writable, its data survives a container restart but not a replacement of the instance, and it counts against the service's `ephemeral-storage`. Host paths and bind mounts are still refused. The local Docker test mounts each scratch path as a `tmpfs`.
+
 ### No per-channel `spec`
 
 A channel has no `spec` field: there is nothing to name, because every channel runs the offering's one instance spec. Writing `spec` on a channel is an error.
@@ -39,7 +64,7 @@ usvc seller specs format
 usvc seller specs run-tests <provider>/<name> --force
 ```
 
-The local command explicitly runs Docker: it pulls digest-pinned images, starts the core compiler's normalized services on an isolated bridge network, waits for the declared health checks (or default TCP readiness), fetches every entry, runs optional declarative JSON `connectivity_test` probes, and removes the containers/network even on failure. Bindings and Compose restrictions are validated before starting containers. Each run uses a fresh random `${UNITYSVC_INSTANCE_API_KEY}` value; it never imports a real key or other environment variable from the host, mounts host data, or forwards UnitySVC credentials. Readiness is capped at 120 seconds. Local Docker does not assert Kubernetes/gVisor behavior or ephemeral-storage quotas.
+The local command explicitly runs Docker: it pulls the images (a tag is allowed), starts the core compiler's normalized services on an isolated bridge network, waits for the declared health checks (or default TCP readiness), fetches every entry, runs optional declarative JSON `connectivity_test` probes, and removes the containers/network even on failure. Bindings and Compose restrictions are validated before starting containers. Each run applies the Document's `meta.environment` overlay and uses a fresh random `${UNITYSVC_INSTANCE_API_KEY}` value; it never imports a real key or other environment variable from the host, mounts host data, or forwards UnitySVC credentials. Readiness is capped at 120 seconds. Local Docker does not assert Kubernetes/gVisor behavior or ephemeral-storage quotas.
 
 A JSON probes document has the shared core shape:
 
