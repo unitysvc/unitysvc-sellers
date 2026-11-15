@@ -214,13 +214,6 @@ def run_container_tests(data_dir: Path, name: str | None) -> list[dict[str, Any]
                         "the offering needs exactly one instance spec (the 'instance_spec' field or one document)"
                     )
                 spec.warnings = notes
-                if channel.spec is not None:
-                    if channel.spec != spec.title:
-                        raise ValueError(
-                            f"channel 'spec' {channel.spec!r} is not the offering's instance spec "
-                            f"{spec.title!r}; omit 'spec'"
-                        )
-                    spec.warnings.append("channel 'spec' is deprecated: an offering has one instance spec, omit it")
                 # A URL is downloaded to memory (never into the seller's tree) under the fetch rules.
                 source = read_instance_spec(spec, listing_file.parent).text or ""
                 probes = []

@@ -204,27 +204,6 @@ def test_url_shortcut_warns_about_a_branch_ref(tmp_path: Path) -> None:
     assert "branch" in result.output
 
 
-def test_old_form_with_channel_spec_and_document_still_validates(tmp_path: Path) -> None:
-    document = {
-        "category": "instance_spec",
-        "mime_type": "text",
-        "meta": {"format": "compose"},
-        "file_path": "compose.yaml",
-    }
-    make_service(tmp_path, {"documents": {"Application": document}}, channel={**CHANNEL, "spec": "Application"})
-    result = validate(tmp_path)
-    assert result.exit_code == 0, result.output
-    assert "deprecated" in result.output
-
-
-def test_old_form_naming_another_title_is_refused(tmp_path: Path) -> None:
-    document = {"category": "instance_spec", "mime_type": "text", "file_path": "compose.yaml"}
-    make_service(tmp_path, {"documents": {"Application": document}}, channel={**CHANNEL, "spec": "Other"})
-    result = validate(tmp_path)
-    assert result.exit_code == 1
-    assert "Other" in result.output
-
-
 # --- meta.sha256 ----------------------------------------------------------
 
 
@@ -347,13 +326,13 @@ def test_format_leaves_a_url_spec_alone(tmp_path: Path) -> None:
 # --- run-tests uses the one spec ------------------------------------------
 
 
-@pytest.mark.parametrize("old_form", [False, True])
+@pytest.mark.parametrize("document_form", [False, True])
 def test_run_tests_uses_the_offerings_single_spec(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, old_form: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, document_form: bool
 ) -> None:
-    if old_form:
+    if document_form:
         document = {"category": "instance_spec", "mime_type": "text", "file_path": "compose.yaml"}
-        make_service(tmp_path, {"documents": {"Application": document}}, channel={**CHANNEL, "spec": "Application"})
+        make_service(tmp_path, {"documents": {"Application": document}})
     else:
         make_service(tmp_path, {"instance_spec": "compose.yaml"})
     seen: list[str] = []
@@ -363,7 +342,7 @@ def test_run_tests_uses_the_offerings_single_spec(
     (row,) = runner_module.run_container_tests(tmp_path, None)
     assert row["result"]["success"], row["result"]
     assert seen == [COMPOSE]
-    assert bool(row["result"]["warnings"]) is old_form
+    assert row["result"]["warnings"] == []
 
 
 @respx.mock
@@ -377,13 +356,6 @@ def test_run_tests_downloads_a_url_spec(tmp_path: Path, monkeypatch: pytest.Monk
     (row,) = runner_module.run_container_tests(tmp_path, None)
     assert row["result"]["success"], row["result"]
     assert seen == [COMPOSE]
-
-
-def test_run_tests_refuses_a_channel_spec_naming_another_title(tmp_path: Path) -> None:
-    document = {"category": "instance_spec", "mime_type": "text", "file_path": "compose.yaml"}
-    make_service(tmp_path, {"documents": {"Application": document}}, channel={**CHANNEL, "spec": "Other"})
-    (row,) = runner_module.run_container_tests(tmp_path, None)
-    assert not row["result"]["success"] and "Other" in row["result"]["error"]
 
 
 def test_find_instance_spec_needs_exactly_one() -> None:
