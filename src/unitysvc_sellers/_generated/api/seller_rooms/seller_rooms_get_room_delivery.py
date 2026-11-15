@@ -74,8 +74,7 @@ def sync_detailed(
 ) -> Response[HTTPValidationError | RoomDelivery]:
     """Get Room Delivery
 
-     How this room reaches your account: its connectors, each with its
-    inbound URL for an editor's session (unitysvc#2918).
+     How this room reaches your account: its notify and email settings.
 
     Args:
         target (str):
@@ -112,8 +111,7 @@ def sync(
 ) -> HTTPValidationError | RoomDelivery | None:
     """Get Room Delivery
 
-     How this room reaches your account: its connectors, each with its
-    inbound URL for an editor's session (unitysvc#2918).
+     How this room reaches your account: its notify and email settings.
 
     Args:
         target (str):
@@ -145,8 +143,7 @@ async def asyncio_detailed(
 ) -> Response[HTTPValidationError | RoomDelivery]:
     """Get Room Delivery
 
-     How this room reaches your account: its connectors, each with its
-    inbound URL for an editor's session (unitysvc#2918).
+     How this room reaches your account: its notify and email settings.
 
     Args:
         target (str):
@@ -181,8 +178,7 @@ async def asyncio(
 ) -> HTTPValidationError | RoomDelivery | None:
     """Get Room Delivery
 
-     How this room reaches your account: its connectors, each with its
-    inbound URL for an editor's session (unitysvc#2918).
+     How this room reaches your account: its notify and email settings.
 
     Args:
         target (str):

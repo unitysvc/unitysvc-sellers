@@ -13,7 +13,6 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.room_message_page import RoomMessagePage
-    from ..models.room_origin import RoomOrigin
 
 
 T = TypeVar("T", bound="RoomView")
@@ -29,14 +28,12 @@ class RoomView:
     status: str
     role: str
     messages: RoomMessagePage
-    origin: None | RoomOrigin | Unset = UNSET
     description: str | Unset = ""
     owner_name: None | str | Unset = UNSET
     retention_seconds: int | None | Unset = UNSET
     """ Effective message retention; null when kept indefinitely """
     max_retention_seconds: int | None | Unset = UNSET
-    """ The longest this room may keep messages: its enrollment's cap or its kind's maximum; null when neither caps
-    """
+    """ The kind's longest retention; null when it has none """
     keep_forever: bool | Unset = False
     owner_sets_retention: bool | Unset = True
     fixed_membership: bool | Unset = False
@@ -48,17 +45,11 @@ class RoomView:
     sent_latest_message: bool | Unset = False
     last_conversation_at: datetime.datetime | None | Unset = UNSET
     last_active_offset: int | None | Unset = UNSET
-    """ Calling user's personal read-through offset; null means no acknowledgement. """
     last_active_at: datetime.datetime | None | Unset = UNSET
-    """ When the calling user acknowledged reading; not party or posting activity. """
     follow_up: bool | Unset = False
-    attention_pending: bool | Unset = False
-    attention_since: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.room_origin import RoomOrigin
-
         id = str(self.id)
 
         member_id = str(self.member_id)
@@ -74,14 +65,6 @@ class RoomView:
         role = self.role
 
         messages = self.messages.to_dict()
-
-        origin: dict[str, Any] | None | Unset
-        if isinstance(self.origin, Unset):
-            origin = UNSET
-        elif isinstance(self.origin, RoomOrigin):
-            origin = self.origin.to_dict()
-        else:
-            origin = self.origin
 
         description = self.description
 
@@ -151,16 +134,6 @@ class RoomView:
 
         follow_up = self.follow_up
 
-        attention_pending = self.attention_pending
-
-        attention_since: None | str | Unset
-        if isinstance(self.attention_since, Unset):
-            attention_since = UNSET
-        elif isinstance(self.attention_since, datetime.datetime):
-            attention_since = self.attention_since.isoformat()
-        else:
-            attention_since = self.attention_since
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -175,8 +148,6 @@ class RoomView:
                 "messages": messages,
             }
         )
-        if origin is not UNSET:
-            field_dict["origin"] = origin
         if description is not UNSET:
             field_dict["description"] = description
         if owner_name is not UNSET:
@@ -211,17 +182,12 @@ class RoomView:
             field_dict["last_active_at"] = last_active_at
         if follow_up is not UNSET:
             field_dict["follow_up"] = follow_up
-        if attention_pending is not UNSET:
-            field_dict["attention_pending"] = attention_pending
-        if attention_since is not UNSET:
-            field_dict["attention_since"] = attention_since
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.room_message_page import RoomMessagePage
-        from ..models.room_origin import RoomOrigin
 
         d = dict(src_dict)
         id = UUID(d.pop("id"))
@@ -239,23 +205,6 @@ class RoomView:
         role = d.pop("role")
 
         messages = RoomMessagePage.from_dict(d.pop("messages"))
-
-        def _parse_origin(data: object) -> None | RoomOrigin | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                origin_type_0 = RoomOrigin.from_dict(data)
-
-                return origin_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(None | RoomOrigin | Unset, data)
-
-        origin = _parse_origin(d.pop("origin", UNSET))
 
         description = d.pop("description", UNSET)
 
@@ -364,25 +313,6 @@ class RoomView:
 
         follow_up = d.pop("follow_up", UNSET)
 
-        attention_pending = d.pop("attention_pending", UNSET)
-
-        def _parse_attention_since(data: object) -> datetime.datetime | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                attention_since_type_0 = isoparse(data)
-
-                return attention_since_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(datetime.datetime | None | Unset, data)
-
-        attention_since = _parse_attention_since(d.pop("attention_since", UNSET))
-
         room_view = cls(
             id=id,
             member_id=member_id,
@@ -392,7 +322,6 @@ class RoomView:
             status=status,
             role=role,
             messages=messages,
-            origin=origin,
             description=description,
             owner_name=owner_name,
             retention_seconds=retention_seconds,
@@ -410,8 +339,6 @@ class RoomView:
             last_active_offset=last_active_offset,
             last_active_at=last_active_at,
             follow_up=follow_up,
-            attention_pending=attention_pending,
-            attention_since=attention_since,
         )
 
         room_view.additional_properties = d

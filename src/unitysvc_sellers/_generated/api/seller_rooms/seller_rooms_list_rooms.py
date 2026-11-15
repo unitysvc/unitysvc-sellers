@@ -18,7 +18,6 @@ def _get_kwargs(
     service: None | Unset | UUID = UNSET,
     q: None | str | Unset = UNSET,
     new_activity: bool | Unset = False,
-    include_closed: bool | Unset = False,
     limit: int | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
@@ -66,8 +65,6 @@ def _get_kwargs(
     params["q"] = json_q
 
     params["new_activity"] = new_activity
-
-    params["include_closed"] = include_closed
 
     json_limit: int | None | Unset
     if isinstance(limit, Unset):
@@ -133,7 +130,6 @@ def sync_detailed(
     service: None | Unset | UUID = UNSET,
     q: None | str | Unset = UNSET,
     new_activity: bool | Unset = False,
-    include_closed: bool | Unset = False,
     limit: int | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
@@ -150,14 +146,10 @@ def sync_detailed(
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
-        enrollment (None | Unset | UUID): Only rooms of this enrollment: its own, and those it
-            admits the account to
+        enrollment (None | Unset | UUID): Only rooms of this enrollment
         service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
         q (None | str | Unset): Only rooms whose name starts with this (case-insensitive)
-        new_activity (bool | Unset): Only rooms with conversation activity the calling user has
-            not acknowledged Default: False.
-        include_closed (bool | Unset): Also list rooms the account is still a member of but can't
-            reach now (a paused or cancelled enrollment, an inactive service), with closed_reason set
+        new_activity (bool | Unset): Only rooms with conversation activity the account hasn't seen
             Default: False.
         limit (int | None | Unset): Rooms per page; omit for every room (after ``cursor``)
         cursor (None | str | Unset): Opaque cursor from a previous response's next_cursor; omit to
@@ -179,7 +171,6 @@ def sync_detailed(
         service=service,
         q=q,
         new_activity=new_activity,
-        include_closed=include_closed,
         limit=limit,
         cursor=cursor,
         authorization=authorization,
@@ -201,7 +192,6 @@ def sync(
     service: None | Unset | UUID = UNSET,
     q: None | str | Unset = UNSET,
     new_activity: bool | Unset = False,
-    include_closed: bool | Unset = False,
     limit: int | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
@@ -218,14 +208,10 @@ def sync(
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
-        enrollment (None | Unset | UUID): Only rooms of this enrollment: its own, and those it
-            admits the account to
+        enrollment (None | Unset | UUID): Only rooms of this enrollment
         service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
         q (None | str | Unset): Only rooms whose name starts with this (case-insensitive)
-        new_activity (bool | Unset): Only rooms with conversation activity the calling user has
-            not acknowledged Default: False.
-        include_closed (bool | Unset): Also list rooms the account is still a member of but can't
-            reach now (a paused or cancelled enrollment, an inactive service), with closed_reason set
+        new_activity (bool | Unset): Only rooms with conversation activity the account hasn't seen
             Default: False.
         limit (int | None | Unset): Rooms per page; omit for every room (after ``cursor``)
         cursor (None | str | Unset): Opaque cursor from a previous response's next_cursor; omit to
@@ -248,7 +234,6 @@ def sync(
         service=service,
         q=q,
         new_activity=new_activity,
-        include_closed=include_closed,
         limit=limit,
         cursor=cursor,
         authorization=authorization,
@@ -264,7 +249,6 @@ async def asyncio_detailed(
     service: None | Unset | UUID = UNSET,
     q: None | str | Unset = UNSET,
     new_activity: bool | Unset = False,
-    include_closed: bool | Unset = False,
     limit: int | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
@@ -281,14 +265,10 @@ async def asyncio_detailed(
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
-        enrollment (None | Unset | UUID): Only rooms of this enrollment: its own, and those it
-            admits the account to
+        enrollment (None | Unset | UUID): Only rooms of this enrollment
         service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
         q (None | str | Unset): Only rooms whose name starts with this (case-insensitive)
-        new_activity (bool | Unset): Only rooms with conversation activity the calling user has
-            not acknowledged Default: False.
-        include_closed (bool | Unset): Also list rooms the account is still a member of but can't
-            reach now (a paused or cancelled enrollment, an inactive service), with closed_reason set
+        new_activity (bool | Unset): Only rooms with conversation activity the account hasn't seen
             Default: False.
         limit (int | None | Unset): Rooms per page; omit for every room (after ``cursor``)
         cursor (None | str | Unset): Opaque cursor from a previous response's next_cursor; omit to
@@ -310,7 +290,6 @@ async def asyncio_detailed(
         service=service,
         q=q,
         new_activity=new_activity,
-        include_closed=include_closed,
         limit=limit,
         cursor=cursor,
         authorization=authorization,
@@ -330,7 +309,6 @@ async def asyncio(
     service: None | Unset | UUID = UNSET,
     q: None | str | Unset = UNSET,
     new_activity: bool | Unset = False,
-    include_closed: bool | Unset = False,
     limit: int | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     authorization: None | str | Unset = UNSET,
@@ -347,14 +325,10 @@ async def asyncio(
 
     Args:
         kind (None | str | Unset): Only rooms of this kind
-        enrollment (None | Unset | UUID): Only rooms of this enrollment: its own, and those it
-            admits the account to
+        enrollment (None | Unset | UUID): Only rooms of this enrollment
         service (None | Unset | UUID): Only rooms of this service (not its enrollments' rooms)
         q (None | str | Unset): Only rooms whose name starts with this (case-insensitive)
-        new_activity (bool | Unset): Only rooms with conversation activity the calling user has
-            not acknowledged Default: False.
-        include_closed (bool | Unset): Also list rooms the account is still a member of but can't
-            reach now (a paused or cancelled enrollment, an inactive service), with closed_reason set
+        new_activity (bool | Unset): Only rooms with conversation activity the account hasn't seen
             Default: False.
         limit (int | None | Unset): Rooms per page; omit for every room (after ``cursor``)
         cursor (None | str | Unset): Opaque cursor from a previous response's next_cursor; omit to
@@ -378,7 +352,6 @@ async def asyncio(
             service=service,
             q=q,
             new_activity=new_activity,
-            include_closed=include_closed,
             limit=limit,
             cursor=cursor,
             authorization=authorization,

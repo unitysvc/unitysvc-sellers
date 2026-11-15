@@ -17,8 +17,8 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  # External apps (no channel) and details.links (unitysvc#2873) are validated
-  # by the shared core models.
+  # Shared validation for existing specs and container channels/instance_spec
+  # Documents; 0.3.10 also supplies the compiler used by local Docker tests.
   "unitysvc-core>=0.3.10",
   # Ships the `usvc` umbrella that mounts the usvc.commands entry point below,
   # so `usvc seller ...` works for anyone who installs this package. Adds no new

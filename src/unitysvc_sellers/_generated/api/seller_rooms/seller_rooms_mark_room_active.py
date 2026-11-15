@@ -81,7 +81,7 @@ def sync_detailed(
 ) -> Response[HTTPValidationError | RoomActiveResponse]:
     """Mark Room Active
 
-     Record the calling person's read-through position at ``offset``, and
+     Record that the account has seen the room through ``offset``, and
     mark the caller's bell notice for it read (#2877). Call it when a
     person opens the room and when they stop viewing it; reading history
     (``GET /{target}``) records nothing.
@@ -124,7 +124,7 @@ def sync(
 ) -> HTTPValidationError | RoomActiveResponse | None:
     """Mark Room Active
 
-     Record the calling person's read-through position at ``offset``, and
+     Record that the account has seen the room through ``offset``, and
     mark the caller's bell notice for it read (#2877). Call it when a
     person opens the room and when they stop viewing it; reading history
     (``GET /{target}``) records nothing.
@@ -162,7 +162,7 @@ async def asyncio_detailed(
 ) -> Response[HTTPValidationError | RoomActiveResponse]:
     """Mark Room Active
 
-     Record the calling person's read-through position at ``offset``, and
+     Record that the account has seen the room through ``offset``, and
     mark the caller's bell notice for it read (#2877). Call it when a
     person opens the room and when they stop viewing it; reading history
     (``GET /{target}``) records nothing.
@@ -203,7 +203,7 @@ async def asyncio(
 ) -> HTTPValidationError | RoomActiveResponse | None:
     """Mark Room Active
 
-     Record the calling person's read-through position at ``offset``, and
+     Record that the account has seen the room through ``offset``, and
     mark the caller's bell notice for it read (#2877). Call it when a
     person opens the room and when they stop viewing it; reading history
     (``GET /{target}``) records nothing.

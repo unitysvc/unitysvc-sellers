@@ -9,8 +9,6 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
-from ..types import UNSET, Unset
-
 T = TypeVar("T", bound="RoomMemberView")
 
 
@@ -22,8 +20,6 @@ class RoomMemberView:
     name: str
     role: str
     joined_at: datetime.datetime
-    attention_pending: bool | Unset = False
-    attention_since: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -43,16 +39,6 @@ class RoomMemberView:
 
         joined_at = self.joined_at.isoformat()
 
-        attention_pending = self.attention_pending
-
-        attention_since: None | str | Unset
-        if isinstance(self.attention_since, Unset):
-            attention_since = UNSET
-        elif isinstance(self.attention_since, datetime.datetime):
-            attention_since = self.attention_since.isoformat()
-        else:
-            attention_since = self.attention_since
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -65,10 +51,6 @@ class RoomMemberView:
                 "joined_at": joined_at,
             }
         )
-        if attention_pending is not UNSET:
-            field_dict["attention_pending"] = attention_pending
-        if attention_since is not UNSET:
-            field_dict["attention_since"] = attention_since
 
         return field_dict
 
@@ -100,25 +82,6 @@ class RoomMemberView:
 
         joined_at = isoparse(d.pop("joined_at"))
 
-        attention_pending = d.pop("attention_pending", UNSET)
-
-        def _parse_attention_since(data: object) -> datetime.datetime | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                attention_since_type_0 = isoparse(data)
-
-                return attention_since_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(datetime.datetime | None | Unset, data)
-
-        attention_since = _parse_attention_since(d.pop("attention_since", UNSET))
-
         room_member_view = cls(
             id=id,
             account_type=account_type,
@@ -126,8 +89,6 @@ class RoomMemberView:
             name=name,
             role=role,
             joined_at=joined_at,
-            attention_pending=attention_pending,
-            attention_since=attention_since,
         )
 
         room_member_view.additional_properties = d

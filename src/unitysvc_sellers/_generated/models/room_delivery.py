@@ -1,37 +1,31 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-if TYPE_CHECKING:
-    from ..models.room_connector_view import RoomConnectorView
-
 
 T = TypeVar("T", bound="RoomDelivery")
 
 
 @_attrs_define
 class RoomDelivery:
-    """How the room reaches the calling account: its connectors, oldest
-    first, each with a service or null (off) for each channel. A new member
-    starts with one connector, ``main``, holding its account's room defaults
-    (``room-{notify,email}-as-{host,guest}``). A post that names no connector
-    came in through none: it goes out through every connector.
+    """How the room reaches the calling account: ``auto``, ``off`` or a path
+    for each channel. A new member starts with its account's room defaults
+    (``room-{notify,email}-as-{host,guest}``).
 
     """
 
-    connectors: list[RoomConnectorView]
+    notify: str
+    email: str
     can_edit: bool
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        connectors = []
-        for connectors_item_data in self.connectors:
-            connectors_item = connectors_item_data.to_dict()
-            connectors.append(connectors_item)
+        notify = self.notify
+
+        email = self.email
 
         can_edit = self.can_edit
 
@@ -39,7 +33,8 @@ class RoomDelivery:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "connectors": connectors,
+                "notify": notify,
+                "email": email,
                 "can_edit": can_edit,
             }
         )
@@ -48,20 +43,16 @@ class RoomDelivery:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.room_connector_view import RoomConnectorView
-
         d = dict(src_dict)
-        connectors = []
-        _connectors = d.pop("connectors")
-        for connectors_item_data in _connectors:
-            connectors_item = RoomConnectorView.from_dict(connectors_item_data)
+        notify = d.pop("notify")
 
-            connectors.append(connectors_item)
+        email = d.pop("email")
 
         can_edit = d.pop("can_edit")
 
         room_delivery = cls(
-            connectors=connectors,
+            notify=notify,
+            email=email,
             can_edit=can_edit,
         )
 

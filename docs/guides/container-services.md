@@ -4,9 +4,7 @@ Use `unitysvc-core>=0.3.10` and the `container` access method. Keep a concrete s
 
 Container channels are enrollable and request `resource:container` creation. Public `entries` select a Compose service and its container port. These are distinct from standard Compose `ports`; the public HTTPS endpoint still uses port 443.
 
-## SDK compatibility
-
-Version 0.3.22 regenerates the seller client for `ServiceTypeEnum.container` and `DocumentCategoryEnum.instance_spec`. Older clients have closed enums and can reject responses carrying these values. Upgrade before uploading or reading container offerings/documents. Customer SDK clients also need a regenerated document-category enum when reading instance-spec documents. The regenerated room client uses connectors; the existing delivery facade updates the `main` connector and preserves the legacy `auto`/`off` spellings.
+The existing upload and service-diagnostic APIs carry container services through the normal provider/offering/listing and Document flow. Validation and normalization come from unitysvc-core; no compute intent/status API is exposed in the seller SDK.
 
 ## Local connectivity test
 

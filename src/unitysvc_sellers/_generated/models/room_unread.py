@@ -11,7 +11,7 @@ T = TypeVar("T", bound="RoomUnread")
 
 @_attrs_define
 class RoomUnread:
-    """How many authorized rooms have unacknowledged activity for this person."""
+    """How many rooms have new activity for the account."""
 
     rooms_with_new_activity: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)

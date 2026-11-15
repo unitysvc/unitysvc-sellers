@@ -100,7 +100,7 @@ usvc seller rooms delivery helpdesk --notify labs/msg-to-discord
 ```
 
 - **History:** pages are ordered by message offset. Pass the previous page's `next` as `after`. A message can take a moment to appear, because history is read only up to what has been fully stored.
-- **Delivery:** `delivery()` returns the account's named `connectors`. `set_delivery()` updates its `main` connector through the current connector API; other connectors are unchanged. The compatibility spellings `auto` and `off` select the channel's Me service and clear it, respectively.
+- **Delivery:** new messages show up in the web app's notifications. Delivery through your notify and email services is planned ([unitysvc#2807](https://github.com/unitysvc/unitysvc/issues/2807) Phase 3). The settings are stored now and apply once it ships.
 
 ## Chat from the terminal
 

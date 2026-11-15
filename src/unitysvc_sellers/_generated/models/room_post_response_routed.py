@@ -1,9 +1,8 @@
 from typing import Literal, cast
 
-RoomPostResponseRouted = Literal["connector", "handle", "me", "room_id"]
+RoomPostResponseRouted = Literal["handle", "me", "room_id"]
 
 ROOM_POST_RESPONSE_ROUTED_VALUES: set[RoomPostResponseRouted] = {
-    "connector",
     "handle",
     "me",
     "room_id",
