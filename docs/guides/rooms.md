@@ -87,7 +87,9 @@ client.rooms.post("helpdesk", body="Our endpoint returns 502 since 10:00 UTC.",
 client.rooms.members("helpdesk")
 client.rooms.update(room_id, description="**Status** updates for this service.")
 client.rooms.delivery("helpdesk")
-client.rooms.set_delivery("helpdesk", notify="auto", email="off")
+client.rooms.add_connector("helpdesk", "alerts", notify="labs/msg-to-discord")
+client.rooms.update_connector("helpdesk", "alerts", email=None)   # None turns a channel off
+client.rooms.delete_connector("helpdesk", "alerts")
 ```
 
 ```bash
@@ -96,7 +98,10 @@ usvc seller rooms show helpdesk --after 41
 usvc seller rooms post helpdesk "Our endpoint returns 502 since 10:00 UTC." --id incident-1031
 usvc seller rooms members helpdesk
 usvc seller rooms set <room> --description "Status updates for this service."
-usvc seller rooms delivery helpdesk --notify labs/msg-to-discord
+usvc seller rooms delivery helpdesk
+usvc seller rooms connector-add helpdesk alerts --notify labs/msg-to-discord
+usvc seller rooms connector-set helpdesk alerts --email off
+usvc seller rooms connector-rm helpdesk alerts
 ```
 
 - **History:** pages are ordered by message offset. Pass the previous page's `next` as `after`. A message can take a moment to appear, because history is read only up to what has been fully stored.

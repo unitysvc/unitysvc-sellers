@@ -45,7 +45,7 @@ client.rooms.update(str(room.id), description="Contact **our support team** here
 members = client.rooms.members(str(room.id))
 delivery = client.rooms.delivery(str(room.id))
 if delivery.can_edit:
-    client.rooms.set_delivery(str(room.id), notify="auto", email="off")
+    client.rooms.add_connector(str(room.id), "alerts", notify="labs/msg-to-discord")
 # Owner only: make the room read-only for members, then reopen it.
 client.rooms.update(str(room.id), status="readonly")
 client.rooms.update(str(room.id), status="active")

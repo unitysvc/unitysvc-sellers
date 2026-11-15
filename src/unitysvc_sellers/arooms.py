@@ -50,12 +50,14 @@ class AsyncRooms:
         service: Any = None,
         q: str | None = None,
         new_activity: bool = False,
+        include_closed: bool = False,
         limit: int | None = None,
         cursor: str | None = None,
     ) -> RoomList:
         """List the rooms the account can reach, most recently active first,
         narrowed by kind, enrollment, service, a case-insensitive name prefix
-        (``q``) or unseen activity (``new_activity``). ``enrollment`` /
+        (``q``), unseen activity (``new_activity``) or, with ``include_closed``,
+        rooms the account can't reach now (``closed_reason`` says why). ``enrollment`` /
         ``service`` take an id or the SDK object; each matches that exact
         scope (a service's rooms, not its enrollments'). Without ``limit``
         every room is returned; with it, pass the result's ``next_cursor`` as
@@ -71,6 +73,7 @@ class AsyncRooms:
                 service=_id(service),
                 q=UNSET if q is None else q,
                 new_activity=new_activity or UNSET,
+                include_closed=include_closed or UNSET,
                 limit=UNSET if limit is None else limit,
                 cursor=UNSET if cursor is None else cursor,
             )
@@ -176,22 +179,40 @@ class AsyncRooms:
         return unwrap(await seller_rooms_list_room_members.asyncio_detailed(target, client=self._client))
 
     async def delivery(self, target: str) -> RoomDelivery:
-        """Read this account's notify/email delivery paths and whether they can be edited."""
+        """Read this account's connectors for the room (notify/email/post services) and whether they can be edited."""
         from ._generated.api.seller_rooms import seller_rooms_get_room_delivery
 
         return unwrap(await seller_rooms_get_room_delivery.asyncio_detailed(target, client=self._client))
 
-    async def set_delivery(self, target: str, *, notify: str | None = None, email: str | None = None) -> RoomDelivery:
-        """Set notify/email to auto, off or a delivery path. Omitted channels stay unchanged."""
-        from ._generated.api.seller_rooms import seller_rooms_update_room_delivery
-        from ._generated.models.room_delivery_update import RoomDeliveryUpdate
+    async def add_connector(self, target: str, name: str, **channels: str | None) -> RoomDelivery:
+        """Add a named connector with its own ``notify`` / ``email`` / ``post`` services
+        (a service path, or None for off). Returns the room's delivery settings."""
+        from ._generated.api.seller_rooms import seller_rooms_add_room_connector
+        from ._generated.models.room_connector_create import RoomConnectorCreate
 
-        settings = {name: value for name, value in {"notify": notify, "email": email}.items() if value is not None}
         return unwrap(
-            await seller_rooms_update_room_delivery.asyncio_detailed(
-                target, client=self._client, body=RoomDeliveryUpdate.from_dict(settings)
+            await seller_rooms_add_room_connector.asyncio_detailed(
+                target, client=self._client, body=RoomConnectorCreate.from_dict({"name": name, **channels})
             )
         )
+
+    async def update_connector(self, target: str, name: str, **settings: Any) -> RoomDelivery:
+        """Change a connector: ``notify`` / ``email`` / ``post`` (a service path; None turns the channel
+        off) or ``default=True``. Omitted fields are unchanged. Returns the room's delivery settings."""
+        from ._generated.api.seller_rooms import seller_rooms_update_room_connector
+        from ._generated.models.room_connector_update import RoomConnectorUpdate
+
+        return unwrap(
+            await seller_rooms_update_room_connector.asyncio_detailed(
+                target, name, client=self._client, body=RoomConnectorUpdate.from_dict(settings)
+            )
+        )
+
+    async def delete_connector(self, target: str, name: str) -> RoomDelivery:
+        """Remove a connector from this account's delivery settings for the room."""
+        from ._generated.api.seller_rooms import seller_rooms_delete_room_connector
+
+        return unwrap(await seller_rooms_delete_room_connector.asyncio_detailed(target, name, client=self._client))
 
     async def update(self, target: str, **settings: Any) -> RoomSummary:
         """Update owner settings: name, Markdown description, retention_seconds or status

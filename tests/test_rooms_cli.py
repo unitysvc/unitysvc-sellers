@@ -56,11 +56,19 @@ class _Rooms:
 
     async def delivery(self, target: str) -> dict[str, Any]:
         self.calls.append(("delivery", target))
-        return {"notify": "auto", "email": "off", "can_edit": True}
+        return {"connectors": [{"name": "main", "notify": "auto"}], "can_edit": True}
 
-    async def set_delivery(self, target: str, **kwargs: Any) -> dict[str, Any]:
-        self.calls.append(("set_delivery", target, kwargs))
-        return {"notify": kwargs["notify"] or "auto", "email": kwargs["email"] or "off", "can_edit": True}
+    async def add_connector(self, target: str, name: str, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(("add_connector", target, name, kwargs))
+        return {"connectors": [{"name": name, **kwargs}], "can_edit": True}
+
+    async def update_connector(self, target: str, name: str, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(("update_connector", target, name, kwargs))
+        return {"connectors": [{"name": name, **kwargs}], "can_edit": True}
+
+    async def delete_connector(self, target: str, name: str) -> dict[str, Any]:
+        self.calls.append(("delete_connector", target, name))
+        return {"connectors": [], "can_edit": True}
 
     async def create_invitation(self, target: str, **kwargs: Any) -> dict[str, Any]:
         self.calls.append(("create_invitation", target, kwargs))
@@ -121,11 +129,17 @@ def test_post_members_and_settings(rooms: _Rooms) -> None:
     assert runner.invoke(app, ["set", "book-club"]).exit_code == 1
 
 
-def test_delivery_reads_or_changes(rooms: _Rooms) -> None:
-    assert json.loads(runner.invoke(app, ["delivery", "me"]).output)["notify"] == "auto"
-    result = runner.invoke(app, ["delivery", "me", "--email", "auto"])
+def test_delivery_and_connectors(rooms: _Rooms) -> None:
+    assert json.loads(runner.invoke(app, ["delivery", "me"]).output)["connectors"][0]["name"] == "main"
+    result = runner.invoke(app, ["connector-add", "me", "alerts", "--notify", "labs/msg-to-discord"])
     assert result.exit_code == 0, result.output
-    assert rooms.calls[-1] == ("set_delivery", "me", {"notify": None, "email": "auto"})
+    assert rooms.calls[-1] == ("add_connector", "me", "alerts", {"notify": "labs/msg-to-discord"})
+    result = runner.invoke(app, ["connector-set", "me", "alerts", "--email", "off", "--default"])
+    assert result.exit_code == 0, result.output
+    assert rooms.calls[-1] == ("update_connector", "me", "alerts", {"email": None, "default": True})
+    assert runner.invoke(app, ["connector-set", "me", "alerts"]).exit_code == 1
+    assert runner.invoke(app, ["connector-rm", "me", "alerts"]).exit_code == 0
+    assert rooms.calls[-1] == ("delete_connector", "me", "alerts")
 
 
 def test_invitations_join_and_leave(rooms: _Rooms) -> None:

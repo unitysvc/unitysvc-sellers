@@ -8,15 +8,21 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="RoomDeliveryUpdate")
+T = TypeVar("T", bound="RoomConnectorUpdate")
 
 
 @_attrs_define
-class RoomDeliveryUpdate:
-    """Fields left out keep their value."""
+class RoomConnectorUpdate:
+    """Fields left out keep their value; null turns a channel off."""
 
     notify: None | str | Unset = UNSET
     email: None | str | Unset = UNSET
+    default: bool | Unset = False
+    """ Ignored. There is no default connector: a post naming no connector goes out through all of them. Kept so
+    released SDKs still validate. """
+    post: None | str | Unset = UNSET
+    """ The inbound converter service; null turns it off (the customer's key for the service stays, for its other
+    connectors) """
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -32,6 +38,14 @@ class RoomDeliveryUpdate:
         else:
             email = self.email
 
+        default = self.default
+
+        post: None | str | Unset
+        if isinstance(self.post, Unset):
+            post = UNSET
+        else:
+            post = self.post
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -39,6 +53,10 @@ class RoomDeliveryUpdate:
             field_dict["notify"] = notify
         if email is not UNSET:
             field_dict["email"] = email
+        if default is not UNSET:
+            field_dict["default"] = default
+        if post is not UNSET:
+            field_dict["post"] = post
 
         return field_dict
 
@@ -64,13 +82,26 @@ class RoomDeliveryUpdate:
 
         email = _parse_email(d.pop("email", UNSET))
 
-        room_delivery_update = cls(
+        default = d.pop("default", UNSET)
+
+        def _parse_post(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        post = _parse_post(d.pop("post", UNSET))
+
+        room_connector_update = cls(
             notify=notify,
             email=email,
+            default=default,
+            post=post,
         )
 
-        room_delivery_update.additional_properties = d
-        return room_delivery_update
+        room_connector_update.additional_properties = d
+        return room_connector_update
 
     @property
     def additional_keys(self) -> list[str]:
