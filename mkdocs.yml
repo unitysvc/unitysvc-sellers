@@ -96,6 +96,7 @@ nav:
       - Generate a Catalog: guides/generate-catalog.md
       - Document Services: documenting-services.md
       - Test Services: code-examples.md
+      - Container Services: guides/container-services.md
       - Operate Live Services: guides/operate-services.md
       - Rooms: guides/rooms.md
       - Promotions, Groups & Secrets: guides/catalog-extras.md

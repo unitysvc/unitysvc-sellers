@@ -149,6 +149,9 @@ def validate_service_folder(validator: DataValidator, root: Path, folder: Path) 
         results = {kind: [f"validation raised {type(exc).__name__}: {exc}"] for kind in loaded}
     for kind, file_errors in results.items():
         errors.extend(f"{kind_files[kind].relative_to(root)}: {e}" for e in file_errors)
+    for warning in validator.service_warnings(loaded.get("offering"), folder):
+        label = "WARNING" if warning.loud else "Warning"
+        console.print(f"{rel_folder}: {label}: {warning}", style="yellow", markup=False)
 
     # The folder path under specs/ must equal the listing (service) name.
     listing = loaded.get("listing")
