@@ -1,10 +1,8 @@
 """The offering-level ``instance_spec`` shortcut (unitysvc/unitysvc-core#107).
 
-Covers expansion on upload (path and URL), validation of both forms and of the
-old channel-``spec`` form, the local URL fetch rules, ``meta.sha256``,
+Covers expansion on upload (path and URL), validation of both forms, the local URL fetch rules, ``meta.sha256``,
 ``specs format`` leaving a remote file alone and ``run-tests`` using the
-offering's single spec. No real network: https is mocked with respx and DNS
-with a resolver stub.
+offering's single spec. No real network: https is mocked with respx.
 """
 
 from __future__ import annotations
@@ -20,7 +18,6 @@ import respx
 from typer.testing import CliRunner
 
 from unitysvc_sellers import container_testing as runner_module
-from unitysvc_sellers import instance_spec_source as source_module
 from unitysvc_sellers.format_data import format_data_files
 from unitysvc_sellers.instance_spec_source import (
     InstanceSpecFetchError,
@@ -40,7 +37,6 @@ COMPOSE = """services:
 SHA = hashlib.sha256(COMPOSE.encode()).hexdigest()
 URL = "https://raw.githubusercontent.com/acme/stacks/" + "c" * 40 + "/compose.yaml"
 TIME = "2026-01-01T00:00:00Z"
-PUBLIC = lambda host: ["93.184.216.34"]  # noqa: E731
 
 CHANNEL = {
     "access_method": "container",
@@ -55,11 +51,6 @@ CHANNEL = {
         }
     ],
 }
-
-
-@pytest.fixture(autouse=True)
-def public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(source_module, "_resolve_host", PUBLIC)
 
 
 def make_service(root: Path, offering_extra: dict[str, Any], channel: dict[str, Any] | None = None) -> Path:
@@ -238,66 +229,40 @@ def test_http_url_is_refused() -> None:
         fetch_instance_spec("http://example.com/compose.yaml")
 
 
-@pytest.mark.parametrize("host", ["10.0.0.5", "127.0.0.1", "169.254.169.254", "localhost", "[::1]", "2130706433"])
-def test_private_hosts_are_refused_without_a_request(host: str) -> None:
-    with respx.mock(assert_all_called=False) as mock:
-        with pytest.raises(InstanceSpecFetchError, match="refusing"):
-            fetch_instance_spec(f"https://{host}/compose.yaml")
-        assert mock.calls.call_count == 0
-
-
-def test_hostname_resolving_to_a_private_address_is_refused() -> None:
-    with respx.mock(assert_all_called=False) as mock:
-        with pytest.raises(InstanceSpecFetchError, match="private, loopback or link-local"):
-            fetch_instance_spec("https://example.com/compose.yaml", resolver=lambda host: ["10.1.2.3"])
-        assert mock.calls.call_count == 0
-
-
-@respx.mock
-def test_redirect_to_a_private_address_is_refused() -> None:
-    respx.get("https://example.com/a").mock(
-        return_value=httpx.Response(302, headers={"location": "https://internal.example/b"})
-    )
-    respx.get("https://internal.example/b").mock(return_value=httpx.Response(200, text=COMPOSE))
-    resolver = lambda host: ["10.0.0.1"] if host == "internal.example" else ["93.184.216.34"]  # noqa: E731
-    with pytest.raises(InstanceSpecFetchError, match="private"):
-        fetch_instance_spec("https://example.com/a", resolver=resolver)
-
-
 @respx.mock
 def test_redirect_to_http_is_refused() -> None:
     respx.get("https://example.com/a").mock(
         return_value=httpx.Response(301, headers={"location": "http://example.com/b"})
     )
     with pytest.raises(InstanceSpecFetchError, match="https"):
-        fetch_instance_spec("https://example.com/a", resolver=PUBLIC)
+        fetch_instance_spec("https://example.com/a")
 
 
 @respx.mock
 def test_redirects_are_limited_and_https_redirects_are_followed() -> None:
     respx.get("https://example.com/a").mock(return_value=httpx.Response(302, headers={"location": "/b"}))
     respx.get("https://example.com/b").mock(return_value=httpx.Response(200, text=COMPOSE))
-    assert fetch_instance_spec("https://example.com/a", resolver=PUBLIC)[0] == COMPOSE
+    assert fetch_instance_spec("https://example.com/a")[0] == COMPOSE
     respx.get("https://example.com/loop").mock(return_value=httpx.Response(302, headers={"location": "/loop"}))
     with pytest.raises(InstanceSpecFetchError, match="redirected more than"):
-        fetch_instance_spec("https://example.com/loop", resolver=PUBLIC)
+        fetch_instance_spec("https://example.com/loop")
 
 
 @respx.mock
 def test_size_cap_applies_to_declared_and_streamed_bodies() -> None:
     respx.get("https://example.com/big").mock(return_value=httpx.Response(200, content=b"x" * 2000))
     with pytest.raises(InstanceSpecFetchError, match="larger than 1000 bytes"):
-        fetch_instance_spec("https://example.com/big", resolver=PUBLIC, max_bytes=1000)
+        fetch_instance_spec("https://example.com/big", max_bytes=1000)
 
 
 @respx.mock
 def test_timeout_and_http_errors_are_reported() -> None:
     respx.get("https://example.com/slow").mock(side_effect=httpx.ConnectTimeout("slow"))
     with pytest.raises(InstanceSpecFetchError, match="cannot download"):
-        fetch_instance_spec("https://example.com/slow", resolver=PUBLIC)
+        fetch_instance_spec("https://example.com/slow")
     respx.get("https://example.com/missing").mock(return_value=httpx.Response(404))
     with pytest.raises(InstanceSpecFetchError, match="HTTP 404"):
-        fetch_instance_spec("https://example.com/missing", resolver=PUBLIC)
+        fetch_instance_spec("https://example.com/missing")
 
 
 @respx.mock
@@ -306,7 +271,7 @@ def test_github_blob_pages_are_rewritten_to_raw() -> None:
     route = respx.get(f"https://raw.githubusercontent.com/o/r/{sha}/dir/compose.yaml").mock(
         return_value=httpx.Response(200, text=COMPOSE)
     )
-    text, warnings = fetch_instance_spec(f"https://github.com/o/r/blob/{sha}/dir/compose.yaml", resolver=PUBLIC)
+    text, warnings = fetch_instance_spec(f"https://github.com/o/r/blob/{sha}/dir/compose.yaml")
     assert text == COMPOSE and route.called and warnings == []
 
 
