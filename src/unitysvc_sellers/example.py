@@ -1186,6 +1186,8 @@ def run_local(
             outcome = row["result"]
             status = "[green]PASS[/green]" if outcome["success"] else "[red]FAIL[/red]"
             console.print(f"Container test {row['service_name']} [{row['channel']}]: {status}")
+            for note in outcome.get("warnings") or []:
+                console.print(f"Warning: {note}", style="yellow", markup=False)
             if outcome.get("error"):
                 console.print(outcome["error"])
             elif verbose:

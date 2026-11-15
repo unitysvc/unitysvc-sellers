@@ -23,6 +23,7 @@ from unitysvc_core.models.container import ContainerEntry, parse_quantity
 from unitysvc_core.models.manifest import ManifestService
 from unitysvc_core.models.probes import Probe, ProbesV1
 
+from .instance_spec_source import find_instance_spec, read_instance_spec
 from .utils import find_files_by_pattern, service_name_matches
 
 INSTANCE_KEY_REFERENCE = "${UNITYSVC_INSTANCE_API_KEY}"
@@ -203,11 +204,25 @@ def run_container_tests(data_dir: Path, name: str | None) -> list[dict[str, Any]
         for channel_name, raw in (offering.get("upstream_access_config") or {}).items():
             if not isinstance(raw, dict) or raw.get("access_method") != "container":
                 continue
-            outcome: dict[str, Any] = {"success": False, "exit_code": 1, "stdout": "", "stderr": ""}
+            notes: list[str] = []
+            outcome: dict[str, Any] = {"success": False, "exit_code": 1, "stdout": "", "stderr": "", "warnings": notes}
             try:
                 channel = ContainerChannel.model_validate(raw)
-                document = offering["documents"][channel.spec]
-                source = (listing_file.parent / document["file_path"]).read_text()
+                spec = find_instance_spec(offering)
+                if spec is None:
+                    raise ValueError(
+                        "the offering needs exactly one instance spec (the 'instance_spec' field or one document)"
+                    )
+                spec.warnings = notes
+                if channel.spec is not None:
+                    if channel.spec != spec.title:
+                        raise ValueError(
+                            f"channel 'spec' {channel.spec!r} is not the offering's instance spec "
+                            f"{spec.title!r}; omit 'spec'"
+                        )
+                    spec.warnings.append("channel 'spec' is deprecated: an offering has one instance spec, omit it")
+                # A URL is downloaded to memory (never into the seller's tree) under the fetch rules.
+                source = read_instance_spec(spec, listing_file.parent).text or ""
                 probes = []
                 for document in (listing.get("documents") or {}).values():
                     path = document.get("file_path", "")

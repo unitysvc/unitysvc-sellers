@@ -1,6 +1,31 @@
 # Container services
 
-Use `unitysvc-core>=0.3.10` and the `container` access method. Keep a concrete service under `services/specs/<provider>/<name>/` with `provider.json`, `offering.json`, `listing.json`, and an offering Document of category `instance_spec` pointing to a Compose file (`meta.format: compose`). A channel references that Document by title through `spec` and declares its Kubernetes-style `resources` there. Multiple Compose services require a complete per-service allocation within that tier.
+Use `unitysvc-core>=0.3.11` and the `container` access method. Keep a concrete service under `services/specs/<provider>/<name>/` with `provider.json`, `offering.json`, `listing.json` and the Compose file. Each channel declares its Kubernetes-style `resources`; multiple Compose services require a complete per-service allocation within that tier.
+
+## The instance spec
+
+An offering has **exactly one** instance spec, and every container channel (tier) runs it, so tiers differ in `resources`, not in stack. Write it as an offering-level shortcut, the way `logo` works:
+
+```json
+"service_type": "container",
+"instance_spec": "compose.yaml"
+```
+
+The value is a path relative to `offering.json` or an https URL. On upload the SDK expands it to a Document titled `Instance spec` (category `instance_spec`, `meta.format: compose`, not public); a path is uploaded like any other file. Writing that Document by hand (with exactly one of `file_path` and `external_url`) is equivalent, but an offering may not have both forms.
+
+### A URL is a snapshot, not a link
+
+```json
+"instance_spec": "https://github.com/acme/stacks/blob/3f2a9c1d.../compose.yaml"
+```
+
+`specs upload` does **not** download the URL. It sends it as the Document's `external_url`; the platform fetches it once at ingest, stores the bytes, keeps your URL in `meta.source`, and validates the snapshot (a failed fetch or an invalid file fails the upload). Nothing is fetched at enrollment, so what runs is what was approved: re-upload to refresh the snapshot. The platform accepts https only, with a size limit and a timeout, and refuses private addresses. Prefer a commit-SHA permalink; a branch URL (`/main/`) works but warns, because it can change after you tested it. To pin the bytes, add the file's digest to a Document form with `meta.sha256` (64 lowercase hex characters); the upload is refused if the snapshot differs.
+
+For `specs validate` and the local Docker `run-tests` the SDK downloads the file itself, into memory (never into your tree), under the same rules: https only, at most 1 MiB, a 15 second timeout, at most 3 redirects that must stay https, no private, loopback or link-local host (checked again after every redirect), and `github.com/<owner>/<repo>/blob/<ref>/<path>` pages rewritten to `raw.githubusercontent.com`. `specs format` never touches a remote file.
+
+### The old `spec` field is deprecated
+
+Channels used to name an `instance_spec` Document by title with `spec`. It is still read (an old offering keeps working and `specs validate` shows a deprecation warning), it must name the offering's single Document, and it will be removed: delete it.
 
 Container channels are enrollable and request `resource:container` creation. Public `entries` select a Compose service and its container port. These are distinct from standard Compose `ports`; the public HTTPS endpoint still uses port 443.
 

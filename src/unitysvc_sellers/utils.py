@@ -365,9 +365,10 @@ def convert_convenience_fields_to_documents(
     *,
     logo_field: str = "logo",
     terms_field: str | None = "terms_of_service",
+    instance_spec_field: str | None = None,
 ) -> dict[str, Any]:
     """
-    Convert convenience fields (logo, terms_of_service) to Document objects.
+    Convert convenience fields (logo, terms_of_service, instance_spec) to Document objects.
 
     This utility function converts file paths or URLs in convenience fields
     to proper Document structures that can be stored in the backend.
@@ -377,6 +378,12 @@ def convert_convenience_fields_to_documents(
         base_path: Base path for resolving relative file paths
         logo_field: Name of the logo field (default: "logo")
         terms_field: Name of the terms of service field (default: "terms_of_service", None to skip)
+        instance_spec_field: Name of the offering-level instance spec shortcut
+            (``"instance_spec"`` for an offering, None to skip). Expanded by
+            core's ``expand_instance_spec`` into ``documents["Instance spec"]``:
+            a path becomes ``file_path`` (resolved and uploaded like any file),
+            a URL becomes ``external_url`` untouched, because the backend
+            fetches and snapshots it at ingest.
 
     Returns:
         Updated data dictionary with convenience fields converted to documents dict
@@ -444,6 +451,11 @@ def convert_convenience_fields_to_documents(
         data["documents"]["Terms of Service"] = terms_doc
         # Remove the convenience field
         del data[terms_field]
+
+    if instance_spec_field and data.get(instance_spec_field):
+        from unitysvc_core.instance_spec import expand_instance_spec
+
+        data = expand_instance_spec(data)
 
     return data
 
