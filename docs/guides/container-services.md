@@ -83,6 +83,15 @@ usvc seller specs upload <provider>/<name>
 usvc seller services run-tests <provider>/<name> --force
 ```
 
-The platform test provisions only the ops enrollment's temporary instance on the configured compute cluster, waits for readiness, fetches its entries/probes over HTTPS, deletes it and records the result. The service stays private and the diagnostic restores its original status. Each enrollment's address is its enrollment code under the deployment's apps domain; no extra admin hostname is created.
+The platform test provisions only the ops enrollment's temporary instance on the configured compute cluster, waits for readiness, fetches its entries/probes over HTTPS, deletes it and records the result. It starts the instance for each container channel, waits for the agent to report every service ready, fetches every entry and then every probe of your declarative JSON `connectivity_test` document, and **always removes the instance afterwards**, whether the tests passed or not. One row is recorded per (document, channel); `run-tests` prints it with the channel, and for a container run the readiness and per-entry lines under it:
+
+```text
+  ✓ 1a2b3c4d… probes.json (channel base): success
+      every service passed readiness on the compute cluster
+      web/: HTTP 200
+      web/status: HTTP 200
+```
+
+A run fails, with the reason, when the instance does not become ready (for example `progress_deadline_exceeded`, or an image the cluster does not allow), when an entry or probe answers with the wrong status or lacks the expected text, or when a route is still unreachable after a few retries; no probe runs against an instance that did not start. A service with no declarative probes document cannot be tested: `run-tests` exits non-zero and says so. A container channel cannot yet share a service with another channel. The service stays private and the diagnostic restores its original status. Each enrollment's address is its enrollment code under the deployment's apps domain; no extra admin hostname is created.
 
 The reserved instance key is an application credential, separate from a UnitySVC API key. Keep actual keys out of Compose, documents and source control. Containers use temporary storage unless a future contract explicitly provides persistence.
