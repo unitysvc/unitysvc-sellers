@@ -56,6 +56,33 @@ Container channels are enrollable and request `resource:container` creation. Pub
 
 The existing upload and service-diagnostic APIs carry container services through the normal provider/offering/listing and Document flow. Validation and normalization come from unitysvc-core; no compute intent/status API is exposed in the seller SDK.
 
+## Pricing
+
+A container channel's price is its instance time, and the platform's cost for the instance is the **base cost** of the size the channel names (`resources`). Two shapes:
+
+**You take payment.** Price each tier with a time price above base cost in a channel-keyed `list_price`, and set `payout_price` to a revenue share, which is paid on the part of the price above base cost:
+
+```json
+"list_price": {"type": "channel", "default": "base",
+  "channels": {"base": {"type": "one_month", "price": "9", "description": "$9 / month"}}}
+```
+
+```json
+"payout_price": {"type": "revenue_share", "percentage": "80", "description": "80% of the price after the platform's compute cost"}
+```
+
+**You take no payment.** If you do not or cannot take payment, for example you are the author of an open-source project and want visitors to preview or run it, declare the listing at cost and decline the payout:
+
+```json
+"list_price": {"type": "base_cost"}
+```
+
+```json
+"payout_price": {"type": "revenue_share", "percentage": "0"}
+```
+
+The customer pays what the platform pays for the instance, and the platform derives the figure from the size, so it follows the platform's size table and you never copy a number that goes stale. Anything you write in `price` beside `base_cost` is ignored. To offer a fixed markup on top of cost, add `"markup": "1.00"` (an amount per month of continuous runtime, billed by the instance minute); the markup stays with the platform. `specs validate` rejects `base_cost` on a service that is not container-only, as a `payout_price`, and next to a non-zero payout. See [`base_cost` in the pricing reference](../pricing.md#container-services-at-cost-base_cost). It needs `unitysvc-core>=0.3.17`.
+
 ## Local connectivity test
 
 ```sh

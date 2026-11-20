@@ -542,6 +542,47 @@ A request routed to (or forced with `_channel=managed`) bills at `0.27`/`1.10` p
 
 ---
 
+## Container Services at Cost (`base_cost`)
+
+`base_cost` is a `list_price` type for a **container service whose author takes no payment**: an open-source author who wants visitors to preview or run their software. The customer pays what the platform pays for the instance, plus an optional fixed markup, and the author earns nothing.
+
+Without it, an at-cost listing is a time price (`one_hour`, `one_month`) that you copy from the platform's size table. That number goes stale whenever the platform changes the cost of a size, and the listing, the platform's price floor and the payout then disagree. With `base_cost` you declare the intent and the platform resolves the figure from the compute size your channel names (`resources`).
+
+**Fields:**
+
+| Field    | Type   | Required | Description |
+| -------- | ------ | -------- | ----------- |
+| `type`   | string | **Yes**  | Must be `"base_cost"` |
+| `markup` | string | No       | A fixed amount added to the base cost of a month of continuous runtime, never negative. Default `"0"`: priced at cost. Billed pro rata by the instance minute, in the unit of the platform's size table |
+
+`price` is not an input. The platform computes the summary figure used to sort and compare listings and replaces anything you write there, so a listing the platform has stored validates again.
+
+**Example** (at cost, then with a fixed markup):
+
+```json
+"list_price": { "type": "base_cost" }
+```
+
+```json
+"list_price": { "type": "base_cost", "markup": "1.00" }
+```
+
+In the offering, the author takes no payment, so `payout_price` is a zero revenue share (or a zero constant). A `markup` is not paid out: it stays with the platform.
+
+```json
+"payout_price": { "type": "revenue_share", "percentage": "0", "description": "Not paid out: the author declined payment" }
+```
+
+**What validation enforces:**
+
+- `base_cost` is a `list_price` type, never a `payout_price`.
+- It is the whole `list_price` of a container-only offering, or the price of one container channel in a channel-keyed `list_price` (`{"type": "channel", "channels": {"base": {"type": "base_cost"}, ...}}`). It cannot be part of a composite price (`add`, `multiply`, ...).
+- `payout_price` is a zero revenue share or a zero constant, or absent.
+
+A service that has a payout, or tiers priced above cost, uses an ordinary time price per channel instead (see the container services guide).
+
+---
+
 ## Equivalence Groups
 
 Units within the same equivalence group measure the same dimension and convert to each other automatically. When a pricing type specifies one unit (e.g., `one_hour`) but usage data provides a different unit from the same group (e.g., `one_minute`), the system converts automatically before calculating cost.
@@ -1287,6 +1328,7 @@ description = "Premium access with priority support"
 | Charge the higher of    | `max`            | Highest of multiple calculations     |
 | Price cap               | `min`            | Lowest of multiple (cap at flat fee) |
 | Flexible metric         | `first`          | Use whichever metric is available    |
+| Container service at the platform's cost (`list_price`) | `base_cost` | The platform sets the price from the channel's size; pair with a zero payout |
 | Request-based tiers     | `tiered`         | Tiers based on `request_count`       |
 | Request-based graduated | `graduated`      | Graduated pricing by `request_count` |
 
@@ -1333,7 +1375,7 @@ Error: "Both 'input' and 'output' must be specified for separate pricing"
 }
 ```
 
-Error: "Invalid pricing type. Valid types: 'one_million_tokens', 'one_thousand_tokens', 'one_token', 'one_second', 'one_minute', 'one_hour', 'one_day', 'one_month', 'one_byte', 'one_kilobyte', 'one_megabyte', 'one_gigabyte', 'one_thousand', 'one_million', 'image', 'step', 'revenue_share', 'constant', 'add', 'multiply', 'tiered', 'graduated', 'expr'"
+Error: "Invalid pricing type. Valid types: 'one_million_tokens', 'one_thousand_tokens', 'one_token', 'one_second', 'one_minute', 'one_hour', 'one_day', 'one_month', 'one_byte', 'one_kilobyte', 'one_megabyte', 'one_gigabyte', 'one_thousand', 'one_million', 'image', 'step', 'revenue_share', 'constant', 'base_cost', 'add', 'multiply', 'tiered', 'graduated', 'expr'"
 
 ---
 
