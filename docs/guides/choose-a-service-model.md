@@ -64,7 +64,7 @@ Rules behind the three answers:
 
 | Answer | Possible after | Meaning | What the spec gets |
 | --- | --- | --- | --- |
-| **A. I don't want payment** | any | Free: open source, demos, a listing for discovery. On unitysvc.app "free" means *priced at base cost*: the customer still pays the platform's compute, you take nothing. | Container service: `list_price: {"type": "base_cost"}`, `payout_price` a zero revenue share (C.5). Other services: `list_price: 0`, `payout_price: 0` |
+| **A. I don't want payment** | any | Free: open source, demos, a listing for discovery. On unitysvc.app "free" means *priced at base cost*: the customer still pays the platform's compute, you take nothing. | Container service: `list_price: {"type": "base_cost"}` (C.5; at cost you earn nothing whatever the payout). Other services: `list_price: 0`, `payout_price: 0` |
 | **B. I manage my own billing** | 2A only | The customer pays you at your site. UnitySVC is catalog and discovery only. | `external` channel, `list_price: 0` with a description of your pricing |
 | **C. I charge per transaction (`/bill`)** | 3C only (any delivery) | Your code charges the customer's enrollment one or more *units* of the listing price, with an idempotency key, within per-charge, daily and monthly limits the customer approved. For an hour, a report, an alert, a seat-month, a job. | A `service:bill` access request on the `me_bound` channel; `list_price` is the unit price |
 | **D. Pay as you go (platform metering)** | 2B or 2C, with 3A, 3B or 3C | The gateway prices every call (tokens, requests, bytes, seconds…), or the platform accrues instance time per tier. Nothing to code. | `list_price` with a metered `type`; `payout_price` |
@@ -165,7 +165,7 @@ One price object, as strings. Its `type` is the unit; the `description` carries 
 | **C.1 metered** | `one_million_tokens` (`input` / `output`), `one_thousand` requests, `one_gigabyte`, `one_minute`, `image`, `tiered`, `graduated`, `add` | The gateway or runner meters every call: T2, T3 |
 | **C.2 per unit of work** | `constant` with the unit in the description: an hour, a report, a seat-month, an alert | You charge through `/bill`: each charge is `units` of this price. T5, T6, T7 |
 | **C.3 per channel or tier** | `type: "channel"`, `default`, `channels: { name: price }` | A managed and a BYOK price on one service; container tiers priced `one_hour` (T4) |
-| **C.5 at base cost** | `type: "base_cost"`, optional `markup: "1.00"` | A container service whose author takes no payment (open-source authors letting visitors preview or run their software). The customer pays the platform's cost for the instance plus the fixed `markup`, if any; the platform derives the figure from the channel's size (and fills `price` with the monthly figure the catalog shows), so any `price` written beside it is ignored. Pair it with a zero `payout_price` (D.3). T4 |
+| **C.5 from base cost** | `type: "base_cost"`, bare or inside `multiply` / `add` | A container service priced from the platform's cost of the channel's size, which the platform derives from its size table (and fills `price` with the monthly figure the catalog shows), so you never copy a number that goes stale. Bare, the service is at cost and you earn nothing (open-source authors letting visitors preview or run their software). `{"type": "multiply", "factor": "1.2", "base": {"type": "base_cost"}}` is cost plus 20%, yours under D.1. T4 |
 | **C.4 zero** | `price: "0"` with a description that says why (`"Free | you run the server"`, `"From $19 / month at acme.example | not billed through UnitySVC"`) | Free services, BYOE recipes, ads-only listings |
 
 #### D. `payout_price` (offering): your contract with the platform
@@ -176,7 +176,7 @@ What you earn per unit the customer is charged. The platform computes it per cal
 | --- | --- | --- |
 | **D.1 revenue share** | `type: "revenue_share"`, `percentage: "80"` | You receive that percentage of what the customer paid, **after the platform's base cost for the unit is deducted**. For gateway services the base cost is zero, so it is a share of the list price. For hosted apps (T4) it is a share of `P − C`, the tier price less the instance's compute cost |
 | **D.2 fixed unit price** | A price object in the same units as C | A unit rate you agreed with the platform, independent of the list price. Your margin is `list − payout` |
-| **D.3 zero** | `price: "0"`; with a `base_cost` list price, `type: "revenue_share"`, `percentage: "0"` | You decline payment: open-source authors, Labs listings, free recipes, ads-only. With `base_cost`, validation requires a zero payout; a `markup` stays with the platform |
+| **D.3 zero** | `price: "0"` (or `type: "revenue_share"`, `percentage: "0"`) | You decline payment: open-source authors, Labs listings, free recipes, ads-only. A bare `base_cost` list price pays nothing whatever the share; a developer seller is held to it |
 
 #### E. `documents` (listing): tests and pages
 
@@ -478,7 +478,7 @@ The `description` must say what the customer's server has to expose. `ops_testin
 
 **Proposed shape** ([unitysvc#2999](https://github.com/unitysvc/unitysvc/issues/2999), [#3000](https://github.com/unitysvc/unitysvc/issues/3000), [#3001](https://github.com/unitysvc/unitysvc/issues/3001)): you submit a restricted Compose file as a document; the platform builds or pulls an immutable image, runs one instance per enrollment at the tier the customer picked, and meters instance time. The customer pays your tier price; the platform keeps base cost and shares the rest.
 
-**Recipe:** G, H · B.6, one channel per tier, plus B.4 requests for what the instance may use · A.0 · C.3 of `one_hour` tiers above base cost (C.5 `base_cost` for an author who takes no payment) · D.1 (D.3 for an author who takes no payment) · E.4 and E.3 · F.1.
+**Recipe:** G, H · B.6, one channel per tier, plus B.4 requests for what the instance may use · A.0 · C.3 of tiers above base cost (C.5: composed around `base_cost`, or the bare leaf for an author who takes no payment) · D.1 (D.3 for an author who takes no payment) · E.4 and E.3 · F.1.
 
 !!! note "What unitysvc.app is for"
     Small, mostly personalized services: one instance per customer, or one small
@@ -499,14 +499,14 @@ The `description` must say what the customer's server has to expose. `ops_testin
 | `customer_access_requests` | when the app uses Me | `service:ai`, `service:storage`, `service:notify`… with justifications | The instance gets a leased key with exactly these grants |
 | `instance_spec` → Compose file | yes, one per offering | Image tag or digest, declared ports, environment from `meta.environment` and the platform-injected variables, named volumes as scratch space. No `build`, no host paths, no host access | Reviewed as a revision; a change needs re-review |
 | `documents` → `getting_started` | yes | What the customer sees after the instance is ready | There is no gateway code example |
-| `list_price` | yes, per tier | `type: "channel"`, each tier `one_hour` above base cost. An author who takes no payment writes `{"type": "base_cost"}` (optionally with a `markup`) and the platform sets the price | Instance time accrues from first readiness to stop |
+| `list_price` | yes, per tier | `type: "channel"`, each tier `one_hour` above base cost. A tier priced from the platform's cost writes `base_cost` (bare for at cost, inside `multiply` or `add` for a margin) and the platform sets the figure | Instance time accrues from first readiness to stop |
 | `service_options.enrollment.limit_per_customer` | recommended | How many instances one account may run | Cost control for both sides |
 | `user_access_interfaces` | no | Omit | Addresses are per instance |
 | state | note in `description` | Runtime files are ephemeral in v1; keep state in the customer's `/storage` or your own backend | Restart, suspend and cancel wipe local files |
 | `license`, `source` (proposed) | yes when the software is not yours | SPDX identifier and the repository at the deployed revision | Review checks that the license permits hosting as a service; see §5.4.2 |
 
 ```json
-// offering.json: open-source tool at cost (base_cost list price, zero payout), provider = the project, seller = UnitySVC Labs
+// offering.json: open-source tool at cost (a bare base_cost list price), provider = the project, seller = UnitySVC Labs
 {
   "schema": "offering_v1",
   "name": "open-webui/open-webui",

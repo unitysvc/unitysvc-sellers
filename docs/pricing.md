@@ -542,44 +542,44 @@ A request routed to (or forced with `_channel=managed`) bills at `0.27`/`1.10` p
 
 ---
 
-## Container Services at Cost (`base_cost`)
+## The Platform's Cost as a Price (`base_cost`)
 
-`base_cost` is a `list_price` type for a **container service whose author takes no payment**: an open-source author who wants visitors to preview or run their software. The customer pays what the platform pays for the instance, plus an optional fixed markup, and the author earns nothing.
-
-Without it, an at-cost listing is a time price (`one_hour`, `one_month`) that you copy from the platform's size table. That number goes stale whenever the platform changes the cost of a size, and the listing, the platform's price floor and the payout then disagree. With `base_cost` you declare the intent and the platform resolves the figure from the compute size your channel names (`resources`).
+`base_cost` is a `list_price` leaf type, like `constant`, for a **container service**: what the platform pays to run the channel's compute size (`resources`) for the metered runtime, billed by the instance minute, and nothing more. The platform derives the figure from its size table, so you never copy a number that goes stale, and the listing, the platform's price floor and the payout cannot disagree.
 
 **Fields:**
 
-| Field    | Type   | Required | Description |
-| -------- | ------ | -------- | ----------- |
-| `type`   | string | **Yes**  | Must be `"base_cost"` |
-| `markup` | string | No       | A fixed amount added to the base cost of a month of continuous runtime, never negative. Default `"0"`: priced at cost. Billed pro rata by the instance minute, in the unit of the platform's size table |
+| Field  | Type   | Required | Description |
+| ------ | ------ | -------- | ----------- |
+| `type` | string | **Yes**  | Must be `"base_cost"` |
 
-`price` is not an input. When the platform stores the listing it fills `price` with the resolved price of a month of continuous runtime (the dearest channel's, when the whole `list_price` is `base_cost`), replacing anything you write there, so a stored listing validates again. That figure is what the catalog sorts and displays (per month, like a `one_month` price); each run of an instance is priced from the size table as it is when the run starts, not from the stored figure.
+It has no fields of its own. `price` is not an input: when the platform stores the listing it fills `price` with the cost of a month of continuous runtime (the dearest channel's, when the leaf prices several channels), replacing anything you write there, so a stored listing validates again. That figure is what the catalog sorts and displays (per month, like a `one_month` price); each run of an instance is priced from the size table as it is when the run starts, not from the stored figure.
 
-**Example** (at cost, then with a fixed markup):
+**At cost.** Listed bare, the customer pays exactly what the platform pays and you earn nothing (`(P − C) × r = 0` whatever your `payout_price`): the convention for an author who does not or cannot take payment, such as an open-source author who wants visitors to preview or run their software.
 
 ```json
 "list_price": { "type": "base_cost" }
 ```
 
-```json
-"list_price": { "type": "base_cost", "markup": "1.00" }
-```
-
-In the offering, the author takes no payment, so `payout_price` is a zero revenue share (or a zero constant). A `markup` is not paid out: it stays with the platform.
+**With a margin.** Compose it like any other price. A margin by proportion:
 
 ```json
-"payout_price": { "type": "revenue_share", "percentage": "0", "description": "Not paid out: the author declined payment" }
+"list_price": { "type": "multiply", "factor": "1.2", "base": { "type": "base_cost" } }
 ```
+
+A fixed amount per month of continuous runtime (use a time price, not `constant`: a `constant` is added once per billing aggregation, not per month):
+
+```json
+"list_price": { "type": "add", "prices": [ { "type": "base_cost" }, { "type": "one_month", "price": "1.00" } ] }
+```
+
+The margin is yours under your `payout_price` as for any price: the platform deducts its cost and shares the rest.
 
 **What validation enforces:**
 
 - `base_cost` is a `list_price` type, never a `payout_price`.
-- It is the whole `list_price` of a container-only offering, or the price of one container channel in a channel-keyed `list_price` (`{"type": "channel", "channels": {"base": {"type": "base_cost"}, ...}}`). It cannot be part of a composite price (`add`, `multiply`, ...).
-- `payout_price` is a zero revenue share or a zero constant, or absent.
+- Wherever it sits in `list_price` (the whole price, a leaf of a composite, a channel's entry in a channel-keyed price or a leaf inside one), it must price a `container` channel of the offering: bare or in a composite, every channel of the offering must be a container channel; under a channel's entry, that channel must be one.
 
-A service that has a payout, or tiers priced above cost, uses an ordinary time price per channel instead (see the container services guide).
+A `developer` seller (one who declared at registration that it takes no payment) may list container services only, at exactly the cost: the bare leaf, nothing composed around it.
 
 ---
 
@@ -1328,7 +1328,7 @@ description = "Premium access with priority support"
 | Charge the higher of    | `max`            | Highest of multiple calculations     |
 | Price cap               | `min`            | Lowest of multiple (cap at flat fee) |
 | Flexible metric         | `first`          | Use whichever metric is available    |
-| Container service at the platform's cost (`list_price`) | `base_cost` | The platform sets the price from the channel's size; pair with a zero payout |
+| Container service priced from the platform's cost (`list_price`) | `base_cost` | The platform's cost of the channel's size; bare for at cost, composed with `multiply` or `add` for a margin |
 | Request-based tiers     | `tiered`         | Tiers based on `request_count`       |
 | Request-based graduated | `graduated`      | Graduated pricing by `request_count` |
 
