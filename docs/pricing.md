@@ -555,7 +555,7 @@ Without it, an at-cost listing is a time price (`one_hour`, `one_month`) that yo
 | `type`   | string | **Yes**  | Must be `"base_cost"` |
 | `markup` | string | No       | A fixed amount added to the base cost of a month of continuous runtime, never negative. Default `"0"`: priced at cost. Billed pro rata by the instance minute, in the unit of the platform's size table |
 
-`price` is not an input. The platform computes the summary figure used to sort and compare listings and replaces anything you write there, so a listing the platform has stored validates again.
+`price` is not an input. When the platform stores the listing it fills `price` with the resolved price of a month of continuous runtime (the dearest channel's, when the whole `list_price` is `base_cost`), replacing anything you write there, so a stored listing validates again. That figure is what the catalog sorts and displays (per month, like a `one_month` price); each run of an instance is priced from the size table as it is when the run starts, not from the stored figure.
 
 **Example** (at cost, then with a fixed markup):
 
