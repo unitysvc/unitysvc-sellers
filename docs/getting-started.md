@@ -41,11 +41,10 @@ still pay for their instances; the developer receives no payment. There is no
 Stripe Connect, payout-account, tax or KYC setup, seller payout invoice, or
 promotion setup for this tier. Platform services and `/bill` access are unavailable.
 
-Upload without seller-authored executable test documents. Submit the service as
-usual; the platform starts a test instance, checks readiness and HTTPS entries,
-and requests cleanup. Passing eligible services and revisions activate without
-an admin review. See [Developer publication](seller-lifecycle.md#developer-publication)
-for limits, suspension, and changing account type.
+Submit the service as usual; the platform starts a test instance, runs the
+connectivity test and removes the instance. Passing eligible services and
+revisions activate without an admin review. See [Developer publication](seller-lifecycle.md#developer-publication)
+for suspension and changing account type.
 
 ## 3. Authenticate
 
@@ -142,8 +141,7 @@ provider. After review and approval the service goes live; set it public with
 `usvc seller services set-visibility`. What happens next — marketplace listing,
 billing, payouts — is covered in [After You Publish](seller-lifecycle.md).
 
-For Developer services, use the platform checks described above instead of the
-seller-script test loop. A failed check must be fixed before activation.
+A failed platform test must be fixed before a Developer service activates.
 
 !!! tip "Iterate until approved"
     Typical cycle: edit → `specs validate` → `specs run-tests` → `specs upload`

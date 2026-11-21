@@ -12,31 +12,25 @@ invoicing and payout lifecycle below. Developer accounts follow this shorter pat
    contact address, and explicitly confirm the declaration. The account activates
    immediately; no payout setup is needed.
 2. Upload container services with `base_cost` list pricing, zero markup, and a
-   zero revenue-share payout. Every channel must be a container channel. Do not
-   upload executable Python, Bash or JavaScript test documents, publish platform
-   services, or request `/bill` access.
-3. Submit the service. Platform-owned checks start its test instances, wait for
-   readiness, check the generated HTTPS entries and request cleanup. Eligible
-   new services and revisions activate automatically only after passing these
-   checks. A changed image or version must pass again.
+   zero payout (a constant `0` or a `revenue_share` that pays nothing). Every
+   channel must be a container channel; API and external-app services are refused.
+   Do not publish platform services or request `/bill` access.
+3. Submit the service. The platform starts a test instance, runs the service's
+   connectivity test and removes the instance. Eligible new services and revisions
+   activate automatically only after passing. A changed image or version must
+   pass again.
 4. Choose marketplace visibility as for any other active service. Customers pay
    the platform's instance cost; the developer earns nothing. Live price edits
    must retain at-cost pricing, and promotions are unavailable. There are no seller
    payout invoices, payouts or Stripe Connect configuration for this tier.
 
-The initial defaults are one Developer registration per account, five registration
-attempts per hour, five original services and three concurrent instances per
-seller. Deployments can configure the service and instance limits. Revisions share
-a service slot; test instances count toward the instance limit. A stopped instance
-releases its slot after the compute agent confirms removal. Deleting a service
-does not remove its running instances from these controls.
-
-Fast-track approval is monitored. Suspension or a ban stops existing instances and
-prevents restarts, including through older enrollments. A ban blocks registration
-by the same account and email, and can also block an explicitly selected domain.
-The seller receives the reason and can contact support to appeal. Verified email
-does not establish ownership of a project or confer official-project status;
-publish only software whose license permits hosting it as a service.
+Fast-track approval is monitored: the platform watches for spam and malicious use
+of the Developer type, and a seller found abusing it can be suspended or banned.
+Verified email does not establish ownership of a project or confer official-project
+status; publish only software whose license permits hosting it as a service.
+A service that no longer meets the publication rule (for example a composed margin,
+an off-cost price or a retired size) is held for review with the reason in its
+status message instead of activating.
 
 Changing a Developer to a commercial seller requires a support request and admin
 review. There is no in-product conversion. Until that change, at-cost restrictions
