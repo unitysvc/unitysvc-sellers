@@ -7,6 +7,8 @@ by channel name alongside the back-compat singleton ``upstream``.
 
 from __future__ import annotations
 
+import pytest
+
 from unitysvc_sellers.services import _parse_run_tests_payload
 
 
@@ -111,3 +113,79 @@ def test_cli_renders_links_and_fails_on_a_dead_one(capsys: object) -> None:
     )
 
     assert _render_run_tests_result(result) == 1
+
+
+def _container_payload(status: str = "failure", **body: object) -> dict[str, object]:
+    return {
+        "status": "success",
+        "result": {
+            "service_id": "svc-1",
+            "status": status,
+            "success_count": 0,
+            "fail_count": 1,
+            "skipped_count": 0,
+            "results": [
+                {
+                    "document_id": "doc-1",
+                    "document_title": "probes.json",
+                    "category": "connectivity_test",
+                    "channel_name": "base",
+                    "mode": "container",
+                    "status": "failure",
+                    "outcome": "upstream_fault",
+                    "error": "web/status: unexpected HTTP 500",
+                    "stdout": "every service passed readiness on the compute cluster\nweb/: HTTP 200",
+                }
+            ],
+            **body,
+        },
+    }
+
+
+def test_parses_a_container_run_row() -> None:
+    result = _parse_run_tests_payload("task-1", _container_payload())
+
+    [row] = result.results
+    assert row.mode == "container" and row.channel_name == "base"
+    assert row.stdout and "passed readiness" in row.stdout
+
+
+def test_cli_shows_the_container_channel_and_what_the_run_did(capsys: pytest.CaptureFixture[str]) -> None:
+    from unitysvc_sellers.commands.tests import _render_run_tests_result
+
+    result = _parse_run_tests_payload("task-1", _container_payload())
+
+    assert _render_run_tests_result(result) == 1
+    out = capsys.readouterr().out
+    assert "channel base" in out and "unexpected HTTP 500" in out
+    assert "passed readiness on the compute cluster" in out and "web/: HTTP 200" in out
+
+
+def test_cli_explains_why_a_container_service_could_not_be_tested(capsys: pytest.CaptureFixture[str]) -> None:
+    from unitysvc_sellers.commands.tests import _render_run_tests_result
+
+    payload = {
+        "status": "success",
+        "result": {
+            "service_id": "svc-1",
+            "status": "error",
+            "outcome": "container_test_unavailable",
+            "reason": "a container service needs a connectivity test",
+        },
+    }
+    result = _parse_run_tests_payload("task-1", payload)
+
+    assert result.reason and "connectivity test" in result.reason
+    assert _render_run_tests_result(result) == 1
+    out = capsys.readouterr().out
+    assert "container_test_unavailable" in out and "connectivity test" in out
+
+
+def test_a_failed_run_with_no_rows_does_not_exit_zero() -> None:
+    from unitysvc_sellers.commands.tests import _render_run_tests_result
+
+    payload = {
+        "status": "success",
+        "result": {"service_id": "svc-1", "status": "failure", "outcome": "no_tests_run", "results": []},
+    }
+    assert _render_run_tests_result(_parse_run_tests_payload("task-1", payload)) == 1

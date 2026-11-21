@@ -80,6 +80,11 @@ class RunTestsIfaceResult:
     # enrollment channel is probed via its ops enrollment.  ``upstream`` above
     # stays for back-compat; this carries the full per-channel breakdown.
     upstream_channels: dict[str, Any] | None = None
+    # A container service is tested on its own instance, per channel, not through the gateway
+    # (unitysvc/unitysvc#3016): ``mode`` is ``"container"`` and ``channel_name`` the channel; ``stdout``
+    # carries the readiness and per-entry lines, and ``error`` says why a run failed.
+    channel_name: str | None = None
+    mode: str | None = None
 
 
 @dataclass(frozen=True)
@@ -114,6 +119,8 @@ class RunTestsResult:
     service_id: str
     status: str  # the top-level task status: "success" | "failure" | "error"
     outcome: str | None = None  # e.g. "no_executable_documents" or None on normal runs
+    # Why the run could not happen, when the platform says (e.g. ``container_test_unavailable``).
+    reason: str | None = None
     snapshot_status: str | None = None
     started_at: str | None = None
     completed_at: str | None = None
@@ -191,6 +198,8 @@ def _parse_run_tests_payload(task_id: str, payload: dict[str, Any]) -> RunTestsR
             gateway=row.get("gateway"),
             upstream=row.get("upstream"),
             upstream_channels=row.get("upstream_channels"),
+            channel_name=row.get("channel_name"),
+            mode=row.get("mode"),
         )
         for row in (body.get("results") or [])
     ]
@@ -199,6 +208,7 @@ def _parse_run_tests_payload(task_id: str, payload: dict[str, Any]) -> RunTestsR
         service_id=body.get("service_id", ""),
         status=body.get("status", "unknown"),
         outcome=body.get("outcome"),
+        reason=body.get("reason"),
         snapshot_status=body.get("snapshot_status"),
         started_at=body.get("started_at"),
         completed_at=body.get("completed_at"),

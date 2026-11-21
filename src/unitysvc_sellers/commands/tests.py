@@ -780,6 +780,8 @@ def _render_run_tests_result(result: Any) -> int:
     # ------------------------------------------------------------------
     if result.status == "error":
         console.print(f"[red]✗[/red] Diagnostic task failed: {result.outcome or '(no detail)'}")
+        if getattr(result, "reason", None):
+            console.print(f"  {result.reason}")
         return 1
 
     links_rc = _render_links(getattr(result, "links", None) or [])
@@ -791,7 +793,8 @@ def _render_run_tests_result(result: Any) -> int:
 
     if not result.results:
         console.print(f"[dim]Diagnostic completed with no rows (outcome={result.outcome or 'unknown'}).[/dim]")
-        return links_rc
+        # A failed run that produced no rows (nothing could be tested) must not exit 0.
+        return links_rc or (1 if result.status == "failure" else 0)
 
     # Per-row rendering.  Skipped → dim ⊘, success → green ✓, failure →
     # red ✗ with the outcome attribution (platform_fault / upstream_fault).
@@ -849,15 +852,26 @@ def _render_links(links: list[Any]) -> int:
     return 0
 
 
+def _render_container_trace(row: Any) -> None:
+    """What a container run did (instance ready, each entry and probe), dimmed, under its row."""
+    if getattr(row, "mode", None) != "container" or not row.stdout:
+        return
+    for line in str(row.stdout).splitlines()[:12]:
+        console.print(f"      [dim]{line}[/dim]")
+
+
 def _render_iface_row(row: Any, *, prefix: str) -> None:
     """Render one per-(doc × iface) result row from a RunTestsResult."""
     status = row.status
+    if getattr(row, "mode", None) == "container" and getattr(row, "channel_name", None):
+        prefix = f"{prefix} (channel {row.channel_name})"
     if status == "skipped":
         reason = row.outcome or "skipped"
         console.print(f"  [dim]⊘[/dim] {prefix}: {reason}")
         return
     if status == "success":
         console.print(f"  [green]✓[/green] {prefix}: success")
+        _render_container_trace(row)
         return
     # Failure — surface the outcome attribution and a short error message.
     parts: list[str] = [status]
@@ -867,6 +881,7 @@ def _render_iface_row(row: Any, *, prefix: str) -> None:
         parts.append(str(row.error).splitlines()[0])
     detail = " — ".join(parts)
     console.print(f"  [red]✗[/red] {prefix}: {detail}")
+    _render_container_trace(row)
     # When upstream fallback ran, show how it landed too — that's the
     # signal that distinguishes "platform broke" from "upstream broke".
     # Multi-channel services (#1281/#1297) probe each upstream channel; show
