@@ -170,15 +170,15 @@ def test_cli_explains_why_a_container_service_could_not_be_tested(capsys: pytest
             "service_id": "svc-1",
             "status": "error",
             "outcome": "container_test_unavailable",
-            "reason": "a container service needs a declarative JSON connectivity probes document to be tested",
+            "reason": "a container service needs a connectivity test",
         },
     }
     result = _parse_run_tests_payload("task-1", payload)
 
-    assert result.reason and "probes document" in result.reason
+    assert result.reason and "connectivity test" in result.reason
     assert _render_run_tests_result(result) == 1
     out = capsys.readouterr().out
-    assert "container_test_unavailable" in out and "probes document" in out
+    assert "container_test_unavailable" in out and "connectivity test" in out
 
 
 def test_a_failed_run_with_no_rows_does_not_exit_zero() -> None:
