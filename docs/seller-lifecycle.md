@@ -2,6 +2,40 @@
 
 This guide explains what happens after you upload your services to UnitySVC - from approval through invoicing and payouts.
 
+## Developer publication
+
+Developer onboarding is available only on deployments that have enabled it after
+the at-cost pricing support is installed. Commercial accounts follow the review,
+invoicing and payout lifecycle below. Developer accounts follow this shorter path:
+
+1. Choose Developer during registration, use your verified sign-in email as the
+   contact address, and explicitly confirm the declaration. The account activates
+   immediately; no payout setup is needed.
+2. Upload container services with `base_cost` list pricing, zero markup, and a
+   zero payout (a constant `0` or a `revenue_share` that pays nothing). Every
+   channel must be a container channel; API and external-app services are refused.
+   Do not publish platform services or request `/bill` access.
+3. Submit the service. The platform starts a test instance, runs the service's
+   connectivity test and removes the instance. Eligible new services and revisions
+   activate automatically only after passing. A changed image or version must
+   pass again.
+4. Choose marketplace visibility as for any other active service. Customers pay
+   the platform's instance cost; the developer earns nothing. Live price edits
+   must retain at-cost pricing, and promotions are unavailable. There are no seller
+   payout invoices, payouts or Stripe Connect configuration for this tier.
+
+Fast-track approval is monitored: the platform watches for spam and malicious use
+of the Developer type, and a seller found abusing it can be suspended or banned.
+Verified email does not establish ownership of a project or confer official-project
+status; publish only software whose license permits hosting it as a service.
+A service that no longer meets the publication rule (for example a composed margin,
+an off-cost price or a retired size) is held for review with the reason in its
+status message instead of activating.
+
+Changing a Developer to a commercial seller requires a support request and admin
+review. There is no in-product conversion. Until that change, at-cost restrictions
+continue to apply to uploads, revisions and live edits.
+
 ## Overview
 
 ```mermaid

@@ -21,9 +21,30 @@ use `usvc_seller`.
 Uploading needs a **seller role** on the platform:
 
 1. Sign up at [unitysvc.com](https://unitysvc.com).
-2. **Add a role → Become a seller** and wait for approval.
+2. **Add a role → Become a seller**, choose your registration intent, and confirm
+   the application. Commercial applications wait for approval. Where Developer
+   registration is enabled, verified applicants can activate immediately after
+   confirming the Developer declaration.
 3. Generate a **seller API key** (Settings → API Keys). Your seller identity is
    encoded in the key — the platform associates everything you upload with it.
+
+### Developer accounts
+
+Developer registration is for publishing software without earning from customers.
+It is available only after the deployment enables Developer onboarding and at-cost
+container pricing. Use the verified email from your sign-in account as the contact
+address and read the declaration before confirming.
+
+A Developer can publish **container services at the platform's base cost**, with
+`base_cost` list pricing, no markup, and a zero revenue-share payout. Customers
+still pay for their instances; the developer receives no payment. There is no
+Stripe Connect, payout-account, tax or KYC setup, seller payout invoice, or
+promotion setup for this tier. Platform services and `/bill` access are unavailable.
+
+Submit the service as usual; the platform starts a test instance, runs the
+connectivity test and removes the instance. Passing eligible services and
+revisions activate without an admin review. See [Developer publication](seller-lifecycle.md#developer-publication)
+for suspension and changing account type.
 
 ## 3. Authenticate
 
@@ -119,6 +140,8 @@ Services are targeted by **`service_name`** (= `listing.name`, e.g.
 provider. After review and approval the service goes live; set it public with
 `usvc seller services set-visibility`. What happens next — marketplace listing,
 billing, payouts — is covered in [After You Publish](seller-lifecycle.md).
+
+A failed platform test must be fixed before a Developer service activates.
 
 !!! tip "Iterate until approved"
     Typical cycle: edit → `specs validate` → `specs run-tests` → `specs upload`
