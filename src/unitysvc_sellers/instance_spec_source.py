@@ -82,6 +82,23 @@ def find_instance_spec(offering: dict[str, Any] | None) -> InstanceSpecSource | 
     return InstanceSpecSource(title=found[0][0], document=found[0][1])
 
 
+def channel_with_environment(channel: Any, overlay: dict[str, dict[str, str]] | None) -> Any:
+    """``channel`` with a Document's ``meta.environment`` overlay as its instance environment.
+
+    Core validates the variables a Compose service takes against the CHANNEL's ``environment`` (a bare
+    ``- API_KEY`` is refused unless something supplies it), not against an argument. The overlay says what the
+    Document supplies, so for validation it is laid over the channel's own, the overlay winning per variable.
+    """
+    if not overlay:
+        return channel
+    merged: dict[str, dict[str, str]] = {
+        service: dict(values) for service, values in (getattr(channel, "environment", None) or {}).items()
+    }
+    for service, values in overlay.items():
+        merged.setdefault(service, {}).update(values)
+    return channel.model_copy(update={"environment": merged})
+
+
 def instance_spec_environment(source: InstanceSpecSource) -> dict[str, dict[str, str]] | None:
     """The Document's ``meta.environment`` overlay (``{service: {NAME: value}}``), for core to merge at compile time."""
     meta = source.document.get("meta")
@@ -264,7 +281,9 @@ def check_remote_instance_spec(offering: dict[str, Any] | None, **fetch_options:
         except ValueError:
             continue  # the channel's own errors are reported by the schema checks
         report = validate_instance_spec(
-            source.text, format=fmt, channel=channel, environment=instance_spec_environment(source)
+            source.text,
+            format=fmt,
+            channel=channel_with_environment(channel, instance_spec_environment(source)),
         )
         at = f"upstream_access_config.{name}"
         errors.extend(f"{at}.instance_spec ({source.title!r}): {issue}" for issue in report.errors)
