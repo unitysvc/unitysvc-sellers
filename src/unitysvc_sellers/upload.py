@@ -62,6 +62,13 @@ from .platform_services import (
     write_member_template_id,
     write_platform_service_id,
 )
+from .state import (
+    KIND_PLATFORM,
+    KIND_SERVICE,
+    KIND_SYSTEM,
+    UploadState,
+    canonical_digest,
+)
 from .utils import (
     MEMBER_SERVICES_DIRNAMES,
     convert_convenience_fields_to_documents,
@@ -90,6 +97,9 @@ class UploadCounts:
 @dataclass
 class UploadResult:
     services: UploadCounts = field(default_factory=UploadCounts)
+    # Things the run did that are not a per-service outcome (an unusable state file ignored, the target's
+    # services not being listed), for the caller to show.
+    notes: list[str] = field(default_factory=list)
 
     @property
     def total_failed(self) -> int:
@@ -260,9 +270,13 @@ _UPLOADED_OBJECT_KEYS: dict[str, str] = {}
 
 def _upload_file_deduped(client: Any, full_path: Path) -> str:
     """Upload ``full_path`` via ``POST /seller/upload``, once per distinct content."""
+    from .storage import ContentHasher
     from .storage import upload_file as _upload_file
 
     if full_path.suffix.lower() == ".md":
+        return str(_upload_file(client, full_path))
+    if isinstance(client, ContentHasher):
+        # Fingerprinting only: the hash is the key, and the process-wide cache holds real object keys.
         return str(_upload_file(client, full_path))
 
     digest = hashlib.sha256(full_path.read_bytes()).hexdigest()
@@ -532,6 +546,67 @@ def _build_service_payload(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+def _remote_service_names(client: Client) -> set[str] | None:
+    """The names of the services the target holds for this seller, or None when they cannot be listed.
+
+    One paginated listing (about a second for a thousand services). It is how a state file learns that a
+    service it remembers is gone from the target (a reset, a deletion): that one is sent again.
+    """
+    try:
+        names: set[str] = set()
+        for service in client.services.iter_all(limit=200):
+            name = service.get("name") if isinstance(service, dict) else getattr(service, "name", None)
+            if name:
+                names.add(str(name))
+        return names
+    except Exception:
+        return None
+
+
+def _service_digest(listing_file: Path) -> tuple[str, str]:
+    """``(service name, fingerprint)`` of what ``listing_file``'s service would send, with no request.
+
+    The payload is built exactly as for an upload, with a :class:`~unitysvc_sellers.storage.ContentHasher`
+    in place of the client, so every referenced file contributes the hash of its content and nothing is
+    uploaded. The fingerprint is over the EXPANDED provider, offering and listing (presets, templates and
+    convenience fields resolved); the sidecar (``service.json``) is identity, not content, and is not in it.
+
+    ``time_created`` is left out of the three documents. Rendering a param file fills it in with the current
+    time when the template sets none, so it differs on every render while nothing else has changed; the
+    repo's own change check (``template_populate._smart_write_json``) ignores it for the same reason. Counting
+    it would make every such service look changed on every run.
+    """
+    from .storage import ContentHasher
+
+    provider_data, offering_data, listing_data, _ = _build_service_payload(listing_file, client=ContentHasher())
+    name = str(listing_data.get("name") or listing_file.name)
+
+    def _content(data: dict[str, Any]) -> dict[str, Any]:
+        return {key: value for key, value in data.items() if key != "time_created"}
+
+    return name, canonical_digest(
+        {
+            "provider": _content(provider_data),
+            "offering": _content(offering_data),
+            "listing": _content(listing_data),
+        }
+    )
+
+
+def _ingest_outcome(status_dict: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+    """``(outcome, service_id, revision_of)`` from a completed ingest task's result."""
+    result = status_dict.get("result")
+    record = result if isinstance(result, dict) else {}
+    revision_of = record.get("revision_of")
+    canonical = revision_of or record.get("service_id")
+    outcome = record.get("status")
+    return (
+        str(outcome) if outcome else None,
+        str(canonical) if canonical else None,
+        str(revision_of) if revision_of else None,
+    )
+
+
 def upload_directory(
     client: Client,
     data_dir: Path,
@@ -541,6 +616,9 @@ def upload_directory(
     task_poll_interval: float = 2.0,
     name: str | None = None,
     auto_submit: bool = False,
+    state_path: Path | None = None,
+    force: bool = False,
+    verify_remote: bool = True,
 ) -> UploadResult:
     """Upload service bundles under ``data_dir``.
 
@@ -569,11 +647,49 @@ def upload_directory(
             also submitted for review (validate → pending → run tests)
             in the same ingest task. When False (default), services are
             left as reviewable drafts to submit later.
+        state_path: A state file (:mod:`unitysvc_sellers.state`). When given, a service whose expanded
+            content has not changed since its ingest last completed is skipped, its record untouched, and
+            the file is rewritten at the end with what this run sent. A missing file is a first run.
+        force: With ``state_path``, ignore the records and send everything (the file is still rewritten).
+        verify_remote: With ``state_path``, list the target's services once and send again any the state
+            remembers but the target no longer has. When the listing fails nothing is skipped.
 
     Returns:
         :class:`UploadResult` with per-service tallies and any errors.
     """
     result = UploadResult()
+
+    state: UploadState | None = None
+    remote_names: set[str] | None = None
+    # task_id -> (service name, kind, fingerprint): what to record when its ingest task ends.
+    pending_state: dict[str, tuple[str, str, str]] = {}
+    local_names: set[str] = set()
+    names_known = True
+    if state_path is not None:
+        state, ignored = UploadState.load(state_path, client._base_url)
+        if ignored:
+            result.notes.append(f"Ignoring the state file {state_path}: {ignored}. Every service is sent.")
+        if not force and verify_remote and state.services:
+            remote_names = _remote_service_names(client)
+            if remote_names is None:
+                result.notes.append(
+                    "Could not list the target's services to check the state file against; every service is sent."
+                )
+
+    def _unchanged(svc_name: str, kind: str, digest: str, sidecar_id: str | None) -> bool:
+        """Whether the state says ``svc_name`` need not be sent (and, if so, count and report the skip)."""
+        if state is None or force:
+            return False
+        if verify_remote and state.services and remote_names is None:
+            return False
+        if remote_names is not None and svc_name not in remote_names:
+            return False
+        if not state.is_current(svc_name, kind=kind, digest=digest, sidecar_id=sidecar_id, submit=auto_submit):
+            return False
+        result.services.skipped += 1
+        if on_progress is not None:
+            on_progress("service", "skipped", svc_name, "unchanged since the last upload")
+        return True
 
     # Map task_id -> (listing_file, listing_data) so we can populate
     # per-service results after polling the batch-status endpoint and
@@ -611,6 +727,17 @@ def upload_directory(
     # template through its own endpoint, never as an ordinary service.
     for folder in platform_folders:
         service_name = all_platform_folders[folder]
+        digest: str | None = None
+        if state is not None:
+            local_names.add(service_name)
+            try:
+                from .storage import ContentHasher
+
+                digest = canonical_digest(build_platform_service_payload(folder, client=ContentHasher()))
+            except Exception:
+                digest = None  # the real build below reports why
+            if digest is not None and _unchanged(service_name, KIND_PLATFORM, digest, None):
+                continue
         try:
             platform_payload = build_platform_service_payload(folder, client=client)
             resp = client.services.upload_platform_service(platform_payload)
@@ -619,12 +746,20 @@ def upload_directory(
             result.services.errors.append({"file": str(folder), "error": f"{exc.status_code}: {exc}"})
             if on_progress is not None:
                 on_progress("service", "error", service_name, str(exc))
+            if state is not None and digest is not None:
+                state.record_failed(
+                    service_name, kind=KIND_PLATFORM, digest=digest, submitted=auto_submit, error=str(exc)
+                )
             continue
         except Exception as exc:
             result.services.failed += 1
             result.services.errors.append({"file": str(folder), "error": str(exc)})
             if on_progress is not None:
                 on_progress("service", "error", service_name, str(exc))
+            if state is not None and digest is not None:
+                state.record_failed(
+                    service_name, kind=KIND_PLATFORM, digest=digest, submitted=auto_submit, error=str(exc)
+                )
             continue
         task_id = getattr(resp, "task_id", None)
         if not task_id:
@@ -634,11 +769,27 @@ def upload_directory(
                 on_progress("service", "error", service_name, "no task id returned")
             continue
         pending_platform_tasks[str(task_id)] = (folder, service_name)
+        if state is not None and digest is not None:
+            pending_state[str(task_id)] = (service_name, KIND_PLATFORM, digest)
         if on_progress is not None:
             on_progress("service", "queued", service_name, f"task_id={task_id}")
 
     for param_file in system_param_files:
         service_name = service_name_for_param(param_file)
+        digest = None
+        if state is not None:
+            local_names.add(service_name)
+            try:
+                param_data = load_param_data(param_file)
+                digest = canonical_digest(
+                    {"template": param_data.get("template"), "parameters": param_data.get("parameters") or {}}
+                )
+            except Exception:
+                digest = None  # the real call below reports why
+            if digest is not None and _unchanged(
+                service_name, KIND_SYSTEM, digest, read_service_id_for_param(param_file)
+            ):
+                continue
         try:
             task_id, service_name = _instantiate_system_param_file(
                 client,
@@ -650,21 +801,35 @@ def upload_directory(
             result.services.errors.append({"file": str(param_file), "error": f"{exc.status_code}: {exc}"})
             if on_progress is not None:
                 on_progress("service", "error", service_name, str(exc))
+            if state is not None and digest is not None:
+                state.record_failed(
+                    service_name, kind=KIND_SYSTEM, digest=digest, submitted=auto_submit, error=str(exc)
+                )
             continue
         except Exception as exc:
             result.services.failed += 1
             result.services.errors.append({"file": str(param_file), "error": str(exc)})
             if on_progress is not None:
                 on_progress("service", "error", service_name, str(exc))
+            if state is not None and digest is not None:
+                state.record_failed(
+                    service_name, kind=KIND_SYSTEM, digest=digest, submitted=auto_submit, error=str(exc)
+                )
             continue
 
         if not task_id:
             result.services.success += 1
             if on_progress is not None:
                 on_progress("service", "ok", service_name)
+            if state is not None and digest is not None:
+                state.record_completed(
+                    service_name, kind=KIND_SYSTEM, digest=digest, submitted=auto_submit, outcome=None, service_id=None
+                )
             continue
 
         pending_system_tasks[str(task_id)] = (param_file, service_name)
+        if state is not None and digest is not None:
+            pending_state[str(task_id)] = (service_name, KIND_SYSTEM, digest)
         if on_progress is not None:
             on_progress("service", "queued", service_name, f"task_id={task_id}")
 
@@ -677,6 +842,21 @@ def upload_directory(
         # platform, so refusing the upload meant a transient local failure (a
         # 429 while probing a catalog back-to-back) permanently prevented the
         # one test that would have proven the service fine.
+        digest = None
+        state_name: str | None = None
+        if state is not None:
+            try:
+                state_name, digest = _service_digest(listing_file)
+                local_names.add(state_name)
+            except Exception:
+                # The real build below reports why; the catalog's names are not all known, so the
+                # records of services that disappeared are kept this run.
+                names_known = False
+            if digest is not None and state_name is not None:
+                sidecar = read_service_data(listing_file.parent) or {}
+                sidecar_id = sidecar.get("service_id")
+                if _unchanged(state_name, KIND_SERVICE, digest, str(sidecar_id) if sidecar_id else None):
+                    continue
         try:
             provider_data, offering_data, listing_data, service_data = _build_service_payload(
                 listing_file, client=client
@@ -686,6 +866,8 @@ def upload_directory(
             result.services.errors.append({"file": str(listing_file), "error": str(exc)})
             if on_progress is not None:
                 on_progress("service", "error", listing_file.name, str(exc))
+            if state is not None and digest is not None and state_name is not None:
+                state.record_failed(state_name, kind=KIND_SERVICE, digest=digest, submitted=auto_submit, error=str(exc))
             continue
 
         payload: dict[str, Any] = {
@@ -705,6 +887,8 @@ def upload_directory(
             result.services.errors.append({"file": str(listing_file), "error": f"{exc.status_code}: {exc}"})
             if on_progress is not None:
                 on_progress("service", "error", listing_data.get("name", listing_file.name), str(exc))
+            if state is not None and digest is not None and state_name is not None:
+                state.record_failed(state_name, kind=KIND_SERVICE, digest=digest, submitted=auto_submit, error=str(exc))
             continue
 
         service_name = listing_data.get("name", listing_file.name)
@@ -720,9 +904,20 @@ def upload_directory(
             service_id = getattr(resp, "service_id", None) or getattr(resp, "id", None)
             if service_id:
                 write_service_data(listing_file.parent, {"service_id": str(service_id)})
+            if state is not None and digest is not None and state_name is not None:
+                state.record_completed(
+                    state_name,
+                    kind=KIND_SERVICE,
+                    digest=digest,
+                    submitted=auto_submit,
+                    outcome=None,
+                    service_id=str(service_id) if service_id else None,
+                )
             continue
 
         pending_tasks[str(task_id)] = (listing_file, listing_data)
+        if state is not None and digest is not None and state_name is not None:
+            pending_state[str(task_id)] = (state_name, KIND_SERVICE, digest)
         if on_progress is not None:
             on_progress("service", "queued", service_name, f"task_id={task_id}")
 
@@ -756,6 +951,10 @@ def upload_directory(
                 result.services.errors.append({"file": str(param_file), "task_id": task_id, "error": diagnostic})
                 if on_progress is not None:
                     on_progress("service", "error", service_name, diagnostic)
+            if state is not None:
+                # Whether the backend ingested them is unknown, so none is remembered as sent.
+                for svc_name, kind, digest_ in pending_state.values():
+                    state.record_failed(svc_name, kind=kind, digest=digest_, submitted=auto_submit, error=diagnostic)
             pending_tasks.clear()
             pending_system_tasks.clear()
             pending_platform_tasks.clear()
@@ -854,9 +1053,47 @@ def upload_directory(
                     if on_progress is not None:
                         on_progress("service", "error", service_name, str(error_msg))
 
+            if state is not None:
+                for task_id, (svc_name, kind, digest_) in pending_state.items():
+                    status_dict = terminal_states.get(task_id) or {}
+                    if status_dict.get("status") == "completed":
+                        outcome, canonical_id, revision_of = _ingest_outcome(status_dict)
+                        state.record_completed(
+                            svc_name,
+                            kind=kind,
+                            digest=digest_,
+                            submitted=auto_submit,
+                            outcome=outcome,
+                            service_id=canonical_id,
+                            revision_of=revision_of,
+                        )
+                    else:
+                        error_msg = (
+                            status_dict.get("error")
+                            or status_dict.get("message")
+                            or f"task ended in state {status_dict.get('status')!r}"
+                        )
+                        state.record_failed(
+                            svc_name, kind=kind, digest=digest_, submitted=auto_submit, error=str(error_msg)
+                        )
+
             pending_tasks.clear()
             pending_system_tasks.clear()
             pending_platform_tasks.clear()
+
+    if state is not None and state_path is not None:
+        # A selector uploads a subset: the records of the rest stay. A full run also forgets services that
+        # left the catalog (unless some spec could not be read, so not every name is known).
+        if name is None and names_known:
+            state.prune(local_names)
+        counts = result.services
+        state.summary = {
+            "total": counts.total,
+            "sent": counts.success + counts.failed,
+            "skipped": counts.skipped,
+            "failed": counts.failed,
+        }
+        state.save(state_path)
 
     return result
 

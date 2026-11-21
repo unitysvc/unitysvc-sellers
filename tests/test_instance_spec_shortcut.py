@@ -44,7 +44,7 @@ PUBLIC = lambda host: ["93.184.216.34"]  # noqa: E731
 
 CHANNEL = {
     "access_method": "container",
-    "resources": {"limits": {"cpu": "250m", "memory": "256Mi", "ephemeral-storage": "1Gi"}},
+    "resources": "nano",
     "entries": [{"name": "web", "service": "web", "port": 8080, "auth": "key"}],
     "customer_access_requests": [
         {

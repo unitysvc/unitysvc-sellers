@@ -257,10 +257,15 @@ class Client:
         on_progress: Callable[[str, str, str, str], None] | None = None,
         name: str | None = None,
         auto_submit: bool = False,
+        state: str | Path | None = None,
+        force: bool = False,
+        verify_remote: bool = True,
     ) -> UploadResult:
         """Upload services from a seller catalog directory.
 
-        Thin wrapper around :func:`upload.upload_directory`.
+        Thin wrapper around :func:`upload.upload_directory`. With ``state`` (a file path), a service whose
+        expanded content has not changed since its ingest last completed is not sent again; see
+        :mod:`unitysvc_sellers.state`.
         """
         from pathlib import Path as _Path
 
@@ -272,6 +277,9 @@ class Client:
             on_progress=on_progress,
             name=name,
             auto_submit=auto_submit,
+            state_path=_Path(str(state)) if state is not None else None,
+            force=force,
+            verify_remote=verify_remote,
         )
 
     def upload_promotions(

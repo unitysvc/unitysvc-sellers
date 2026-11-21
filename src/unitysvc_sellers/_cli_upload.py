@@ -55,6 +55,30 @@ def upload(
             "drafts to submit later."
         ),
     ),
+    state: Path | None = typer.Option(
+        None,
+        "--state",
+        help=(
+            "A state file recording, per service, the fingerprint of the expanded content last sent and the "
+            "result of its ingest. A service unchanged since its ingest completed is skipped and its record "
+            "kept; the file is created if missing and rewritten at the end. Keep it between runs (a CI "
+            "artifact, a cache); without it every service is sent."
+        ),
+        show_default=False,
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="With --state, ignore the recorded state and send every service (the file is still rewritten).",
+    ),
+    verify_remote: bool = typer.Option(
+        True,
+        "--verify-remote/--no-verify-remote",
+        help=(
+            "With --state, list the target's services once and send again any the state remembers but the "
+            "target no longer has (a reset, a deletion). If the listing fails nothing is skipped."
+        ),
+    ),
 ) -> None:
     """Upload service specs to UnitySVC.
 
@@ -69,6 +93,12 @@ def upload(
         raise typer.Exit(code=1)
 
     data_dir = Path.cwd()
+    if state is not None and not state.is_absolute():
+        # ``specs`` runs inside an ephemeral copy of the repo (param files rendered); a relative state path
+        # is the user's, not that copy's, which is deleted when the command ends.
+        from .params_render import invocation_cwd
+
+        state = invocation_cwd() / state
 
     console.print(f"[bold blue]Uploading from:[/bold blue] {data_dir}")
     console.print(f"[bold blue]Backend:[/bold blue] {base_url}")
@@ -99,6 +129,9 @@ def upload(
                 on_progress=_on_progress,
                 name=name,
                 auto_submit=submit,
+                state=state,
+                force=force,
+                verify_remote=verify_remote,
             )
     except APIError as exc:
         console.print(f"[red]✗[/red] API error: {escape(str(exc))}", style="bold red")
@@ -106,6 +139,9 @@ def upload(
     except Exception as exc:
         console.print(f"[red]✗[/red] Upload failed: {escape(str(exc))}", style="bold red")
         raise typer.Exit(code=1) from exc
+
+    for note in result.notes:
+        console.print(f"[yellow]![/yellow] {escape(note)}")
 
     # ----- Summary --------------------------------------------
     console.print()
@@ -137,13 +173,13 @@ def upload(
         raise typer.Exit(code=1)
 
     if result.services.skipped:
-        # Skipped services are not failures, but saying "all uploads completed"
-        # would hide that something deliberately did not ship.
+        # Skipped services (--state: unchanged since their last ingest) are not failures, and are not
+        # re-sent; saying only "all uploads completed" would hide that.
         console.print(
-            f"\n[yellow]⊘[/yellow]  Uploaded {result.services.success}, "
-            f"skipped {result.services.skipped} (failing local connectivity test); "
-            "pass --ignore-test-status to upload anyway",
-            style="bold yellow",
+            f"\n[green]✓[/green] Uploaded {result.services.success}, "
+            f"skipped {result.services.skipped} unchanged since the last upload "
+            "(--force sends them anyway)",
+            style="bold green",
         )
         return
 

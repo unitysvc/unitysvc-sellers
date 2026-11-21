@@ -19,11 +19,16 @@ from urllib.parse import urlsplit
 import httpx
 from unitysvc_core.instance_spec import compile_instance_spec, validate_instance_spec
 from unitysvc_core.models.channel import ContainerChannel
-from unitysvc_core.models.container import ContainerEntry, parse_quantity
+from unitysvc_core.models.container import ContainerEntry, ResourceSet, parse_quantity, service_sizes
 from unitysvc_core.models.manifest import ManifestService
 from unitysvc_core.models.probes import Probe, ProbesV1
 
-from .instance_spec_source import find_instance_spec, instance_spec_environment, read_instance_spec
+from .instance_spec_source import (
+    channel_with_environment,
+    find_instance_spec,
+    instance_spec_environment,
+    read_instance_spec,
+)
 from .utils import find_files_by_pattern, service_name_matches
 
 INSTANCE_KEY_REFERENCE = "${UNITYSVC_INSTANCE_API_KEY}"
@@ -66,6 +71,22 @@ def _ready(service: ManifestService, container: str) -> bool:
         return True
 
 
+# A channel names a SIZE (``nano``, ``small``); the platform's size table says what each is, and the seller
+# cannot see it. A local run has to give every service some limits, so it uses these, generous enough for the
+# small services this runs and no claim about what the size will be.
+_LOCAL_LIMITS = {"cpu": "1", "memory": "1Gi", "ephemeral-storage": "2Gi"}
+
+
+def _local_resources(source: str, channel: ContainerChannel) -> dict[str, ResourceSet]:
+    """A ``ResourceSet`` per service of the spec, after checking that the channel's sizes fit its services."""
+    import yaml
+
+    services = (yaml.safe_load(source) or {}).get("services") or {}
+    names = [str(name) for name in services]
+    service_sizes(channel.resources, names)  # raises when a size name does not fit the spec's services
+    return {name: ResourceSet(limits=dict(_LOCAL_LIMITS)) for name in names}
+
+
 def test_container(
     source: str,
     channel: ContainerChannel,
@@ -78,10 +99,10 @@ def test_container(
     compute. ``environment`` is the Document's ``meta.environment`` overlay, merged by
     core at compile time. It does not claim to reproduce Kubernetes/gVisor or disk quotas.
     """
-    report = validate_instance_spec(source, channel=channel, environment=environment)
+    report = validate_instance_spec(source, channel=channel_with_environment(channel, environment))
     if not report.ok:
         raise ValueError("; ".join(str(issue) for issue in report.errors))
-    compiled = compile_instance_spec(source, channel.resources, environment=environment)
+    compiled = compile_instance_spec(source, _local_resources(source, channel), environment=environment)
     entries = {entry.name: entry for entry in channel.entries or []}
     if any(probe.entry not in entries for probe in (probes.probes if probes else [])):
         raise ValueError("A connectivity probe names an entry missing from this channel")

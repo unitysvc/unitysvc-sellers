@@ -12,6 +12,7 @@ read-time so the stored document stays deployment-agnostic.
 
 from __future__ import annotations
 
+import hashlib
 import mimetypes
 import re
 from pathlib import Path
@@ -78,8 +79,29 @@ def _collect_local_refs(text: str, base: Path) -> dict[str, Path]:
     return result
 
 
-def upload_bytes(client: AuthenticatedClient, data: bytes, file_name: str, mime: str) -> str:
+class ContentHasher:
+    """Stands in for the API client when a payload is built only to be fingerprinted.
+
+    Building a service payload uploads every file it references and puts the returned object key in the
+    payload. To decide whether a service changed (``usvc seller specs upload --state``) the payload must be
+    built WITHOUT those uploads: a hasher answers each upload with the SHA-256 of the bytes it would have
+    sent, so the payload has the shape of the real one, carries the content of every referenced file (and,
+    for Markdown, of the assets it links, after the references are rewritten), and costs no request.
+    """
+
+    def __init__(self) -> None:
+        # ``Client._client`` is what the upload helpers receive; a hasher is its own low-level client.
+        self._client = self
+
+    def object_key(self, data: bytes, file_name: str) -> str:
+        return hashlib.sha256(data).hexdigest() + Path(file_name).suffix.lower()
+
+
+def upload_bytes(client: AuthenticatedClient | ContentHasher, data: bytes, file_name: str, mime: str) -> str:
     """Upload raw bytes to content-addressed S3 storage; return the object_key."""
+    if isinstance(client, ContentHasher):
+        return client.object_key(data, file_name)
+
     from io import BytesIO
 
     from ._generated.api.seller.seller_upload_file import sync_detailed
@@ -102,13 +124,13 @@ def upload_bytes(client: AuthenticatedClient, data: bytes, file_name: str, mime:
     return response.parsed.object_key  # type: ignore[union-attr]
 
 
-def _upload_one(client: AuthenticatedClient, path: Path) -> str:
+def _upload_one(client: AuthenticatedClient | ContentHasher, path: Path) -> str:
     """Upload a single file and return its object_key."""
     mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     return upload_bytes(client, path.read_bytes(), path.name, mime)
 
 
-def _process_markdown(client: AuthenticatedClient, md_path: Path) -> bytes:
+def _process_markdown(client: AuthenticatedClient | ContentHasher, md_path: Path) -> bytes:
     """Upload all local assets referenced in a Markdown file and rewrite links.
 
     Handles both Markdown syntax (``![alt](path)``, ``[text](path)``) and
@@ -141,7 +163,7 @@ def _process_markdown(client: AuthenticatedClient, md_path: Path) -> bytes:
 
 
 def upload_file(
-    client: AuthenticatedClient,
+    client: AuthenticatedClient | ContentHasher,
     filename: str | Path,
 ) -> str:
     """Upload a file to content-addressed S3 storage.
@@ -176,18 +198,6 @@ def upload_file(
 
     if path.suffix.lower() == ".md":
         content = _process_markdown(client, path)
-        from io import BytesIO
-
-        from ._generated.api.seller.seller_upload_file import sync_detailed
-        from ._generated.models.body_seller_upload_file import BodySellerUploadFile
-        from ._generated.types import File
-
-        body = BodySellerUploadFile(
-            file=File(payload=BytesIO(content), file_name=path.name, mime_type="text/markdown"),
-        )
-        response = sync_detailed(client=client.with_timeout(_STORAGE_TIMEOUT), body=body)
-        if response.parsed is None or not hasattr(response.parsed, "object_key"):
-            raise RuntimeError(f"Upload failed for {path.name}: HTTP {response.status_code} — {response.content!r}")
-        return response.parsed.object_key  # type: ignore[union-attr]
+        return upload_bytes(client, content, path.name, "text/markdown")
 
     return _upload_one(client, path)

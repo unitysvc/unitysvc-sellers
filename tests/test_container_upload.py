@@ -12,7 +12,7 @@ from unitysvc_sellers import Client
 def test_existing_upload_preserves_container_spec_and_channel_fields() -> None:
     channel = {
         "access_method": "container",
-        "resources": {"limits": {"cpu": "250m", "memory": "256Mi"}},
+        "resources": "nano",
         "entries": [{"name": "api", "service": "web", "port": 8080, "auth": "app"}],
     }
     document = {
