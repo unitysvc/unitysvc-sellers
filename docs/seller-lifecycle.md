@@ -80,6 +80,47 @@ flowchart LR
 -   Your actual provider costs are your trade secret - UnitySVC doesn't need to know
 -   **list_price** is what end users pay
 
+### Uploading only what changed (`--state`)
+
+`specs upload` sends every service in the catalog, and the backend runs an ingest task for each, even when
+nothing changed. For a catalog of hundreds of services re-uploaded on every merge, pass a state file:
+
+```bash
+usvc seller specs upload --state upload-state.json
+```
+
+The file keeps, per service, the fingerprint of the **expanded** content last sent (provider, offering and
+listing after presets, templates and convenience fields are resolved, with every referenced file counted by
+its content) and the result of that service's **ingest task** (`created`, `unchanged`, `revision_created`,
+or `failed`). On the next run a service whose fingerprint is unchanged and whose ingest completed is skipped
+and its record is left as it was; everything else is sent, and its record replaced.
+
+- **No file yet** is a first run: everything is sent and the file is created. The file is written atomically
+  at the end, including after a partly failed run, so what succeeded is kept.
+- **A failed ingest is retried** on the next run. A payload whose ingest failed was not received, so it is
+  never skipped.
+- **The fingerprint is computed locally, with no requests.** Referenced files are hashed, not uploaded, so a
+  run that skips everything uploads nothing. `time_created` is not part of it: rendering a param file stamps
+  it with the current time when the template sets none, so it differs on every run.
+- **It records the upload, not the service.** The platform tests that follow a submission take far too long
+  to wait for, so a service the platform later rejects is not re-sent by this option; change it, or re-run
+  its tests (`services run-tests`, `services submit`).
+- **A service the target no longer has is sent again.** `--state` lists the target's services once (about a
+  second for a thousand) and re-sends any the file remembers but the target lacks, such as after a reset. If
+  the listing fails nothing is skipped. `--no-verify-remote` turns the check off.
+- **`--force`** ignores the file and sends everything (the file is still rewritten). Use it for a periodic full
+  upload: the file cannot see changes made directly on the platform, or a backend that now normalizes a
+  payload differently.
+- A service uploaded without `--submit` and later with it is sent again, so it gets submitted. A sidecar
+  (`service.json`) that names a different `service_id` than the one the backend answered with also counts as a
+  change. A partial upload (`specs upload <name>`) leaves the other services' records alone; a full upload
+  drops the records of services that left the catalog. A file written for another target, of another
+  version, or unreadable is ignored (everything is sent) and the run says so.
+
+The file is local to the command. In CI, keep it between runs yourself, for example as a workflow artifact:
+download the previous one to the path before the run, and upload the rewritten file after it. A relative path
+is relative to where you ran the command, not to the temporary copy `specs` renders param files into.
+
 ### Submitting for review vs. enabling testing
 
 Two seller actions move a service to `pending`, but they mean different things:
