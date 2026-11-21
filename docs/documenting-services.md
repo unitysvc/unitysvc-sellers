@@ -6,6 +6,58 @@ This guide explains how to add documentation and files to your service listings 
 
 Documents in UnitySVC can be in any format (`.md`, `.py`, `.js`, `.sh`, etc.) and are referenced in listing files. Files with an additional `.j2` extension are treated as **Jinja2 templates** and expanded dynamically before use.
 
+## Shared presets and on-demand refresh
+
+Use `unitysvc-data` presets to include shared documents without copying their
+source into your repository:
+
+```json
+{
+  "documents": {
+    "Using container services": {"$doc_preset": "container_description"}
+  }
+}
+```
+
+Local `usvc seller specs` commands use the installed data package, or a newer
+validated cached release. When a named preset is unavailable, the CLI fetches
+the latest compatible stable `unitysvc-data` wheel from PyPI and retries once.
+This applies to document/file presets and missing named presets within bundles,
+using the same expansion path for validation, inspection, tests and upload.
+Invalid parameters do not trigger a download. `specs format` preserves authored
+sentinels and does not refresh them.
+
+The CLI installs into a separate cache and expands cached presets in a fresh
+Python helper. It uses `uv` when available, otherwise the current interpreter's
+`pip`; the CLI's installed environment is unchanged. Generated document files
+are copied into a content-addressed assets cache before the helper exits, so
+expansion and upload can still read them. Preset provenance in `meta.preset`
+records the release that actually generated the document.
+
+There is **no periodic refresh**. Existing presets work offline from the installed
+or cached package. A failed refresh keeps the active release; an unavailable
+preset reports an error. `specs expand` retains its best-effort behavior, warning
+and leaving an unresolved sentinel as authored. Refreshes sharing a cache are
+serialized, with a 60-second cooldown after attempts, including failures.
+
+| Environment variable | Default | Purpose |
+| --- | --- | --- |
+| `UNITYSVC_SELLER_PRESET_CACHE_DIR` | `~/.cache/unitysvc-sellers/presets` | Separate package and generated-assets cache; respects `XDG_CACHE_HOME` on Unix and `LOCALAPPDATA` on Windows |
+| `UNITYSVC_SELLER_PRESET_REFRESH_TIMEOUT_SECONDS` | `60` | One deadline for the refresh lock wait and installation |
+| `UNITYSVC_SELLER_PRESET_REPLAY_TIMEOUT_SECONDS` | `15` | Each cached expansion or candidate validation helper; validation can add this time after installation |
+| `UNITYSVC_SELLER_PRESET_REFRESH_COOLDOWN_SECONDS` | `60` | Minimum interval between completed refresh attempts per cache |
+
+Use a writable cache directory. No seller account or API credentials are needed
+to refresh presets. The helper receives only basic process/locale/temp-directory
+environment settings. Package releases are validated before atomic activation;
+generation in the installed package is serialized to avoid its temporary-file
+write race. The core preset registry is restored when the CLI command exits.
+
+Package and generated-asset files remain cached for later commands. To reset the
+cache, remove its directory while no CLI command is using it. Old exported paths
+into that cache will need expansion again. New preset function types or
+incompatible package APIs may still require a CLI upgrade.
+
 ## Document Types
 
 ### Standard Documents
