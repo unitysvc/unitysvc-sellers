@@ -56,6 +56,29 @@ Container channels are enrollable and request `resource:container` creation. Pub
 
 The existing upload and service-diagnostic APIs carry container services through the normal provider/offering/listing and Document flow. Validation and normalization come from unitysvc-core; no compute intent/status API is exposed in the seller SDK.
 
+## Pricing
+
+A container channel's price is its instance time, and the platform's cost for the instance is the **base cost** of the size the channel names (`resources`). Two shapes:
+
+**You take payment.** Price each tier above base cost and set `payout_price` to a revenue share, which is paid on the part of the price above base cost. Either a time price you choose, or a margin composed around the platform's cost so it follows the size table:
+
+```json
+"list_price": {"type": "channel", "default": "base",
+  "channels": {"base": {"type": "multiply", "factor": "1.2", "base": {"type": "base_cost"}}}}
+```
+
+```json
+"payout_price": {"type": "revenue_share", "percentage": "80", "description": "80% of the price after the platform's compute cost"}
+```
+
+**You take no payment.** If you do not or cannot take payment, for example you are the author of an open-source project and want visitors to preview or run it, list the service at cost: the bare leaf.
+
+```json
+"list_price": {"type": "base_cost"}
+```
+
+`{"type": "base_cost"}` is the platform's cost of the channel's size for the metered runtime, like `constant` is a fixed amount: the platform derives the figure from the size table, so you never copy a number that goes stale, and fills `price` with the resolved monthly figure, which the catalog shows and sorts by, while each run is priced from the table as it is when the run starts. At cost you earn nothing whatever your `payout_price`; a margin composed around the leaf (`multiply` by a factor, or `add` a `one_month` price) is yours under your revenue share. `specs validate` rejects `base_cost` wherever it does not price a container channel of the offering, and as a `payout_price`. See [`base_cost` in the pricing reference](../pricing.md#the-platforms-cost-as-a-price-base_cost). It needs `unitysvc-core>=0.3.19`.
+
 ## Local connectivity test
 
 ```sh
