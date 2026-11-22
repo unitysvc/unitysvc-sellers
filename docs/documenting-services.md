@@ -49,9 +49,23 @@ serialized, with a 60-second cooldown after attempts, including failures.
 
 Use a writable cache directory. No seller account or API credentials are needed
 to refresh presets. The helper receives only basic process/locale/temp-directory
-environment settings. Package releases are validated before atomic activation;
-generation in the installed package is serialized to avoid its temporary-file
-write race. The core preset registry is restored when the CLI command exits.
+environment settings. The installer additionally receives HTTP(S)/ALL proxy and
+NO_PROXY settings (including lowercase forms), custom CA settings
+(`SSL_CERT_FILE`, `SSL_CERT_DIR`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`, `PIP_CERT`)
+and uv's native/system-certificate switches. These are not passed to the helper.
+Certificate file aliases are translated for uv and passed explicitly with
+`--cert` to isolated pip. Installer failures include their final diagnostic line;
+the full diagnostic is logged at debug level with proxy userinfo redacted.
+
+Package releases are validated before atomic activation. CLI file workflows are
+synchronous; installed factory calls are also serialized so the library's
+non-atomic write-once materialization completes before another caller can reuse
+the file. The core preset registry is restored when the CLI command exits. This
+updater uses `--no-deps` and never updates `unitysvc-core`.
+
+Remote `services` commands use backend documents and test IDs. Their `--local-ids`
+selection reads raw identity sidecars and provider names without expanding local
+documents, so it does not need a preset refresh.
 
 Package and generated-asset files remain cached for later commands. To reset the
 cache, remove its directory while no CLI command is using it. Old exported paths

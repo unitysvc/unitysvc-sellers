@@ -530,6 +530,17 @@ def test_read_local_service_ids_filters_by_provider(tmp_path: Path) -> None:
     assert sorted(read_local_service_ids(tmp_path, provider="")) == sorted([_UUID_A, _UUID_B])
 
 
+def test_local_ids_provider_filter_does_not_expand_documents(tmp_path: Path) -> None:
+    folder = tmp_path / "a"
+    _write_listing(folder / "listing.json", {"service_id": _UUID_A, "provider_name": "acme"})
+    for kind in ("listing", "provider"):
+        path = folder / f"{kind}.json"
+        data = json.loads(path.read_text())
+        data["documents"] = {"New guide": {"$doc_preset": "not_installed_yet_v1"}}
+        path.write_text(json.dumps(data))
+    assert read_local_service_ids(tmp_path, provider="acme") == [_UUID_A]
+
+
 def test_read_ids_from_data_dir_delegates_to_utility(tmp_path: Path) -> None:
     """The private services-module reader stays as a thin wrapper."""
     _write_listing(tmp_path / "a" / "listing.json", {"service_id": _UUID_A})

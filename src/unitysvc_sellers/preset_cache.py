@@ -31,6 +31,23 @@ _GENERATION_LOCK = threading.Lock()
 _HELPER = Path(__file__).with_name("_preset_helper.py")
 _INDEX = "https://pypi.org/simple"
 _ENV_KEYS = ("PATH", "SYSTEMROOT", "WINDIR", "LANG", "LC_ALL", "LC_CTYPE", "TZ", "TMP", "TEMP", "TMPDIR")
+_INSTALL_ENV_KEYS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+    "no_proxy",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
+    "CURL_CA_BUNDLE",
+    "PIP_CERT",
+    "UV_NATIVE_TLS",
+    "UV_SYSTEM_CERTS",
+)
 
 
 class MissingPreset(KeyError):
@@ -49,6 +66,22 @@ class CachedRelease:
 
 def _environment() -> dict[str, str]:
     return {key: os.environ[key] for key in _ENV_KEYS if key in os.environ}
+
+
+def _installer_environment() -> dict[str, str]:
+    return {**_environment(), **{key: os.environ[key] for key in _INSTALL_ENV_KEYS if key in os.environ}}
+
+
+def _installer_error(exc: subprocess.CalledProcessError) -> str:
+    output = exc.stderr or exc.stdout or ""
+    if isinstance(output, bytes):
+        output = output.decode("utf-8", errors="replace")
+    # Proxy URLs may include user:password. Neither the error nor debug logs
+    # should expose userinfo, including a proxy written without a URL scheme.
+    output = re.sub(r"([A-Za-z][A-Za-z0-9+.-]*://)?[^/@\s]+@", r"\1***@", output)
+    logger.debug("unitysvc-data installer failed:\n%s", output.rstrip())
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    return lines[-1][:500] if lines else f"installer exited with status {exc.returncode}"
 
 
 class PresetResolver:
@@ -153,6 +186,10 @@ class PresetResolver:
         except MissingPreset as exc:
             state = "after refreshing unitysvc-data" if attempted else "during the preset refresh cooldown"
             raise ValueError(f"Preset is unavailable {state}; check its name or retry later. {exc}") from exc
+        except subprocess.CalledProcessError as exc:
+            raise ValueError(f"Could not refresh unitysvc-data: {_installer_error(exc)}") from exc
+        except HelperFailure as exc:
+            raise ValueError(f"Could not refresh unitysvc-data: release validation failed ({exc}).") from exc
         except (OSError, Timeout, subprocess.SubprocessError) as exc:
             raise ValueError("Could not refresh unitysvc-data; check network access and cache permissions.") from exc
 
@@ -175,6 +212,7 @@ class PresetResolver:
     def _install(self, current: CachedRelease | None, *, deadline: float, repair: bool) -> CachedRelease | None:
         # Drop local/dev suffixes so pip's default resolver never opts into prereleases.
         minimum = current.version if current else Version(unitysvc_data.__version__).base_version
+        minimum_version = Version(minimum)
         with TemporaryDirectory(dir=self.cache_dir, prefix=".install-") as temporary:
             target = Path(temporary) / "package"
             common = [
@@ -213,27 +251,49 @@ class PresetResolver:
                     *common,
                 ]
             )
+            install_env = _installer_environment()
+            certificate = (
+                install_env.get("PIP_CERT")
+                or install_env.get("REQUESTS_CA_BUNDLE")
+                or install_env.get("CURL_CA_BUNDLE")
+                or install_env.get("SSL_CERT_FILE")
+            )
+            if uv:
+                # uv understands SSL_CERT_FILE, rather than requests/pip aliases.
+                if certificate and not install_env.get("SSL_CERT_FILE"):
+                    install_env["SSL_CERT_FILE"] = certificate
+            else:
+                # --isolated ignores PIP_CERT; pass it explicitly while keeping
+                # package-source/configuration overrides isolated.
+                certificate = certificate or install_env.get("SSL_CERT_DIR")
+                if certificate:
+                    command.extend(["--cert", certificate])
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise TimeoutError("Preset refresh deadline expired")
             subprocess.run(
                 command,
-                env=_environment(),
+                env=install_env,
                 cwd=temporary,
                 capture_output=True,
                 text=True,
                 check=True,
                 timeout=remaining,
             )
-            info = self._helper(target, {"operation": "probe"})
-            if not isinstance(info, dict) or not isinstance(info.get("version"), str):
-                raise HelperFailure("Invalid unitysvc-data installation")
-            version = Version(info["version"])
-            if version.is_prerelease or version.is_devrelease or version < Version(minimum):
-                raise HelperFailure("Expected a compatible stable unitysvc-data release")
-            if not set(self.bundled).issubset(info.get("functions", [])):
-                raise HelperFailure("The release removed a required preset function")
-            if version == Version(minimum) and not repair:
+            try:
+                info = self._helper(target, {"operation": "probe"})
+                if not isinstance(info, dict) or not isinstance(info.get("version"), str):
+                    raise HelperFailure("Invalid unitysvc-data installation")
+                version = Version(info["version"])
+                if version.is_prerelease or version.is_devrelease or version < minimum_version:
+                    raise HelperFailure("Expected a compatible stable unitysvc-data release")
+                if not set(self.bundled).issubset(info.get("functions", [])):
+                    raise HelperFailure("The release removed a required preset function")
+            except HelperFailure:
+                raise
+            except (ValueError, KeyError, TypeError) as exc:
+                raise HelperFailure(f"Invalid unitysvc-data installation: {exc}") from exc
+            if version == minimum_version and not repair:
                 return current
             directory = self.cache_dir / f"release-{uuid4().hex}"
             target.rename(directory)

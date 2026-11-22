@@ -176,7 +176,9 @@ def resolve_provider_name(file_path: Path) -> str | None:
     if not provider_file.is_file():
         return None
     try:
-        data, _file_format = load_data_file(provider_file)
+        # Identity selection must not expand unrelated documents or require
+        # newer presets just to read a provider's name (e.g. --local-ids).
+        data, _file_format = load_data_file(provider_file, preset_fns=None)
         return data.get("name")
     except Exception:
         return None

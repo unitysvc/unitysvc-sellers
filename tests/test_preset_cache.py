@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -67,7 +68,10 @@ def download(resolver, future_package, monkeypatch):
         calls.append(command)
         assert command[command.index("--index-url") + 1] == "https://pypi.org/simple"
         assert "--only-binary" in command and "--no-deps" in command
-        assert all(not name.startswith(("PIP_", "UV_", "PYTHON")) for name in kwargs["env"])
+        assert all(
+            not name.startswith(("PIP_", "UV_", "PYTHON")) or name in preset_cache._INSTALL_ENV_KEYS
+            for name in kwargs["env"]
+        )
         assert 0 < kwargs["timeout"] <= resolver.refresh_timeout
         shutil.copytree(future_package, command[command.index("--target") + 1])
         return subprocess.CompletedProcess(command, 0)
@@ -316,3 +320,134 @@ def test_pip_fallback_is_isolated_and_never_changes_the_cli_environment(resolver
     monkeypatch.setattr(resolver, "_helper", lambda *a: {"version": "99.0.0", "functions": list(resolver.bundled)})
     assert resolver._install(None, deadline=time.monotonic() + 10, repair=False).version == "99.0.0"
     assert len(seen) == 1
+
+
+@pytest.mark.parametrize("use_uv", [True, False])
+@pytest.mark.parametrize("certificate_variable", ["PIP_CERT", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"])
+def test_install_forwards_network_settings_but_helper_does_not(resolver, monkeypatch, use_uv, certificate_variable):
+    resolver.cache_dir.mkdir()
+    proxy = "http://example-user:example-password@proxy.example:8080"
+    for name in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"):
+        monkeypatch.setenv(name, proxy)
+    monkeypatch.setenv("NO_PROXY", "localhost")
+    monkeypatch.setenv("no_proxy", "localhost")
+    for name in ("PIP_CERT", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE", "SSL_CERT_FILE"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(certificate_variable, "/custom/roots.pem")
+    monkeypatch.setenv("SSL_CERT_DIR", "/custom/certs")
+    monkeypatch.setenv("UV_NATIVE_TLS", "true")
+    monkeypatch.setenv("UV_EXTRA_INDEX_URL", "https://untrusted.example/simple")
+    monkeypatch.setenv("UNITYSVC_SELLER_API_KEY", "private-seller-key")
+    monkeypatch.setattr(preset_cache.shutil, "which", lambda name: "/bin/uv" if use_uv else None)
+    observed = []
+
+    def run(command, **kwargs):
+        observed.append(command)
+        environment = kwargs["env"]
+        if "--target" in command:
+            assert environment["HTTPS_PROXY"] == environment["https_proxy"] == proxy
+            assert environment["HTTP_PROXY"] == environment["http_proxy"] == proxy
+            assert environment["ALL_PROXY"] == environment["all_proxy"] == proxy
+            assert environment["NO_PROXY"] == environment["no_proxy"] == "localhost"
+            assert environment[certificate_variable] == "/custom/roots.pem"
+            assert environment["SSL_CERT_DIR"] == "/custom/certs"
+            assert environment["UV_NATIVE_TLS"] == "true"
+            assert "UV_EXTRA_INDEX_URL" not in environment
+            assert "UNITYSVC_SELLER_API_KEY" not in environment
+            if use_uv:
+                assert environment["SSL_CERT_FILE"] == "/custom/roots.pem"
+            else:
+                assert "--isolated" in command
+                assert command[command.index("--cert") + 1] == "/custom/roots.pem"
+            Path(command[command.index("--target") + 1]).mkdir()
+            return subprocess.CompletedProcess(command, 0)
+        assert not set(preset_cache._INSTALL_ENV_KEYS).intersection(environment)
+        assert "UNITYSVC_SELLER_API_KEY" not in environment
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            json.dumps(
+                {
+                    "status": "ok",
+                    "result": {"version": "99.0.0", "functions": list(resolver.bundled)},
+                }
+            ),
+        )
+
+    monkeypatch.setattr(preset_cache.subprocess, "run", run)
+    assert resolver._install(None, deadline=time.monotonic() + 10, repair=False).version == "99.0.0"
+    assert len(observed) == 2
+
+
+@pytest.mark.parametrize("use_uv", [True, False])
+def test_installer_diagnostics_are_visible_and_redact_proxy_credentials(resolver, monkeypatch, caplog, use_uv):
+    monkeypatch.setattr(preset_cache.shutil, "which", lambda name: "/bin/uv" if use_uv else None)
+
+    def fail(command, **kwargs):
+        raise subprocess.CalledProcessError(
+            1,
+            command,
+            stderr=(
+                "Proxy connection to http://example-user:example-password@proxy.example:8080 failed\n"
+                "ERROR: certificate verify failed\n"
+            ),
+        )
+
+    monkeypatch.setattr(preset_cache.subprocess, "run", fail)
+    with caplog.at_level(logging.DEBUG, logger="unitysvc_sellers.preset_cache"):
+        message = "Could not refresh unitysvc-data: ERROR: certificate verify failed"
+        with pytest.raises(ValueError, match=message) as error:
+            resolver.call("doc_preset", "future_container_v1")
+    assert "certificate verify failed" in caplog.text
+    assert "http://***@proxy.example:8080" in caplog.text
+    assert "example-user" not in caplog.text + str(error.value)
+    assert "example-password" not in caplog.text + str(error.value)
+
+
+def test_failed_install_probe_is_wrapped_and_does_not_loop(resolver, monkeypatch):
+    install = Mock(side_effect=preset_cache.HelperFailure("Invalid unitysvc-data installation"))
+    monkeypatch.setattr(resolver, "_install", install)
+    with pytest.raises(ValueError, match="Could not refresh unitysvc-data: release validation failed"):
+        resolver.call("doc_preset", "future_container_v1")
+    with pytest.raises(ValueError, match="cooldown"):
+        resolver.call("doc_preset", "future_container_v1")
+    install.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "probe",
+    [
+        {},
+        {"version": "broken", "functions": []},
+        {"version": "99.0.0", "functions": None},
+        {"version": "99.0.0", "functions": []},
+    ],
+)
+def test_invalid_install_probe_keeps_cache_unactivated(resolver, monkeypatch, probe):
+    def install(command, **kwargs):
+        Path(command[command.index("--target") + 1]).mkdir()
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(preset_cache.subprocess, "run", install)
+    monkeypatch.setattr(resolver, "_helper", lambda *a: probe)
+    with pytest.raises(ValueError, match="Could not refresh unitysvc-data: release validation failed"):
+        resolver.call("doc_preset", "future_container_v1")
+    assert resolver._active() is None
+
+
+def test_bundled_generation_and_later_reads_are_safe_for_concurrent_calls(resolver):
+    # All writers enter the guard. The library writes once and reuses complete
+    # entries, so reading a returned path outside the guard cannot see a writer.
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        for iteration in range(10):
+            barrier = threading.Barrier(16)
+            probe = f"/concurrent-{time.monotonic_ns()}-{iteration}"
+
+            def generate_and_read(barrier=barrier, probe=probe):
+                barrier.wait(timeout=10)
+                result = resolver.call("doc_preset", {"name": "container_connectivity", "probe_path": probe})
+                return Path(result["file_path"]).read_text()
+
+            results = [future.result(timeout=15) for future in [pool.submit(generate_and_read) for _ in range(16)]]
+            assert all(results) and len(set(results)) == 1
+            assert probe in results[0]
