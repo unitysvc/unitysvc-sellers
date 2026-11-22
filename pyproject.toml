@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "unitysvc-sellers"
-version = "0.3.24"
+version = "0.3.25"
 description = "Seller-facing tools for UnitySVC: HTTP SDK + `usvc seller` CLI"
 readme = "README.md"
 authors = [{ name = "Bo Peng", email = "bo.peng@unitysvc.com" }]
@@ -26,7 +26,10 @@ dependencies = [
   # all already required here.
   # 0.2.6: unitysvc.chat and rooms.mark_active (usvc_seller rooms chat).
   "unitysvc-py>=0.2.6",
-  "unitysvc-data>=0.1.28",
+  # Preset provenance for backend regeneration; newer presets refresh on demand.
+  "unitysvc-data>=0.2.17",
+  "filelock>=3.16",
+  "packaging>=23",
   "typer",
   "rich",
   "jinja2",

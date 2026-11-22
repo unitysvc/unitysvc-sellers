@@ -107,6 +107,10 @@ def _expand_params(ctx: typer.Context) -> None:
     committed files themselves, not the expanded view.
     """
     sub = ctx.invoked_subcommand
+    if sub and sub != "format":
+        from .preset_cache import refreshing_presets
+
+        ctx.with_resource(refreshing_presets())
     # ``format``/``populate`` operate on the committed files themselves; ``expand``
     # writes the informal expanded/ tree from the param file directly — none of
     # them want the ephemeral whole-repo render.

@@ -509,7 +509,12 @@ def test_expand_unknown_preset_is_best_effort(tmp_path: Path) -> None:
     assert record == {"$doc_preset": "nonexistent_preset_xyz"}  # left as authored
 
 
-def test_expand_command_unknown_preset_warns_but_succeeds(tmp_path: Path) -> None:
+def test_expand_command_unknown_preset_warns_but_succeeds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from unitysvc_sellers.preset_cache import PresetResolver
+
+    resolver = PresetResolver(tmp_path / "cache")
+    monkeypatch.setattr(resolver, "_install", lambda *a, **k: None)
+    monkeypatch.setattr("unitysvc_sellers.preset_cache.resolver_from_environment", lambda: resolver)
     root = _make_folder_service(tmp_path)
     listing_path = root / "specs" / "labs" / "svc1" / "listing.json"
     listing = json.loads(listing_path.read_text())
