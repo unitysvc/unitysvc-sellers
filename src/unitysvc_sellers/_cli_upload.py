@@ -95,8 +95,10 @@ def upload(
         help=(
             "With --submit, after the ingest wait up to DURATION (90, 90s, 40m, 2h) for the platform's "
             "activation tests on each submitted service, and exit 1 if any is rejected, errors or has no "
-            "decision in time. A service that queued no tests (unchanged, or a revision merged without them) "
-            "has nothing to wait for. A service whose tests did not pass is sent again by the next --state run."
+            "decision in time. A service whose upload queued no tests (unchanged, or a revision merged without "
+            "them) gets the platform's check run on it instead (the container is started and its entries "
+            "fetched), so every service that was sent has a decision. A service whose tests did not pass is "
+            "sent again by the next --state run."
         ),
         show_default=False,
     ),
@@ -258,6 +260,8 @@ def upload(
 _TEST_MEANING = {
     "passed": "accepted",
     "rejected": "rejected by the platform's tests",
+    "failed": "failed the platform's check",
+    "skipped": "not tested",
     "error": "the platform's tests did not complete",
     "timeout": "no decision in time",
 }
@@ -269,7 +273,7 @@ def _show_tests(result, report: Path | None) -> None:  # noqa: ANN001 - UploadRe
     if not result.tests:
         lines.append("No uploaded service queued activation tests; nothing was waited for.")
     for outcome in result.tests:
-        mark = "OK" if outcome.passed else "FAILED"
+        mark = "OK" if outcome.passed else ("FAILED" if outcome.failed else "SKIPPED")
         lines.append(f"- {mark} {outcome.name}: {_TEST_MEANING.get(outcome.status, outcome.status)}")
         if not outcome.passed and outcome.detail:
             lines.extend(f"    {line}" for line in outcome.detail.splitlines())

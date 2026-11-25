@@ -43,6 +43,8 @@ STATE_VERSION = 1
 
 # What a record's ``test`` says when the platform accepted the service (it became active or review).
 TEST_PASSED = "passed"
+# A service retired on purpose (deprecated, suspended) is not tested; it has no verdict to remember.
+TEST_SKIPPED = "skipped"
 
 # Kinds of upload, one per way ``upload_directory`` sends a service.
 KIND_SERVICE = "service"

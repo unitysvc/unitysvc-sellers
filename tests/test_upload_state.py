@@ -96,6 +96,59 @@ class _FakeServices:
         self._owner.tasks_by_id[task_id] = name
         return SimpleNamespace(task_id=task_id)
 
+    def run_tests(self, service_id: str, **kwargs: Any) -> SimpleNamespace:
+        """The platform's check on a service that was sent but queued no activation tests."""
+        name = service_id.removeprefix("id-")
+        self._owner.retested.append((name, kwargs.get("force", False)))
+        if name in self._owner.retest_api_errors:
+            from unitysvc_sellers.exceptions import APIError
+
+            raise APIError("diagnostics are down", status_code=503)
+        if name in self._owner.retest_unfinished:  # the diagnostic was still running when the time was up
+            return SimpleNamespace(
+                passed=False,
+                status="unknown",
+                reason=None,
+                outcome=None,
+                results=[],
+                links=[],
+                raw={"status": "running"},
+            )
+        if name in self._owner.retest_task_failed:  # the diagnostic task itself failed
+            return SimpleNamespace(
+                passed=False,
+                status="error",
+                reason=None,
+                outcome="worker lost",
+                results=[],
+                links=[],
+                raw={"status": "failed"},
+            )
+        failing = self._owner.retest_failures.get(name)
+        rows = (
+            [SimpleNamespace(status="failure", error=failing, document_title="Connectivity test", category=None)]
+            if failing
+            else []
+        )
+        return SimpleNamespace(
+            passed=not failing,
+            status="failure" if failing else "success",
+            reason=None,
+            outcome=None,
+            raw={"status": "completed"},
+            results=rows,
+            links=[],
+        )
+
+    def get(self, service_id: str) -> SimpleNamespace:
+        """The platform's record of the service: only its lifecycle status matters here."""
+        name = service_id.removeprefix("id-")
+        if name in self._owner.get_api_errors:
+            from unitysvc_sellers.exceptions import APIError
+
+            raise APIError("service lookup failed", status_code=500)
+        return SimpleNamespace(status=self._owner.lifecycle.get(name, "active"))
+
     def iter_all(self, limit: int = 200) -> list[SimpleNamespace]:
         if self._owner.list_fails:
             raise RuntimeError("listing is down")
@@ -149,6 +202,15 @@ class _FakeClient:
         self.submitted_tasks: set[str] = set()
         self.test_status: dict[str, dict[str, Any]] = {}
         self.waited_tests: list[str] = []
+        # The check run again on a service that queued no tests: which fail (with their error) or hit an API error.
+        self.retested: list[tuple[str, bool]] = []
+        self.retest_failures: dict[str, str] = {}
+        self.retest_api_errors: set[str] = set()
+        self.retest_unfinished: set[str] = set()
+        self.retest_task_failed: set[str] = set()
+        # What the platform says each service is (default active), and the lookups that fail.
+        self.lifecycle: dict[str, str] = {}
+        self.get_api_errors: set[str] = set()
         self.list_fails = False
         self.services = _FakeServices(self)
         self.tasks = _FakeTasks(self)
@@ -631,14 +693,115 @@ class TestWaitForTest:
         assert by_name["acme/b"].status == "timeout" and "5 seconds" in by_name["acme/b"].detail
         assert by_name["acme/c"].passed
 
-    def test_a_service_that_queued_no_tests_has_nothing_to_wait_for(self, catalog: Path, tmp_path: Path) -> None:
-        client = _FakeClient()
+    def test_a_service_that_queued_no_tests_gets_the_platforms_check_run_on_it(
+        self, catalog: Path, tmp_path: Path
+    ) -> None:
+        client, state_file = _FakeClient(), tmp_path / "up.json"
         client.queue_tests = False  # unchanged, or a revision merged without tests
+        result = self._submit(client, catalog, state_file)
+
+        assert client.waited_tests == []
+        assert sorted(client.retested) == [("acme/a", True), ("acme/b", True), ("acme/c", True)]
+        assert [t.status for t in result.tests] == ["passed"] * 3 and result.tests_failed == 0
+        assert "checked again" in result.tests[0].detail
+        assert json.loads(state_file.read_text())["services"]["acme/a"]["test"]["status"] == "passed"
+
+    def test_a_service_that_fails_the_check_again_fails_the_run_and_is_sent_again(
+        self, catalog: Path, tmp_path: Path
+    ) -> None:
+        client, state_file = _FakeClient(), tmp_path / "up.json"
+        client.queue_tests = False
+        client.retest_failures["acme/b"] = "container did not start: image pull error"
+        result = self._submit(client, catalog, state_file)
+
+        failed = [t for t in result.tests if not t.passed]
+        assert [(t.name, t.status) for t in failed] == [("acme/b", "failed")]
+        assert "image pull error" in failed[0].detail and "Connectivity test" in failed[0].detail
+        assert json.loads(state_file.read_text())["services"]["acme/b"]["test"]["status"] == "failed"
+
+        client.uploads.clear()
+        client.retested.clear()
+        client.retest_failures.clear()
+        self._submit(client, catalog, state_file)
+        assert client.sent == ["acme/b"], "only the service that failed the check is sent again"
+        assert client.retested == [("acme/b", True)]
+
+    def test_an_api_error_from_the_check_is_an_error_outcome(self, catalog: Path, tmp_path: Path) -> None:
+        client = _FakeClient()
+        client.queue_tests = False
+        client.retest_api_errors.add("acme/a")
         result = self._submit(client, catalog, tmp_path / "up.json")
 
-        assert result.tests == [] and client.waited_tests == []
-        assert result.services.success == 3
-        assert any("none was waited for" in note for note in result.notes)
+        by_name = {t.name: t for t in result.tests}
+        assert by_name["acme/a"].status == "error" and "503" in by_name["acme/a"].detail
+        assert by_name["acme/b"].passed
+
+    def test_a_deprecated_service_is_not_tested_and_does_not_fail_the_run(self, catalog: Path, tmp_path: Path) -> None:
+        """Deprecating a service answers "updated" or "unchanged" like any change, so the upload result cannot say
+        it was retired; the platform's status can."""
+        client, state_file = _FakeClient(), tmp_path / "up.json"
+        client.queue_tests = False
+        client.lifecycle["acme/a"] = "deprecated"
+        client.lifecycle["acme/b"] = "suspended"
+        result = self._submit(client, catalog, state_file)
+
+        assert sorted(client.retested) == [("acme/c", True)], "only the live service is checked"
+        by_name = {t.name: t for t in result.tests}
+        assert by_name["acme/a"].status == "skipped" and "deprecated" in by_name["acme/a"].detail
+        assert by_name["acme/b"].status == "skipped" and "suspended" in by_name["acme/b"].detail
+        assert by_name["acme/c"].passed
+        assert result.tests_failed == 0, "a service retired on purpose is not a failure"
+        records = json.loads(state_file.read_text())["services"]
+        assert "test" not in records["acme/a"] and "test" not in records["acme/b"], "nothing is remembered for it"
+        assert records["acme/c"]["test"]["status"] == "passed"
+
+        client.uploads.clear()
+        self._submit(client, catalog, state_file)
+        assert client.sent == [], "a retired service is not sent again for want of a verdict"
+
+    def test_a_service_in_another_state_is_reported_not_tested(self, catalog: Path, tmp_path: Path) -> None:
+        client = _FakeClient()
+        client.queue_tests = False
+        client.lifecycle.update({"acme/a": "rejected", "acme/b": "draft"})
+        client.get_api_errors.add("acme/c")
+        result = self._submit(client, catalog, tmp_path / "up.json")
+
+        by_name = {t.name: t for t in result.tests}
+        assert by_name["acme/a"].status == "rejected" and by_name["acme/b"].status == "error"
+        assert "draft" in by_name["acme/b"].detail
+        assert by_name["acme/c"].status == "error" and "could not read" in by_name["acme/c"].detail
+        assert client.retested == [] and result.tests_failed == 3
+
+    def test_a_diagnostic_that_is_still_running_when_time_runs_out_is_a_timeout(
+        self, catalog: Path, tmp_path: Path
+    ) -> None:
+        client = _FakeClient()
+        client.queue_tests = False
+        client.retest_unfinished.add("acme/a")
+        client.retest_task_failed.add("acme/b")
+        client.retest_failures["acme/c"] = "image pull error"
+        result = self._submit(client, catalog, tmp_path / "up.json")
+
+        by_name = {t.name: t for t in result.tests}
+        assert by_name["acme/a"].status == "timeout" and "no decision" in by_name["acme/a"].detail
+        assert by_name["acme/b"].status == "error", "a diagnostic task that failed stays an error"
+        assert by_name["acme/c"].status == "failed", "a completed diagnostic with a failing row stays failed"
+        assert result.tests_failed == 3
+
+    def test_a_service_with_tests_is_not_checked_again(self, catalog: Path, tmp_path: Path) -> None:
+        client = _FakeClient()
+        result = self._submit(client, catalog, tmp_path / "up.json")
+
+        assert client.retested == [] and sorted(client.waited_tests) == ["acme/a", "acme/b", "acme/c"]
+        assert result.tests_failed == 0
+
+    def test_a_check_gets_no_more_than_the_time_that_is_left(self, catalog: Path, tmp_path: Path) -> None:
+        client = _FakeClient()
+        client.queue_tests = False
+        result = _run(client, catalog, tmp_path / "up.json", auto_submit=True, wait_for_test=0.0000001)
+
+        assert client.retested == []
+        assert [t.status for t in result.tests] == ["timeout"] * 3
 
     def test_without_wait_for_test_nothing_is_waited_for(self, catalog: Path, tmp_path: Path) -> None:
         client = _FakeClient()
@@ -677,6 +840,29 @@ class TestWaitForTestCommand(TestCommand):
     def test_a_bad_duration_is_refused(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         captured = self._invoke(monkeypatch, ["--submit", "--wait-for-test", "soon"], invocation=tmp_path)
         assert captured["exit_code"] == 2
+
+    def test_a_service_left_untested_on_purpose_does_not_fail_the_command(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from unitysvc_sellers.upload import TestOutcome, UploadCounts, UploadResult
+
+        outcome = UploadResult(
+            services=UploadCounts(total=2, success=2),
+            tests=[
+                TestOutcome("acme/a", "passed", "active"),
+                TestOutcome("acme/b", "skipped", "the service is deprecated"),
+            ],
+        )
+        captured = self._invoke(
+            monkeypatch,
+            ["--submit", "--wait-for-test", "40m", "--report", "report.md"],
+            invocation=tmp_path,
+            result=outcome,
+        )
+
+        assert captured["exit_code"] == 0
+        report = (tmp_path / "report.md").read_text()
+        assert "OK acme/a" in report and "SKIPPED acme/b" in report and "deprecated" in report
 
     def test_a_service_the_platform_rejects_fails_the_command_and_is_reported(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
