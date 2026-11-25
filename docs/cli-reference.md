@@ -286,7 +286,6 @@ service health, fetches each entry, runs declarative JSON probes, and cleans
 up. It generates a separate test-only app key for the reserved
 ${UNITYSVC_INSTANCE_API_KEY} binding; no platform credentials enter containers.
 Local Docker does not reproduce Kubernetes, gVisor, or ephemeral disk quotas.
-A volume the channel persists (`volumes` with `type: persist`) runs as a plain scratch volume locally; there is no customer storage on your machine. See [Persistent storage](guides/container-services.md#persistent-storage).
 
 This command:
 1. Scans for all listing files (schema: listing_v1)
