@@ -46,7 +46,87 @@ This is how you reuse a project's generic Compose file as it is (see `weixin-ili
 
 ### Scratch storage
 
-A named or anonymous volume mount (`data:/app/data`) becomes scratch space: the path exists and is writable, its data survives a container restart but not a replacement of the instance, and it counts against the service's `ephemeral-storage`. Host paths and bind mounts are still refused. The local Docker test gives each scratch path a disposable disk-backed volume (removed afterwards), so it counts against disk, not memory.
+A named or anonymous volume mount (`data:/app/data`) becomes scratch space: the path exists and is writable, its data survives a container restart but not a replacement of the instance, and it counts against the service's `ephemeral-storage`. Host paths and bind mounts are still refused. To keep the files between runs, see [Persistent storage](#persistent-storage). The local Docker test gives each scratch path a disposable disk-backed volume (removed afterwards), so it counts against disk, not memory.
+
+### Persistent storage
+
+Scratch is lost when the instance is replaced. To keep a volume's files between runs, persist it **in the channel**, not in the Compose file. The file stays plain Compose (it runs unchanged under Docker), so one file can back a channel that persists a volume (a production tier) and one that does not (a demo). Persistence needs `unitysvc-core>=0.3.20`.
+
+The Compose file only mounts a named volume, and declares it at the top level:
+
+```yaml
+services:
+  app:
+    image: example/app:1.4
+    ports: [8080]
+    volumes:
+      - data:/var/lib/app
+volumes:
+  data:
+```
+
+The channel's `volumes` maps a volume name to how it is backed. `type` is `scratch` (the default) or `persist`, and each type takes its own options:
+
+```json
+"upstream_access_config": {
+  "base": {
+    "access_method": "container",
+    "resources": "nano",
+    "customer_access_requests": [
+      {
+        "object": "service:home",
+        "permissions": ["read", "write"],
+        "options": "path=app/",
+        "required": true,
+        "justification": "Keeps the app's data in the app folder of your home between runs."
+      }
+    ],
+    "volumes": {
+      "data": {
+        "type": "persist",
+        "source": "{{ home.path }}/app",
+        "mode": "rw",
+        "exclude": ["*-wal", "*-shm"]
+      }
+    }
+  }
+}
+```
+
+| Option | Meaning |
+|---|---|
+| `source` | Where the files live: `{{ storage.path }}/<folder>` (the enrollment's own folder in the customer's storage; the default is a folder named like the volume) or `{{ home.path }}/<folder>` (a folder of the customer's home). Nothing else is accepted: no other variable, no URL. A folder is relative, with segments of letters, digits, `.`, `_` and `-` (not starting with `.`, no `..`, no empty segment). |
+| `mode` | `rw` (the default): restored before the service starts and copied back. `ro`: restored only; changes are discarded when the instance stops. |
+| `exclude` | At most 32 globs, relative to the directory, left out both ways. They follow Go's `path.Match` syntax (`*`, `?`, `[...]`), plus `**` across folders; a malformed class such as `[]` or `[a` is an error. |
+| `uid`, `gid` | The owner of the restored files, for an image that runs as a non-root user. Both or neither, from 0 to 2^63-1. |
+
+**What the platform does.** Files are restored before the service starts, copied while it runs (about every 30 seconds) and once more when it stops. A stop waits for that last copy, and the customer sees the instance as `draining`; a copy that fails fails the stop and leaves the instance running. Copying only adds and replaces: nothing is ever deleted from storage, so a file the service removes can come back at the next start. Empty files, symbolic links and files over 1 GiB are not stored, and a crash can lose the last 30 seconds of writes.
+
+**The customer must approve the storage access.** Both stores belong to the customer, so the channel asks for them in `customer_access_requests`, as a `required` request: `service:storage` for the enrollment's folder (no options), or `service:home` with a `path` option that covers the folder. Every persisted volume needs `read` (the restore reads), and `rw` needs `write` as well. A persisted volume with no such request is a `persist_not_requested` error. The platform's own connectivity test approves a channel's required requests, as a customer does when enrolling, so the test can start the instance.
+
+**Choosing `storage` or `home`.**
+
+- `{{ storage.path }}` is the enrollment's folder. It is gone from the customer's view with the enrollment: unenrolling and enrolling again creates a new instance at a new address with **no data**.
+- `{{ home.path }}/<folder>` belongs to the customer, so a later enrollment of the service finds it. The folder is then shared by every enrollment of that customer, and two running instances would overwrite each other's copy. Allow one active enrollment per customer in the listing:
+
+  ```json
+  "service_options": {"enrollment": {"limit_per_customer": 1}}
+  ```
+
+**Rules `specs validate` checks** (the codes are in the report):
+
+- Each key of `volumes` must be a top-level volume of the Compose file (`overlay_volume`), and a persisted one must be mounted by a service (`persist_unmounted`). Only named volumes can be persisted, not anonymous ones or bind mounts.
+- A volume is mounted at one path of one service, a path is not both scratch and persisted, and two persisted folders of one store cannot be the same or nested (`shared` and `shared/db` would map files of two volumes to the same objects).
+- `x-unitysvc-persist` on a volume of the file is an error (`persist_in_file`): persistence is declared in the channel.
+- `type` must be `scratch` or `persist`, and an option the type does not have is an error.
+
+**Writing a recipe that persists**
+
+- **SQLite in WAL mode:** exclude `*-wal` and `*-shm`. Copying never deletes, so an earlier copy of a write-ahead file would be restored beside a newer database, and SQLite's documentation warns that mixing a database with a write-ahead file from another point in time can corrupt it. A clean stop copies the database after the app has exited and checkpointed.
+- **First-run settings:** with persisted data, an app's first-run setup (an initial administrator password, for example) only happens the first time. A later enrollment, or a changed parameter, does not change what the data already holds, so say so in the service's guide.
+- **Say what is kept:** state in the guide which folders persist, which mode they use, what a crash can lose, and that the platform never deletes the stored files.
+
+**Testing.** `specs validate` checks the rules above, including the access requests. The local Docker `run-tests` runs a persisted volume as a plain scratch volume, because there is no customer storage on your machine; the persistence itself is exercised by the platform test (`services run-tests`) and by a real enrollment.
 
 ### No per-channel `spec`
 
@@ -117,4 +197,4 @@ The platform test provisions only the ops enrollment's temporary instance on the
 
 A run fails, with the reason, when the instance does not become ready (for example `progress_deadline_exceeded`, or an image the cluster does not allow), when an entry or check answers with the wrong status or lacks the expected text, or when a route is still unreachable after a few retries; no check runs against an instance that did not start. A service with no connectivity test cannot be tested: `run-tests` exits non-zero and prints the platform's reason. A container channel cannot yet share a service with another channel. The service stays private and the diagnostic restores its original status. Each enrollment's address is its enrollment code under the deployment's apps domain; no extra admin hostname is created.
 
-The reserved instance key is an application credential, separate from a UnitySVC API key. Keep actual keys out of Compose, documents and source control. Containers use temporary storage unless a future contract explicitly provides persistence.
+The reserved instance key is an application credential, separate from a UnitySVC API key. Keep actual keys out of Compose, documents and source control. Containers use temporary storage unless the channel persists a volume (see [Persistent storage](#persistent-storage)).
