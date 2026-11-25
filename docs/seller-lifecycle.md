@@ -136,8 +136,8 @@ and its record is left as it was; everything else is sent, and its record replac
 - **The fingerprint is computed locally, with no requests.** Referenced files are hashed, not uploaded, so a
   run that skips everything uploads nothing. `time_created` is not part of it: rendering a param file stamps
   it with the current time when the template sets none, so it differs on every run.
-- **It records the upload, not the service.** The platform tests that follow a submission take far too long
-  to wait for, so a service the platform later rejects is not re-sent by this option; change it, or re-run
+- **It records the upload, not the service,** unless you wait for the tests (below). Without
+  `--wait-for-test`, a service the platform later rejects is not re-sent by this option; change it, or re-run
   its tests (`services run-tests`, `services submit`).
 - **A service the target no longer has is sent again.** `--state` lists the target's services once (about a
   second for a thousand) and re-sends any the file remembers but the target lacks, such as after a reset. If
@@ -154,6 +154,31 @@ and its record is left as it was; everything else is sent, and its record replac
 The file is local to the command. In CI, keep it between runs yourself, for example as a workflow artifact:
 download the previous one to the path before the run, and upload the rewritten file after it. A relative path
 is relative to where you ran the command, not to the temporary copy `specs` renders param files into.
+
+### Waiting for the platform's tests (`--wait-for-test`)
+
+`specs upload --submit` returns when the ingest has finished and the activation tests are queued; the
+platform's decision (`active`, `review` or `rejected`) comes later. To judge a change before it is merged,
+wait for it:
+
+```bash
+usvc seller specs upload --submit --state upload-state.json --wait-for-test 40m --report tests.md
+```
+
+After the ingests finish, the command waits up to the given time (`90`, `90s`, `40m`, `2h`) for the tests of
+each service it submitted, and exits 1 if the platform did not accept one of them. It needs `--submit`.
+
+- **Accepted** means the service became `active` or `review`. **Rejected** means the tests ran and the platform
+  turned the service down; the message lists the failed documents and their errors. **Error** means the test
+  task itself failed or could not run. **Timeout** means no decision came in time. Each is reported by name.
+- **A service that queued no tests has nothing to wait for:** an unchanged service, or a revision merged into
+  the live service without tests. The command says so when nothing was waited for.
+- **The next `--state` run sends a service again** when its tests did not pass, so a rejected service is not
+  skipped as unchanged.
+- **`--report FILE`** writes the same lines to a file, for a CI artifact. It holds the platform's messages and
+  never a run's environment or script.
+- The test task id is returned by the backend's ingest result (`test_task_id`); it is not written to
+  `service.json`.
 
 ### Submitting for review vs. enabling testing
 

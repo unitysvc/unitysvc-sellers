@@ -17,6 +17,10 @@ What the record holds, and why:
   received, so it is never skipped. This is the state of the *upload*, not of the service: the platform
   tests that follow a submission take far too long to wait for, and a service the platform later rejects
   is not re-sent by this tool (re-run its tests, or change it).
+* ``test`` is the platform's decision on the service when ``--wait-for-test`` waited for it: ``passed`` (the
+  service became ``active`` or ``review``) or not (``rejected``, ``error``, ``timeout``). A service whose
+  test did not pass is never skipped, so the next run sends it again. A record without ``test`` was not
+  waited for, which is the state of the *upload* only.
 * ``service_id`` is the canonical id the backend answered with. If a sidecar names a different one the
   service's identity changed, and it is sent again.
 
@@ -36,6 +40,9 @@ from pathlib import Path
 from typing import Any
 
 STATE_VERSION = 1
+
+# What a record's ``test`` says when the platform accepted the service (it became active or review).
+TEST_PASSED = "passed"
 
 # Kinds of upload, one per way ``upload_directory`` sends a service.
 KIND_SERVICE = "service"
@@ -94,6 +101,7 @@ class ServiceRecord:
     submitted: bool
     ingest: dict[str, Any]
     service_id: str | None = None
+    test: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
@@ -104,17 +112,21 @@ class ServiceRecord:
         }
         if self.service_id:
             data["service_id"] = self.service_id
+        if self.test:
+            data["test"] = self.test
         return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ServiceRecord:
         ingest = data.get("ingest")
+        test = data.get("test")
         return cls(
             kind=str(data["kind"]),
             payload_sha256=str(data["payload_sha256"]),
             submitted=bool(data.get("submitted", False)),
             ingest=dict(ingest) if isinstance(ingest, dict) else {},
             service_id=str(data["service_id"]) if data.get("service_id") else None,
+            test=dict(test) if isinstance(test, dict) else None,
         )
 
 
@@ -200,6 +212,8 @@ class UploadState:
             return False
         if submit and not record.submitted:
             return False
+        if record.test is not None and record.test.get("status") != TEST_PASSED:
+            return False
         return not (sidecar_id and record.service_id and sidecar_id != record.service_id)
 
     # ---- recording ----------------------------------------------------------
@@ -238,6 +252,16 @@ class UploadState:
             ingest={"status": "failed", "at": now_iso(), "error": error[:_ERROR_LIMIT]},
             service_id=previous.service_id if previous else None,
         )
+
+    def record_test(self, name: str, *, status: str, detail: str | None = None) -> None:
+        """Record the platform's decision on ``name`` after ``--wait-for-test`` waited for it."""
+        record = self.services.get(name)
+        if record is None:
+            return
+        test: dict[str, Any] = {"status": status, "at": now_iso()}
+        if detail:
+            test["detail"] = detail[:_ERROR_LIMIT]
+        record.test = test
 
     def forget(self, name: str) -> None:
         self.services.pop(name, None)

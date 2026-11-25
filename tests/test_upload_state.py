@@ -84,6 +84,8 @@ class _FakeServices:
         self._owner.uploads.append((name, auto_submit))
         task_id = f"task-{len(self._owner.uploads)}"
         self._owner.tasks_by_id[task_id] = name
+        if auto_submit:
+            self._owner.submitted_tasks.add(task_id)
         return SimpleNamespace(task_id=task_id)
 
     def create_from_template(
@@ -107,15 +109,22 @@ class _FakeTasks:
     def wait(self, *task_ids: str, **_: Any) -> dict[str, dict[str, Any]]:
         out: dict[str, dict[str, Any]] = {}
         for task_id in task_ids:
+            if task_id.startswith("test:"):  # an activation-test task (#3106)
+                name = task_id.removeprefix("test:")
+                self._owner.waited_tests.append(name)
+                out[task_id] = self._owner.test_status.get(
+                    name, {"status": "completed", "result": {"status": "active", "service_id": f"id-{name}"}}
+                )
+                continue
             name = self._owner.tasks_by_id[task_id]
             if name in self._owner.failing:
                 out[task_id] = {"status": "failed", "error": "ValueError: refused by ingest"}
             else:
                 self._owner.remote_names.add(name)
-                out[task_id] = {
-                    "status": "completed",
-                    "result": {"service_id": f"id-{name}", "status": "created"},
-                }
+                record: dict[str, Any] = {"service_id": f"id-{name}", "status": "created"}
+                if self._owner.queue_tests and task_id in self._owner.submitted_tasks:
+                    record["test_task_id"] = f"test:{name}"
+                out[task_id] = {"status": "completed", "result": record}
         return out
 
 
@@ -134,6 +143,12 @@ class _FakeClient:
         self.tasks_by_id: dict[str, str] = {}
         self.remote_names: set[str] = set()
         self.failing: set[str] = set()
+        # Activation tests (``--wait-for-test``): which submitted uploads queue a test task, what each task
+        # answers (by service name), and which were waited for.
+        self.queue_tests = True
+        self.submitted_tasks: set[str] = set()
+        self.test_status: dict[str, dict[str, Any]] = {}
+        self.waited_tests: list[str] = []
         self.list_fails = False
         self.services = _FakeServices(self)
         self.tasks = _FakeTasks(self)
@@ -505,7 +520,9 @@ class TestUploadWithState:
 
 
 class TestCommand:
-    def _invoke(self, monkeypatch: pytest.MonkeyPatch, args: list[str], invocation: Path) -> dict[str, Any]:
+    def _invoke(
+        self, monkeypatch: pytest.MonkeyPatch, args: list[str], invocation: Path, result: Any = None
+    ) -> dict[str, Any]:
         import typer
         from typer.testing import CliRunner
 
@@ -526,15 +543,15 @@ class TestCommand:
 
             def upload(self, data_dir: Path, **kwargs: Any) -> UploadResult:
                 captured.update(kwargs)
-                return UploadResult(services=UploadCounts(total=2, success=1, skipped=1), notes=["a note"])
+                return result or UploadResult(services=UploadCounts(total=2, success=1, skipped=1), notes=["a note"])
 
         monkeypatch.setattr(_cli_upload, "Client", _Client)
         monkeypatch.setattr(params_render, "_invocation_cwd", invocation)
         app = typer.Typer()
         app.command("upload")(_cli_upload.upload)
-        result = CliRunner().invoke(app, ["--api-key", "svcpass_x", *args])
-        captured["output"] = result.output
-        captured["exit_code"] = result.exit_code
+        invoked = CliRunner().invoke(app, ["--api-key", "svcpass_x", *args])
+        captured["output"] = invoked.output
+        captured["exit_code"] = invoked.exit_code
         return captured
 
     def test_a_relative_state_path_is_the_users_not_the_render_copys(
@@ -562,6 +579,125 @@ class TestCommand:
     def test_without_state_nothing_is_passed(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         captured = self._invoke(monkeypatch, [], invocation=tmp_path)
         assert captured["state"] is None and captured["force"] is False and captured["verify_remote"] is True
+
+
+class TestWaitForTest:
+    """``wait_for_test``: wait for the activation tests a submission queued, and keep the verdict in the state."""
+
+    def _submit(self, client: _FakeClient, catalog: Path, state_file: Path, **kwargs: Any) -> Any:
+        return _run(client, catalog, state_file, auto_submit=True, wait_for_test=5.0, **kwargs)
+
+    def test_a_passing_service_is_recorded_as_tested_and_skipped_next_time(self, catalog: Path, tmp_path: Path) -> None:
+        client, state_file = _FakeClient(), tmp_path / "up.json"
+        result = self._submit(client, catalog, state_file)
+
+        assert sorted(client.waited_tests) == ["acme/a", "acme/b", "acme/c"]
+        assert [t.status for t in result.tests] == ["passed"] * 3 and result.tests_failed == 0
+        record = json.loads(state_file.read_text())["services"]["acme/a"]
+        assert record["test"]["status"] == "passed"
+
+        client.uploads.clear()  # the same target: it still lists the services
+        self._submit(client, catalog, state_file)
+        assert client.sent == [], "services whose tests passed are not sent again"
+
+    def test_a_rejected_service_fails_the_run_and_is_sent_again(self, catalog: Path, tmp_path: Path) -> None:
+        client, state_file = _FakeClient(), tmp_path / "up.json"
+        client.test_status["acme/b"] = {
+            "status": "completed",
+            "result": {"status": "rejected", "error": "Connectivity test failed: image pull error"},
+        }
+        result = self._submit(client, catalog, state_file)
+
+        failed = [t for t in result.tests if not t.passed]
+        assert [(t.name, t.status) for t in failed] == [("acme/b", "rejected")]
+        assert "image pull error" in failed[0].detail and result.tests_failed == 1
+        assert json.loads(state_file.read_text())["services"]["acme/b"]["test"]["status"] == "rejected"
+
+        client.uploads.clear()
+        client.test_status.clear()
+        self._submit(client, catalog, state_file)
+        assert client.sent == ["acme/b"], "only the service the platform did not accept is sent again"
+
+    def test_a_failed_test_task_is_an_error_and_a_missing_decision_a_timeout(
+        self, catalog: Path, tmp_path: Path
+    ) -> None:
+        client, state_file = _FakeClient(), tmp_path / "up.json"
+        client.test_status["acme/a"] = {"status": "failed", "error": "worker lost"}
+        client.test_status["acme/b"] = {"status": "PENDING"}
+        result = self._submit(client, catalog, state_file)
+
+        by_name = {t.name: t for t in result.tests}
+        assert by_name["acme/a"].status == "error" and "worker lost" in by_name["acme/a"].detail
+        assert by_name["acme/b"].status == "timeout" and "5 seconds" in by_name["acme/b"].detail
+        assert by_name["acme/c"].passed
+
+    def test_a_service_that_queued_no_tests_has_nothing_to_wait_for(self, catalog: Path, tmp_path: Path) -> None:
+        client = _FakeClient()
+        client.queue_tests = False  # unchanged, or a revision merged without tests
+        result = self._submit(client, catalog, tmp_path / "up.json")
+
+        assert result.tests == [] and client.waited_tests == []
+        assert result.services.success == 3
+        assert any("none was waited for" in note for note in result.notes)
+
+    def test_without_wait_for_test_nothing_is_waited_for(self, catalog: Path, tmp_path: Path) -> None:
+        client = _FakeClient()
+        result = _run(client, catalog, tmp_path / "up.json", auto_submit=True)
+
+        assert client.waited_tests == [] and result.tests == []
+
+    def test_waiting_needs_a_submission(self, catalog: Path, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="needs auto_submit"):
+            _run(_FakeClient(), catalog, tmp_path / "up.json", wait_for_test=5.0)
+
+    def test_the_test_task_id_is_not_written_to_the_sidecar(self, catalog: Path, tmp_path: Path) -> None:
+        self._submit(_FakeClient(), catalog, tmp_path / "up.json")
+
+        sidecar = json.loads((catalog / "acme" / "a" / "service.json").read_text())
+        assert "test_task_id" not in sidecar and sidecar["service_id"] == "id-acme/a"
+
+
+class TestWaitForTestCommand(TestCommand):
+    def test_it_needs_submit(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        captured = self._invoke(monkeypatch, ["--wait-for-test", "40m"], invocation=tmp_path)
+        assert captured["exit_code"] == 1 and "needs --submit" in captured["output"]
+        assert "wait_for_test" not in captured, "nothing was uploaded"
+
+    def test_a_report_needs_waiting(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        captured = self._invoke(monkeypatch, ["--submit", "--report", "r.md"], invocation=tmp_path)
+        assert captured["exit_code"] == 1 and "--report needs --wait-for-test" in captured["output"]
+
+    @pytest.mark.parametrize(("text", "seconds"), [("90", 90), ("90s", 90), ("40m", 2400), ("2h", 7200)])
+    def test_the_duration_reaches_the_upload_in_seconds(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, text: str, seconds: float
+    ) -> None:
+        captured = self._invoke(monkeypatch, ["--submit", "--wait-for-test", text], invocation=tmp_path)
+        assert captured["wait_for_test"] == seconds and captured["exit_code"] == 0
+
+    def test_a_bad_duration_is_refused(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        captured = self._invoke(monkeypatch, ["--submit", "--wait-for-test", "soon"], invocation=tmp_path)
+        assert captured["exit_code"] == 2
+
+    def test_a_service_the_platform_rejects_fails_the_command_and_is_reported(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from unitysvc_sellers.upload import TestOutcome, UploadCounts, UploadResult
+
+        outcome = UploadResult(
+            services=UploadCounts(total=2, success=2),
+            tests=[TestOutcome("acme/a", "passed", "active"), TestOutcome("acme/b", "rejected", "image pull error")],
+        )
+        captured = self._invoke(
+            monkeypatch,
+            ["--submit", "--wait-for-test", "40m", "--report", "report.md"],
+            invocation=tmp_path,
+            result=outcome,
+        )
+
+        assert captured["exit_code"] == 1
+        assert "tests failed" in captured["output"] or "did not accept 1" in captured["output"]
+        report = (tmp_path / "report.md").read_text()
+        assert "OK acme/a" in report and "FAILED acme/b" in report and "image pull error" in report
 
 
 class TestSystemTemplateParamFiles:

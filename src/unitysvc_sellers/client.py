@@ -260,12 +260,15 @@ class Client:
         state: str | Path | None = None,
         force: bool = False,
         verify_remote: bool = True,
+        wait_for_test: float | None = None,
     ) -> UploadResult:
         """Upload services from a seller catalog directory.
 
         Thin wrapper around :func:`upload.upload_directory`. With ``state`` (a file path), a service whose
         expanded content has not changed since its ingest last completed is not sent again; see
-        :mod:`unitysvc_sellers.state`.
+        :mod:`unitysvc_sellers.state`. With ``auto_submit`` and ``wait_for_test`` (seconds), it also waits
+        for the platform's activation tests on each submitted service and returns their verdicts in
+        ``UploadResult.tests``.
         """
         from pathlib import Path as _Path
 
@@ -280,6 +283,7 @@ class Client:
             state_path=_Path(str(state)) if state is not None else None,
             force=force,
             verify_remote=verify_remote,
+            wait_for_test=wait_for_test,
         )
 
     def upload_promotions(

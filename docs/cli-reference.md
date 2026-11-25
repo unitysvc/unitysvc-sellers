@@ -236,6 +236,8 @@ $ usvc seller specs upload [OPTIONS] [name]
 * `--submit`: Also submit each freshly published service for review (validate → pending → run tests) in the same ingest task. Default: leave services as reviewable drafts to submit later.
 * `--state <path>`: A state file recording, per service, the fingerprint of the expanded content last sent and the result of its ingest. A service unchanged since its ingest completed is skipped and its record kept; the file is created if missing and rewritten at the end. Keep it between runs (a CI artifact, a cache); without it every service is sent.
 * `--force`: With --state, ignore the recorded state and send every service (the file is still rewritten).
+* `--wait-for-test DURATION`: With --submit, after the ingest wait up to DURATION (90, 90s, 40m, 2h) for the platform&#x27;s activation tests on each submitted service, and exit 1 if any is rejected, errors or has no decision in time. A service that queued no tests (unchanged, or a revision merged without them) has nothing to wait for. A service whose tests did not pass is sent again by the next --state run.
+* `--report <path>`: With --wait-for-test, write the platform&#x27;s decision on each service to this file.
 * `--verify-remote / --no-verify-remote`: With --state, list the target&#x27;s services once and send again any the state remembers but the target no longer has (a reset, a deletion). If the listing fails nothing is skipped.  [default: verify-remote]
 * `--help`: Show this message and exit.
 
