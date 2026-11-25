@@ -99,9 +99,10 @@ class UploadCounts:
 class TestOutcome:
     """The platform's decision on one submitted service, read with ``wait_for_test``.
 
-    ``status`` is ``passed`` (the service became ``active`` or ``review``), ``rejected`` (the tests ran and
-    the platform turned the service down), ``error`` (the test task failed or could not run) or ``timeout``
-    (no decision in time). ``detail`` is the platform's message for a failure: the failed documents and their
+    ``status`` is ``passed`` (the service became ``active`` or ``review``, or the check run on it again passed),
+    ``rejected`` (the tests ran and the platform turned the service down), ``failed`` (the check run on an
+    already accepted service failed), ``error`` (the test task failed or could not run) or ``timeout`` (no
+    decision in time). ``detail`` is the platform's message for a failure: the failed documents and their
     errors. It never holds a run's environment or script.
     """
 
@@ -683,6 +684,65 @@ def _wait_for_tests(
             on_progress("test", "ok" if outcome.passed else "error", name, outcome.detail or outcome.status)
 
 
+def _describe_check(run: Any) -> str:
+    """What a failed diagnostic says, from its error messages only (never a run's stdout, stderr or environment)."""
+    parts: list[str] = []
+    if getattr(run, "reason", None):
+        parts.append(str(run.reason))
+    elif getattr(run, "outcome", None):
+        parts.append(str(run.outcome))
+    for row in getattr(run, "results", []) or []:
+        if row.status not in ("success", "skipped") and (row.error or row.status):
+            title = row.document_title or row.category or "a document"
+            parts.append(f"{title}: {row.status}" + (f" ({row.error})" if row.error else ""))
+    for link in getattr(run, "links", []) or []:
+        if not link.ok:
+            parts.append(f"link {getattr(link, 'url', '?')} unreachable")
+    return "; ".join(parts) or f"the platform's check answered {getattr(run, 'status', '?')!r}"
+
+
+def _retest_services(
+    client: Client,
+    retests: dict[str, str],
+    *,
+    deadline: float,
+    poll_interval: float,
+    result: UploadResult,
+    state: UploadState | None,
+    on_progress: Any,
+) -> None:
+    """Run the platform's check again on services whose upload queued no tests, and record the verdicts.
+
+    An upload that changes nothing (the service is already accepted with this content) queues no activation
+    tests, so there would be nothing to wait for and a service that no longer starts would pass. The check
+    that ``services run-tests`` runs (the container is started, its entries fetched, then stopped) is run
+    here instead, one service at a time, until ``deadline`` (a ``time.monotonic`` value).
+    """
+    import time
+
+    for name, service_id in retests.items():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            outcome = TestOutcome(name, "timeout", "no time left to run the platform's check")
+        else:
+            try:
+                run = client.services.run_tests(service_id, force=True, timeout=remaining, poll_interval=poll_interval)
+            except APIError as exc:
+                outcome = TestOutcome(name, "error", f"{exc.status_code}: {exc}")
+            else:
+                if run.passed:
+                    outcome = TestOutcome(name, TEST_PASSED, "checked again; the service is unchanged")
+                elif run.status not in ("success", "failure"):
+                    outcome = TestOutcome(name, "error", _describe_check(run))
+                else:
+                    outcome = TestOutcome(name, "failed", _describe_check(run))
+        result.tests.append(outcome)
+        if state is not None:
+            state.record_test(name, status=outcome.status, detail=outcome.detail)
+        if on_progress is not None:
+            on_progress("test", "ok" if outcome.passed else "error", name, outcome.detail or outcome.status)
+
+
 def upload_directory(
     client: Client,
     data_dir: Path,
@@ -730,10 +790,12 @@ def upload_directory(
         force: With ``state_path``, ignore the records and send everything (the file is still rewritten).
         verify_remote: With ``state_path``, list the target's services once and send again any the state
             remembers but the target no longer has. When the listing fails nothing is skipped.
-        wait_for_test: With ``auto_submit``, seconds to wait, after the ingests finish, for the activation
-            tests each submission queued, and put the platform's decision on each service in
-            ``UploadResult.tests``. ``None`` (the default) does not wait. A service whose upload queued no
-            tests (not a fresh draft, or a revision merged without them) has nothing to wait for.
+        wait_for_test: With ``auto_submit``, seconds to wait, after the ingests finish, for the platform's
+            decision on each service, put in ``UploadResult.tests``. ``None`` (the default) does not wait. A
+            submission queues activation tests, and those are waited for. A service whose upload queued none (the
+            content did not change, or a revision was merged without tests) gets the platform's check
+            (``services.run_tests``, which starts the container, fetches its entries and stops it) run on it, so
+            every service that was sent has a decision.
 
     Returns:
         :class:`UploadResult` with per-service tallies and any errors.
@@ -743,6 +805,9 @@ def upload_directory(
         raise ValueError("wait_for_test needs auto_submit: only a submitted service has tests to wait for.")
     # test task id -> service name, for the services whose ingest queued activation tests.
     test_waits: dict[str, str] = {}
+    # service name -> service id, for the services whose ingest queued none (the content did not change): they
+    # get the platform's check run on them again, so a pass is never vacuous.
+    retests: dict[str, str] = {}
 
     state: UploadState | None = None
     remote_names: set[str] | None = None
@@ -1058,8 +1123,13 @@ def upload_directory(
                     service_record: dict[str, Any] = task_result if isinstance(task_result, dict) else {}
                     service_id = service_record.get("service_id")
                     revision_of = service_record.get("revision_of")
-                    if wait_for_test is not None and service_record.get("test_task_id"):
-                        test_waits[str(service_record["test_task_id"])] = str(name_val)
+                    if wait_for_test is not None:
+                        if service_record.get("test_task_id"):
+                            test_waits[str(service_record["test_task_id"])] = str(name_val)
+                        elif service_record.get("status") not in ("deleted", "skipped"):
+                            canonical = revision_of or service_id
+                            if canonical:
+                                retests[str(name_val)] = str(canonical)
                     if revision_of:
                         detail = f"revision_created, service_id={revision_of} (revision={service_id})"
                     else:
@@ -1090,12 +1160,11 @@ def upload_directory(
                     result.services.success += 1
                     service_id = _extract_service_id(status_dict)
                     system_record = status_dict.get("result")
-                    if (
-                        wait_for_test is not None
-                        and isinstance(system_record, dict)
-                        and system_record.get("test_task_id")
-                    ):
-                        test_waits[str(system_record["test_task_id"])] = service_name
+                    if wait_for_test is not None and isinstance(system_record, dict):
+                        if system_record.get("test_task_id"):
+                            test_waits[str(system_record["test_task_id"])] = service_name
+                        elif service_id:
+                            retests[service_name] = str(service_id)
                     if service_id:
                         write_service_id_for_param(param_file, service_id)
                     detail = f"service_id={service_id}" if service_id else f"task_id={task_id}"
@@ -1175,21 +1244,30 @@ def upload_directory(
             pending_system_tasks.clear()
             pending_platform_tasks.clear()
 
-    if wait_for_test is not None and not test_waits and result.services.success:
-        result.notes.append(
-            "No uploaded service queued activation tests, so none was waited for (unchanged, or a revision "
-            "merged without tests). A backend that predates unitysvc#3106 does not report the test task."
-        )
-    if wait_for_test is not None and test_waits:
-        _wait_for_tests(
-            client,
-            test_waits,
-            timeout=wait_for_test,
-            poll_interval=task_poll_interval,
-            result=result,
-            state=state,
-            on_progress=on_progress,
-        )
+    if wait_for_test is not None and (test_waits or retests):
+        import time
+
+        deadline = time.monotonic() + wait_for_test
+        if test_waits:
+            _wait_for_tests(
+                client,
+                test_waits,
+                timeout=wait_for_test,
+                poll_interval=task_poll_interval,
+                result=result,
+                state=state,
+                on_progress=on_progress,
+            )
+        if retests:
+            _retest_services(
+                client,
+                retests,
+                deadline=deadline,
+                poll_interval=task_poll_interval,
+                result=result,
+                state=state,
+                on_progress=on_progress,
+            )
 
     if state is not None and state_path is not None:
         # A selector uploads a subset: the records of the rest stay. A full run also forgets services that

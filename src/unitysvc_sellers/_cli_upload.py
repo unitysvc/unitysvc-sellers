@@ -95,8 +95,10 @@ def upload(
         help=(
             "With --submit, after the ingest wait up to DURATION (90, 90s, 40m, 2h) for the platform's "
             "activation tests on each submitted service, and exit 1 if any is rejected, errors or has no "
-            "decision in time. A service that queued no tests (unchanged, or a revision merged without them) "
-            "has nothing to wait for. A service whose tests did not pass is sent again by the next --state run."
+            "decision in time. A service whose upload queued no tests (unchanged, or a revision merged without "
+            "them) gets the platform's check run on it instead (the container is started and its entries "
+            "fetched), so every service that was sent has a decision. A service whose tests did not pass is "
+            "sent again by the next --state run."
         ),
         show_default=False,
     ),
@@ -258,6 +260,7 @@ def upload(
 _TEST_MEANING = {
     "passed": "accepted",
     "rejected": "rejected by the platform's tests",
+    "failed": "failed the platform's check",
     "error": "the platform's tests did not complete",
     "timeout": "no decision in time",
 }

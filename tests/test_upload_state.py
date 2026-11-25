@@ -96,6 +96,29 @@ class _FakeServices:
         self._owner.tasks_by_id[task_id] = name
         return SimpleNamespace(task_id=task_id)
 
+    def run_tests(self, service_id: str, **kwargs: Any) -> SimpleNamespace:
+        """The platform's check on a service that was sent but queued no activation tests."""
+        name = service_id.removeprefix("id-")
+        self._owner.retested.append((name, kwargs.get("force", False)))
+        if name in self._owner.retest_api_errors:
+            from unitysvc_sellers.exceptions import APIError
+
+            raise APIError("diagnostics are down", status_code=503)
+        failing = self._owner.retest_failures.get(name)
+        rows = (
+            [SimpleNamespace(status="failure", error=failing, document_title="Connectivity test", category=None)]
+            if failing
+            else []
+        )
+        return SimpleNamespace(
+            passed=not failing,
+            status="failure" if failing else "success",
+            reason=None,
+            outcome=None,
+            results=rows,
+            links=[],
+        )
+
     def iter_all(self, limit: int = 200) -> list[SimpleNamespace]:
         if self._owner.list_fails:
             raise RuntimeError("listing is down")
@@ -149,6 +172,10 @@ class _FakeClient:
         self.submitted_tasks: set[str] = set()
         self.test_status: dict[str, dict[str, Any]] = {}
         self.waited_tests: list[str] = []
+        # The check run again on a service that queued no tests: which fail (with their error) or hit an API error.
+        self.retested: list[tuple[str, bool]] = []
+        self.retest_failures: dict[str, str] = {}
+        self.retest_api_errors: set[str] = set()
         self.list_fails = False
         self.services = _FakeServices(self)
         self.tasks = _FakeTasks(self)
@@ -631,14 +658,63 @@ class TestWaitForTest:
         assert by_name["acme/b"].status == "timeout" and "5 seconds" in by_name["acme/b"].detail
         assert by_name["acme/c"].passed
 
-    def test_a_service_that_queued_no_tests_has_nothing_to_wait_for(self, catalog: Path, tmp_path: Path) -> None:
-        client = _FakeClient()
+    def test_a_service_that_queued_no_tests_gets_the_platforms_check_run_on_it(
+        self, catalog: Path, tmp_path: Path
+    ) -> None:
+        client, state_file = _FakeClient(), tmp_path / "up.json"
         client.queue_tests = False  # unchanged, or a revision merged without tests
+        result = self._submit(client, catalog, state_file)
+
+        assert client.waited_tests == []
+        assert sorted(client.retested) == [("acme/a", True), ("acme/b", True), ("acme/c", True)]
+        assert [t.status for t in result.tests] == ["passed"] * 3 and result.tests_failed == 0
+        assert "checked again" in result.tests[0].detail
+        assert json.loads(state_file.read_text())["services"]["acme/a"]["test"]["status"] == "passed"
+
+    def test_a_service_that_fails_the_check_again_fails_the_run_and_is_sent_again(
+        self, catalog: Path, tmp_path: Path
+    ) -> None:
+        client, state_file = _FakeClient(), tmp_path / "up.json"
+        client.queue_tests = False
+        client.retest_failures["acme/b"] = "container did not start: image pull error"
+        result = self._submit(client, catalog, state_file)
+
+        failed = [t for t in result.tests if not t.passed]
+        assert [(t.name, t.status) for t in failed] == [("acme/b", "failed")]
+        assert "image pull error" in failed[0].detail and "Connectivity test" in failed[0].detail
+        assert json.loads(state_file.read_text())["services"]["acme/b"]["test"]["status"] == "failed"
+
+        client.uploads.clear()
+        client.retested.clear()
+        client.retest_failures.clear()
+        self._submit(client, catalog, state_file)
+        assert client.sent == ["acme/b"], "only the service that failed the check is sent again"
+        assert client.retested == [("acme/b", True)]
+
+    def test_an_api_error_from_the_check_is_an_error_outcome(self, catalog: Path, tmp_path: Path) -> None:
+        client = _FakeClient()
+        client.queue_tests = False
+        client.retest_api_errors.add("acme/a")
         result = self._submit(client, catalog, tmp_path / "up.json")
 
-        assert result.tests == [] and client.waited_tests == []
-        assert result.services.success == 3
-        assert any("none was waited for" in note for note in result.notes)
+        by_name = {t.name: t for t in result.tests}
+        assert by_name["acme/a"].status == "error" and "503" in by_name["acme/a"].detail
+        assert by_name["acme/b"].passed
+
+    def test_a_service_with_tests_is_not_checked_again(self, catalog: Path, tmp_path: Path) -> None:
+        client = _FakeClient()
+        result = self._submit(client, catalog, tmp_path / "up.json")
+
+        assert client.retested == [] and sorted(client.waited_tests) == ["acme/a", "acme/b", "acme/c"]
+        assert result.tests_failed == 0
+
+    def test_a_check_gets_no_more_than_the_time_that_is_left(self, catalog: Path, tmp_path: Path) -> None:
+        client = _FakeClient()
+        client.queue_tests = False
+        result = _run(client, catalog, tmp_path / "up.json", auto_submit=True, wait_for_test=0.0000001)
+
+        assert client.retested == []
+        assert [t.status for t in result.tests] == ["timeout"] * 3
 
     def test_without_wait_for_test_nothing_is_waited_for(self, catalog: Path, tmp_path: Path) -> None:
         client = _FakeClient()
