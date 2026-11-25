@@ -48,7 +48,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .exceptions import APIError
+from .exceptions import APIError, SellerSDKError
 from .params_render import (
     discover_system_param_files,
     load_param_data,
@@ -67,6 +67,7 @@ from .state import (
     KIND_SERVICE,
     KIND_SYSTEM,
     TEST_PASSED,
+    TEST_SKIPPED,
     UploadState,
     canonical_digest,
 )
@@ -102,8 +103,9 @@ class TestOutcome:
     ``status`` is ``passed`` (the service became ``active`` or ``review``, or the check run on it again passed),
     ``rejected`` (the tests ran and the platform turned the service down), ``failed`` (the check run on an
     already accepted service failed), ``error`` (the test task failed or could not run) or ``timeout`` (no
-    decision in time). ``detail`` is the platform's message for a failure: the failed documents and their
-    errors. It never holds a run's environment or script.
+    decision in time) or ``skipped`` (not tested on purpose: the service is deprecated or suspended). ``detail``
+    is the platform's message for a failure: the failed documents and their errors. It never holds a run's
+    environment or script.
     """
 
     __test__ = False  # not a pytest class
@@ -115,6 +117,11 @@ class TestOutcome:
     @property
     def passed(self) -> bool:
         return self.status == TEST_PASSED
+
+    @property
+    def failed(self) -> bool:
+        """Not accepted and not left untested on purpose."""
+        return self.status not in (TEST_PASSED, TEST_SKIPPED)
 
 
 @dataclass
@@ -132,7 +139,7 @@ class UploadResult:
 
     @property
     def tests_failed(self) -> int:
-        return sum(1 for t in self.tests if not t.passed)
+        return sum(1 for t in self.tests if t.failed)
 
 
 # ---------------------------------------------------------------------------
@@ -701,6 +708,47 @@ def _describe_check(run: Any) -> str:
     return "; ".join(parts) or f"the platform's check answered {getattr(run, 'status', '?')!r}"
 
 
+# Lifecycle states of a service that is retired on purpose: its check is not run.
+_RETIRED = frozenset({"deprecated", "suspended"})
+
+
+def _lifecycle_status(client: Client, service_id: str) -> str:
+    """The platform's status of a service (``active``, ``review``, ``deprecated``, ...)."""
+    status = getattr(client.services.get(service_id), "status", None)
+    return str(getattr(status, "value", status) or "")
+
+
+def _retest_one(client: Client, name: str, service_id: str, *, remaining: float, poll_interval: float) -> TestOutcome:
+    """The platform's check on one service whose upload queued no tests, or why it was not run."""
+    # The upload result does not say what became of the service: deprecating one answers "updated" or
+    # "unchanged" like any other change. Only the platform knows, so ask before starting anything.
+    try:
+        lifecycle = _lifecycle_status(client, service_id)
+    except (APIError, SellerSDKError) as exc:
+        return TestOutcome(name, "error", f"could not read the service: {exc}")
+    if lifecycle in _RETIRED:
+        return TestOutcome(name, TEST_SKIPPED, f"the service is {lifecycle}; it was not tested")
+    if lifecycle == "rejected":
+        return TestOutcome(name, "rejected", "the service is rejected by the platform")
+    if lifecycle not in ("active", "review"):
+        return TestOutcome(name, "error", f"the service is {lifecycle or 'in an unknown state'}, not accepted")
+    if remaining <= 0:
+        return TestOutcome(name, "timeout", "no time left to run the platform's check")
+    try:
+        run = client.services.run_tests(service_id, force=True, timeout=remaining, poll_interval=poll_interval)
+    except APIError as exc:
+        return TestOutcome(name, "error", f"{exc.status_code}: {exc}")
+    if run.passed:
+        return TestOutcome(name, TEST_PASSED, "checked again; the service is unchanged")
+    # ``run_tests`` returns the last state it saw when its own time runs out, which parses as an unknown result:
+    # a diagnostic that never finished is a timeout, not an unexpected answer from the platform.
+    if (getattr(run, "raw", None) or {}).get("status") not in ("completed", "failed"):
+        return TestOutcome(name, "timeout", f"no decision from the platform within {int(remaining)} seconds")
+    if run.status not in ("success", "failure"):
+        return TestOutcome(name, "error", _describe_check(run))
+    return TestOutcome(name, "failed", _describe_check(run))
+
+
 def _retest_services(
     client: Client,
     retests: dict[str, str],
@@ -721,26 +769,15 @@ def _retest_services(
     import time
 
     for name, service_id in retests.items():
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            outcome = TestOutcome(name, "timeout", "no time left to run the platform's check")
-        else:
-            try:
-                run = client.services.run_tests(service_id, force=True, timeout=remaining, poll_interval=poll_interval)
-            except APIError as exc:
-                outcome = TestOutcome(name, "error", f"{exc.status_code}: {exc}")
-            else:
-                if run.passed:
-                    outcome = TestOutcome(name, TEST_PASSED, "checked again; the service is unchanged")
-                elif run.status not in ("success", "failure"):
-                    outcome = TestOutcome(name, "error", _describe_check(run))
-                else:
-                    outcome = TestOutcome(name, "failed", _describe_check(run))
+        outcome = _retest_one(
+            client, name, service_id, remaining=deadline - time.monotonic(), poll_interval=poll_interval
+        )
         result.tests.append(outcome)
-        if state is not None:
+        # A retired service has no verdict to remember; one that failed is sent again by the next run.
+        if state is not None and outcome.status != TEST_SKIPPED:
             state.record_test(name, status=outcome.status, detail=outcome.detail)
         if on_progress is not None:
-            on_progress("test", "ok" if outcome.passed else "error", name, outcome.detail or outcome.status)
+            on_progress("test", "error" if outcome.failed else "ok", name, outcome.detail or outcome.status)
 
 
 def upload_directory(
