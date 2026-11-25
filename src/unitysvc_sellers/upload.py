@@ -66,6 +66,7 @@ from .state import (
     KIND_PLATFORM,
     KIND_SERVICE,
     KIND_SYSTEM,
+    TEST_PASSED,
     UploadState,
     canonical_digest,
 )
@@ -95,8 +96,31 @@ class UploadCounts:
 
 
 @dataclass
+class TestOutcome:
+    """The platform's decision on one submitted service, read with ``wait_for_test``.
+
+    ``status`` is ``passed`` (the service became ``active`` or ``review``), ``rejected`` (the tests ran and
+    the platform turned the service down), ``error`` (the test task failed or could not run) or ``timeout``
+    (no decision in time). ``detail`` is the platform's message for a failure: the failed documents and their
+    errors. It never holds a run's environment or script.
+    """
+
+    __test__ = False  # not a pytest class
+
+    name: str
+    status: str
+    detail: str = ""
+
+    @property
+    def passed(self) -> bool:
+        return self.status == TEST_PASSED
+
+
+@dataclass
 class UploadResult:
     services: UploadCounts = field(default_factory=UploadCounts)
+    # With ``wait_for_test``: one outcome per service whose submission queued activation tests.
+    tests: list[TestOutcome] = field(default_factory=list)
     # Things the run did that are not a per-service outcome (an unusable state file ignored, the target's
     # services not being listed), for the caller to show.
     notes: list[str] = field(default_factory=list)
@@ -104,6 +128,10 @@ class UploadResult:
     @property
     def total_failed(self) -> int:
         return self.services.failed
+
+    @property
+    def tests_failed(self) -> int:
+        return sum(1 for t in self.tests if not t.passed)
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +152,8 @@ def _sync_sidecar(service_dir: Path, service_record: dict[str, Any]) -> None:
     """
     if not service_record:
         return
+    # ``test_task_id`` is output only (the task of the tests this upload queued); a sidecar is identity.
+    service_record = {k: v for k, v in service_record.items() if k != "test_task_id"}
     revision_of = service_record.get("revision_of")
     if revision_of:
         write_service_data(service_dir, {"service_id": str(revision_of)})
@@ -607,6 +637,52 @@ def _ingest_outcome(status_dict: dict[str, Any]) -> tuple[str | None, str | None
     )
 
 
+def _test_outcome(name: str, status_dict: dict[str, Any], timeout: float) -> TestOutcome:
+    """The platform's decision from a finished (or unfinished) ``run_service_tests`` task."""
+    status = status_dict.get("status")
+    if status == "completed":
+        record = status_dict.get("result")
+        record = record if isinstance(record, dict) else {}
+        verdict = str(record.get("status") or "")
+        if verdict in ("active", "review"):
+            return TestOutcome(name, TEST_PASSED, verdict)
+        detail = str(record.get("error") or "") or f"the platform answered {verdict!r}"
+        return TestOutcome(name, "rejected" if verdict == "rejected" else "error", detail)
+    if status == "failed":
+        message = status_dict.get("error") or status_dict.get("message") or "the test task failed"
+        return TestOutcome(name, "error", str(message))
+    return TestOutcome(name, "timeout", f"no decision from the platform within {int(timeout)} seconds")
+
+
+def _wait_for_tests(
+    client: Client,
+    waits: dict[str, str],
+    *,
+    timeout: float,
+    poll_interval: float,
+    result: UploadResult,
+    state: UploadState | None,
+    on_progress: Any,
+) -> None:
+    """Wait for the activation tests each upload queued (``test_task_id``) and record the verdicts.
+
+    ``waits`` maps a test task id to its service's name. A verdict that is not a pass is kept in the
+    state record, so the next run sends that service again instead of skipping it as unchanged.
+    """
+    try:
+        states = client.tasks.wait(*waits.keys(), timeout=timeout, poll_interval=poll_interval)
+    except APIError as exc:
+        diagnostic = _format_polling_error(exc)
+        states = {tid: {"status": "failed", "error": diagnostic} for tid in waits}
+    for task_id, name in waits.items():
+        outcome = _test_outcome(name, states.get(task_id) or {}, timeout)
+        result.tests.append(outcome)
+        if state is not None:
+            state.record_test(name, status=outcome.status, detail=outcome.detail)
+        if on_progress is not None:
+            on_progress("test", "ok" if outcome.passed else "error", name, outcome.detail or outcome.status)
+
+
 def upload_directory(
     client: Client,
     data_dir: Path,
@@ -619,6 +695,7 @@ def upload_directory(
     state_path: Path | None = None,
     force: bool = False,
     verify_remote: bool = True,
+    wait_for_test: float | None = None,
 ) -> UploadResult:
     """Upload service bundles under ``data_dir``.
 
@@ -653,11 +730,19 @@ def upload_directory(
         force: With ``state_path``, ignore the records and send everything (the file is still rewritten).
         verify_remote: With ``state_path``, list the target's services once and send again any the state
             remembers but the target no longer has. When the listing fails nothing is skipped.
+        wait_for_test: With ``auto_submit``, seconds to wait, after the ingests finish, for the activation
+            tests each submission queued, and put the platform's decision on each service in
+            ``UploadResult.tests``. ``None`` (the default) does not wait. A service whose upload queued no
+            tests (not a fresh draft, or a revision merged without them) has nothing to wait for.
 
     Returns:
         :class:`UploadResult` with per-service tallies and any errors.
     """
     result = UploadResult()
+    if wait_for_test is not None and not auto_submit:
+        raise ValueError("wait_for_test needs auto_submit: only a submitted service has tests to wait for.")
+    # test task id -> service name, for the services whose ingest queued activation tests.
+    test_waits: dict[str, str] = {}
 
     state: UploadState | None = None
     remote_names: set[str] | None = None
@@ -973,6 +1058,8 @@ def upload_directory(
                     service_record: dict[str, Any] = task_result if isinstance(task_result, dict) else {}
                     service_id = service_record.get("service_id")
                     revision_of = service_record.get("revision_of")
+                    if wait_for_test is not None and service_record.get("test_task_id"):
+                        test_waits[str(service_record["test_task_id"])] = str(name_val)
                     if revision_of:
                         detail = f"revision_created, service_id={revision_of} (revision={service_id})"
                     else:
@@ -1002,6 +1089,13 @@ def upload_directory(
                 if status_value == "completed":
                     result.services.success += 1
                     service_id = _extract_service_id(status_dict)
+                    system_record = status_dict.get("result")
+                    if (
+                        wait_for_test is not None
+                        and isinstance(system_record, dict)
+                        and system_record.get("test_task_id")
+                    ):
+                        test_waits[str(system_record["test_task_id"])] = service_name
                     if service_id:
                         write_service_id_for_param(param_file, service_id)
                     detail = f"service_id={service_id}" if service_id else f"task_id={task_id}"
@@ -1080,6 +1174,22 @@ def upload_directory(
             pending_tasks.clear()
             pending_system_tasks.clear()
             pending_platform_tasks.clear()
+
+    if wait_for_test is not None and not test_waits and result.services.success:
+        result.notes.append(
+            "No uploaded service queued activation tests, so none was waited for (unchanged, or a revision "
+            "merged without tests). A backend that predates unitysvc#3106 does not report the test task."
+        )
+    if wait_for_test is not None and test_waits:
+        _wait_for_tests(
+            client,
+            test_waits,
+            timeout=wait_for_test,
+            poll_interval=task_poll_interval,
+            result=result,
+            state=state,
+            on_progress=on_progress,
+        )
 
     if state is not None and state_path is not None:
         # A selector uploads a subset: the records of the rest stay. A full run also forgets services that

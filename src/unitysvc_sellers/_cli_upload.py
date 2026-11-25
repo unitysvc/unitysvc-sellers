@@ -23,6 +23,23 @@ from .exceptions import APIError
 
 console = Console()
 
+_DURATION_UNITS = {"s": 1, "m": 60, "h": 3600}
+
+
+def parse_duration(text: str) -> float:
+    """Seconds from ``90``, ``90s``, ``40m`` or ``2h``."""
+    value = text.strip().lower()
+    unit = 1
+    if value and value[-1] in _DURATION_UNITS:
+        unit, value = _DURATION_UNITS[value[-1]], value[:-1]
+    try:
+        seconds = float(value) * unit
+    except ValueError:
+        seconds = 0
+    if seconds <= 0:
+        raise typer.BadParameter(f"{text!r} is not a duration: use seconds, or a number with s, m or h (40m).")
+    return seconds
+
 
 def upload(
     name: str | None = typer.Argument(
@@ -71,6 +88,24 @@ def upload(
         "--force",
         help="With --state, ignore the recorded state and send every service (the file is still rewritten).",
     ),
+    wait_for_test: str | None = typer.Option(
+        None,
+        "--wait-for-test",
+        metavar="DURATION",
+        help=(
+            "With --submit, after the ingest wait up to DURATION (90, 90s, 40m, 2h) for the platform's "
+            "activation tests on each submitted service, and exit 1 if any is rejected, errors or has no "
+            "decision in time. A service that queued no tests (unchanged, or a revision merged without them) "
+            "has nothing to wait for. A service whose tests did not pass is sent again by the next --state run."
+        ),
+        show_default=False,
+    ),
+    report: Path | None = typer.Option(
+        None,
+        "--report",
+        help="With --wait-for-test, write the platform's decision on each service to this file.",
+        show_default=False,
+    ),
     verify_remote: bool = typer.Option(
         True,
         "--verify-remote/--no-verify-remote",
@@ -92,6 +127,18 @@ def upload(
         )
         raise typer.Exit(code=1)
 
+    wait_seconds: float | None = None
+    if wait_for_test is not None:
+        if not submit:
+            console.print(
+                "[red]✗[/red] --wait-for-test needs --submit: only a submitted service has tests.", style="bold red"
+            )
+            raise typer.Exit(code=1)
+        wait_seconds = parse_duration(wait_for_test)
+    if report is not None and wait_seconds is None:
+        console.print("[red]✗[/red] --report needs --wait-for-test.", style="bold red")
+        raise typer.Exit(code=1)
+
     data_dir = Path.cwd()
     if state is not None and not state.is_absolute():
         # ``specs`` runs inside an ephemeral copy of the repo (param files rendered); a relative state path
@@ -99,13 +146,24 @@ def upload(
         from .params_render import invocation_cwd
 
         state = invocation_cwd() / state
+    if report is not None and not report.is_absolute():
+        from .params_render import invocation_cwd
+
+        report = invocation_cwd() / report
 
     console.print(f"[bold blue]Uploading from:[/bold blue] {data_dir}")
     console.print(f"[bold blue]Backend:[/bold blue] {base_url}")
     console.print()
 
     def _on_progress(kind: str, status: str, name: str, detail: str = "") -> None:
-        if status == "queued":
+        if kind == "test":
+            if status == "ok":
+                console.print(
+                    f"  [green]✓[/green] [green]tests passed[/green] [cyan]{name}[/cyan] [dim]({escape(detail)})[/dim]"
+                )
+            else:
+                console.print(f"  [red]✗[/red] [red]tests failed[/red] [cyan]{name}[/cyan] — {escape(detail)}")
+        elif status == "queued":
             console.print(
                 f"  [blue]↳[/blue] [blue]queued[/blue] [cyan]{name}[/cyan] [dim]({detail})[/dim]"
                 if detail
@@ -132,6 +190,7 @@ def upload(
                 state=state,
                 force=force,
                 verify_remote=verify_remote,
+                wait_for_test=wait_seconds,
             )
     except APIError as exc:
         console.print(f"[red]✗[/red] API error: {escape(str(exc))}", style="bold red")
@@ -165,6 +224,16 @@ def upload(
             console.print(f"  [red]✗[/red] {escape(err.get('file', '?'))}")
             console.print(f"    {escape(err.get('error', '?'))}")
 
+    if wait_seconds is not None:
+        _show_tests(result, report)
+
+    if result.tests_failed > 0 and result.total_failed == 0:
+        console.print(
+            f"\n[yellow]⚠[/yellow]  The platform did not accept {result.tests_failed} service(s)",
+            style="bold yellow",
+        )
+        raise typer.Exit(code=1)
+
     if result.total_failed > 0:
         console.print(
             f"\n[yellow]⚠[/yellow]  Completed with {result.total_failed} failure(s)",
@@ -184,3 +253,30 @@ def upload(
         return
 
     console.print("\n[green]✓[/green] All uploads completed successfully", style="bold green")
+
+
+_TEST_MEANING = {
+    "passed": "accepted",
+    "rejected": "rejected by the platform's tests",
+    "error": "the platform's tests did not complete",
+    "timeout": "no decision in time",
+}
+
+
+def _show_tests(result, report: Path | None) -> None:  # noqa: ANN001 - UploadResult
+    """Print, and optionally write, the platform's decision on each service that was waited for."""
+    lines = ["# Platform tests", ""]
+    if not result.tests:
+        lines.append("No uploaded service queued activation tests; nothing was waited for.")
+    for outcome in result.tests:
+        mark = "OK" if outcome.passed else "FAILED"
+        lines.append(f"- {mark} {outcome.name}: {_TEST_MEANING.get(outcome.status, outcome.status)}")
+        if not outcome.passed and outcome.detail:
+            lines.extend(f"    {line}" for line in outcome.detail.splitlines())
+    console.print()
+    if not result.tests:
+        console.print(f"[dim]{lines[-1]}[/dim]")
+    if report is not None:
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        console.print(f"[dim]Report written to {escape(str(report))}[/dim]")
