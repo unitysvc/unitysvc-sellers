@@ -83,6 +83,18 @@ def upload(
         ),
         show_default=False,
     ),
+    since: str | None = typer.Option(
+        None,
+        "--since",
+        metavar="REF",
+        help=(
+            "Send only the services whose expanded content changed since the current branch left REF (a "
+            "branch, tag or commit, e.g. origin/main): the comparison is with the merge base of REF and "
+            "HEAD, so what changed on REF afterwards is not sent. For a pull request's check. Needs a git "
+            "repository with that history; cannot be combined with --state."
+        ),
+        show_default=False,
+    ),
     force: bool = typer.Option(
         False,
         "--force",
@@ -141,6 +153,10 @@ def upload(
         console.print("[red]✗[/red] --report needs --wait-for-test.", style="bold red")
         raise typer.Exit(code=1)
 
+    if since is not None and state is not None:
+        console.print("[red]✗[/red] --since cannot be combined with --state.", style="bold red")
+        raise typer.Exit(code=1)
+
     data_dir = Path.cwd()
     if state is not None and not state.is_absolute():
         # ``specs`` runs inside an ephemeral copy of the repo (param files rendered); a relative state path
@@ -152,6 +168,20 @@ def upload(
         from .params_render import invocation_cwd
 
         report = invocation_cwd() / report
+
+    baseline: dict[str, tuple[str, str]] | None = None
+    baseline_label = ""
+    if since is not None:
+        from .params_render import invocation_cwd
+        from .since import SinceError, fingerprints_since
+
+        try:
+            baseline, commit = fingerprints_since(since, invocation_cwd())
+        except SinceError as exc:
+            console.print(f"[red]✗[/red] {escape(str(exc))}", style="bold red")
+            raise typer.Exit(code=1) from exc
+        baseline_label = f"{since} ({commit[:9]})"
+        console.print(f"[bold blue]Changed since:[/bold blue] {baseline_label}")
 
     console.print(f"[bold blue]Uploading from:[/bold blue] {data_dir}")
     console.print(f"[bold blue]Backend:[/bold blue] {base_url}")
@@ -193,6 +223,8 @@ def upload(
                 force=force,
                 verify_remote=verify_remote,
                 wait_for_test=wait_seconds,
+                baseline=baseline,
+                baseline_label=baseline_label,
             )
     except APIError as exc:
         console.print(f"[red]✗[/red] API error: {escape(str(exc))}", style="bold red")
@@ -244,12 +276,15 @@ def upload(
         raise typer.Exit(code=1)
 
     if result.services.skipped:
-        # Skipped services (--state: unchanged since their last ingest) are not failures, and are not
-        # re-sent; saying only "all uploads completed" would hide that.
+        # Skipped services (--state: unchanged since their last ingest; --since: unchanged since REF) are
+        # not failures, and are not re-sent; saying only "all uploads completed" would hide that.
+        skipped_why = (
+            f"unchanged since {baseline_label}"
+            if baseline is not None
+            else "unchanged since the last upload (--force sends them anyway)"
+        )
         console.print(
-            f"\n[green]✓[/green] Uploaded {result.services.success}, "
-            f"skipped {result.services.skipped} unchanged since the last upload "
-            "(--force sends them anyway)",
+            f"\n[green]✓[/green] Uploaded {result.services.success}, skipped {result.services.skipped} {skipped_why}",
             style="bold green",
         )
         return
