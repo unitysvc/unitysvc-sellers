@@ -155,6 +155,22 @@ The file is local to the command. In CI, keep it between runs yourself, for exam
 download the previous one to the path before the run, and upload the rewritten file after it. A relative path
 is relative to where you ran the command, not to the temporary copy `specs` renders param files into.
 
+### Uploading only what a branch changed (`--since`)
+
+A pull request's check should send what the pull request changed and nothing else. A state file cannot say that: it records what was last sent to a target, so on a branch that is behind its base, every service changed on the base since then looks changed and would be sent in its older form. Ask git instead:
+
+```bash
+usvc seller specs upload --submit --since origin/main --wait-for-test 40m --report tests.md
+```
+
+- **The comparison is with the merge base** of `REF` and `HEAD`, the commit where the branch left `REF`. What `REF` gained afterwards is not sent, so the branch need not be up to date.
+- **Expanded content is compared, not file paths.** The catalog at that commit is extracted and rendered like the working tree, and a service is sent when its fingerprint differs (the same fingerprint `--state` uses). A changed template, document or other shared file sends exactly the services it changes; a `service.json` sidecar alone is not a change.
+- **Uncommitted changes count**: the working tree is compared, not `HEAD`.
+- **Nothing is remembered.** No file is read or written, and a run that is repeated sends the same services again. `--since` cannot be combined with `--state`.
+- **It needs the history.** The command fails when `REF` is unknown or shares no commit with `HEAD`; in GitHub Actions check out with `fetch-depth: 0`.
+
+Use `--state` for the upload that follows a merge (everything that differs from what the target has), and `--since` for the check before it.
+
 ### Waiting for the platform's tests (`--wait-for-test`)
 
 `specs upload --submit` returns when the ingest has finished and the activation tests are queued; the

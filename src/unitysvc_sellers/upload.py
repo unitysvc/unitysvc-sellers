@@ -43,7 +43,9 @@ This module deliberately ships a minimal subset of the original
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -780,6 +782,31 @@ def _retest_services(
             on_progress("test", "error" if outcome.failed else "ok", name, outcome.detail or outcome.status)
 
 
+def catalog_fingerprints(data_dir: Path) -> dict[str, tuple[str, str]]:
+    """``service name -> (kind, fingerprint)`` of every service under ``data_dir``, with no request.
+
+    The fingerprints are the ones ``upload_directory`` compares, so two copies of a catalog can be compared
+    service by service. A service whose content cannot be built is left out, and so reads as changed.
+    """
+    from .storage import ContentHasher
+
+    fingerprints: dict[str, tuple[str, str]] = {}
+    for folder in find_platform_service_folders(data_dir):
+        with contextlib.suppress(Exception):
+            payload = build_platform_service_payload(folder, client=ContentHasher())
+            fingerprints[_platform_service_name(folder)] = (KIND_PLATFORM, canonical_digest(payload))
+    for param_file in discover_system_param_files(data_dir):
+        with contextlib.suppress(Exception):
+            data = load_param_data(param_file)
+            content = {"template": data.get("template"), "parameters": data.get("parameters") or {}}
+            fingerprints[service_name_for_param(param_file)] = (KIND_SYSTEM, canonical_digest(content))
+    for listing_file, _, _ in find_files_by_pattern(data_dir, "listing_v1"):
+        with contextlib.suppress(Exception):
+            service_name, digest = _service_digest(listing_file)
+            fingerprints[service_name] = (KIND_SERVICE, digest)
+    return fingerprints
+
+
 def upload_directory(
     client: Client,
     data_dir: Path,
@@ -793,6 +820,8 @@ def upload_directory(
     force: bool = False,
     verify_remote: bool = True,
     wait_for_test: float | None = None,
+    baseline: Mapping[str, tuple[str, str]] | None = None,
+    baseline_label: str = "the baseline",
 ) -> UploadResult:
     """Upload service bundles under ``data_dir``.
 
@@ -833,6 +862,11 @@ def upload_directory(
             content did not change, or a revision was merged without tests) gets the platform's check
             (``services.run_tests``, which starts the container, fetches its entries and stops it) run on it, so
             every service that was sent has a decision.
+        baseline: The fingerprints of another copy of the catalog (:func:`catalog_fingerprints`, for
+            ``specs upload --since`` those of an earlier commit). A service whose expanded content is the
+            same there is skipped. Nothing is read from or written to a file, and it cannot be combined
+            with ``state_path``.
+        baseline_label: What ``baseline`` is, for the message of a skipped service.
 
     Returns:
         :class:`UploadResult` with per-service tallies and any errors.
@@ -840,6 +874,10 @@ def upload_directory(
     result = UploadResult()
     if wait_for_test is not None and not auto_submit:
         raise ValueError("wait_for_test needs auto_submit: only a submitted service has tests to wait for.")
+    if baseline is not None and state_path is not None:
+        raise ValueError("baseline cannot be combined with state_path: use one way to pick what is sent.")
+    # Whether a service's content is fingerprinted before it is sent (to compare with the state or the baseline).
+    fingerprinting = state_path is not None or baseline is not None
     # test task id -> service name, for the services whose ingest queued activation tests.
     test_waits: dict[str, str] = {}
     # service name -> service id, for the services whose ingest queued none (the content did not change): they
@@ -864,7 +902,14 @@ def upload_directory(
                 )
 
     def _unchanged(svc_name: str, kind: str, digest: str, sidecar_id: str | None) -> bool:
-        """Whether the state says ``svc_name`` need not be sent (and, if so, count and report the skip)."""
+        """Whether ``svc_name`` need not be sent (and, if so, count and report the skip)."""
+        if baseline is not None:
+            if baseline.get(svc_name) != (kind, digest):
+                return False
+            result.services.skipped += 1
+            if on_progress is not None:
+                on_progress("service", "skipped", svc_name, f"unchanged since {baseline_label}")
+            return True
         if state is None or force:
             return False
         if verify_remote and state.services and remote_names is None:
@@ -915,7 +960,7 @@ def upload_directory(
     for folder in platform_folders:
         service_name = all_platform_folders[folder]
         digest: str | None = None
-        if state is not None:
+        if fingerprinting:
             local_names.add(service_name)
             try:
                 from .storage import ContentHasher
@@ -964,7 +1009,7 @@ def upload_directory(
     for param_file in system_param_files:
         service_name = service_name_for_param(param_file)
         digest = None
-        if state is not None:
+        if fingerprinting:
             local_names.add(service_name)
             try:
                 param_data = load_param_data(param_file)
@@ -1031,7 +1076,7 @@ def upload_directory(
         # one test that would have proven the service fine.
         digest = None
         state_name: str | None = None
-        if state is not None:
+        if fingerprinting:
             try:
                 state_name, digest = _service_digest(listing_file)
                 local_names.add(state_name)

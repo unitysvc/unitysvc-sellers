@@ -56,7 +56,7 @@ from ._generated.client import AuthenticatedClient as _LowLevelClient
 from ._http import raise_on_non_json_error
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
     from pathlib import Path
 
     from .documents import Documents
@@ -261,6 +261,8 @@ class Client:
         force: bool = False,
         verify_remote: bool = True,
         wait_for_test: float | None = None,
+        baseline: Mapping[str, tuple[str, str]] | None = None,
+        baseline_label: str = "the baseline",
     ) -> UploadResult:
         """Upload services from a seller catalog directory.
 
@@ -284,6 +286,8 @@ class Client:
             force=force,
             verify_remote=verify_remote,
             wait_for_test=wait_for_test,
+            baseline=baseline,
+            baseline_label=baseline_label,
         )
 
     def upload_promotions(
